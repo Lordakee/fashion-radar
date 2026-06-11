@@ -121,25 +121,49 @@ def _create_v2_schema_with_item(engine) -> None:
         connection.exec_driver_sql("update schema_metadata set version = 2")
 
 
+def _create_v3_schema_with_item_and_match(engine) -> None:
+    _create_v2_schema_with_item(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "alter table items add column source_weight float not null default 1.0"
+        )
+        connection.exec_driver_sql("alter table items add column collected_at varchar(64)")
+        connection.exec_driver_sql("update items set collected_at = '2026-06-01T10:00:00+00:00'")
+        connection.exec_driver_sql("update schema_metadata set version = 3")
+        connection.exec_driver_sql(
+            """
+            insert into item_entities (
+                item_id, entity_name, entity_type, alias, confidence, reason, context_terms
+            )
+            values (1, 'The Row', 'brand', 'The Row', 1.0, 'context', '[]')
+            """
+        )
+
+
 def test_schema_initializes_metadata_and_tables(tmp_path) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
 
     initialize_schema(engine)
 
     table_names = set(inspect(engine).get_table_names())
-    assert {"schema_metadata", "items", "item_entities", "collector_runs", "source_health"} <= (
-        table_names
-    )
+    assert {
+        "schema_metadata",
+        "items",
+        "item_entities",
+        "collector_runs",
+        "source_health",
+        "entity_first_seen",
+    } <= table_names
     with engine.connect() as connection:
         version = connection.execute(text("select version from schema_metadata")).scalar_one()
     assert version == SCHEMA_VERSION
     columns = {column["name"] for column in inspect(engine).get_columns("items")}
     assert {"source_weight", "collected_at"} <= columns
     assert version == SCHEMA_VERSION
-    assert SCHEMA_VERSION == 3
+    assert SCHEMA_VERSION == 4
 
 
-def test_schema_migrates_v1_to_v3_preserving_items(tmp_path) -> None:
+def test_schema_migrates_v1_to_v4_preserving_items(tmp_path) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
     _create_v1_schema_with_item(engine)
 
@@ -163,14 +187,16 @@ def test_schema_migrates_v1_to_v3_preserving_items(tmp_path) -> None:
             .mappings()
             .one()
         )
-    assert version == 3
+    assert version == 4
     assert item_count == 1
     assert row["title"] == "The Row Margaux handbag"
     assert row["source_weight"] == 1.0
     assert row["collected_at"] == row["published_at"]
 
 
-def test_schema_migrates_v2_to_v3_adding_source_weight_and_collected_at(tmp_path) -> None:
+def test_schema_migrates_v2_to_v4_adding_source_weight_collected_at_and_first_seen(
+    tmp_path,
+) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
     _create_v2_schema_with_item(engine)
 
@@ -193,9 +219,30 @@ def test_schema_migrates_v2_to_v3_adding_source_weight_and_collected_at(tmp_path
             .one()
         )
     assert {"source_weight", "collected_at"} <= columns
-    assert version == 3
+    assert version == 4
     assert row["source_weight"] == 1.0
     assert row["collected_at"] == row["published_at"]
+
+
+def test_schema_migrates_v3_to_v4_adding_entity_first_seen_without_deleting_data(
+    tmp_path,
+) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    _create_v3_schema_with_item_and_match(engine)
+
+    initialize_schema(engine)
+
+    table_names = set(inspect(engine).get_table_names())
+    with engine.connect() as connection:
+        version = connection.execute(text("select version from schema_metadata")).scalar_one()
+        item_count = connection.execute(text("select count(*) from items")).scalar_one()
+        match_count = connection.execute(text("select count(*) from item_entities")).scalar_one()
+    columns = {column["name"] for column in inspect(engine).get_columns("entity_first_seen")}
+    assert "entity_first_seen" in table_names
+    assert {"entity_name", "entity_type", "first_seen_at", "last_seen_at"} <= columns
+    assert version == 4
+    assert item_count == 1
+    assert match_count == 1
 
 
 def test_schema_rejects_future_version(tmp_path) -> None:
@@ -284,6 +331,101 @@ def test_item_repository_replaces_entity_matches(tmp_path) -> None:
             "context_terms": ["margaux"],
         }
     ]
+
+
+def test_item_repository_tracks_entity_first_seen_and_last_seen_from_matches(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    later_item_id = repository.upsert_item(
+        _item("https://example.com/later"),
+        collected_at=datetime(2026, 6, 10, 12, 0, tzinfo=UTC),
+    )
+    earlier_item_id = repository.upsert_item(
+        _item("https://example.com/earlier"),
+        collected_at=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+    )
+    latest_item_id = repository.upsert_item(
+        _item("https://example.com/latest"),
+        collected_at=datetime(2026, 6, 12, 12, 0, tzinfo=UTC),
+    )
+    matches = [
+        {
+            "entity_name": "The Row",
+            "entity_type": "brand",
+            "alias": "The Row",
+            "confidence": 1.0,
+            "reason": "context",
+            "context_terms": ["margaux"],
+        }
+    ]
+
+    repository.replace_item_matches(later_item_id, matches)
+    repository.replace_item_matches(earlier_item_id, matches)
+    repository.replace_item_matches(latest_item_id, matches)
+
+    seen = repository.get_entity_first_seen("The Row", "brand")
+    assert seen == {
+        "entity_name": "The Row",
+        "entity_type": "brand",
+        "first_seen_at": "2026-06-01T12:00:00+00:00",
+        "last_seen_at": "2026-06-12T12:00:00+00:00",
+    }
+
+
+def test_item_repository_prunes_old_items_and_match_rows_without_fk_cascade(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    old_item_id = repository.upsert_item(
+        _item("https://example.com/old"),
+        collected_at=datetime(2026, 5, 1, 12, 0, tzinfo=UTC),
+    )
+    kept_item_id = repository.upsert_item(
+        _item("https://example.com/kept"),
+        collected_at=datetime(2026, 6, 10, 12, 0, tzinfo=UTC),
+    )
+    for item_id in (old_item_id, kept_item_id):
+        repository.replace_item_matches(
+            item_id,
+            [
+                {
+                    "entity_name": "The Row",
+                    "entity_type": "brand",
+                    "alias": "The Row",
+                    "confidence": 1.0,
+                    "reason": "context",
+                    "context_terms": ["margaux"],
+                }
+            ],
+        )
+
+    dry_run = repository.prune_items_older_than(datetime(2026, 6, 1, tzinfo=UTC), dry_run=True)
+    pruned = repository.prune_items_older_than(datetime(2026, 6, 1, tzinfo=UTC))
+
+    with engine.connect() as connection:
+        item_ids = [
+            row[0] for row in connection.execute(text("select id from items order by id")).all()
+        ]
+        orphan_count = connection.execute(
+            text(
+                """
+                select count(*)
+                from item_entities
+                left join items on items.id = item_entities.item_id
+                where items.id is null
+                """
+            )
+        ).scalar_one()
+        match_count = connection.execute(text("select count(*) from item_entities")).scalar_one()
+    assert dry_run.items_deleted == 1
+    assert dry_run.item_entities_deleted == 1
+    assert dry_run.dry_run is True
+    assert pruned.items_deleted == 1
+    assert pruned.item_entities_deleted == 1
+    assert item_ids == [kept_item_id]
+    assert match_count == 1
+    assert orphan_count == 0
 
 
 def test_collector_run_repository_records_status(tmp_path) -> None:

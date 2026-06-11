@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.engine import Engine
 
-from fashion_radar.db.schema import item_entities, items
+from fashion_radar.db.schema import entity_first_seen, item_entities, items
 from fashion_radar.settings import ScoringSettings
 from fashion_radar.utils.dates import parse_datetime_utc
 
@@ -56,12 +56,13 @@ def score_entities(
         min_match_confidence=scoring.min_match_confidence,
         as_of=as_of_utc,
     )
-    by_entity: dict[str, list[_Mention]] = {}
+    stable_first_seen = _load_stable_first_seen(engine)
+    by_entity: dict[tuple[str, str], list[_Mention]] = {}
     for mention in mentions:
-        by_entity.setdefault(mention.entity_name, []).append(mention)
+        by_entity.setdefault((mention.entity_name, mention.entity_type), []).append(mention)
 
     metrics: list[EntityHeatMetric] = []
-    for entity_name, entity_mentions in by_entity.items():
+    for (entity_name, entity_type), entity_mentions in by_entity.items():
         current_mentions = [
             mention
             for mention in entity_mentions
@@ -77,10 +78,13 @@ def score_entities(
         metrics.append(
             _score_entity(
                 entity_name=entity_name,
-                entity_type=current_mentions[0].entity_type,
+                entity_type=entity_type,
                 current_mentions=current_mentions,
                 baseline_mentions=baseline_mentions,
-                first_seen_at=min(mention.collected_at for mention in entity_mentions),
+                first_seen_at=stable_first_seen.get(
+                    (entity_name, entity_type),
+                    min(mention.collected_at for mention in entity_mentions),
+                ),
                 scoring=scoring,
                 as_of=as_of_utc,
             )
@@ -120,12 +124,12 @@ def _load_distinct_mentions(
         ).mappings()
         rows = list(result)
 
-    distinct: dict[tuple[str, int], _Mention] = {}
+    distinct: dict[tuple[str, str, int], _Mention] = {}
     for row in rows:
         collected_at = parse_datetime_utc(row["collected_at"])
         if collected_at > as_of:
             continue
-        key = (row["entity_name"], int(row["item_id"]))
+        key = (row["entity_name"], row["entity_type"], int(row["item_id"]))
         mention = _Mention(
             entity_name=row["entity_name"],
             entity_type=row["entity_type"],
@@ -139,6 +143,21 @@ def _load_distinct_mentions(
         if existing is None or mention.confidence > existing.confidence:
             distinct[key] = mention
     return list(distinct.values())
+
+
+def _load_stable_first_seen(engine: Engine) -> dict[tuple[str, str], datetime]:
+    with engine.connect() as connection:
+        rows = connection.execute(
+            select(
+                entity_first_seen.c.entity_name,
+                entity_first_seen.c.entity_type,
+                entity_first_seen.c.first_seen_at,
+            )
+        ).mappings()
+        return {
+            (row["entity_name"], row["entity_type"]): parse_datetime_utc(row["first_seen_at"])
+            for row in rows
+        }
 
 
 def _score_entity(

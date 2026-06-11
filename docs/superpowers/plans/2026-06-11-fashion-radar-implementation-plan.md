@@ -704,6 +704,64 @@ tests/test_db.py
 
 **Goal:** Make the repository understandable and safe to publish.
 
+**Stage 6 plan review status:** Submit this updated Stage 6 plan to Claude Code
+with the Stage 5 code review before writing Stage 6 documentation/package
+changes.
+
+**Publishing boundary:** The agent may prepare the repository for GitHub, but the
+user controls remote creation and push. Do not create a public GitHub repository,
+push to a remote, publish to PyPI, or upload build artifacts unless the user
+explicitly asks for that action.
+
+**Documentation contract:**
+
+- README must describe what the tool does, what it intentionally does not do,
+  free/local-first positioning, source boundaries, and the daily workflow:
+  `init -> collect -> match -> report -> dashboard`.
+- README installation commands should prefer `uv` and include mirror-friendly
+  examples using environment variables such as
+  `UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple`, without writing
+  mirror URLs into `uv.lock`.
+- Docs must clearly state that MVP sources are RSS/RSSHub-compatible public
+  feeds and GDELT, while Instagram/TikTok/X/Xiaohongshu scraping, login cookies,
+  proxy/account pools, CAPTCHA bypass, paywall bypass, and private data
+  collection are out of scope.
+- Scoring docs must document the exact Stage 4 formula, windows, label order,
+  `source_weight`, `collected_at`, stable first-seen, and known limits.
+- Data-retention docs must document `clean-old-data`, explicit matcher-row
+  cleanup, stable entity first-seen behavior, and what is not pruned in v0.1.0.
+- Dashboard docs must state that the dashboard is read-only, local-only by
+  default, and does not collect on page import/refresh. Stage 5 dashboard tabs
+  show mention-count summaries, not the full Stage 4 heat-score ranking, unless
+  a later stage explicitly wires report/scoring output into the dashboard.
+- Dashboard docs must state that there is no authentication layer and that
+  binding any host other than `127.0.0.1` can expose the dashboard on the
+  network at the user's own risk.
+
+**Repository hygiene contract:**
+
+- Do not commit generated runtime data, `.venv`, `dist`, `reports/*.md`,
+  `reports/*.json`, local SQLite DBs, `.codegraph/*.db*`, cookies, secrets,
+  browser profiles, or account/session files.
+- Keep `.mcp.json`, `.claude/settings.json`, and `.codegraph/.gitignore` if
+  Claude Code/Codex project tooling remains useful, but verify no absolute local
+  paths or DB files are committed.
+- `uv.lock` must remain free of mirror-bound URLs.
+- Build artifacts should be generated under `/tmp` during verification, not
+  committed.
+- `.gitignore` should explicitly cover common local build directories including
+  `dist/` and `build/`.
+
+**CI/package contract:**
+
+- CI should run `uv sync --locked --dev`, `ruff check .`,
+  `ruff format --check .`, and `pytest`.
+- Add or preserve a build/install smoke check if feasible: build wheel/sdist,
+  install wheel in a temp venv, run `fashion-radar --help`, and verify packaged
+  templates load.
+- Optional dashboard dependencies stay in the `dashboard` extra; core install
+  must continue to work without Streamlit/pandas.
+
 **Planned files:**
 
 ```text
@@ -725,17 +783,47 @@ CHANGELOG.md
 
 **Tasks:**
 
-- [ ] Write README with installation, quickstart, examples, limitations, and source boundaries.
-- [ ] Write architecture documentation.
-- [ ] Write compliance and platform boundary notes.
+- [ ] Ask Claude Code to review this updated Stage 6 plan with the Stage 5 code.
+- [ ] Audit current repository hygiene with `git status --ignored --short`,
+  `.gitignore`, `dist/`/`build/` ignores, and `uv.lock` mirror checks.
+- [ ] Write README with installation, mirror-friendly setup commands,
+  quickstart, workflow examples, limitations, source boundaries, and dashboard
+  usage.
+- [ ] Write architecture documentation covering config -> collect -> match ->
+  score -> report -> dashboard.
+- [ ] Write compliance and platform boundary notes, including social-platform
+  exclusions and user responsibilities.
 - [ ] Write scoring formula and known limitations.
-- [ ] Write data retention and cleanup documentation.
-- [ ] Document expected scale limits for v0.1.0.
-- [ ] Write GitHub upload checklist.
-- [ ] Run full test and lint suite.
+- [ ] Write data retention and cleanup documentation, explicitly noting that
+  `entity_first_seen` is retained across item pruning so old entities are not
+  mislabeled as new, and that `last_seen_at` may refer to pruned item history.
+- [ ] Document expected scale limits for v0.1.0, including local SQLite and
+  in-memory scoring assumptions.
+- [ ] Write review workflow documentation explaining the Claude Code gate
+  protocol used in this project.
+- [ ] Write GitHub upload checklist, including files/directories to exclude and
+  user-controlled remote creation/push steps.
+- [ ] Add or update GitHub issue/PR templates.
+- [ ] Update CHANGELOG with stages completed for the initial `0.1.0` draft.
+- [ ] Run full tests, lint, format check, lock checks, CodeGraph status, and
+  wheel/sdist install smoke using `/tmp` build directories and mirror install
+  env vars where useful.
 - [ ] Ask Claude Code to review final code and docs before GitHub upload.
 - [ ] Fix critical and important findings.
 - [ ] Prepare repository for user-controlled GitHub remote creation and push.
+
+**Acceptance criteria:**
+
+- README quickstart works from a fresh clone using local files and no network
+  tests.
+- Docs honestly describe MVP source boundaries and excluded high-risk platform
+  scraping.
+- Scoring and data retention docs match implemented behavior.
+- `.gitignore` and tracked files exclude generated data, secrets, local DBs,
+  build artifacts, and CodeGraph DB files.
+- `uv.lock` contains no mirror URLs.
+- Full verification passes locally.
+- Final Claude Code review has no unfixed critical or important findings.
 
 ## Stage 7: Optional Public Source Enhancements
 

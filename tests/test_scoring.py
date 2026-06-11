@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import text
 
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
@@ -132,6 +133,52 @@ def test_score_entities_uses_collected_at_windows_not_published_at(tmp_path) -> 
     metrics = score_entities(engine, scoring=ScoringSettings(), as_of=AS_OF)
 
     assert [metric.entity_name for metric in metrics] == ["Inside Brand", "Miu Miu"]
+
+
+def test_score_entities_uses_stable_first_seen_after_older_items_are_pruned(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    _store_item(
+        engine,
+        url="https://example.com/the-row-old",
+        entity_name="The Row",
+        collected_at=AS_OF - timedelta(days=30),
+    )
+    _store_item(
+        engine,
+        url="https://example.com/the-row-current",
+        entity_name="The Row",
+        collected_at=AS_OF - timedelta(hours=1),
+    )
+
+    repository.prune_items_older_than(AS_OF - timedelta(days=14))
+
+    metric = score_entities(engine, scoring=ScoringSettings(), as_of=AS_OF)[0]
+    assert metric.entity_name == "The Row"
+    assert metric.first_seen_at == AS_OF - timedelta(days=30)
+    assert metric.current_mentions == 1
+    assert metric.baseline_mentions == 0
+    assert metric.label == "stable"
+
+
+def test_score_entities_falls_back_to_retained_item_history_without_stable_row(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    _store_item(
+        engine,
+        url="https://example.com/current-without-stable-row",
+        entity_name="Fallback Brand",
+        collected_at=AS_OF - timedelta(hours=1),
+    )
+    with engine.begin() as connection:
+        connection.execute(text("delete from entity_first_seen"))
+
+    metric = score_entities(engine, scoring=ScoringSettings(), as_of=AS_OF)[0]
+
+    assert metric.entity_name == "Fallback Brand"
+    assert metric.first_seen_at == AS_OF - timedelta(hours=1)
+    assert metric.label == "new"
 
 
 def test_score_entities_computes_formula_components(tmp_path) -> None:

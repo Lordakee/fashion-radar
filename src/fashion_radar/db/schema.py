@@ -16,7 +16,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 metadata = MetaData()
 
@@ -54,6 +54,17 @@ item_entities = Table(
     Column("confidence", Float, nullable=False),
     Column("reason", String(64), nullable=False),
     Column("context_terms", Text, nullable=False, default="[]"),
+)
+
+entity_first_seen = Table(
+    "entity_first_seen",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("entity_name", String(255), nullable=False),
+    Column("entity_type", String(64), nullable=False),
+    Column("first_seen_at", String(64), nullable=False),
+    Column("last_seen_at", String(64), nullable=False),
+    UniqueConstraint("entity_name", "entity_type", name="uq_entity_first_seen_entity"),
 )
 
 collector_runs = Table(
@@ -100,7 +111,10 @@ def initialize_schema(engine: Engine) -> None:
             existing_version = 2
         if existing_version == 2:
             _migrate_v2_to_v3(engine)
-            return
+            existing_version = 3
+        if existing_version == 3:
+            _migrate_v3_to_v4(engine)
+            existing_version = 4
         if existing_version is not None and existing_version != SCHEMA_VERSION:
             raise SchemaVersionError(
                 f"Unsupported schema version {existing_version}; expected {SCHEMA_VERSION}"
@@ -139,4 +153,10 @@ def _migrate_v2_to_v3(engine: Engine) -> None:
             connection.exec_driver_sql(
                 "update items set collected_at = published_at where collected_at is null"
             )
+        connection.execute(update(schema_metadata).values(version=3))
+
+
+def _migrate_v3_to_v4(engine: Engine) -> None:
+    with engine.begin() as connection:
+        entity_first_seen.create(connection, checkfirst=True)
         connection.execute(update(schema_metadata).values(version=SCHEMA_VERSION))
