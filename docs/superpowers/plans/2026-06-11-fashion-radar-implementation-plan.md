@@ -105,8 +105,9 @@ fashion-radar/
 
 ## Stage 2: SQLite Storage And Entity Matching
 
-**Status:** Plan approved by Claude Code. Stage 2 plan review is recorded in
-`docs/reviews/claude-code-stage-2-plan-review.md`.
+**Status:** Completed. Stage 2 plan and code reviews are recorded in
+`docs/reviews/claude-code-stage-2-plan-review.md` and
+`docs/reviews/claude-code-stage-2-code-review.md`.
 
 **Goal:** Persist collected items and attach matched entities through deterministic alias matching.
 
@@ -197,7 +198,61 @@ tests/test_dedupe.py
 
 ## Stage 3: Public Collectors
 
+**Status:** Next stage. Submit this plan to Claude Code before implementation.
+
 **Goal:** Collect stable public data from RSS and GDELT, with article extraction limited to allowed pages. Google News RSS is not included in v0.1.0.
+
+**Dependency decision:** Move `feedparser`, `httpx`,
+`robotexclusionrulesparser`, and `tenacity` into core dependencies at the start
+of Stage 3 because RSS/GDELT collection becomes part of the MVP workflow.
+`trafilatura` may remain optional until the article extraction wrapper is
+implemented in this stage; if article extraction lands in Stage 3, move
+`trafilatura` into core at that point. Keep `pandas` and `streamlit` optional
+until report/dashboard stages.
+
+**Storage concurrency boundary:** Stage 3 collectors must write through
+`ItemRepository` in a single local process. Do not introduce parallel database
+writers in Stage 3. If later stages add concurrent collectors, first replace the
+Stage 2 SELECT-then-insert upsert path with SQLite `ON CONFLICT DO UPDATE` or a
+tested retry around uniqueness conflicts.
+
+**Schema evolution decision:** Stage 3 bumps the lightweight schema version from
+`1` to `2`. Because full Alembic migrations remain deferred, Stage 3 must
+implement and test one explicit migration path: a version-1 database gets the
+new collector status tables created and then `schema_metadata.version` is
+updated to `2`. Future versions still fail clearly.
+
+**Collector contracts:** `collectors/base.py` owns a minimal interface:
+collectors receive one enabled `SourceDefinition` plus settings, return
+normalized `CollectedItem` objects and a structured run status, and never write
+directly to SQLite. A coordinator or CLI stage persists items through
+`ItemRepository`. `utils/http.py` owns the descriptive User-Agent, timeouts,
+bounded retries, and per-domain politeness delays used by RSS, article
+extraction, and GDELT clients.
+
+**GDELT query contract:** Use the public GDELT Doc API endpoint
+`https://api.gdeltproject.org/api/v2/doc/doc` with JSON article-list responses.
+Each `gdelt` source uses `SourceDefinition.query` as the query string, defaults
+to a 24-hour lookback window, and has configurable `max_records`,
+`lookback_hours`, and `rate_limit_per_second` settings under the source's
+`gdelt` block. Do not derive GDELT queries from the entire entity list in Stage
+3. GDELT item URLs pass through the same URL normalization and
+`ItemRepository.upsert_item()` path as RSS items.
+
+**Robots, paywalls, and politeness:** If robots.txt is unreachable, malformed,
+or returns a non-200 status, the safe default is to skip article extraction for
+that URL during the run. RSS feed fetching and article fetching must use
+timeouts and a per-domain delay; article extraction must never bypass paywalls
+and must store snippets/metadata only.
+
+**Config ownership:** Stage 3 settings live in `sources.yaml` and Pydantic
+source models. Add nested source settings for `gdelt`, `http`, `article`, and
+`health` defaults. Defaults should include a descriptive User-Agent,
+`http.timeout_seconds`, `http.per_domain_delay_seconds`,
+`gdelt.lookback_hours`, `gdelt.max_records`, `gdelt.rate_limit_per_second`,
+`health.max_failures`, and `health.retention_hours`. Manual source-health reset
+is deferred to Stage 5 CLI; until then the direct database state and retention
+expiry are the only reset mechanisms.
 
 **Planned files:**
 
@@ -220,8 +275,16 @@ tests/test_collectors_robots.py
 **TDD tasks:**
 
 - [ ] Write failing tests for parsing RSS fixture items.
+- [ ] Move RSS/GDELT collector dependencies into core dependencies as described above, update `uv.lock` without mirror env vars, and verify `uv.lock` contains no mirror-bound URLs.
+- [ ] Write failing tests for schema version `1` to `2` migration that creates collector status tables without deleting existing items.
+- [ ] Implement the lightweight Stage 3 schema migration.
+- [ ] Write failing tests defining the base collector result/status interface.
+- [ ] Implement `collectors/base.py`.
+- [ ] Write failing tests for shared HTTP User-Agent, timeout, retry, and per-domain politeness behavior.
+- [ ] Implement `utils/http.py`.
 - [ ] Implement RSS collector using feedparser.
 - [ ] Write failing tests for parsing GDELT fixture responses.
+- [ ] Write failing tests that GDELT uses the configured source query, lookback window, max records, JSON article list mode, and the same normalized URL upsert path as RSS.
 - [ ] Write failing tests for GDELT request throttling and bounded retry behavior with a default of roughly 1 request per second.
 - [ ] Implement GDELT collector using httpx, descriptive User-Agent, configurable rate limit, conservative default throttle, and bounded exponential backoff.
 - [ ] Write failing tests proving Google News RSS source type is rejected in v0.1.0 with a clear error pointing to future experimental support.
@@ -242,10 +305,16 @@ tests/test_collectors_robots.py
 - Collectors can be tested with fixtures without live network.
 - A failed source does not stop other configured sources.
 - Collector run status is stored.
+- Collector writes are single-process and go through `ItemRepository`.
+- Stage 3 migrates schema version `1` to `2` without dropping existing items.
+- Collector interfaces return items and run status without writing directly to SQLite.
+- GDELT uses the configured `gdelt` source query, not the whole tracked entity list.
 - Google News RSS is rejected in v0.1.0.
 - Article extraction respects robots.txt.
+- Article extraction skips URLs when robots.txt cannot be fetched or parsed.
 - GDELT uses rate limits and retries.
 - All HTTP requests use descriptive User-Agent.
+- RSS and article HTTP use timeouts and per-domain politeness delays.
 - robots.txt rules are cached per domain within a run.
 - Repeated source failures mark a source unhealthy according to config.
 - Claude Code review has no unfixed critical or important findings.
