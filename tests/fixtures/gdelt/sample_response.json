@@ -3,14 +3,14 @@
     {
       "url": "https://example.com/gdelt/the-row-margaux?utm_campaign=wire",
       "title": "The Row Margaux becomes a luxury resale signal",
-      "seendate": "20260611101500",
+      "seendate": "20260611T101500Z",
       "sourceCommonName": "Example Fashion Daily",
       "snippet": "A short GDELT article-list snippet about the Margaux bag."
     },
     {
       "url": "https://example.com/gdelt/miu-miu-ballet-flats",
       "title": "Miu Miu ballet flats return to street style coverage",
-      "seendate": "20260611120000",
+      "seendate": "20260611T120000Z",
       "sourceCommonName": "Example Style Wire"
     }
   ]

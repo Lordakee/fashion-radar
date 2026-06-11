@@ -12,7 +12,6 @@ sources:
     article:
       enabled: true
       respect_robots_txt: true
-      skip_on_robots_failure: true
     health:
       max_failures: 3
       retention_hours: 24

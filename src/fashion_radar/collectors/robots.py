@@ -19,6 +19,13 @@ class RobotsFetcher(Protocol):
 @dataclass(frozen=True)
 class _RobotsRules:
     parser: RobotExclusionRulesParser | None
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class RobotsCheckResult:
+    allowed: bool
+    reason: str
 
 
 class RobotsPolicyChecker:
@@ -27,18 +34,28 @@ class RobotsPolicyChecker:
         self._cache: dict[tuple[str, str], _RobotsRules] = {}
 
     def can_fetch(self, url: str, user_agent: str) -> bool:
+        return self.check(url, user_agent).allowed
+
+    def check(self, url: str, user_agent: str) -> RobotsCheckResult:
         parsed_url = urlsplit(url)
         if not parsed_url.scheme or not parsed_url.netloc:
-            return False
+            return RobotsCheckResult(allowed=False, reason="invalid_url")
 
         rules = self._rules_for(parsed_url.scheme, parsed_url.netloc)
         if rules.parser is None:
-            return False
+            return RobotsCheckResult(
+                allowed=False,
+                reason=rules.reason or "robots_unavailable",
+            )
 
         try:
-            return rules.parser.is_allowed(user_agent, url)
+            allowed = rules.parser.is_allowed(user_agent, url)
         except Exception:
-            return False
+            return RobotsCheckResult(allowed=False, reason="robots_unavailable")
+        return RobotsCheckResult(
+            allowed=allowed,
+            reason="allowed" if allowed else "robots_disallowed",
+        )
 
     def _rules_for(self, scheme: str, netloc: str) -> _RobotsRules:
         cache_key = (scheme.lower(), netloc.lower())
@@ -51,19 +68,19 @@ class RobotsPolicyChecker:
         try:
             response = self._fetcher(robots_url)
         except Exception:
-            return _RobotsRules(parser=None)
+            return _RobotsRules(parser=None, reason="robots_unavailable")
 
         if response.status_code != 200:
-            return _RobotsRules(parser=None)
+            return _RobotsRules(parser=None, reason="robots_unavailable")
 
         try:
             lines = response.text.splitlines()
             if not _looks_like_robots_txt(lines):
-                return _RobotsRules(parser=None)
+                return _RobotsRules(parser=None, reason="robots_unavailable")
             parser = RobotExclusionRulesParser()
             parser.parse(response.text)
         except Exception:
-            return _RobotsRules(parser=None)
+            return _RobotsRules(parser=None, reason="robots_unavailable")
 
         return _RobotsRules(parser=parser)
 

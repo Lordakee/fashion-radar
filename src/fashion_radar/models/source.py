@@ -33,7 +33,6 @@ class ArticleSourceSettings(BaseModel):
 
     enabled: bool = True
     respect_robots_txt: bool = True
-    skip_on_robots_failure: bool = True
     max_summary_chars: int = Field(default=500, gt=0)
     paywalled_domains: list[str] = Field(default_factory=list)
 

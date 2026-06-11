@@ -92,10 +92,11 @@ def _article_to_item(
 
 def _gdelt_datetime(value: object, fallback_time: datetime) -> datetime:
     if isinstance(value, str):
-        try:
-            return datetime.strptime(value, "%Y%m%d%H%M%S").replace(tzinfo=UTC)
-        except ValueError:
-            return fallback_time
+        for date_format in ("%Y%m%dT%H%M%SZ", "%Y%m%d%H%M%S"):
+            try:
+                return datetime.strptime(value, date_format).replace(tzinfo=UTC)
+            except ValueError:
+                continue
     return fallback_time
 
 

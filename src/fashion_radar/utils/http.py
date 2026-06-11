@@ -39,6 +39,14 @@ class FashionHttpClient:
     def get_json(self, url: str, *, params: dict[str, str | int] | None = None) -> Any:
         return self._get(url, params=params).json()
 
+    def get_response(
+        self,
+        url: str,
+        *,
+        params: dict[str, str | int] | None = None,
+    ) -> httpx.Response:
+        return self._get(url, params=params)
+
     def close(self) -> None:
         self._client.close()
 

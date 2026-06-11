@@ -17,6 +17,11 @@ class DenyingRobots:
         return False
 
 
+class UnavailableRobots:
+    def check(self, url: str, user_agent: str) -> object:
+        return SimpleNamespace(allowed=False, reason="robots_unavailable")
+
+
 def rss_source(**article_overrides: object) -> SourceDefinition:
     article = {"max_summary_chars": 12, **article_overrides}
     return SourceDefinition(
@@ -55,7 +60,12 @@ def test_extract_article_skips_paywalled_domains_without_fetching_html() -> None
     assert fetched_urls == []
 
 
-def test_extract_article_skips_when_robots_disallow() -> None:
+def test_extract_article_skips_when_robots_disallow(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "fashion_radar.collectors.article.trafilatura",
+        SimpleNamespace(extract=lambda *_args, **_kwargs: "unused"),
+    )
+
     result = extract_article(
         "https://example.com/story",
         source=rss_source(),
@@ -65,6 +75,24 @@ def test_extract_article_skips_when_robots_disallow() -> None:
 
     assert result.skipped is True
     assert result.reason == "robots_disallowed"
+    assert result.text is None
+
+
+def test_extract_article_reports_robots_unavailable(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "fashion_radar.collectors.article.trafilatura",
+        SimpleNamespace(extract=lambda *_args, **_kwargs: "unused"),
+    )
+
+    result = extract_article(
+        "https://example.com/story",
+        source=rss_source(),
+        html_fetcher=lambda _url: "<html></html>",
+        robots_checker=UnavailableRobots(),
+    )
+
+    assert result.skipped is True
+    assert result.reason == "robots_unavailable"
     assert result.text is None
 
 

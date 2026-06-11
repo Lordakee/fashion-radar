@@ -221,7 +221,7 @@ class SourceHealthRepository:
             connection.execute(
                 update(source_health)
                 .where(source_health.c.id.in_(expired_ids))
-                .values(unhealthy_until=None)
+                .values(consecutive_failures=0, unhealthy_until=None)
             )
             return len(expired_ids)
 

@@ -41,18 +41,29 @@ def extract_article(
     if _is_paywalled_domain(url, source.article.paywalled_domains):
         return _skipped(url, "paywalled_domain")
 
-    if source.article.respect_robots_txt:
-        try:
-            allowed = robots_checker.can_fetch(url, source.http.user_agent)
-        except Exception:
-            allowed = False
-        if not allowed and source.article.skip_on_robots_failure:
-            return _skipped(url, "robots_disallowed")
-        if not allowed:
-            return _skipped(url, "robots_disallowed")
-
     if trafilatura is None:
         return _skipped(url, "extractor_unavailable")
+
+    if source.article.respect_robots_txt:
+        try:
+            if hasattr(robots_checker, "check"):
+                check = robots_checker.check(url, source.http.user_agent)
+            else:
+                allowed = robots_checker.can_fetch(url, source.http.user_agent)
+                reason = "allowed" if allowed else "robots_disallowed"
+                check = type(
+                    "RobotsCheckFallback",
+                    (),
+                    {"allowed": allowed, "reason": reason},
+                )()
+        except Exception:
+            check = type(
+                "RobotsCheckFallback",
+                (),
+                {"allowed": False, "reason": "robots_unavailable"},
+            )()
+        if not check.allowed:
+            return _skipped(url, check.reason)
 
     try:
         html = html_fetcher(url)

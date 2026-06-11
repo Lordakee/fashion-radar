@@ -34,7 +34,6 @@ def test_loads_valid_source_config(tmp_path: Path) -> None:
             article:
               enabled: true
               respect_robots_txt: true
-              skip_on_robots_failure: true
               paywalled_domains: ["paywall.example"]
             health:
               max_failures: 2
@@ -88,10 +87,27 @@ def test_source_config_supplies_stage_3_defaults(tmp_path: Path) -> None:
     assert source.gdelt.lookback_hours == 24
     assert source.gdelt.max_records == 100
     assert source.article.enabled is True
-    assert source.article.skip_on_robots_failure is True
     assert source.article.max_summary_chars == 500
     assert source.health.max_failures == 3
     assert source.health.retention_hours == 24
+
+
+def test_source_config_rejects_skip_on_robots_failure_dead_switch(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: Vogue Runway
+            type: rss
+            url: https://www.vogue.com/fashion-shows/rss
+            article:
+              skip_on_robots_failure: false
+        """,
+    )
+
+    with pytest.raises(ConfigError, match="Extra inputs are not permitted"):
+        load_source_config(path)
 
 
 def test_google_news_source_is_rejected_for_v0_1(tmp_path: Path) -> None:

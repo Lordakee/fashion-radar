@@ -241,6 +241,15 @@ def test_source_health_marks_unhealthy_after_repeated_failures_and_expires(tmp_p
     assert repository.is_unhealthy(source, now=datetime(2026, 6, 11, 12, 0, tzinfo=UTC)) is True
     assert repository.is_unhealthy(source, now=datetime(2026, 6, 12, 11, 1, tzinfo=UTC)) is False
 
+    cleared = repository.clear_expired_unhealthy_sources(
+        now=datetime(2026, 6, 12, 11, 1, tzinfo=UTC)
+    )
+    health = repository.get_health(source)
+    assert cleared == 1
+    assert health is not None
+    assert health["consecutive_failures"] == 0
+    assert health["unhealthy_until"] is None
+
     repository.record_success(source, occurred_at=datetime(2026, 6, 12, 12, 0, tzinfo=UTC))
     health = repository.get_health(source)
     assert health is not None
