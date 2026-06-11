@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from fashion_radar.utils.dates import parse_datetime_utc
 
 
 class ReportMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     generated_at: datetime
     report_date: datetime
     item_count: int = 0

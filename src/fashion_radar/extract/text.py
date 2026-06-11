@@ -28,4 +28,4 @@ def alias_pattern(alias: str) -> Pattern[str]:
     """Build a word-boundary pattern for a literal alias."""
     escaped = re.escape(alias.strip())
     escaped = escaped.replace(r"\ ", r"\s+")
-    return re.compile(rf"(?<!\w){escaped}(?!\w)")
+    return re.compile(rf"(?<!\w){escaped}(?!\w)", flags=re.IGNORECASE)

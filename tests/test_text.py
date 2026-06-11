@@ -16,4 +16,5 @@ def test_alias_pattern_handles_multi_word_alias() -> None:
     pattern = alias_pattern("The Row")
 
     assert pattern.search("Bella wore The Row Margaux.")
-    assert not pattern.search("They stood in the row after the show.")
+    assert pattern.search("Bella wore the\nrow Margaux.")
+    assert not pattern.search("They saw Therewith on the runway.")

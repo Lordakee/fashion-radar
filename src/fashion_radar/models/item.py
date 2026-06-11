@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from fashion_radar.models.source import SourceType
 from fashion_radar.utils.dates import parse_datetime_utc
 
 
 class CollectedItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     source_name: str
     source_type: SourceType
     url: str

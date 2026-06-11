@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from fashion_radar.utils.dates import parse_datetime_utc
 
@@ -18,6 +18,8 @@ class EntityType(StrEnum):
 
 
 class AliasDefinition(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     value: str
     safe_single_word: bool = False
     reason: str | None = None
@@ -29,8 +31,16 @@ class AliasDefinition(BaseModel):
             raise ValueError("alias value cannot be empty")
         return value.strip()
 
+    @model_validator(mode="after")
+    def require_reason_for_safe_single_word(self) -> AliasDefinition:
+        if self.safe_single_word and not (self.reason and self.reason.strip()):
+            raise ValueError("safe_single_word aliases require a reason")
+        return self
+
 
 class EntityDefinition(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     type: EntityType
     aliases: list[AliasDefinition]

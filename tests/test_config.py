@@ -82,6 +82,62 @@ def test_duplicate_aliases_are_rejected(tmp_path: Path) -> None:
         load_entity_config(path)
 
 
+def test_duplicate_entity_names_are_rejected(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "entities.yaml",
+        """
+        version: 1
+        entities:
+          - name: The Row
+            type: brand
+            aliases: ["The Row"]
+            context_terms: ["margaux"]
+          - name: the row
+            type: brand
+            aliases: ["The Row official"]
+        """,
+    )
+
+    with pytest.raises(ConfigError, match="Duplicate entity name"):
+        load_entity_config(path)
+
+
+def test_parent_brand_must_reference_existing_brand(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "entities.yaml",
+        """
+        version: 1
+        entities:
+          - name: Margaux
+            type: product
+            parent_brand: The Row
+            aliases: ["Margaux"]
+            context_terms: ["handbag"]
+        """,
+    )
+
+    with pytest.raises(ConfigError, match="Unknown parent_brand"):
+        load_entity_config(path)
+
+
+def test_parent_must_reference_existing_entity(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "entities.yaml",
+        """
+        version: 1
+        entities:
+          - name: Margaux
+            type: product
+            parent: The Row
+            aliases: ["Margaux"]
+            context_terms: ["handbag"]
+        """,
+    )
+
+    with pytest.raises(ConfigError, match="Unknown parent"):
+        load_entity_config(path)
+
+
 def test_unsafe_common_alias_requires_context(tmp_path: Path) -> None:
     path = write_yaml(
         tmp_path / "entities.yaml",

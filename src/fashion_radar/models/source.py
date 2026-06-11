@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class SourceType(StrEnum):
@@ -12,10 +12,14 @@ class SourceType(StrEnum):
 
 
 class GdeltSourceSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     rate_limit_per_second: float = Field(default=1.0, gt=0, le=1.0)
 
 
 class SourceDefinition(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     type: SourceType
     url: str | None = None

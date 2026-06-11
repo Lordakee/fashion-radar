@@ -23,10 +23,11 @@ The default workflow avoids logged-in scraping, paywall bypass, CAPTCHA bypass, 
 ## Development
 
 ```bash
-UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv sync --dev
+uv sync --locked --dev
 uv run pytest
 uv run ruff check .
 ```
 
-For users in mainland China or slower networks, prefer the mirror-based commands in [dependency-mirrors.md](docs/dependency-mirrors.md).
-
+For users in mainland China or slower networks, prefer the mirror-based frozen sync
+commands in [dependency-mirrors.md](docs/dependency-mirrors.md). Do not regenerate the
+public `uv.lock` while a mirror index is active.

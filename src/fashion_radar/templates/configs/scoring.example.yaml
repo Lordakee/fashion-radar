@@ -1,0 +1,8 @@
+version: 1
+scoring:
+  weighted_mentions_7d: 1.0
+  growth_bonus: 1.5
+  source_diversity_bonus: 1.0
+  high_weight_source_bonus: 0.5
+  new_entity_days: 14
+

@@ -38,7 +38,28 @@ def test_init_writes_example_configs(tmp_path: Path) -> None:
     assert reports_dir.exists()
 
 
-def test_doctor_validates_existing_directories(tmp_path: Path) -> None:
+def test_init_reads_default_directories_from_environment(tmp_path: Path) -> None:
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+
+    result = CliRunner().invoke(
+        app,
+        ["init"],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 0
+    assert (config_dir / "sources.yaml").exists()
+    assert data_dir.exists()
+    assert reports_dir.exists()
+
+
+def test_doctor_requires_initialized_config(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     data_dir = tmp_path / "data"
     reports_dir = tmp_path / "reports"
@@ -59,5 +80,6 @@ def test_doctor_validates_existing_directories(tmp_path: Path) -> None:
         ],
     )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 1
     assert "Configuration directory" in result.output
+    assert "Missing required config" in result.output

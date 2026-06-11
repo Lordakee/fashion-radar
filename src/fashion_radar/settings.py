@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 import yaml
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from fashion_radar.extract.text import normalize_alias_key
-from fashion_radar.models.entity import EntityDefinition
+from fashion_radar.models.entity import EntityDefinition, EntityType
 from fashion_radar.models.source import SourceDefinition
 
 UNSAFE_COMMON_ALIASES = {
@@ -29,18 +29,31 @@ class ConfigError(ValueError):
 
 
 class SourceConfig(BaseModel):
-    version: int = 1
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal[1] = 1
     sources: list[SourceDefinition]
 
 
 class EntityConfig(BaseModel):
-    version: int = 1
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal[1] = 1
     entities: list[EntityDefinition]
 
     @model_validator(mode="after")
     def validate_aliases(self) -> EntityConfig:
+        entity_names: dict[str, str] = {}
         seen: dict[str, str] = {}
         for entity in self.entities:
+            entity_key = normalize_alias_key(entity.name)
+            if entity_key in entity_names:
+                raise ValueError(
+                    f"Duplicate entity name {entity.name!r}; "
+                    f"already defined as {entity_names[entity_key]!r}"
+                )
+            entity_names[entity_key] = entity.name
+
             entity_keys: set[str] = set()
             for alias in entity.aliases:
                 key = normalize_alias_key(alias.value)
@@ -60,10 +73,26 @@ class EntityConfig(BaseModel):
                         f"Unsafe common alias {alias.value!r} for entity {entity.name!r}; "
                         "add context_terms or mark the alias safe with a reason"
                     )
+
+        brand_names = {
+            normalize_alias_key(entity.name)
+            for entity in self.entities
+            if entity.type == EntityType.BRAND
+        }
+        all_entity_names = set(entity_names)
+        for entity in self.entities:
+            if entity.parent and normalize_alias_key(entity.parent) not in all_entity_names:
+                raise ValueError(f"Unknown parent {entity.parent!r} for entity {entity.name!r}")
+            if entity.parent_brand and normalize_alias_key(entity.parent_brand) not in brand_names:
+                raise ValueError(
+                    f"Unknown parent_brand {entity.parent_brand!r} for entity {entity.name!r}"
+                )
         return self
 
 
 class ScoringSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     weighted_mentions_7d: float = 1.0
     growth_bonus: float = 1.5
     source_diversity_bonus: float = 1.0
@@ -72,7 +101,9 @@ class ScoringSettings(BaseModel):
 
 
 class ScoringConfig(BaseModel):
-    version: int = 1
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal[1] = 1
     scoring: ScoringSettings
 
 

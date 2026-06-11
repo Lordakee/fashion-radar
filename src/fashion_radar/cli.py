@@ -1,23 +1,40 @@
 from __future__ import annotations
 
+from importlib import resources
 from pathlib import Path
 
 import typer
 
-from fashion_radar.settings import load_entity_config, load_scoring_config, load_source_config
+from fashion_radar.settings import (
+    ConfigError,
+    load_entity_config,
+    load_scoring_config,
+    load_source_config,
+)
 from fashion_radar.utils.paths import default_config_dir, default_data_dir, default_reports_dir
 
 app = typer.Typer(help="Fashion Radar command line interface.")
-CONFIG_DIR_OPTION = typer.Option(default_factory=default_config_dir)
-DATA_DIR_OPTION = typer.Option(default_factory=default_data_dir)
-REPORTS_DIR_OPTION = typer.Option(default_factory=default_reports_dir)
+CONFIG_DIR_OPTION = typer.Option(
+    default_factory=default_config_dir,
+    envvar="FASHION_RADAR_CONFIG_DIR",
+)
+DATA_DIR_OPTION = typer.Option(
+    default_factory=default_data_dir,
+    envvar="FASHION_RADAR_DATA_DIR",
+)
+REPORTS_DIR_OPTION = typer.Option(
+    default_factory=default_reports_dir,
+    envvar="FASHION_RADAR_REPORTS_DIR",
+)
 
 
 def _copy_template(name: str, target: Path) -> None:
-    source = Path(__file__).resolve().parents[2] / "configs" / f"{name}.example.yaml"
     destination = target / f"{name}.yaml"
     if not destination.exists():
-        destination.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+        template = resources.files("fashion_radar.templates.configs").joinpath(
+            f"{name}.example.yaml"
+        )
+        destination.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
 
 
 @app.command()
@@ -45,7 +62,7 @@ def doctor(
     data_dir: Path = DATA_DIR_OPTION,
     reports_dir: Path = REPORTS_DIR_OPTION,
 ) -> None:
-    """Check local paths and load config files when present."""
+    """Check local paths and required config files."""
     typer.echo(f"Configuration directory: {config_dir}")
     typer.echo(f"Data directory: {data_dir}")
     typer.echo(f"Reports directory: {reports_dir}")
@@ -61,9 +78,16 @@ def doctor(
         "entities": (config_dir / "entities.yaml", load_entity_config),
         "scoring": (config_dir / "scoring.yaml", load_scoring_config),
     }
+    missing_configs = [path for path, _loader in config_files.values() if not path.exists()]
+    if missing_configs:
+        for path in missing_configs:
+            typer.echo(f"Missing required config: {path}", err=True)
+        raise typer.Exit(1)
+
     for label, (path, loader) in config_files.items():
-        if path.exists():
+        try:
             loader(path)
             typer.echo(f"Loaded {label}: {path}")
-        else:
-            typer.echo(f"Optional config not found: {path}")
+        except ConfigError as exc:
+            typer.echo(f"Invalid {label} config: {exc}", err=True)
+            raise typer.Exit(1) from exc
