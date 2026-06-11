@@ -287,9 +287,7 @@ def _candidate_mentions(
         collected_at = parse_datetime_utc(row["collected_at"])
         if not (baseline_start < collected_at <= as_of):
             continue
-        text = " ".join(
-            value for value in (row["title"], row["summary"]) if isinstance(value, str)
-        )
+        text = " ".join(value for value in (row["title"], row["summary"]) if isinstance(value, str))
         phrases = extract_candidate_phrases(
             text,
             source_name=row["source_name"],

@@ -333,6 +333,7 @@ def test_report_candidate_filter_uses_entity_config_without_stored_matches(tmp_p
         generated_at=AS_OF,
     )
 
-    assert "margaux" not in json.dumps(
-        [candidate.model_dump() for candidate in report.candidates]
-    ).lower()
+    assert (
+        "margaux"
+        not in json.dumps([candidate.model_dump() for candidate in report.candidates]).lower()
+    )

@@ -243,9 +243,7 @@ def test_stored_entity_filter_uses_min_match_confidence(tmp_path) -> None:
         as_of=AS_OF,
     )
 
-    assert "ghost bag" in {
-        candidate.normalized_key for candidate in low_confidence_candidates
-    }
+    assert "ghost bag" in {candidate.normalized_key for candidate in low_confidence_candidates}
 
     repository.replace_item_matches(
         item_id,
@@ -271,9 +269,7 @@ def test_stored_entity_filter_uses_min_match_confidence(tmp_path) -> None:
         as_of=AS_OF,
     )
 
-    assert "ghost bag" not in {
-        candidate.normalized_key for candidate in high_confidence_candidates
-    }
+    assert "ghost bag" not in {candidate.normalized_key for candidate in high_confidence_candidates}
 
 
 def test_uses_collected_at_windows_and_ignores_future_items(tmp_path) -> None:
