@@ -1,12 +1,20 @@
+# See docs/scoring.md for the exact formula and label precedence.
 version: 1
 scoring:
+  # Current window: collected_at > as_of - current_window_days.
   current_window_days: 7
+  # Baseline window immediately precedes the current window.
   baseline_window_days: 30
+  # Multiplies sum(source_weight * match_confidence) for current mentions.
   weighted_mentions_7d: 1.0
+  # Applies to positive growth over the baseline rate.
   growth_bonus: 1.5
+  # Rewards signals appearing in more than one source.
   source_diversity_bonus: 1.0
+  # Bonus when at least one current mention comes from a high-weight source.
   high_weight_source_bonus: 0.5
   high_weight_source_threshold: 1.2
+  # Label thresholds.
   new_entity_days: 14
   new_min_mentions: 1
   rising_growth_ratio: 1.5
@@ -16,4 +24,5 @@ scoring:
   hot_score_threshold: 5.0
   hot_min_distinct_sources: 2
   stable_min_mentions: 1
+  # Accepted matcher rows below this confidence are excluded from scoring.
   min_match_confidence: 0.5

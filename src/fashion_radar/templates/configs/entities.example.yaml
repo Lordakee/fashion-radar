@@ -1,9 +1,13 @@
+# Entity types can include brand, designer, celebrity, product, category, and
+# trend. Keep aliases specific. Broad or common aliases need context_terms unless
+# a single-word alias is explicitly marked safe with a reason.
 version: 1
 entities:
   - name: The Row
     type: brand
     aliases:
       - value: The Row
+    # "The Row" is a common phrase, so context keeps generic prose from matching.
     context_terms: [margaux, luxury, olsen]
     tags: [luxury, minimalism]
     initial_weight: 1.1
@@ -39,6 +43,7 @@ entities:
     aliases:
       - value: The Row Margaux
       - value: Margaux
+    # Product aliases require either the parent brand or narrow product context.
     context_terms: [the row, handbag, tote]
     category_tags: [bag, handbag]
     active_from: "2024-01-01T00:00:00Z"
@@ -47,6 +52,7 @@ entities:
     aliases:
       - value: ballet flats
       - value: ballet flat
+    # Generic category aliases need context to avoid non-fashion matches.
     context_terms: [shoes, footwear]
     category_tags: [shoes]
     active_from: "2024-01-01T00:00:00Z"

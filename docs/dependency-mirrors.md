@@ -23,6 +23,12 @@ the local network can reliably download those packages:
 UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv sync --frozen --dev --extra article
 ```
 
+Optional dashboard dependencies can also be installed through the mirror:
+
+```bash
+UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv sync --frozen --dev --extra dashboard
+```
+
 `--frozen` installs from the committed lockfile without rewriting it. Do not run
 `uv lock` or an unfrozen `uv sync` while `UV_DEFAULT_INDEX` points at a mirror if
 the resulting `uv.lock` will be committed. Public lockfiles should keep the
@@ -52,3 +58,8 @@ https://pypi.mirrors.ustc.edu.cn/simple/
 - Avoid committing mirror-bound URLs in `uv.lock`.
 - Keep heavyweight optional dependencies out of the core install when the core
   workflow can degrade safely without them.
+- Before GitHub upload, verify the public lockfile does not contain mirror URLs:
+
+  ```bash
+  rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock
+  ```

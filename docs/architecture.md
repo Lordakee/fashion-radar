@@ -1,0 +1,100 @@
+# Architecture
+
+Fashion Radar is a local Python application. It uses deterministic collectors,
+matching, scoring, and reporting so a user can understand why a fashion signal
+appeared in a report.
+
+## Flow
+
+```text
+YAML config
+  -> collect public sources
+  -> store items in SQLite
+  -> match configured entities
+  -> score current vs baseline windows
+  -> write Markdown/JSON reports
+  -> inspect read-only dashboard
+```
+
+## Components
+
+- **CLI:** Typer commands in `fashion_radar.cli`.
+- **Config:** Pydantic models load `sources.yaml`, `entities.yaml`, and
+  `scoring.yaml`.
+- **Collectors:** RSS/RSSHub-compatible feeds and GDELT Doc API metadata.
+  Collectors return normalized items and do not write directly to SQLite.
+- **Storage:** SQLite tables store collected items, source health, collector
+  runs, entity matches, and stable entity first/last seen timestamps.
+- **Matching:** Deterministic alias matching with context gates for common or
+  broad aliases.
+- **Scoring:** Local heat metrics over configured time windows, based on
+  matched entities and item `collected_at` timestamps.
+- **Reports:** Markdown and JSON daily reports rendered from packaged
+  templates.
+- **Dashboard:** Optional Streamlit UI that reads local SQLite/report state.
+
+## Default Paths
+
+The CLI accepts explicit paths and environment variables:
+
+```text
+FASHION_RADAR_CONFIG_DIR
+FASHION_RADAR_DATA_DIR
+FASHION_RADAR_REPORTS_DIR
+```
+
+If unset, platformdirs chooses user-level config/data/document directories. The
+database file is:
+
+```text
+<data-dir>/fashion-radar.sqlite
+```
+
+Daily reports are:
+
+```text
+<reports-dir>/fashion-radar-YYYY-MM-DD.md
+<reports-dir>/fashion-radar-YYYY-MM-DD.json
+```
+
+## Command Flow
+
+```bash
+fashion-radar init
+fashion-radar doctor
+fashion-radar collect
+fashion-radar match
+fashion-radar report --as-of 2026-06-11T12:00:00Z
+```
+
+`run` executes `collect -> match -> report` serially in one local process:
+
+```bash
+fashion-radar run --as-of 2026-06-11T12:00:00Z
+```
+
+There are no parallel database writers in the MVP workflow.
+
+## Source Boundary
+
+The core collector set is RSS, RSSHub-compatible feeds, and GDELT. Social
+platform scraping is not part of v0.1.0. See
+[source-boundaries.md](source-boundaries.md).
+
+## Dashboard Boundary
+
+The dashboard is optional and imports Streamlit only when the dashboard command
+or app is used. Refreshing the dashboard reads local SQLite/report state only; it
+does not call collectors, run matching, write reports, or perform network
+fetches.
+
+The dashboard defaults to `127.0.0.1:8501` and has no authentication layer.
+
+## Package Extras
+
+- Core install: CLI, config, SQLite, RSS/GDELT collection, matching, scoring,
+  reports.
+- `article`: optional article text extraction dependency.
+- `dashboard`: optional Streamlit and pandas dashboard dependencies.
+
+The core CLI must work without optional extras.

@@ -1,18 +1,31 @@
+# Supported source types in v0.1.0:
+# - rss: direct RSS/Atom feeds
+# - rsshub: RSSHub-compatible feeds when you accept the upstream route terms
+# - gdelt: GDELT Doc API metadata search
+#
+# Instagram, TikTok, X/Twitter, and Xiaohongshu/RedNote scraping are not part of
+# the core workflow.
 version: 1
 sources:
   - name: Vogue Business RSS
     type: rss
     url: https://www.voguebusiness.com/feed
     enabled: true
+    # Source weight is used by scoring as source_weight * match_confidence.
     weight: 1.2
     tags: [fashion_media, industry_news]
     http:
       timeout_seconds: 10
       per_domain_delay_seconds: 1
     article:
+      # Optional article extraction respects robots.txt and never bypasses
+      # paywalls. If optional article dependencies are missing, extraction is
+      # skipped conservatively.
       enabled: true
       respect_robots_txt: true
     health:
+      # Source-health retention controls the temporary circuit breaker for
+      # failing sources. It is not data-retention pruning for collected items.
       max_failures: 3
       retention_hours: 24
   - name: GDELT Luxury Fashion

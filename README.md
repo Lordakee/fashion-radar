@@ -1,36 +1,167 @@
 # Fashion Radar
 
-Fashion Radar is a free-first, local-first fashion intelligence tool.
+Fashion Radar is a free-first, local-first fashion intelligence tool for daily
+tracking of fashion signals across allowed public sources. It collects RSS or
+RSSHub-compatible feeds and GDELT metadata, matches configurable brands,
+designers, celebrities, products, categories, and trends, then writes local
+Markdown/JSON reports and a read-only dashboard.
 
-The goal is to collect allowed public fashion signals, match configurable fashion entities, calculate transparent heat scores, and generate daily reports and a local dashboard.
+The MVP is built for personal research and editorial monitoring. It is not a
+complete social listening platform, and its heat scores are local metrics based
+only on the sources you configure.
 
-## Status
+## What It Does
 
-This repository is in early development. The first version focuses on:
+- Collects public RSS/Atom, RSSHub-compatible, and GDELT Doc API signals.
+- Stores conservative metadata in a local SQLite database.
+- Matches entities with deterministic alias and context rules.
+- Computes transparent heat scores over current and baseline windows.
+- Generates daily Markdown and JSON reports with source attribution.
+- Provides an optional local Streamlit dashboard for read-only inspection.
 
-- RSS/Atom feeds.
-- GDELT metadata.
-- SQLite storage.
-- YAML configuration.
-- Deterministic entity matching.
-- Markdown/JSON reports.
-- Streamlit dashboard.
+## What It Does Not Do
 
-## Source Boundaries
+Fashion Radar v0.1.0 does not include Instagram, TikTok, X/Twitter,
+Xiaohongshu/RedNote, Pinterest, Reddit, or Google News scraping. It does not use
+login cookies, account/session files, proxy or account pools, CAPTCHA bypass,
+paywall bypass, fingerprint evasion, private data collection, or hidden platform
+workarounds.
 
-The default workflow avoids logged-in scraping, paywall bypass, CAPTCHA bypass, proxy pools, and full social-platform crawling. See [source-boundaries.md](docs/source-boundaries.md).
+Future social-platform connectors, if ever added, must be explicit opt-ins with
+clear risk labels. They are not required for the core workflow.
+
+## Quickstart
+
+Install dependencies with uv:
+
+```bash
+uv sync --locked --dev
+```
+
+For users in mainland China or slower networks, use a mirror only as a local
+install aid:
+
+```bash
+UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv sync --frozen --dev
+```
+
+Do not regenerate or commit `uv.lock` from a mirror-backed lock operation. The
+public lockfile should remain usable from the default PyPI registry. See
+[docs/dependency-mirrors.md](docs/dependency-mirrors.md).
+
+Create starter config, data, and report directories:
+
+```bash
+uv run fashion-radar init
+uv run fashion-radar doctor
+```
+
+Run the daily workflow step by step:
+
+```bash
+uv run fashion-radar collect
+uv run fashion-radar match
+uv run fashion-radar report --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+```
+
+Or run the workflow serially:
+
+```bash
+uv run fashion-radar run --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+```
+
+By default, config/data/report directories use platform-specific user
+directories. To keep everything inside a local workspace while experimenting:
+
+```bash
+export FASHION_RADAR_CONFIG_DIR="$PWD/configs"
+export FASHION_RADAR_DATA_DIR="$PWD/data"
+export FASHION_RADAR_REPORTS_DIR="$PWD/reports"
+```
+
+Generated SQLite databases and reports are ignored by git.
+
+## Dashboard
+
+The dashboard is optional:
+
+```bash
+uv sync --locked --dev --extra dashboard
+uv run fashion-radar dashboard
+```
+
+Mirror install:
+
+```bash
+UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv sync --frozen --dev --extra dashboard
+uv run fashion-radar dashboard
+```
+
+The dashboard defaults to `127.0.0.1:8501`, is read-only, and does not collect,
+match, or fetch network data on page import or refresh. It currently shows
+mention-count summaries for brands/products/celebrities, not the full heat-score
+ranking from the daily report.
+
+There is no authentication layer. Do not bind `--host 0.0.0.0` or any non-local
+address on an untrusted network unless you understand that the dashboard may be
+reachable by other machines.
+
+See [docs/dashboard.md](docs/dashboard.md).
+
+## Configuration
+
+Starter files live in [configs](configs) and are also packaged for
+`fashion-radar init`:
+
+- `sources.example.yaml` defines enabled RSS/RSSHub/GDELT sources, source
+  weights, HTTP settings, article extraction settings, and source-health
+  circuit-breaker behavior.
+- `entities.example.yaml` defines brands, designers, celebrities, products,
+  categories, and trends. Broad aliases need context terms unless explicitly
+  marked safe.
+- `scoring.example.yaml` defines scoring windows, label thresholds, confidence
+  filtering, source diversity bonuses, and high-weight source bonuses.
+
+## Reports And Storage
+
+The local database defaults to `fashion-radar.sqlite` under the configured data
+directory. Reports are written as:
+
+```text
+fashion-radar-YYYY-MM-DD.md
+fashion-radar-YYYY-MM-DD.json
+```
+
+Reports contain source attribution, links, snippets/metadata, matched entities,
+and score components. They should be reviewed before being shared publicly.
+
+Use cleanup when you want to prune old collected items:
+
+```bash
+uv run fashion-radar clean-old-data --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --retention-days 30 --dry-run
+uv run fashion-radar clean-old-data --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --retention-days 30
+```
+
+See [docs/data-retention.md](docs/data-retention.md).
+
+## Documentation
+
+- [docs/architecture.md](docs/architecture.md)
+- [docs/source-boundaries.md](docs/source-boundaries.md)
+- [docs/scoring.md](docs/scoring.md)
+- [docs/data-retention.md](docs/data-retention.md)
+- [docs/dashboard.md](docs/dashboard.md)
+- [docs/github-upload-checklist.md](docs/github-upload-checklist.md)
+- [docs/REVIEW_PROTOCOL.md](docs/REVIEW_PROTOCOL.md)
 
 ## Development
 
 ```bash
 uv sync --locked --dev
-uv run pytest
 uv run ruff check .
+uv run ruff format --check .
+uv run pytest
 ```
-
-For users in mainland China or slower networks, prefer the mirror-based frozen sync
-commands in [dependency-mirrors.md](docs/dependency-mirrors.md). Do not regenerate the
-public `uv.lock` while a mirror index is active.
 
 Optional article text extraction uses the `article` extra:
 
@@ -41,3 +172,10 @@ uv sync --locked --dev --extra article
 The core RSS/GDELT workflow does not require this extra. If `trafilatura` is not
 installed, article extraction returns a conservative skipped result instead of
 attempting a fallback scraper.
+
+## GitHub Publishing Boundary
+
+This repository can be prepared for GitHub locally, but the user controls remote
+creation, pushing, PyPI publishing, and artifact uploads. Do not upload local
+SQLite databases, generated reports, cookies, browser profiles, account/session
+files, secrets, build artifacts, or CodeGraph database files.

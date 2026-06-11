@@ -1,0 +1,105 @@
+name: Feature request
+description: Suggest a Fashion Radar improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Features should preserve the free-first/local-first core workflow.
+        Fashion Radar v0.1.0 core sources are RSS/Atom, RSSHub-compatible public feeds, and GDELT.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+    validations:
+      required: true
+  - type: dropdown
+    id: user_role
+    attributes:
+      label: User role
+      options:
+        - buyer/merchandiser
+        - brand/content team
+        - founder/manager
+        - fashion researcher
+        - developer
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - CLI
+        - config
+        - RSS/GDELT source
+        - matcher
+        - scoring
+        - report
+        - dashboard
+        - docs
+        - packaging
+        - other
+    validations:
+      required: true
+  - type: dropdown
+    id: source_category
+    attributes:
+      label: Source category
+      options:
+        - v0.1.0 core RSS/GDELT
+        - future opt-in API
+        - experimental connector
+        - not source-related
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: local_first
+    attributes:
+      label: Free/local-first impact
+      description: Does this work without paid APIs, credentials, cookies, or hosted services?
+    validations:
+      required: true
+  - type: textarea
+    id: data_impact
+    attributes:
+      label: Data and attribution impact
+      description: What would be stored, displayed, linked, or summarized?
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security, privacy, and source-rights considerations
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or current workaround
+  - type: textarea
+    id: tests_docs
+    attributes:
+      label: Proposed tests or docs
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Boundaries
+      options:
+        - label: This keeps the core workflow free/local-first.
+          required: true
+        - label: This does not require social scraping, login cookies, proxy/account pools, CAPTCHA bypass, paywall bypass, or private data collection.
+          required: true
+        - label: If this proposes a future connector, it can be disabled by default and documented as opt-in/experimental.
+          required: true
+        - label: I understand RSS/GDELT are the only default v0.1.0 sources.
+          required: true

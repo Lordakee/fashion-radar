@@ -576,9 +576,10 @@ clear install hint such as `uv sync --extra dashboard` or
 - Dashboard reads SQLite only; page import and refresh must not trigger network
   collection or matching.
 - Dashboard binds to `127.0.0.1` by default. Any host override must be explicit.
-- Initial dashboard pages: Daily Brief, Brand Heat, Product Radar, Celebrity
-  Style, and Source Health. These can share query helpers and may use simple
-  Streamlit tables/charts first.
+- Initial dashboard pages: Daily Brief, Brand Mentions, Product Mentions,
+  Celebrity Mentions, and Source Health. These can share query helpers and may
+  use simple Streamlit tables/charts first. Mention tabs are count summaries,
+  not the full report heat-score ranking.
 - Empty database and stale data states should render clear messages rather than
   tracebacks.
 
@@ -673,7 +674,7 @@ tests/test_db.py
 - [ ] Write dashboard query tests for empty DB, top entity sections, recent
   reports, data staleness, and source health.
 - [ ] Implement dashboard query helpers and Streamlit pages for Daily Brief,
-  Brand Heat, Product Radar, Celebrity Style, and Source Health.
+  Brand Mentions, Product Mentions, Celebrity Mentions, and Source Health.
 - [ ] Run `pytest`, `ruff`, `ruff format --check`, lock checks, and dashboard
   import smoke checks.
 - [ ] Ask Claude Code to review Stage 5 code and GitHub-readiness plan.
@@ -702,11 +703,17 @@ tests/test_db.py
 
 ## Stage 6: GitHub Packaging
 
+**Status:** Completed. Stage 6 final review and rereview are recorded in
+`docs/reviews/claude-code-stage-6-final-review.md` and
+`docs/reviews/claude-code-stage-6-final-rereview.md`.
+
 **Goal:** Make the repository understandable and safe to publish.
 
 **Stage 6 plan review status:** Submit this updated Stage 6 plan to Claude Code
 with the Stage 5 code review before writing Stage 6 documentation/package
-changes.
+changes. A follow-up Stage 6 plan review is recorded in
+`docs/reviews/claude-code-stage-6-plan-review.md`; address its Important
+findings before writing Stage 6 documentation/package changes.
 
 **Publishing boundary:** The agent may prepare the repository for GitHub, but the
 user controls remote creation and push. Do not create a public GitHub repository,
@@ -728,6 +735,9 @@ explicitly asks for that action.
   collection are out of scope.
 - Scoring docs must document the exact Stage 4 formula, windows, label order,
   `source_weight`, `collected_at`, stable first-seen, and known limits.
+  Known limits must include that ranked sections omit entities with
+  `current_mentions == 0` and that the current label table has a redundant
+  `stable` fallback.
 - Data-retention docs must document `clean-old-data`, explicit matcher-row
   cleanup, stable entity first-seen behavior, and what is not pruned in v0.1.0.
 - Dashboard docs must state that the dashboard is read-only, local-only by
@@ -746,6 +756,9 @@ explicitly asks for that action.
 - Keep `.mcp.json`, `.claude/settings.json`, and `.codegraph/.gitignore` if
   Claude Code/Codex project tooling remains useful, but verify no absolute local
   paths or DB files are committed.
+- Confirm `AGENTS.md`, `.mcp.json`, `.claude/settings.json`, and
+  `.codegraph/.gitignore` are intentionally published and contain no secrets,
+  account/session data, or unsafe absolute local paths.
 - `uv.lock` must remain free of mirror-bound URLs.
 - Build artifacts should be generated under `/tmp` during verification, not
   committed.
@@ -758,9 +771,14 @@ explicitly asks for that action.
   `ruff format --check .`, and `pytest`.
 - Add or preserve a build/install smoke check if feasible: build wheel/sdist,
   install wheel in a temp venv, run `fashion-radar --help`, and verify packaged
-  templates load.
+  templates load. The installed-wheel check must explicitly verify
+  `fashion_radar.templates/daily_report.md`, either by running a report smoke or
+  by loading the resource with `importlib.resources`.
 - Optional dashboard dependencies stay in the `dashboard` extra; core install
-  must continue to work without Streamlit/pandas.
+  must continue to work without Streamlit/pandas. Stage 6 verification must also
+  resolve/install the `dashboard` extra and import
+  `fashion_radar.dashboard.app` and `fashion_radar.dashboard.queries` without
+  launching a Streamlit server.
 
 **Planned files:**
 
@@ -768,7 +786,8 @@ explicitly asks for that action.
 README.md
 docs/architecture.md
 docs/source-boundaries.md
-docs/review-workflow.md
+docs/REVIEW_PROTOCOL.md
+docs/dependency-mirrors.md
 docs/github-upload-checklist.md
 docs/scoring.md
 docs/data-retention.md
@@ -784,14 +803,18 @@ CHANGELOG.md
 **Tasks:**
 
 - [ ] Ask Claude Code to review this updated Stage 6 plan with the Stage 5 code.
+- [ ] Fix any Critical or Important Stage 6 plan review findings and rerun
+  Claude Code plan review before writing docs.
 - [ ] Audit current repository hygiene with `git status --ignored --short`,
-  `.gitignore`, `dist/`/`build/` ignores, and `uv.lock` mirror checks.
-- [ ] Write README with installation, mirror-friendly setup commands,
-  quickstart, workflow examples, limitations, source boundaries, and dashboard
-  usage.
+  `.gitignore`, `dist/`/`build/` ignores, `AGENTS.md`, `.mcp.json`,
+  `.claude/settings.json`, `.codegraph/.gitignore`, and `uv.lock` mirror
+  checks.
+- [ ] Update README with installation, mirror-friendly setup commands,
+  quickstart, workflow examples, limitations, source boundaries, dashboard
+  usage, and links to `docs/dependency-mirrors.md`.
 - [ ] Write architecture documentation covering config -> collect -> match ->
   score -> report -> dashboard.
-- [ ] Write compliance and platform boundary notes, including social-platform
+- [ ] Update compliance and platform boundary notes, including social-platform
   exclusions and user responsibilities.
 - [ ] Write scoring formula and known limitations.
 - [ ] Write data retention and cleanup documentation, explicitly noting that
@@ -799,8 +822,9 @@ CHANGELOG.md
   mislabeled as new, and that `last_seen_at` may refer to pruned item history.
 - [ ] Document expected scale limits for v0.1.0, including local SQLite and
   in-memory scoring assumptions.
-- [ ] Write review workflow documentation explaining the Claude Code gate
-  protocol used in this project.
+- [ ] Update review workflow documentation explaining the Claude Code gate
+  protocol used in this project, reusing `docs/REVIEW_PROTOCOL.md` rather than
+  creating a conflicting parallel document.
 - [ ] Write GitHub upload checklist, including files/directories to exclude and
   user-controlled remote creation/push steps.
 - [ ] Add or update GitHub issue/PR templates.
@@ -808,6 +832,10 @@ CHANGELOG.md
 - [ ] Run full tests, lint, format check, lock checks, CodeGraph status, and
   wheel/sdist install smoke using `/tmp` build directories and mirror install
   env vars where useful.
+- [ ] Run an installed-wheel packaged-resource smoke that explicitly loads
+  `fashion_radar.templates/daily_report.md`.
+- [ ] Run a dashboard extra smoke by resolving/installing the optional
+  `dashboard` extra and importing dashboard modules without starting a server.
 - [ ] Ask Claude Code to review final code and docs before GitHub upload.
 - [ ] Fix critical and important findings.
 - [ ] Prepare repository for user-controlled GitHub remote creation and push.

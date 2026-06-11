@@ -1,0 +1,113 @@
+name: Bug report
+description: Report a reproducible Fashion Radar problem.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include secrets, cookies, session files, browser profiles, private data, local SQLite databases, or generated reports.
+        Fashion Radar v0.1.0 core sources are RSS/Atom, RSSHub-compatible public feeds, and GDELT.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - CLI
+        - config
+        - RSS
+        - GDELT
+        - article extraction
+        - matcher
+        - scoring
+        - reports
+        - dashboard
+        - packaging/install
+        - docs
+        - other
+    validations:
+      required: true
+  - type: dropdown
+    id: source_type
+    attributes:
+      label: Source type
+      options:
+        - RSS/Atom
+        - RSSHub-compatible
+        - GDELT
+        - article extraction
+        - not source-related
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, uv version, Fashion Radar commit/version, install method, optional extras.
+      placeholder: |
+        OS:
+        python --version:
+        uv --version:
+        fashion-radar commit/version:
+        install command:
+        extras installed:
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command
+      placeholder: uv run fashion-radar doctor
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and redacted logs
+      description: Paste only relevant redacted output.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Minimal redacted config
+      description: Include relevant snippets from sources.yaml, entities.yaml, or scoring.yaml if applicable.
+      render: yaml
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification attempted
+      description: Mention doctor/tests/ruff/lock/build/dashboard smoke checks if relevant.
+      placeholder: |
+        uv run fashion-radar doctor
+        uv run pytest
+        uv run ruff check .
+        uv run ruff format --check .
+        uv lock --check
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Boundaries
+      options:
+        - label: I did not include secrets, cookies, session files, browser profiles, private data, local DBs, or generated reports.
+          required: true
+        - label: Config snippets and logs are redacted.
+          required: true
+        - label: This does not request social scraping, login-cookie use, proxy/account pools, CAPTCHA bypass, or paywall bypass.
+          required: true
+        - label: I understand v0.1.0 supports RSS/GDELT core sources only.
+          required: true

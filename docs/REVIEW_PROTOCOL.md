@@ -25,10 +25,13 @@ Before pushing to GitHub:
 
 1. Run the full test suite.
 2. Run linting.
-3. Check for secrets, cookies, tokens, private data, and large generated files.
-4. Ask Claude Code for final code and documentation review.
-5. Fix critical and important findings.
-6. Let the user create or choose the GitHub remote.
+3. Run lockfile, package build, installed-wheel, packaged-resource, and optional
+   dashboard extra smoke checks.
+4. Check for secrets, cookies, tokens, private data, generated reports, local
+   SQLite databases, SQLite sidecars, build artifacts, and CodeGraph DB files.
+5. Ask Claude Code for final code and documentation review.
+6. Fix critical and important findings.
+7. Let the user create or choose the GitHub remote.
 
 ## Review Record Naming
 
@@ -44,3 +47,9 @@ For the initial plan review:
 docs/reviews/claude-code-plan-review.md
 ```
 
+For this repository's staged records, also accept the existing shorter names
+under `docs/reviews/`, such as:
+
+```text
+docs/reviews/claude-code-stage-6-plan-review.md
+```

@@ -30,7 +30,8 @@ Google News RSS is not included in `v0.1.0`. If added later, it must be disabled
 
 ### Experimental
 
-These connectors are not part of the default MVP and should be disabled by default:
+These connectors are not part of `v0.1.0`, are not required for core operation,
+and must not be treated as endorsed scraping recipes:
 
 - Xiaohongshu/RedNote MCP or crawlers.
 - MediaCrawler.
@@ -42,13 +43,18 @@ These connectors are not part of the default MVP and should be disabled by defau
 - yt-dlp metadata extraction for user-provided URLs.
 - XPOZ or other third-party SaaS free tiers.
 
-Experimental connectors must not block core collection, scoring, reports, or dashboards.
+Experimental connectors must not block core collection, scoring, reports, or
+dashboards. Any future connector for Instagram, TikTok, X/Twitter,
+Xiaohongshu/RedNote, Pinterest, Reddit, or similar platforms must be an explicit
+opt-in with its own terms, risk labels, and privacy review.
 
 ### Out Of Scope
 
 The project should not include:
 
+- Instagram/TikTok/X/Xiaohongshu full-platform scraping in the default workflow.
 - Login-cookie harvesting.
+- Account/session file collection.
 - CAPTCHA bypass.
 - Paywall bypass.
 - Residential proxy rotation.
@@ -56,6 +62,7 @@ The project should not include:
 - Hidden scraping workarounds.
 - Bulk media download as a default workflow.
 - Tutorials for evading platform controls.
+- Private data collection.
 
 ## Storage Boundaries
 
@@ -128,3 +135,7 @@ The public README must explain:
 - Users are responsible for respecting source terms, robots rules, and API terms.
 - The default workflow avoids logged-in scraping and paywall bypass.
 - Experimental connectors may stop working and are not production guarantees.
+- Instagram, TikTok, X/Twitter, and Xiaohongshu/RedNote scraping are excluded
+  from `v0.1.0`.
+- Login cookies, account/session files, proxy pools, CAPTCHA bypass, paywall
+  bypass, and private data are not part of the project.

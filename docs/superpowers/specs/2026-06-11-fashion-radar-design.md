@@ -167,12 +167,14 @@ Every report item must include source name, source URL, and publication time. Ma
 Streamlit MVP pages:
 
 - Daily Brief.
-- Brand Heat.
-- Product Radar.
-- Celebrity Style.
+- Brand Mentions.
+- Product Mentions.
+- Celebrity Mentions.
 - Source Health.
 
-The dashboard should read from SQLite and report files. It should not trigger network collection on page load.
+The dashboard should read from SQLite and report files. It should not trigger
+network collection on page load. Mention tabs show count summaries; the daily
+report remains the source for full heat scores and labels.
 
 ## CLI
 
