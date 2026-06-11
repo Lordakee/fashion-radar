@@ -1,0 +1,94 @@
+# Example public source pack. Review source terms before enabling.
+# These endpoints were checked during Stage 7 planning on 2026-06-12, but RSS
+# availability can change. Treat this as a starter set, not an endorsement or
+# availability guarantee.
+version: 1
+sources:
+  - name: Fashionista
+    type: rss
+    url: https://fashionista.com/.rss/excerpt
+    enabled: true
+    weight: 1.0
+    tags: [fashion_media, industry_news]
+    article:
+      enabled: false
+  - name: Fashion Week Daily
+    type: rss
+    url: https://fashionweekdaily.com/feed
+    enabled: true
+    weight: 0.9
+    tags: [fashion_media, celebrity_style]
+    article:
+      enabled: false
+  - name: FashionUnited
+    type: rss
+    url: https://fashionunited.info/rss-news
+    enabled: true
+    weight: 0.8
+    tags: [industry_news, retail]
+    article:
+      enabled: false
+  - name: The Industry Fashion
+    type: rss
+    url: https://www.theindustry.fashion/feed
+    enabled: true
+    weight: 0.9
+    tags: [industry_news, brand_news]
+    article:
+      enabled: false
+  - name: Highsnobiety
+    type: rss
+    url: https://www.highsnobiety.com/feed/
+    enabled: true
+    weight: 0.8
+    tags: [streetwear, culture]
+    article:
+      enabled: false
+  - name: WWD
+    type: rss
+    url: https://wwd.com/feed/rss
+    enabled: true
+    weight: 1.1
+    tags: [trade_media, industry_news]
+    article:
+      enabled: false
+  - name: GDELT Luxury Fashion
+    type: gdelt
+    query: '(luxury fashion OR designer fashion OR "fashion week")'
+    enabled: true
+    weight: 0.9
+    tags: [gdelt, luxury, industry_news]
+    gdelt:
+      lookback_hours: 24
+      max_records: 100
+      rate_limit_per_second: 1.0
+  - name: GDELT Celebrity Style
+    type: gdelt
+    query: '("celebrity style" OR "red carpet fashion" OR "red carpet look")'
+    enabled: true
+    weight: 0.8
+    tags: [gdelt, celebrity_style]
+    gdelt:
+      lookback_hours: 24
+      max_records: 100
+      rate_limit_per_second: 1.0
+  - name: GDELT Bags Shoes Products
+    type: gdelt
+    query: '("designer bag" OR handbag OR sneakers OR "ballet flats" OR loafer) (fashion OR luxury)'
+    enabled: true
+    weight: 0.8
+    tags: [gdelt, products, accessories, shoes]
+    gdelt:
+      lookback_hours: 24
+      max_records: 100
+      rate_limit_per_second: 1.0
+  - name: GDELT Emerging Designers
+    type: gdelt
+    query: '("emerging designer" OR "independent designer" OR "LVMH Prize" OR "ANDAM fashion")'
+    enabled: true
+    weight: 0.8
+    tags: [gdelt, emerging_designers]
+    gdelt:
+      lookback_hours: 24
+      max_records: 100
+      rate_limit_per_second: 1.0

@@ -304,3 +304,13 @@ def test_sample_configs_load_without_network() -> None:
     assert source_config.sources
     assert entity_config.entities
     assert scoring_config.scoring.new_entity_days > 0
+
+
+def test_public_fashion_source_pack_loads() -> None:
+    config = load_source_config(Path("configs/source-packs/fashion-public.example.yaml"))
+
+    assert len(config.sources) >= 10
+    assert {source.type.value for source in config.sources} == {"rss", "gdelt"}
+    assert all(
+        source.article.enabled is False for source in config.sources if source.type.value == "rss"
+    )

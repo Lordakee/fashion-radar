@@ -7,9 +7,9 @@
 # the core workflow.
 version: 1
 sources:
-  - name: Vogue Business RSS
+  - name: Fashionista
     type: rss
-    url: https://www.voguebusiness.com/feed
+    url: https://fashionista.com/.rss/excerpt
     enabled: true
     # Source weight is used by scoring as source_weight * match_confidence.
     weight: 1.2

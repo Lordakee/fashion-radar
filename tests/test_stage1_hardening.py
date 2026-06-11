@@ -24,7 +24,7 @@ def test_init_uses_packaged_templates(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0
-    assert "Vogue Business RSS" in (config_dir / "sources.yaml").read_text(encoding="utf-8")
+    assert "Fashionista" in (config_dir / "sources.yaml").read_text(encoding="utf-8")
 
 
 def test_root_example_configs_match_packaged_templates() -> None:

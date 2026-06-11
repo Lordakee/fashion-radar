@@ -70,6 +70,12 @@ Or run the workflow serially:
 uv run fashion-radar run --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
+Print a daily scheduling example:
+
+```bash
+uv run fashion-radar schedule-example --mode cron --project-dir "$PWD"
+```
+
 By default, config/data/report directories use platform-specific user
 directories. To keep everything inside a local workspace while experimenting:
 
@@ -122,6 +128,9 @@ Starter files live in [configs](configs) and are also packaged for
 - `scoring.example.yaml` defines scoring windows, label thresholds, confidence
   filtering, source diversity bonuses, and high-weight source bonuses.
 
+Optional public-source starter packs live in [configs/source-packs](configs/source-packs).
+See [docs/source-packs.md](docs/source-packs.md).
+
 ## Reports And Storage
 
 The local database defaults to `fashion-radar.sqlite` under the configured data
@@ -151,6 +160,8 @@ See [docs/data-retention.md](docs/data-retention.md).
 - [docs/scoring.md](docs/scoring.md)
 - [docs/data-retention.md](docs/data-retention.md)
 - [docs/dashboard.md](docs/dashboard.md)
+- [docs/scheduling.md](docs/scheduling.md)
+- [docs/source-packs.md](docs/source-packs.md)
 - [docs/github-upload-checklist.md](docs/github-upload-checklist.md)
 - [docs/REVIEW_PROTOCOL.md](docs/REVIEW_PROTOCOL.md)
 
