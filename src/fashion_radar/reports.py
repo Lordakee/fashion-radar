@@ -9,7 +9,9 @@ from sqlalchemy.engine import Engine
 
 from fashion_radar.db.repositories import CollectorRunRepository
 from fashion_radar.db.schema import item_entities, items, source_health
+from fashion_radar.discovery.candidates import CandidateMetric, discover_candidates
 from fashion_radar.models.report import (
+    CandidateReport,
     CollectorRunReport,
     DailyReport,
     EntityReport,
@@ -18,7 +20,7 @@ from fashion_radar.models.report import (
     SourceHealthReport,
 )
 from fashion_radar.scoring import EntityHeatMetric, score_entities
-from fashion_radar.settings import ScoringSettings
+from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
 from fashion_radar.utils.dates import parse_datetime_utc
 
 
@@ -27,6 +29,8 @@ def build_daily_report(
     *,
     scoring: ScoringSettings,
     as_of: datetime,
+    candidate_discovery: CandidateDiscoverySettings | None = None,
+    entity_config: EntityConfig | None = None,
     generated_at: datetime | None = None,
     max_entities: int = 20,
     representative_items_per_entity: int = 3,
@@ -44,6 +48,17 @@ def build_daily_report(
         )
         for metric in metrics
     ]
+    candidate_settings = candidate_discovery or CandidateDiscoverySettings()
+    candidates = [
+        _candidate_report(metric)
+        for metric in discover_candidates(
+            engine,
+            scoring=scoring,
+            settings=candidate_settings,
+            entity_config=entity_config,
+            as_of=as_of_utc,
+        )
+    ]
     return DailyReport(
         metadata=ReportMetadata(
             generated_at=generated_at or as_of_utc,
@@ -51,6 +66,7 @@ def build_daily_report(
             item_count=sum(entity.current_mentions for entity in entities),
         ),
         entities=entities,
+        candidates=candidates,
         source_health=_source_health_reports(engine),
         recent_runs=_recent_run_reports(engine, limit=recent_runs_limit),
     )
@@ -67,6 +83,7 @@ def render_markdown_report(report: DailyReport) -> str:
         report_date=report.metadata.report_date.isoformat(),
         item_count=report.metadata.item_count,
         entity_sections=_render_entity_sections(report.entities),
+        candidate_sections=_render_candidate_sections(report.candidates),
         source_health_section=_render_source_health(report.source_health),
         recent_runs_section=_render_recent_runs(report.recent_runs),
     )
@@ -97,6 +114,21 @@ def _entity_report(
             as_of=as_of,
             limit=representative_items_per_entity,
         ),
+    )
+
+
+def _candidate_report(metric: CandidateMetric) -> CandidateReport:
+    return CandidateReport(
+        phrase=metric.phrase,
+        candidate_type=metric.candidate_type,
+        label=metric.label,
+        score=metric.score,
+        current_mentions=metric.current_mentions,
+        baseline_mentions=metric.baseline_mentions,
+        distinct_sources=metric.distinct_sources,
+        growth_ratio=metric.growth_ratio,
+        first_seen_at=metric.first_seen_at,
+        representative_items=list(metric.representative_items),
     )
 
 
@@ -212,6 +244,41 @@ def _render_entity_sections(entities: list[EntityReport]) -> str:
                     f"- Mentions: {entity.current_mentions} current, "
                     f"{entity.baseline_mentions} baseline",
                     f"- Distinct sources: {entity.distinct_sources}",
+                    "",
+                    items_markdown,
+                ]
+            )
+        )
+    return "\n\n".join(sections)
+
+
+def _render_candidate_sections(candidates: list[CandidateReport]) -> str:
+    if not candidates:
+        return "No untracked candidate signals in this window."
+    sections: list[str] = []
+    for candidate in candidates:
+        items_markdown = "\n".join(
+            (
+                f"- {item.title} | {item.source_name} | {item.published_at.isoformat()} | "
+                f"{item.source_url}\n  {item.summary or ''}"
+            )
+            for item in candidate.representative_items
+        )
+        if not items_markdown:
+            items_markdown = "- No representative items available."
+        growth = f"{candidate.growth_ratio:.2f}" if candidate.growth_ratio is not None else "n/a"
+        sections.append(
+            "\n".join(
+                [
+                    f"### {candidate.phrase} ({candidate.label})",
+                    "This candidate signal is an observed phrase from configured sources and "
+                    "needs review.",
+                    f"- Type: {candidate.candidate_type}",
+                    f"- Score: {candidate.score:.2f}",
+                    f"- Mentions: {candidate.current_mentions} current, "
+                    f"{candidate.baseline_mentions} baseline",
+                    f"- Distinct sources: {candidate.distinct_sources}",
+                    f"- Growth ratio: {growth}",
                     "",
                     items_markdown,
                 ]

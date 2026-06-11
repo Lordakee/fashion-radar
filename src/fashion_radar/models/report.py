@@ -49,6 +49,26 @@ class EntityReport(BaseModel):
     representative_items: list[RepresentativeItem] = Field(default_factory=list)
 
 
+class CandidateReport(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    phrase: str
+    candidate_type: str
+    label: str
+    score: float
+    current_mentions: int
+    baseline_mentions: int
+    distinct_sources: int
+    growth_ratio: float | None = None
+    first_seen_at: datetime
+    representative_items: list[RepresentativeItem] = Field(default_factory=list)
+
+    @field_validator("first_seen_at", mode="before")
+    @classmethod
+    def normalize_first_seen_at(cls, value: str | datetime) -> datetime:
+        return parse_datetime_utc(value)
+
+
 class SourceHealthReport(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -90,5 +110,6 @@ class DailyReport(BaseModel):
 
     metadata: ReportMetadata
     entities: list[EntityReport] = Field(default_factory=list)
+    candidates: list[CandidateReport] = Field(default_factory=list)
     source_health: list[SourceHealthReport] = Field(default_factory=list)
     recent_runs: list[CollectorRunReport] = Field(default_factory=list)

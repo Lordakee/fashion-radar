@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import sys
 from importlib import resources
@@ -8,7 +9,11 @@ from pathlib import Path
 from typing import Literal
 
 import typer
+from sqlalchemy import create_engine, inspect, select
 
+from fashion_radar.db.schema import SCHEMA_VERSION, schema_metadata
+from fashion_radar.discovery.candidates import discover_candidates
+from fashion_radar.models.report import CandidateReport
 from fashion_radar.scheduling import (
     render_cron_example,
     render_github_actions_workflow,
@@ -27,6 +32,7 @@ from fashion_radar.workflows import (
     MatchSummary,
     clean_old_data,
     collect_configured_sources,
+    default_database_path,
     match_stored_items,
     write_daily_report_files,
 )
@@ -53,6 +59,12 @@ PORT_OPTION = typer.Option(8501, min=1, max=65535, help="Dashboard port.")
 AS_OF_OPTION = typer.Option(..., help="UTC report timestamp, for example 2026-06-11T12:00:00Z.")
 NOW_OPTION = typer.Option(None, help="UTC collection timestamp override.")
 RETENTION_DAYS_OPTION = typer.Option(30, min=1, help="Retention window in days.")
+CandidateOutputFormat = Literal["table", "json"]
+CANDIDATE_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
 
 
 def _copy_template(name: str, target: Path) -> None:
@@ -211,8 +223,10 @@ def report(
     """Generate Markdown and JSON reports from the local database."""
     try:
         scoring_config = load_scoring_config(config_dir / "scoring.yaml")
+        entity_path = config_dir / "entities.yaml"
+        entity_config = load_entity_config(entity_path) if entity_path.exists() else None
     except ConfigError as exc:
-        typer.echo(f"Invalid scoring config: {exc}", err=True)
+        typer.echo(f"Invalid report config: {exc}", err=True)
         raise typer.Exit(1) from exc
 
     try:
@@ -220,6 +234,8 @@ def report(
             data_dir=data_dir,
             reports_dir=reports_dir,
             scoring=scoring_config.scoring,
+            candidate_discovery=scoring_config.candidate_discovery,
+            entity_config=entity_config,
             as_of=as_of,
         )
     except Exception as exc:
@@ -228,6 +244,66 @@ def report(
 
     typer.echo(f"Wrote Markdown report: {markdown_path}")
     typer.echo(f"Wrote JSON report: {json_path}")
+
+
+@app.command(name="candidates")
+def candidates_command(
+    config_dir: Path = CONFIG_DIR_OPTION,
+    data_dir: Path = DATA_DIR_OPTION,
+    as_of: str = AS_OF_OPTION,
+    limit: int | None = typer.Option(None, min=0, help="Maximum candidates to print."),
+    output_format: CandidateOutputFormat = CANDIDATE_FORMAT_OPTION,
+) -> None:
+    """Print read-only untracked candidate signals from local collected items."""
+    try:
+        scoring_config = load_scoring_config(config_dir / "scoring.yaml")
+        entity_path = config_dir / "entities.yaml"
+        entity_config = load_entity_config(entity_path) if entity_path.exists() else None
+    except ConfigError as exc:
+        typer.echo(f"Invalid candidate config: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    db_path = default_database_path(data_dir)
+    if not db_path.exists():
+        _print_candidate_output([], output_format=output_format)
+        return
+
+    engine = create_engine(
+        f"sqlite:///file:{db_path.as_posix()}?mode=ro&uri=true",
+        future=True,
+    )
+    try:
+        _verify_candidate_database_schema(engine)
+        metrics = discover_candidates(
+            engine,
+            scoring=scoring_config.scoring,
+            settings=scoring_config.candidate_discovery,
+            entity_config=entity_config,
+            as_of=as_of,
+            limit=limit,
+        )
+    except Exception as exc:
+        typer.echo(f"Could not read candidate signals: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    finally:
+        engine.dispose()
+
+    reports = [
+        CandidateReport(
+            phrase=metric.phrase,
+            candidate_type=metric.candidate_type,
+            label=metric.label,
+            score=metric.score,
+            current_mentions=metric.current_mentions,
+            baseline_mentions=metric.baseline_mentions,
+            distinct_sources=metric.distinct_sources,
+            growth_ratio=metric.growth_ratio,
+            first_seen_at=metric.first_seen_at,
+            representative_items=list(metric.representative_items),
+        )
+        for metric in metrics
+    ]
+    _print_candidate_output(reports, output_format=output_format)
 
 
 @app.command()
@@ -324,6 +400,8 @@ def run(
             data_dir=data_dir,
             reports_dir=reports_dir,
             scoring=scoring_config.scoring,
+            candidate_discovery=scoring_config.candidate_discovery,
+            entity_config=entity_config,
             as_of=as_of,
         )
     except ConfigError as exc:
@@ -336,3 +414,44 @@ def run(
     typer.echo(f"Stored {summary.matches_stored} matches")
     typer.echo(f"Wrote Markdown report: {markdown_path}")
     typer.echo(f"Wrote JSON report: {json_path}")
+
+
+def _verify_candidate_database_schema(engine) -> None:
+    table_names = set(inspect(engine).get_table_names())
+    required = {"schema_metadata", "items", "item_entities"}
+    missing = sorted(required - table_names)
+    if missing:
+        raise RuntimeError(f"Database schema is missing required tables: {', '.join(missing)}")
+    with engine.connect() as connection:
+        version = connection.execute(select(schema_metadata.c.version)).scalar_one_or_none()
+    if version != SCHEMA_VERSION:
+        raise RuntimeError(
+            f"Unsupported database schema version {version}; expected {SCHEMA_VERSION}"
+        )
+
+
+def _print_candidate_output(
+    candidates: list[CandidateReport],
+    *,
+    output_format: CandidateOutputFormat,
+) -> None:
+    if output_format == "json":
+        typer.echo(
+            json.dumps(
+                [candidate.model_dump(mode="json") for candidate in candidates],
+                indent=2,
+            )
+        )
+        return
+
+    typer.echo("Candidate signals are observed phrases from configured sources and need review.")
+    if not candidates:
+        typer.echo("No untracked candidate signals in this window.")
+        return
+    typer.echo("Phrase | Type | Label | Score | Current Mentions | Distinct Sources")
+    for candidate in candidates:
+        typer.echo(
+            f"{candidate.phrase} | {candidate.candidate_type} | {candidate.label} | "
+            f"{candidate.score:.2f} | {candidate.current_mentions} | "
+            f"{candidate.distinct_sources}"
+        )

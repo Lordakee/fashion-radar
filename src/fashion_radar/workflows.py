@@ -15,7 +15,7 @@ from fashion_radar.extract.entities import match_entities
 from fashion_radar.models.entity import EntityDefinition
 from fashion_radar.models.source import SourceDefinition, SourceType
 from fashion_radar.reports import build_daily_report, render_json_report, render_markdown_report
-from fashion_radar.settings import ScoringSettings
+from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
 from fashion_radar.utils.dates import parse_datetime_utc
 
 
@@ -43,12 +43,20 @@ def write_daily_report_files(
     reports_dir: Path,
     scoring: ScoringSettings,
     as_of: str | datetime,
+    candidate_discovery: CandidateDiscoverySettings | None = None,
+    entity_config: EntityConfig | None = None,
 ) -> tuple[Path, Path]:
     reports_dir.mkdir(parents=True, exist_ok=True)
     engine = create_sqlite_engine(default_database_path(data_dir))
     initialize_schema(engine)
     as_of_utc = parse_datetime_utc(as_of)
-    report = build_daily_report(engine, scoring=scoring, as_of=as_of_utc)
+    report = build_daily_report(
+        engine,
+        scoring=scoring,
+        candidate_discovery=candidate_discovery,
+        entity_config=entity_config,
+        as_of=as_of_utc,
+    )
     markdown_path, json_path = report_output_paths(reports_dir, as_of_utc)
     markdown_path.write_text(render_markdown_report(report), encoding="utf-8")
     json_path.write_text(render_json_report(report) + "\n", encoding="utf-8")

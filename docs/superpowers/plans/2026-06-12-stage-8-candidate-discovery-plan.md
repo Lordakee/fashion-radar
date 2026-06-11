@@ -75,6 +75,9 @@ class CandidateDiscoverySettings(BaseModel):
     representative_items_per_candidate: int = Field(default=3, ge=0)
     min_current_mentions: int = Field(default=2, ge=1)
     min_distinct_sources: int = Field(default=1, ge=1)
+    rising_growth_ratio: float = Field(default=1.5, gt=1)
+    review_min_current_mentions: int = Field(default=2, ge=1)
+    review_min_distinct_sources: int = Field(default=1, ge=1)
     min_single_token_mentions: int = Field(default=2, ge=1)
     min_single_token_distinct_sources: int = Field(default=2, ge=1)
     max_phrase_words: int = Field(default=5, ge=2)
@@ -158,6 +161,8 @@ def test_candidate_discovery_defaults_load_from_minimal_scoring_config(tmp_path:
     assert config.candidate_discovery.enabled is True
     assert config.candidate_discovery.max_candidates == 20
     assert config.candidate_discovery.min_current_mentions == 2
+    assert config.candidate_discovery.rising_growth_ratio == 1.5
+    assert config.candidate_discovery.review_min_current_mentions == 2
 
 
 def test_candidate_discovery_rejects_invalid_threshold(tmp_path: Path) -> None:
@@ -195,6 +200,9 @@ class CandidateDiscoverySettings(BaseModel):
     representative_items_per_candidate: int = Field(default=3, ge=0)
     min_current_mentions: int = Field(default=2, ge=1)
     min_distinct_sources: int = Field(default=1, ge=1)
+    rising_growth_ratio: float = Field(default=1.5, gt=1)
+    review_min_current_mentions: int = Field(default=2, ge=1)
+    review_min_distinct_sources: int = Field(default=1, ge=1)
     min_single_token_mentions: int = Field(default=2, ge=1)
     min_single_token_distinct_sources: int = Field(default=2, ge=1)
     max_phrase_words: int = Field(default=5, ge=2)
@@ -220,6 +228,9 @@ candidate_discovery:
   representative_items_per_candidate: 3
   min_current_mentions: 2
   min_distinct_sources: 1
+  rising_growth_ratio: 1.5
+  review_min_current_mentions: 2
+  review_min_distinct_sources: 1
   min_single_token_mentions: 2
   min_single_token_distinct_sources: 2
   max_phrase_words: 5
@@ -291,6 +302,51 @@ def test_respects_max_phrase_words_and_chars() -> None:
 
     assert all(len(phrase.phrase.split()) <= 3 for phrase in phrases)
     assert all(len(phrase.phrase) <= 24 for phrase in phrases)
+
+
+def test_prefers_specific_spans_over_noisy_overlap() -> None:
+    phrases = extract_candidate_phrases(
+        "Sandy Liang Mary Jane flats and Le Teckel bag searches rise.",
+        source_name="Fashionista",
+        known_keys=set(),
+    )
+
+    keys = _keys(phrases)
+    assert "sandy liang" in keys
+    assert "mary jane flats" in keys
+    assert "le teckel bag" in keys
+    assert "sandy liang mary jane flats" not in keys
+
+
+def test_known_entity_span_filter_handles_possessives_hyphens_and_ampersands() -> None:
+    phrases = extract_candidate_phrases(
+        "The Row's Margaux bag and Tory Burch-Pierced mule appeared with Proenza Schouler & Birkenstock sandals.",
+        source_name="Fashionista",
+        known_keys={
+            "the row",
+            "margaux",
+            "tory burch",
+            "proenza schouler birkenstock",
+        },
+    )
+
+    keys = _keys(phrases)
+    assert "the row margaux bag" not in keys
+    assert "margaux bag" not in keys
+    assert "tory burch pierced mule" not in keys
+    assert "proenza schouler birkenstock sandals" not in keys
+
+
+def test_single_token_phrases_can_be_extracted_for_later_aggregate_filtering() -> None:
+    settings = CandidateDiscoverySettings(min_single_token_mentions=2)
+    phrases = extract_candidate_phrases(
+        "Tabis returned to the street-style cycle.",
+        source_name="Fashionista",
+        known_keys=set(),
+        settings=settings,
+    )
+
+    assert "tabis" in _keys(phrases)
 ```
 
 - [ ] Run:
@@ -362,8 +418,16 @@ Implementation rules:
 - Tokenize with a regex that keeps letters, digits, apostrophes, ampersands, and hyphens.
 - Extract title-case spans of 2 to `max_phrase_words` words.
 - Extract anchored phrases ending with a fashion anchor.
+- Extract candidate-looking single tokens so `discover_candidates()` can apply
+  aggregate single-token thresholds after counting across items.
+- Prefer specific spans over noisy overlap: emit `Sandy Liang` and `Mary Jane
+  flats`, but do not emit `Sandy Liang Mary Jane flats`; still emit `Le Teckel
+  bag` because the anchor belongs to the observed product phrase.
 - Deduplicate by normalized key in insertion order.
 - Remove keys in `known_keys`, source-name keys, generic stop keys, one-character keys, and values longer than `max_phrase_chars`.
+- Apply known-entity span filtering with normalized tokens from
+  `normalize_alias_key()`, treating possessive suffixes as punctuation and
+  handling hyphens and ampersands through the same normalized token path.
 
 - [ ] Run:
 
@@ -441,6 +505,50 @@ def test_discovers_new_candidate_from_current_window(tmp_path) -> None:
     assert candidate.representative_items[0].title == "Le Teckel bag gains momentum"
 
 
+def test_labels_rising_candidate_when_baseline_exists_and_growth_threshold_is_met(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    _store(engine, title="Pierced mule appears earlier", url="https://example.com/baseline", collected_at=AS_OF - timedelta(days=10))
+    _store(engine, title="Pierced mule gains momentum", url="https://example.com/current-a", collected_at=AS_OF - timedelta(hours=1))
+    _store(engine, title="Pierced mule appears again", url="https://example.com/current-b", source_name="WWD", collected_at=AS_OF - timedelta(hours=2))
+
+    candidates = discover_candidates(
+        engine,
+        scoring=ScoringSettings(current_window_days=7, baseline_window_days=30),
+        settings=CandidateDiscoverySettings(rising_growth_ratio=2.0),
+        entity_config=None,
+        as_of=AS_OF,
+    )
+
+    candidate = next(item for item in candidates if item.normalized_key == "pierced mule")
+    assert candidate.label == "rising_candidate"
+    assert candidate.baseline_mentions == 1
+    assert candidate.current_mentions == 2
+    assert candidate.growth_ratio == pytest.approx((2 / 7) / (1 / 30))
+
+
+def test_labels_review_when_candidate_meets_review_floor_but_not_new_or_rising(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    _store(engine, title="Slim sneaker appears earlier", url="https://example.com/baseline-a", collected_at=AS_OF - timedelta(days=10))
+    _store(engine, title="Slim sneaker appears earlier again", url="https://example.com/baseline-b", collected_at=AS_OF - timedelta(days=11))
+    _store(engine, title="Slim sneaker current mention", url="https://example.com/current-a", collected_at=AS_OF - timedelta(hours=1))
+    _store(engine, title="Slim sneaker current mention again", url="https://example.com/current-b", source_name="WWD", collected_at=AS_OF - timedelta(hours=2))
+
+    candidates = discover_candidates(
+        engine,
+        scoring=ScoringSettings(current_window_days=7, baseline_window_days=30),
+        settings=CandidateDiscoverySettings(rising_growth_ratio=10.0),
+        entity_config=None,
+        as_of=AS_OF,
+    )
+
+    candidate = next(item for item in candidates if item.normalized_key == "slim sneaker")
+    assert candidate.label == "review"
+    assert candidate.current_mentions == 2
+    assert candidate.distinct_sources == 2
+
+
 def test_excludes_configured_and_stored_entities(tmp_path) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
     initialize_schema(engine)
@@ -482,6 +590,59 @@ def test_excludes_configured_and_stored_entities(tmp_path) -> None:
     assert "margaux" not in keys
     assert "the row margaux bag" not in keys
     assert "margaux bag" not in keys
+
+
+def test_stored_entity_filter_uses_min_match_confidence(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    item_id = _store(engine, title="Ghost bag gains momentum", url="https://example.com/ghost", collected_at=AS_OF - timedelta(hours=1))
+    repository.replace_item_matches(
+        item_id,
+        [
+            {
+                "entity_name": "Ghost",
+                "entity_type": "product",
+                "alias": "Ghost",
+                "confidence": 0.2,
+                "reason": "accepted",
+                "context_terms": [],
+            }
+        ],
+    )
+
+    low_confidence_candidates = discover_candidates(
+        engine,
+        scoring=ScoringSettings(min_match_confidence=0.5),
+        settings=CandidateDiscoverySettings(min_current_mentions=1, review_min_current_mentions=1),
+        entity_config=None,
+        as_of=AS_OF,
+    )
+
+    assert "ghost bag" in {candidate.normalized_key for candidate in low_confidence_candidates}
+
+    repository.replace_item_matches(
+        item_id,
+        [
+            {
+                "entity_name": "Ghost",
+                "entity_type": "product",
+                "alias": "Ghost",
+                "confidence": 0.8,
+                "reason": "manual_review_sentinel_not_accepted",
+                "context_terms": [],
+            }
+        ],
+    )
+    high_confidence_candidates = discover_candidates(
+        engine,
+        scoring=ScoringSettings(min_match_confidence=0.5),
+        settings=CandidateDiscoverySettings(min_current_mentions=1, review_min_current_mentions=1),
+        entity_config=None,
+        as_of=AS_OF,
+    )
+
+    assert "ghost bag" not in {candidate.normalized_key for candidate in high_confidence_candidates}
 
 
 def test_uses_collected_at_windows_and_ignores_future_items(tmp_path) -> None:
@@ -529,6 +690,26 @@ def test_candidate_discovery_settings_control_output(tmp_path) -> None:
     assert disabled == []
     assert len(limited) == 1
     assert len(limited[0].representative_items) == 1
+
+
+def test_single_token_candidates_require_aggregate_thresholds(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    _store(engine, title="Tabis return", url="https://example.com/tabis-a", collected_at=AS_OF - timedelta(hours=1))
+    _store(engine, title="Tabis appear again", url="https://example.com/tabis-b", source_name="WWD", collected_at=AS_OF - timedelta(hours=2))
+    _store(engine, title="Skort returns", url="https://example.com/skort", source_name="Elle", collected_at=AS_OF - timedelta(hours=3))
+
+    candidates = discover_candidates(
+        engine,
+        scoring=ScoringSettings(),
+        settings=CandidateDiscoverySettings(),
+        entity_config=None,
+        as_of=AS_OF,
+    )
+
+    keys = {candidate.normalized_key for candidate in candidates}
+    assert "tabis" in keys
+    assert "skort" not in keys
 ```
 
 - [ ] Run:
@@ -545,12 +726,24 @@ Implementation requirements:
 
 - Query retained `items` rows with `collected_at` in `(baseline_start, as_of]`.
 - Ignore rows whose `collected_at` is later than `as_of`.
-- Build known keys from `entity_config`, stored accepted `item_entities.entity_name`, and stored accepted `item_entities.alias`.
+- Build known keys from `entity_config`, plus stored `item_entities.entity_name`
+  and `item_entities.alias` rows where
+  `item_entities.confidence >= scoring.min_match_confidence`.
+- Do not additionally require `item_entities.reason == "accepted"` because the
+  existing entity scoring path uses confidence as the accepted-match predicate.
 - Extract candidates from each item text.
 - Count each `normalized_key` at most once per item.
 - Split current and baseline windows using `collected_at`.
 - Apply single-token thresholds after aggregation.
-- Apply `settings.min_current_mentions`, `settings.min_distinct_sources`, and `limit`.
+- Apply `settings.review_min_current_mentions`,
+  `settings.review_min_distinct_sources`, and `limit` as the output inclusion
+  floor.
+- Use `settings.min_current_mentions` and `settings.min_distinct_sources` as
+  `new_candidate` and `rising_candidate` label thresholds.
+- Label `rising_candidate` only when baseline mentions exist and
+  `growth_ratio >= settings.rising_growth_ratio`.
+- Label `review` only when the candidate meets the `review_*` inclusion floor
+  but does not meet `new_candidate` or `rising_candidate`.
 - If `settings.enabled` is false, return an empty list.
 - Use `settings.max_candidates` when `limit is None`.
 - Use `min(limit, settings.max_candidates)` when both are provided.
@@ -594,13 +787,15 @@ Expected: passes.
 - Modify: `tests/test_reports.py`
 - Modify: `tests/test_cli.py`
 
-- [ ] Add report tests:
+- [ ] Add report tests. Extend `tests/test_reports.py` imports with
+  `CandidateDiscoverySettings`, `EntityConfig`, `EntityDefinition`, and
+  `EntityType`:
 
 ```python
 def test_daily_report_includes_untracked_candidate_signals(tmp_path) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
     initialize_schema(engine)
-    _store_item(
+    sentinel_item_id = _store_item(
         engine,
         url="https://example.com/le-teckel-a",
         entity_name="Tracked Placeholder",
@@ -616,6 +811,10 @@ def test_daily_report_includes_untracked_candidate_signals(tmp_path) -> None:
         collected_at=AS_OF - timedelta(hours=2),
         summary="Le Teckel bag appears again.",
     )
+    sentinel_match = ItemRepository(engine).list_item_matches(sentinel_item_id)[0]
+    assert sentinel_match["alias"] == "raw alias must stay internal"
+    assert sentinel_match["reason"] == "raw reason must stay internal"
+    assert sentinel_match["context_terms"] == ["raw context must stay internal"]
 
     report = build_daily_report(
         engine,
@@ -643,7 +842,25 @@ def test_daily_report_includes_untracked_candidate_signals(tmp_path) -> None:
     assert parsed["candidates"][0]["representative_items"][0]["source_name"] == "Fashionista"
     assert parsed["candidates"][0]["representative_items"][0]["source_url"] == "https://example.com/le-teckel-a"
     assert "Le Teckel bag demand is accelerating." in parsed["candidates"][0]["representative_items"][0]["summary"]
-    assert "content_hash" not in json.dumps(parsed["candidates"])
+    serialized_candidates = json.dumps(parsed["candidates"])
+    assert set(parsed["candidates"][0]["contexts"]) <= {
+        "proper_name_span",
+        "fashion_anchor",
+        "single_token",
+    }
+    for forbidden in (
+        "content_hash",
+        "normalized_key",
+        "normalized_url",
+        '"id"',
+        "raw reason must stay internal",
+        "raw alias must stay internal",
+        "raw context must stay internal",
+        "context_terms",
+        "raw extraction context",
+    ):
+        assert forbidden not in serialized_candidates
+        assert forbidden not in markdown
 
 
 def test_empty_candidate_section_is_useful(tmp_path) -> None:
@@ -661,12 +878,161 @@ def test_empty_candidate_section_is_useful(tmp_path) -> None:
 
     assert report.candidates == []
     assert "No untracked candidate signals in this window." in render_markdown_report(report)
+
+
+def test_report_candidate_filter_uses_entity_config_without_stored_matches(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Fashionista",
+            source_type=SourceType.RSS,
+            url="https://example.com/the-row-margaux-a",
+            title="The Row Margaux bag gains momentum",
+            published_at=AS_OF - timedelta(hours=1),
+            summary="The Row Margaux bag gets coverage.",
+        ),
+        collected_at=AS_OF - timedelta(hours=1),
+    )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="WWD",
+            source_type=SourceType.RSS,
+            url="https://example.com/the-row-margaux-b",
+            title="Margaux bag appears again",
+            published_at=AS_OF - timedelta(hours=2),
+            summary="Another configured source mentions Margaux bag.",
+        ),
+        collected_at=AS_OF - timedelta(hours=2),
+    )
+    entity_config = EntityConfig(
+        entities=[
+            EntityDefinition(
+                name="The Row",
+                type=EntityType.BRAND,
+                aliases=[{"value": "The Row"}],
+                context_terms=["bag"],
+            ),
+            EntityDefinition(
+                name="Margaux",
+                type=EntityType.PRODUCT,
+                aliases=[{"value": "Margaux"}],
+                context_terms=["bag"],
+            ),
+        ]
+    )
+
+    report = build_daily_report(
+        engine,
+        scoring=ScoringSettings(),
+        candidate_discovery=CandidateDiscoverySettings(),
+        entity_config=entity_config,
+        as_of=AS_OF,
+        generated_at=AS_OF,
+    )
+
+    assert "margaux" not in json.dumps([candidate.model_dump() for candidate in report.candidates]).lower()
+```
+
+- [ ] Add a `run` acceptance test proving loaded `entities.yaml` is passed into
+  candidate report generation, not only stored `item_entities`:
+
+```python
+def test_run_command_writes_candidate_report_filtered_by_loaded_entities(monkeypatch, tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    reports_dir.mkdir()
+    (config_dir / "sources.yaml").write_text("version: 1\nsources: []\n", encoding="utf-8")
+    (config_dir / "scoring.yaml").write_text(
+        """
+version: 1
+scoring: {}
+candidate_discovery:
+  min_current_mentions: 1
+  review_min_current_mentions: 1
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (config_dir / "entities.yaml").write_text(
+        """
+version: 1
+entities:
+  - name: The Row
+    type: brand
+    aliases: [The Row]
+    context_terms: [bag]
+  - name: Margaux
+    type: product
+    aliases: [Margaux]
+    context_terms: [bag]
+""".lstrip(),
+        encoding="utf-8",
+    )
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Fashionista",
+            source_type=SourceType.RSS,
+            url="https://example.com/the-row-margaux",
+            title="The Row Margaux bag gains attention",
+            published_at="2026-06-11T10:00:00Z",
+            summary="The Row Margaux bag appears in coverage.",
+        ),
+        collected_at=datetime(2026, 6, 11, 11, 0, tzinfo=UTC),
+    )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="WWD",
+            source_type=SourceType.RSS,
+            url="https://example.com/le-teckel",
+            title="Le Teckel bag gains attention",
+            published_at="2026-06-11T10:30:00Z",
+            summary="Le Teckel bag appears in coverage.",
+        ),
+        collected_at=datetime(2026, 6, 11, 11, 30, tzinfo=UTC),
+    )
+
+    monkeypatch.setattr(cli_module, "collect_configured_sources", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        cli_module,
+        "match_stored_items",
+        lambda **_kwargs: cli_module.MatchSummary(items_processed=1, matches_stored=0),
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads((reports_dir / "fashion-radar-2026-06-11.json").read_text(encoding="utf-8"))
+    candidate_keys = {candidate["phrase"].lower() for candidate in payload["candidates"]}
+    serialized_candidates = json.dumps(payload["candidates"]).lower()
+    assert "le teckel bag" in candidate_keys
+    assert "margaux" not in serialized_candidates
+    assert "the row" not in serialized_candidates
 ```
 
 - [ ] Run:
 
 ```bash
-.venv/bin/python -m pytest tests/test_reports.py -q
+.venv/bin/python -m pytest tests/test_reports.py tests/test_cli.py::test_run_command_writes_candidate_report_filtered_by_loaded_entities -q
 ```
 
 Expected: fails because report models and renderer do not include candidates.
@@ -768,6 +1134,7 @@ Expected: passes.
 
 ```python
 import json
+import sqlite3
 
 
 def _prepare_candidate_cli_fixture(tmp_path: Path) -> tuple[Path, Path]:
@@ -879,6 +1246,70 @@ def test_candidates_command_is_read_only_when_database_is_missing(tmp_path: Path
     assert result.exit_code == 0
     assert json.loads(result.output) == []
     assert not (data_dir / "fashion-radar.sqlite").exists()
+
+
+def test_candidates_command_does_not_create_missing_data_directory(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "missing-data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == []
+    assert not data_dir.exists()
+
+
+def test_candidates_command_rejects_incompatible_database_without_schema_mutation(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+    db_path = data_dir / "fashion-radar.sqlite"
+    db_path.touch()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "schema" in result.output.lower()
+    with sqlite3.connect(db_path) as connection:
+        table_names = {
+            row[0]
+            for row in connection.execute(
+                "select name from sqlite_master where type = 'table'"
+            )
+        }
+    assert table_names == set()
 ```
 
 - [ ] Run:
@@ -911,10 +1342,23 @@ Implementation requirements:
 - Load `scoring.yaml`.
 - Try to load `entities.yaml`; continue with `None` only if the file is missing.
 - If `fashion-radar.sqlite` does not exist, return an empty result without
-  creating the database file.
+  creating the database file or parent data directory.
+- Check `db_path.exists()` before creating any SQLAlchemy engine, because
+  `create_sqlite_engine(path)` creates parent directories and a normal SQLite
+  connection can create an empty database file.
 - If the database exists, create the SQLite engine without calling
   `initialize_schema()` in this command path. The command is read-only and must
   not create tables, write `schema_metadata`, or migrate schema.
+- Use a read-only SQLite URI, for example:
+
+```python
+engine = create_engine(f"sqlite:///file:{db_path.as_posix()}?mode=ro&uri=true", future=True)
+```
+
+- Inspect required tables and `schema_metadata.version` through the read-only
+  connection before querying candidates. If required tables are missing or the
+  schema version is unsupported, print a user-facing error and exit non-zero
+  without mutating the database.
 - If the existing database schema is incompatible, show a user-facing error
   rather than mutating it.
 - Call `discover_candidates`.
@@ -1012,6 +1456,19 @@ def test_latest_candidate_report_preserves_date_when_no_candidates(tmp_path: Pat
         "candidate_count": 0,
         "rows": [],
     }
+
+
+def test_latest_candidate_report_returns_error_metadata_for_malformed_json(tmp_path: Path) -> None:
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "fashion-radar-2026-06-11.json").write_text("{not-json", encoding="utf-8")
+
+    report = latest_candidate_report(reports_dir)
+
+    assert report["report_date"] is None
+    assert report["candidate_count"] == 0
+    assert report["rows"] == []
+    assert report["error"].startswith("Could not parse latest report JSON")
 ```
 
 - [ ] Run:
@@ -1028,6 +1485,8 @@ Expected: fails until dashboard helpers exist.
 def latest_report_path(reports_dir: Path) -> Path | None:
     if not reports_dir.exists():
         return None
+    # Report filenames are produced by report_output_paths() as
+    # fashion-radar-YYYY-MM-DD.json, so lexicographic order matches report date.
     candidates = sorted(reports_dir.glob("fashion-radar-*.json"))
     return candidates[-1] if candidates else None
 
@@ -1040,7 +1499,15 @@ def latest_candidate_report(reports_dir: Path) -> dict[str, Any]:
     path = latest_report_path(reports_dir)
     if path is None:
         return {"report_date": None, "candidate_count": 0, "rows": []}
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {
+            "report_date": None,
+            "candidate_count": 0,
+            "rows": [],
+            "error": f"Could not parse latest report JSON {path.name}: {exc}",
+        }
     report_date = payload.get("metadata", {}).get("report_date")
     rows = []
     for candidate in payload.get("candidates", []):
@@ -1062,6 +1529,9 @@ def latest_candidate_report(reports_dir: Path) -> dict[str, Any]:
 - [ ] Add a `Candidate Signals` tab to `dashboard/app.py` that displays `latest_candidate_rows(args.reports_dir)` without triggering collection, matching, report generation, or network calls.
 - [ ] In the dashboard tab, show the report date from `latest_candidate_report`
   even when there are no candidate rows.
+- [ ] If `latest_candidate_report(args.reports_dir)` contains an `error` key,
+  render that message with `st.warning()` and show an empty table rather than
+  letting malformed JSON crash Streamlit.
 - [ ] In the dashboard tab, include a short caption using bounded language:
   `Candidate signals are observed phrases from configured sources and need review.`
   Do not use viral, global, market-wide, or confirmed-brand/product language.
@@ -1142,7 +1612,9 @@ rm -rf /tmp/fashion-radar-dist-stage8
 uv build --out-dir /tmp/fashion-radar-dist-stage8
 tmpdir="$(mktemp -d)"
 uv venv "$tmpdir/venv"
-UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv pip install --python "$tmpdir/venv/bin/python" /tmp/fashion-radar-dist-stage8/fashion_radar-0.1.0-py3-none-any.whl
+wheel="$(find /tmp/fashion-radar-dist-stage8 -maxdepth 1 -name 'fashion_radar-*.whl' | sort | tail -n 1)"
+test -n "$wheel"
+UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv pip install --python "$tmpdir/venv/bin/python" "$wheel"
 "$tmpdir/venv/bin/fashion-radar" candidates --help
 "$tmpdir/venv/bin/python" - <<'PY'
 from importlib import resources

@@ -27,11 +27,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Actions.
 - Public RSS/GDELT fashion source-pack example.
 - Scheduling and source-pack documentation.
+- Stage 8 candidate discovery documentation for observed phrases, review
+  windows, CLI usage, report/dashboard behavior, and source boundaries.
 
 ### Not Included In 0.1.0
 
 - No default Google News RSS connector.
-- No Instagram/TikTok/X/Xiaohongshu scraping.
-- No paid API requirement for the core workflow.
-- No login cookies, account/session files, proxy/account pools, CAPTCHA bypass,
-  paywall bypass, or private data collection.
+- No broad non-core platform connector in the default workflow.
+- No paid external-service requirement for the core workflow.
+- No account-based collection, access-control bypass, or private data
+  collection.

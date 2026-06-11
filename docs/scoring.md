@@ -1,8 +1,8 @@
 # Scoring
 
 Fashion Radar scores entities from local matched items. Scores are useful for
-ranking signals inside your configured source set; they are not global market or
-social-platform rankings.
+ranking signals inside your configured source set; they are not rankings outside
+that configured source set.
 
 ## Inputs
 
@@ -113,6 +113,26 @@ does not have a row, scoring falls back to the earliest retained item mention.
 Keeping stable first-seen outside retained item history prevents old entities
 from being mislabeled as new after old items are pruned.
 
+## Candidate Signals
+
+Candidate discovery uses the same `current_window_days`,
+`baseline_window_days`, and `collected_at` window boundaries as entity scoring.
+Instead of scoring configured entities, it reviews observed phrases in retained
+local item titles and summaries from configured sources.
+
+Candidate labels use their own `candidate_discovery` thresholds in
+`scoring.yaml`:
+
+- `new_candidate` means the observed phrase has current-window mentions, no
+  retained baseline mentions, and meets the configured mention/source floors.
+- `rising_candidate` means the observed phrase has retained baseline mentions
+  and meets the configured growth, mention, and source floors.
+- `review` means the observed phrase meets the lower review floors but still
+  needs review before being tracked.
+
+`first_seen_at` for a candidate signal is based on retained local item history.
+It can change after old items are pruned.
+
 ## Tuning
 
 See `configs/scoring.example.yaml`.
@@ -129,6 +149,6 @@ See `configs/scoring.example.yaml`.
 
 - Scores only reflect configured sources.
 - Counts use collected time, not necessarily publication time.
-- Dashboard mention tabs currently show mention counts, not this full heat
-  ranking.
-- There is no image/video or social-platform engagement analysis in v0.1.0.
+- Dashboard mention tabs show mention counts, while candidate signal views read
+  the latest report JSON.
+- There is no image/video or external engagement analysis in v0.1.0.

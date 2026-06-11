@@ -12,6 +12,7 @@ YAML config
   -> store items in SQLite
   -> match configured entities
   -> score current vs baseline windows
+  -> discover candidate signals from retained local items
   -> write Markdown/JSON reports
   -> inspect read-only dashboard
 ```
@@ -29,6 +30,8 @@ YAML config
   broad aliases.
 - **Scoring:** Local heat metrics over configured time windows, based on
   matched entities and item `collected_at` timestamps.
+- **Candidate Discovery:** Deterministic observed-phrase review over retained
+  local item titles and summaries from configured sources.
 - **Reports:** Markdown and JSON daily reports rendered from packaged
   templates.
 - **Dashboard:** Optional Streamlit UI that reads local SQLite/report state.
@@ -65,6 +68,7 @@ fashion-radar doctor
 fashion-radar collect
 fashion-radar match
 fashion-radar report --as-of 2026-06-11T12:00:00Z
+fashion-radar candidates --as-of 2026-06-11T12:00:00Z
 ```
 
 `run` executes `collect -> match -> report` serially in one local process:
@@ -75,11 +79,20 @@ fashion-radar run --as-of 2026-06-11T12:00:00Z
 
 There are no parallel database writers in the MVP workflow.
 
+## Candidate Discovery Boundary
+
+Candidate discovery does not add collectors or source types. It reads retained
+local SQLite rows, filters configured and already matched tracked entities, and
+surfaces candidate signals as observed phrases that need review from configured
+sources.
+
+The read-only `candidates` command computes the same review-oriented signals
+without writing report files.
+
 ## Source Boundary
 
-The core collector set is RSS, RSSHub-compatible feeds, and GDELT. Social
-platform scraping is not part of v0.1.0. See
-[source-boundaries.md](source-boundaries.md).
+The core collector set is RSS, RSSHub-compatible feeds, and GDELT. Non-core
+platform collection is not part of v0.1.0. See [source-boundaries.md](source-boundaries.md).
 
 ## Dashboard Boundary
 
@@ -89,6 +102,8 @@ does not call collectors, run matching, write reports, or perform network
 fetches.
 
 The dashboard defaults to `127.0.0.1:8501` and has no authentication layer.
+The candidate signal view reads the latest report JSON and may be stale until a
+new report is generated.
 
 ## Package Extras
 

@@ -3,8 +3,7 @@
 # - rsshub: RSSHub-compatible feeds when you accept the upstream route terms
 # - gdelt: GDELT Doc API metadata search
 #
-# Instagram, TikTok, X/Twitter, and Xiaohongshu/RedNote scraping are not part of
-# the core workflow.
+# Broad social-platform collection is not part of the core workflow.
 version: 1
 sources:
   - name: Fashionista

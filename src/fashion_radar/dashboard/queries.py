@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,50 @@ from fashion_radar.db.schema import item_entities, items, source_health
 
 def database_path(data_dir: Path) -> Path:
     return data_dir / "fashion-radar.sqlite"
+
+
+def latest_report_path(reports_dir: Path) -> Path | None:
+    if not reports_dir.exists():
+        return None
+    # report_output_paths() writes fashion-radar-YYYY-MM-DD.json.
+    candidates = sorted(reports_dir.glob("fashion-radar-*.json"))
+    return candidates[-1] if candidates else None
+
+
+def latest_candidate_rows(reports_dir: Path) -> list[dict[str, Any]]:
+    return latest_candidate_report(reports_dir)["rows"]
+
+
+def latest_candidate_report(reports_dir: Path) -> dict[str, Any]:
+    path = latest_report_path(reports_dir)
+    if path is None:
+        return {"report_date": None, "candidate_count": 0, "rows": []}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {
+            "report_date": None,
+            "candidate_count": 0,
+            "rows": [],
+            "error": f"Could not parse latest report JSON {path.name}: {exc}",
+        }
+
+    report_date = payload.get("metadata", {}).get("report_date")
+    rows = []
+    for candidate in payload.get("candidates", []):
+        rows.append(
+            {
+                "phrase": candidate.get("phrase", ""),
+                "candidate_type": candidate.get("candidate_type", ""),
+                "label": candidate.get("label", ""),
+                "score": candidate.get("score", 0.0),
+                "current_mentions": candidate.get("current_mentions", 0),
+                "baseline_mentions": candidate.get("baseline_mentions", 0),
+                "distinct_sources": candidate.get("distinct_sources", 0),
+                "report_date": report_date,
+            }
+        )
+    return {"report_date": report_date, "candidate_count": len(rows), "rows": rows}
 
 
 def dashboard_summary(data_dir: Path) -> dict[str, Any]:

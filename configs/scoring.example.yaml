@@ -26,3 +26,17 @@ scoring:
   stable_min_mentions: 1
   # Accepted matcher rows below this confidence are excluded from scoring.
   min_match_confidence: 0.5
+
+candidate_discovery:
+  enabled: true
+  max_candidates: 20
+  representative_items_per_candidate: 3
+  min_current_mentions: 2
+  min_distinct_sources: 1
+  rising_growth_ratio: 1.5
+  review_min_current_mentions: 2
+  review_min_distinct_sources: 1
+  min_single_token_mentions: 2
+  min_single_token_distinct_sources: 2
+  max_phrase_words: 5
+  max_phrase_chars: 80

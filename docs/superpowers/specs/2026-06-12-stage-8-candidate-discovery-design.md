@@ -77,6 +77,7 @@ Candidate discovery uses these existing local fields:
 - `item_entities.entity_name`
 - `item_entities.alias`
 - `item_entities.confidence`
+- `item_entities.reason`
 
 The feature uses `collected_at` for current and baseline windows, matching
 existing heat scoring semantics.
@@ -113,11 +114,22 @@ Rules:
 - Deduplicate candidates per item by `normalized_key`.
 - Allow single-token candidates only if aggregate metrics meet stronger
   thresholds.
+- Prefer explicit spans over noisy overlap. For `Sandy Liang Mary Jane flats`,
+  emit `Sandy Liang` and `Mary Jane flats`, and do not emit the composite
+  `Sandy Liang Mary Jane flats`. For `Le Teckel bag`, emit `Le Teckel bag`
+  because the fashion anchor is part of the observed product phrase.
+- Anchored phrases may include up to three adjacent non-anchor tokens before
+  the anchor. If a longer anchored phrase starts with a separate two-word
+  proper-name span and has a trailing anchored product phrase, split it into
+  those two candidates instead of surfacing the full composite.
 
 Filtering removes:
 
 - Configured entity names and aliases from `entities.yaml` when available.
-- Accepted stored `item_entities` names and aliases.
+- Stored `item_entities` names and aliases where
+  `item_entities.confidence >= scoring.min_match_confidence`. Discovery does
+  not additionally require `reason == "accepted"` because the existing scoring
+  path treats confidence as the accepted-match predicate.
 - Source-name tokens.
 - Generic fashion/media words.
 - Days, months, seasons, years, broad cities, and generic event phrases such as
@@ -126,6 +138,13 @@ Filtering removes:
 If a candidate phrase contains a configured or stored known entity key as a
 complete token span, reject the full phrase rather than surfacing a composite
 leak such as `the row margaux bag` or `margaux bag`.
+
+Known-entity span checks normalize both candidate and known keys with
+`normalize_alias_key()`, compare token sequences, treat possessive suffixes as
+punctuation, and handle hyphens and ampersands through the same normalized token
+path. Examples that must be rejected when their known keys are configured or
+stored include `The Row's Margaux bag`, `The Row's Margaux`, `Tory
+Burch-Pierced mule`, and `Proenza Schouler & Birkenstock sandal`.
 
 If `entities.yaml` is missing in a direct report path, discovery falls back to
 stored `item_entities` filtering. It must not break the existing `report`
@@ -184,11 +203,21 @@ weighted_current_mentions
 
 Labels:
 
-- `new_candidate`: baseline mentions are 0 and current mentions meet threshold.
-- `rising_candidate`: baseline exists, current mentions meet threshold, and
-  growth ratio meets threshold.
-- `review`: candidate has enough evidence to show but not enough for the first
-  two labels.
+- `new_candidate`: `baseline_mentions == 0`,
+  `current_mentions >= candidate_discovery.min_current_mentions`, and
+  `distinct_sources >= candidate_discovery.min_distinct_sources`.
+- `rising_candidate`: `baseline_mentions > 0`,
+  `current_mentions >= candidate_discovery.min_current_mentions`,
+  `distinct_sources >= candidate_discovery.min_distinct_sources`, and
+  `growth_ratio >= candidate_discovery.rising_growth_ratio`.
+- `review`: candidate meets the inclusion floor
+  `current_mentions >= candidate_discovery.review_min_current_mentions` and
+  `distinct_sources >= candidate_discovery.review_min_distinct_sources`, but
+  does not meet the `new_candidate` or `rising_candidate` contracts.
+
+The inclusion floor for output is the `review_*` threshold pair. The
+`min_current_mentions` and `min_distinct_sources` fields are label thresholds
+for `new_candidate` and `rising_candidate`.
 
 Sort order is deterministic:
 
@@ -210,6 +239,9 @@ candidate_discovery:
   representative_items_per_candidate: 3
   min_current_mentions: 2
   min_distinct_sources: 1
+  rising_growth_ratio: 1.5
+  review_min_current_mentions: 2
+  review_min_distinct_sources: 1
   min_single_token_mentions: 2
   min_single_token_distinct_sources: 2
   max_phrase_words: 5
@@ -258,6 +290,12 @@ fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as
 The command reads local SQLite and config, prints candidates, and does not write
 reports or mutate `entities.yaml`.
 
+The command must check whether `fashion-radar.sqlite` exists before creating an
+engine. For an existing database it must use a read-only SQLite URI or an
+equivalent explicitly non-mutating connection, inspect schema compatibility
+without calling `initialize_schema()`, and fail with a user-facing error instead
+of creating tables, writing `schema_metadata`, or running migrations.
+
 ## Dashboard Output
 
 Add a "Candidate Signals" dashboard tab.
@@ -268,7 +306,11 @@ write a report, call the network, or recompute phrase extraction on page load.
 
 The UI should show report date or staleness so users know the dashboard reflects
 the latest report file, not necessarily the newest DB row. The dashboard helper
-must return report metadata even when the latest report has zero candidate rows.
+selects the latest report by the `fashion-radar-YYYY-MM-DD.json` filename
+contract used by `report_output_paths()`, and must return report metadata even
+when the latest report has zero candidate rows. If the latest JSON report is
+malformed, the helper must return empty rows plus clear error metadata so the
+Streamlit app can render a message instead of crashing.
 
 ## Safety And Language
 
