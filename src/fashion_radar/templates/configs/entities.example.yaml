@@ -47,7 +47,7 @@ entities:
     aliases:
       - value: ballet flats
       - value: ballet flat
-    context_terms: [shoes, flats]
+    context_terms: [shoes, footwear]
     category_tags: [shoes]
     active_from: "2024-01-01T00:00:00Z"
   - name: Quiet Luxury

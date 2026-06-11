@@ -354,6 +354,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "python-dateutil" },
     { name = "pyyaml" },
+    { name = "sqlalchemy" },
     { name = "typer" },
 ]
 
@@ -373,9 +374,6 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
-]
-storage = [
-    { name = "sqlalchemy" },
 ]
 
 [package.dev-dependencies]
@@ -398,13 +396,13 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "robotexclusionrulesparser", marker = "extra == 'collectors'", specifier = ">=1.7.1" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.6" },
-    { name = "sqlalchemy", marker = "extra == 'storage'", specifier = ">=2.0.36" },
+    { name = "sqlalchemy", specifier = ">=2.0.36" },
     { name = "streamlit", marker = "extra == 'dashboard'", specifier = ">=1.41.1" },
     { name = "tenacity", marker = "extra == 'collectors'", specifier = ">=9.0.0" },
     { name = "trafilatura", marker = "extra == 'collectors'", specifier = ">=2.0.0" },
     { name = "typer", specifier = ">=0.15.1" },
 ]
-provides-extras = ["collectors", "storage", "dashboard", "dev"]
+provides-extras = ["collectors", "dashboard", "dev"]
 
 [package.metadata.requires-dev]
 dev = [
