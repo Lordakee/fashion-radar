@@ -539,39 +539,165 @@ tests/test_config.py
 
 ## Stage 5: CLI And Dashboard
 
-**Goal:** Provide a usable local command line workflow and Streamlit dashboard.
+**Goal:** Provide a usable local command line workflow and read-only Streamlit
+dashboard on top of the Stage 2-4 data pipeline.
+
+**Stage 5 plan review status:** Submit this updated Stage 5 plan to Claude Code
+with the Stage 4 code review before writing Stage 5 implementation code.
+
+**Dependency decision:** Keep `pandas` and `streamlit` in the existing
+`dashboard` optional extra. Core CLI commands (`collect`, `match`, `report`,
+`run`, and `clean-old-data`) must not import Streamlit or pandas. The
+`dashboard` command should lazy-check Streamlit availability and fail with a
+clear install hint such as `uv sync --extra dashboard` or
+`pip install "fashion-radar[dashboard]"`.
+
+**Workflow contract:**
+
+- Default database path is `<data-dir>/fashion-radar.sqlite`.
+- `collect` loads `sources.yaml`, initializes/migrates SQLite, runs RSS/GDELT
+  collectors through `collect_sources()`, records run/source health, and never
+  invokes social-platform scraping or login-cookie collection.
+- `match` loads `entities.yaml`, reads stored items, runs deterministic
+  `match_entities()` against title + short summary, and stores accepted matches
+  through `ItemRepository.replace_item_matches()`.
+- `report` loads `scoring.yaml`, builds the Stage 4 `DailyReport`, and writes
+  Markdown and JSON under `<reports-dir>`. It must require or derive an explicit
+  UTC `as_of` value and pass it into report generation.
+- `run` executes `collect -> match -> report` in one local serial process.
+- Per-source collection failures are persisted and reported but should not make
+  the whole `collect`/`run` command fail unless configuration, database
+  initialization, or workflow setup fails.
+- Generated reports must remain serialization-boundary safe: no `content_hash`,
+  normalized URL, full article text, or raw matcher rows.
+
+**Dashboard contract:**
+
+- Dashboard reads SQLite only; page import and refresh must not trigger network
+  collection or matching.
+- Dashboard binds to `127.0.0.1` by default. Any host override must be explicit.
+- Initial dashboard pages: Daily Brief, Brand Heat, Product Radar, Celebrity
+  Style, and Source Health. These can share query helpers and may use simple
+  Streamlit tables/charts first.
+- Empty database and stale data states should render clear messages rather than
+  tracebacks.
+
+**Pruning contract:** `clean-old-data` deletes items older than a retention
+window based on `items.collected_at` and does not delete collector run/source
+health history in Stage 5 unless a separate retention flag is added and tested.
+Do not rely on SQLite `ON DELETE CASCADE` for match cleanup because SQLite
+foreign-key enforcement is off unless explicitly enabled per connection. Stage 5
+must either enable `PRAGMA foreign_keys=ON` in `create_sqlite_engine()` or,
+preferably for the MVP, explicitly delete `item_entities` rows for pruned item
+ids before deleting from `items`; tests must prove no orphan matcher rows remain
+even when SQLite FK cascade would otherwise be inert.
+
+**Stable first-seen contract:** Stage 4 derives `first_seen_at` from retained
+item history, which is correct before pruning. Stage 5 pruning can otherwise
+make a long-lived entity appear `new` after its older items are deleted. Stage 5
+therefore bumps the lightweight schema version from `3` to `4` before
+`clean-old-data` lands and adds an `entity_first_seen` table keyed by
+`entity_name` and `entity_type`, with at least `first_seen_at` and
+`last_seen_at`. `match_stored_items()` must upsert this table from accepted
+matches using the matched item's `collected_at`; scoring should prefer this
+stable table for `first_seen_at` and fall back to retained item history only
+when no stable row exists. Tests must prune old items and prove a previously
+seen entity is not re-labeled `new`.
 
 **Planned files:**
 
 ```text
 src/fashion_radar/cli.py
-src/fashion_radar/dashboard.py
+src/fashion_radar/workflows.py
+src/fashion_radar/scoring.py
+src/fashion_radar/db/schema.py
+src/fashion_radar/db/repositories.py
+src/fashion_radar/dashboard/__init__.py
+src/fashion_radar/dashboard/app.py
+src/fashion_radar/dashboard/queries.py
 tests/test_cli.py
+tests/test_workflows.py
+tests/test_dashboard.py
+tests/test_db.py
 ```
 
 **TDD tasks:**
 
-- [ ] Write failing CLI tests for `fashion-radar init`.
-- [ ] Implement `init` command.
-- [ ] Write failing CLI tests for `collect`, `score`, `report`, and `run` against fixture/temp data.
-- [ ] Implement CLI workflow commands.
-- [ ] Write failing CLI tests for helpful errors on missing config and invalid YAML.
-- [ ] Implement helpful CLI errors.
-- [ ] Write failing tests or command construction checks proving dashboard binds to localhost by default.
-- [ ] Implement `dashboard` command that launches Streamlit on localhost by default.
-- [ ] Write failing tests for `clean-old-data` command behavior.
-- [ ] Implement `clean-old-data` pruning command with configurable retention days.
-- [ ] Build Streamlit pages for Daily Brief, Brand Heat, Product Radar, Celebrity Style, and Source Health.
-- [ ] Run `pytest`, `ruff`, and a dashboard import smoke check.
+- [ ] Ask Claude Code to review this updated Stage 5 plan with the Stage 4 code.
+- [ ] Write failing workflow tests for deriving default database/report paths
+  from CLI directories.
+- [ ] Implement path helpers for the default SQLite database and report output
+  filenames.
+- [ ] Write failing CLI tests for `collect` using fake collectors or monkeypatch
+  seams so tests do not access the network.
+- [ ] Implement `collect` command by loading source config, initializing schema,
+  constructing RSS/GDELT collectors, and calling `collect_sources()`.
+- [ ] Write failing workflow tests for item matching from stored title +
+  summary into `item_entities`.
+- [ ] Implement a reusable `match_stored_items()` workflow and minimal
+  repository query needed to read stored item text safely.
+- [ ] Write failing schema tests for Stage 5 version `3` to `4` migration that
+  adds `entity_first_seen` without deleting existing data.
+- [ ] Implement the schema v4 migration and repository helpers for stable
+  entity first-seen/last-seen tracking.
+- [ ] Write failing workflow tests that accepted matches update
+  `entity_first_seen` using item `collected_at` and preserve the earliest
+  first-seen timestamp across repeated matching.
+- [ ] Update `match_stored_items()` to persist stable first-seen/last-seen
+  records.
+- [ ] Write failing CLI tests for `match` with fixture DB/config data.
+- [ ] Implement `match` command.
+- [ ] Write failing scoring tests proving `score_entities()` prefers
+  `entity_first_seen.first_seen_at` over retained item history when deciding the
+  `new` label, with a backward-compatible fallback when the table row is absent.
+- [ ] Implement stable first-seen support in scoring.
+- [ ] Write failing CLI tests for `report` writing `.md` and `.json` files from
+  fixture DB data with explicit UTC `--as-of`.
+- [ ] Implement `report` command using Stage 4 report builders/renderers.
+- [ ] Write failing CLI tests for `run` executing `collect -> match -> report`
+  serially without parallel database writers.
+- [ ] Implement `run` command.
+- [ ] Write failing CLI tests for helpful errors on missing config, invalid YAML,
+  unsupported connector types, unwritable data/report directories, and missing
+  optional dashboard dependency.
+- [ ] Implement helpful CLI error handling and exit codes.
+- [ ] Write failing repository/workflow tests for `clean-old-data` based on
+  `items.collected_at`, including explicit `item_entities` cleanup, no orphan
+  matcher rows when SQLite FK cascade is inert, stable first-seen preservation,
+  and dry-run behavior.
+- [ ] Implement `clean-old-data` pruning command with configurable retention
+  days and `--dry-run`, deleting matcher rows explicitly before item rows.
+- [ ] Write failing tests proving dashboard command constructs a Streamlit
+  launch on `127.0.0.1` by default and does not import Streamlit until invoked.
+- [ ] Implement `dashboard` command with lazy optional dependency handling.
+- [ ] Write dashboard query tests for empty DB, top entity sections, recent
+  reports, data staleness, and source health.
+- [ ] Implement dashboard query helpers and Streamlit pages for Daily Brief,
+  Brand Heat, Product Radar, Celebrity Style, and Source Health.
+- [ ] Run `pytest`, `ruff`, `ruff format --check`, lock checks, and dashboard
+  import smoke checks.
 - [ ] Ask Claude Code to review Stage 5 code and GitHub-readiness plan.
 - [ ] Fix review findings before packaging docs.
 
 **Acceptance criteria:**
 
-- A user can run `fashion-radar init`, edit sample config, run `fashion-radar run`, and open dashboard.
+- A user can run `fashion-radar init`, edit sample config, run
+  `fashion-radar run`, and open dashboard locally.
 - CLI tests pass with temporary files.
+- `collect`, `match`, `report`, `run`, `dashboard`, and `clean-old-data` are
+  covered by tests.
+- Core CLI commands work without installing the `dashboard` extra.
+- `run` uses one local serial process and does not introduce parallel SQLite
+  writers.
+- Stage 5 migrates schema version `3` to `4`, persists stable entity first-seen
+  records, and pruning cannot make old entities appear `new`.
+- `clean-old-data` leaves no orphan `item_entities` rows without relying on
+  SQLite FK cascade.
 - Dashboard imports without triggering network collection.
+- Dashboard launches on `127.0.0.1` by default and reads SQLite only.
 - Dashboard shows data staleness and source failure status.
+- Empty DB and missing optional dependency cases fail/render clearly.
+- Report commands write Markdown/JSON without leaking internal fields.
 - Claude Code review has no unfixed critical or important findings.
 
 ## Stage 6: GitHub Packaging

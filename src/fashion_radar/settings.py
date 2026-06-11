@@ -95,11 +95,23 @@ class EntityConfig(BaseModel):
 class ScoringSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    weighted_mentions_7d: float = 1.0
-    growth_bonus: float = 1.5
-    source_diversity_bonus: float = 1.0
-    high_weight_source_bonus: float = 0.5
+    current_window_days: int = Field(default=7, gt=0)
+    baseline_window_days: int = Field(default=30, gt=0)
+    weighted_mentions_7d: float = Field(default=1.0, ge=0)
+    growth_bonus: float = Field(default=1.5, ge=0)
+    source_diversity_bonus: float = Field(default=1.0, ge=0)
+    high_weight_source_bonus: float = Field(default=0.5, ge=0)
+    high_weight_source_threshold: float = Field(default=1.2, gt=0)
     new_entity_days: int = Field(default=14, gt=0)
+    new_min_mentions: int = Field(default=1, ge=0)
+    rising_growth_ratio: float = Field(default=1.5, gt=1)
+    rising_min_mentions: int = Field(default=2, ge=0)
+    cooling_growth_ratio: float = Field(default=0.75, ge=0, le=1)
+    cooling_min_baseline_mentions: int = Field(default=2, ge=0)
+    hot_score_threshold: float = Field(default=5.0, ge=0)
+    hot_min_distinct_sources: int = Field(default=2, ge=0)
+    stable_min_mentions: int = Field(default=1, ge=0)
+    min_match_confidence: float = Field(default=0.5, ge=0, le=1)
 
 
 class ScoringConfig(BaseModel):

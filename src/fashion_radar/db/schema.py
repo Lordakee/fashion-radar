@@ -16,7 +16,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 metadata = MetaData()
 
@@ -36,6 +36,8 @@ items = Table(
     Column("normalized_url", Text, nullable=False),
     Column("title", Text, nullable=False),
     Column("published_at", String(64), nullable=False),
+    Column("source_weight", Float, nullable=False, default=1.0),
+    Column("collected_at", String(64), nullable=False),
     Column("summary", Text),
     Column("content_hash", String(64), nullable=False),
     UniqueConstraint("normalized_url", name="uq_items_normalized_url"),
@@ -95,6 +97,9 @@ def initialize_schema(engine: Engine) -> None:
         existing_version = _read_schema_version(engine)
         if existing_version == 1:
             _migrate_v1_to_v2(engine)
+            existing_version = 2
+        if existing_version == 2:
+            _migrate_v2_to_v3(engine)
             return
         if existing_version is not None and existing_version != SCHEMA_VERSION:
             raise SchemaVersionError(
@@ -119,4 +124,19 @@ def _migrate_v1_to_v2(engine: Engine) -> None:
     with engine.begin() as connection:
         collector_runs.create(connection, checkfirst=True)
         source_health.create(connection, checkfirst=True)
+        connection.execute(update(schema_metadata).values(version=2))
+
+
+def _migrate_v2_to_v3(engine: Engine) -> None:
+    existing_columns = {column["name"] for column in inspect(engine).get_columns("items")}
+    with engine.begin() as connection:
+        if "source_weight" not in existing_columns:
+            connection.exec_driver_sql(
+                "alter table items add column source_weight float not null default 1.0"
+            )
+        if "collected_at" not in existing_columns:
+            connection.exec_driver_sql("alter table items add column collected_at varchar(64)")
+            connection.exec_driver_sql(
+                "update items set collected_at = published_at where collected_at is null"
+            )
         connection.execute(update(schema_metadata).values(version=SCHEMA_VERSION))

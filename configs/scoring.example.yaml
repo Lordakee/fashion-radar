@@ -1,8 +1,19 @@
 version: 1
 scoring:
+  current_window_days: 7
+  baseline_window_days: 30
   weighted_mentions_7d: 1.0
   growth_bonus: 1.5
   source_diversity_bonus: 1.0
   high_weight_source_bonus: 0.5
+  high_weight_source_threshold: 1.2
   new_entity_days: 14
-
+  new_min_mentions: 1
+  rising_growth_ratio: 1.5
+  rising_min_mentions: 2
+  cooling_growth_ratio: 0.75
+  cooling_min_baseline_mentions: 2
+  hot_score_threshold: 5.0
+  hot_min_distinct_sources: 2
+  stable_min_mentions: 1
+  min_match_confidence: 0.5

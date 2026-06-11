@@ -164,3 +164,21 @@ def test_collect_sources_passes_started_at_to_timing_aware_collectors(tmp_path) 
     assert results[0].status.started_at == started_at
     assert results[0].status.finished_at == started_at + timedelta(seconds=2)
     assert results[0].status.started_at != results[0].status.finished_at
+
+
+def test_collect_sources_stores_source_weight_and_collected_at(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    started_at = datetime(2026, 6, 11, 12, 0, tzinfo=UTC)
+    source = _rss_source("Weighted Feed", weight=1.7)
+
+    collect_sources(
+        [source],
+        engine=engine,
+        collectors={"Weighted Feed": SuccessfulCollector()},
+        now=started_at,
+    )
+
+    stored = ItemRepository(engine).get_item(1)
+    assert stored["source_weight"] == 1.7
+    assert stored["collected_at"] == "2026-06-11T12:00:00+00:00"

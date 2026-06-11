@@ -19,7 +19,13 @@ class ItemRepository:
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
 
-    def upsert_item(self, item: CollectedItem) -> int:
+    def upsert_item(
+        self,
+        item: CollectedItem,
+        *,
+        source_weight: float = 1.0,
+        collected_at: datetime | None = None,
+    ) -> int:
         normalized = normalize_url(item.url)
         values = {
             "source_name": item.source_name,
@@ -28,6 +34,7 @@ class ItemRepository:
             "normalized_url": normalized,
             "title": item.title,
             "published_at": item.published_at.isoformat(),
+            "source_weight": float(source_weight),
             "summary": item.summary,
             "content_hash": content_hash(
                 title=item.title,
@@ -36,6 +43,10 @@ class ItemRepository:
                 summary=item.summary,
             ),
         }
+        insert_values = {
+            **values,
+            "collected_at": _utc_now_if_none(collected_at).isoformat(),
+        }
         with self.engine.begin() as connection:
             existing_id = connection.execute(
                 select(items.c.id).where(items.c.normalized_url == normalized)
@@ -43,7 +54,7 @@ class ItemRepository:
             if existing_id is not None:
                 connection.execute(update(items).where(items.c.id == existing_id).values(**values))
                 return int(existing_id)
-            result = connection.execute(items.insert().values(**values))
+            result = connection.execute(items.insert().values(**insert_values))
             return int(result.inserted_primary_key[0])
 
     def count_items(self) -> int:

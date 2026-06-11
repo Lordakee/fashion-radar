@@ -103,7 +103,11 @@ def collect_sources(
             if close_article_extractor is not None:
                 close_article_extractor()
             for item in result.items:
-                item_repository.upsert_item(item)
+                item_repository.upsert_item(
+                    item,
+                    source_weight=source.weight,
+                    collected_at=started_at,
+                )
                 items_stored += 1
             health_repository.record_success(source, occurred_at=result.status.finished_at)
         elif result.status.status == CollectorRunStatus.FAILED:

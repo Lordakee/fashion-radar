@@ -244,18 +244,54 @@ def test_loads_scoring_config(tmp_path: Path) -> None:
         """
         version: 1
         scoring:
+          current_window_days: 7
+          baseline_window_days: 30
           weighted_mentions_7d: 1.0
           growth_bonus: 2.0
           source_diversity_bonus: 0.75
           high_weight_source_bonus: 1.5
+          high_weight_source_threshold: 1.2
           new_entity_days: 14
+          new_min_mentions: 1
+          rising_growth_ratio: 1.5
+          rising_min_mentions: 2
+          cooling_growth_ratio: 0.75
+          cooling_min_baseline_mentions: 2
+          hot_score_threshold: 5.0
+          hot_min_distinct_sources: 2
+          stable_min_mentions: 1
+          min_match_confidence: 0.5
         """,
     )
 
     config = load_scoring_config(path)
 
+    assert config.scoring.current_window_days == 7
+    assert config.scoring.baseline_window_days == 30
     assert config.scoring.growth_bonus == 2.0
+    assert config.scoring.high_weight_source_threshold == 1.2
+    assert config.scoring.rising_growth_ratio == 1.5
+    assert config.scoring.cooling_growth_ratio == 0.75
+    assert config.scoring.hot_score_threshold == 5.0
+    assert config.scoring.min_match_confidence == 0.5
     assert config.scoring.new_entity_days == 14
+
+
+def test_scoring_config_rejects_invalid_thresholds(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "scoring.yaml",
+        """
+        version: 1
+        scoring:
+          current_window_days: 0
+          baseline_window_days: 30
+          rising_growth_ratio: 1.0
+          min_match_confidence: 1.5
+        """,
+    )
+
+    with pytest.raises(ConfigError, match="Invalid scoring config"):
+        load_scoring_config(path)
 
 
 def test_sample_configs_load_without_network() -> None:
