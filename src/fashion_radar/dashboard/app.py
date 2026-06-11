@@ -6,6 +6,7 @@ from pathlib import Path
 from fashion_radar.dashboard.queries import (
     dashboard_summary,
     database_path,
+    latest_candidate_report,
     source_health_rows,
     top_entities,
 )
@@ -28,17 +29,16 @@ def main() -> None:
     st.set_page_config(page_title="Fashion Radar", layout="wide")
     st.title("Fashion Radar")
     summary = dashboard_summary(args.data_dir)
+    candidate_report = latest_candidate_report(args.reports_dir)
     if not summary["database_exists"]:
         st.info("No local database found yet. Run the CLI workflow first.")
-        st.caption(f"Database: {db_path}")
-        st.caption(f"Reports: {args.reports_dir}")
-        return
 
     st.caption(f"Database: {db_path}")
     st.caption(f"Reports: {args.reports_dir}")
-    daily_tab, brand_tab, product_tab, celebrity_tab, health_tab = st.tabs(
+    daily_tab, candidate_tab, brand_tab, product_tab, celebrity_tab, health_tab = st.tabs(
         [
             "Daily Brief",
+            "Candidate Signals",
             "Brand Mentions",
             "Product Mentions",
             "Celebrity Mentions",
@@ -50,6 +50,19 @@ def main() -> None:
         st.metric("Items", summary["item_count"])
         st.metric("Entity matches", summary["match_count"])
         st.caption(f"Latest collected at: {summary['latest_collected_at'] or 'n/a'}")
+
+    with candidate_tab:
+        st.caption(
+            "Candidate signals are observed phrases from configured sources and need review."
+        )
+        st.caption(f"Report date: {candidate_report['report_date'] or 'n/a'}")
+        if "error" in candidate_report:
+            st.warning(candidate_report["error"])
+        rows = candidate_report["rows"]
+        if rows:
+            st.dataframe(rows, use_container_width=True)
+        else:
+            st.info("No untracked candidate signals in the latest report.")
 
     with brand_tab:
         st.dataframe(top_entities(args.data_dir, entity_type="brand"), use_container_width=True)

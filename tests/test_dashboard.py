@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from fashion_radar.dashboard.app import parse_args
 from fashion_radar.dashboard.queries import (
     dashboard_summary,
     database_path,
+    latest_candidate_report,
+    latest_candidate_rows,
     source_health_rows,
     top_entities,
 )
@@ -120,3 +123,88 @@ def test_dashboard_queries_return_top_entities_and_source_health(tmp_path: Path)
     assert top_entities(data_dir, entity_type="brand")[0]["entity_name"] == "The Row"
     assert top_entities(data_dir, entity_type="product")[0]["entity_name"] == "Margaux"
     assert source_health_rows(data_dir)[0]["last_error_message"] == "timeout"
+
+
+def test_latest_candidate_rows_reads_latest_report(tmp_path: Path) -> None:
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "fashion-radar-2026-06-10.json").write_text(
+        '{"metadata": {"report_date": "2026-06-10T00:00:00Z"}, "candidates": []}',
+        encoding="utf-8",
+    )
+    (reports_dir / "fashion-radar-2026-06-11.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"report_date": "2026-06-11T00:00:00Z"},
+                "candidates": [
+                    {
+                        "phrase": "Le Teckel bag",
+                        "candidate_type": "bag",
+                        "label": "new_candidate",
+                        "score": 3.0,
+                        "current_mentions": 2,
+                        "baseline_mentions": 0,
+                        "distinct_sources": 2,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rows = latest_candidate_rows(reports_dir)
+    report = latest_candidate_report(reports_dir)
+
+    assert rows == [
+        {
+            "phrase": "Le Teckel bag",
+            "candidate_type": "bag",
+            "label": "new_candidate",
+            "score": 3.0,
+            "current_mentions": 2,
+            "baseline_mentions": 0,
+            "distinct_sources": 2,
+            "report_date": "2026-06-11T00:00:00Z",
+        }
+    ]
+    assert report["report_date"] == "2026-06-11T00:00:00Z"
+    assert report["candidate_count"] == 1
+
+
+def test_latest_candidate_rows_returns_empty_for_missing_reports(tmp_path: Path) -> None:
+    assert latest_candidate_rows(tmp_path / "reports") == []
+    assert latest_candidate_report(tmp_path / "reports") == {
+        "report_date": None,
+        "candidate_count": 0,
+        "rows": [],
+    }
+
+
+def test_latest_candidate_report_preserves_date_when_no_candidates(tmp_path: Path) -> None:
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "fashion-radar-2026-06-11.json").write_text(
+        '{"metadata": {"report_date": "2026-06-11T00:00:00Z"}, "candidates": []}',
+        encoding="utf-8",
+    )
+
+    assert latest_candidate_report(reports_dir) == {
+        "report_date": "2026-06-11T00:00:00Z",
+        "candidate_count": 0,
+        "rows": [],
+    }
+
+
+def test_latest_candidate_report_returns_error_metadata_for_malformed_json(
+    tmp_path: Path,
+) -> None:
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "fashion-radar-2026-06-11.json").write_text("{not-json", encoding="utf-8")
+
+    report = latest_candidate_report(reports_dir)
+
+    assert report["report_date"] is None
+    assert report["candidate_count"] == 0
+    assert report["rows"] == []
+    assert report["error"].startswith("Could not parse latest report JSON")
