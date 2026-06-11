@@ -294,6 +294,39 @@ def test_scoring_config_rejects_invalid_thresholds(tmp_path: Path) -> None:
         load_scoring_config(path)
 
 
+def test_candidate_discovery_defaults_load_from_minimal_scoring_config(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "scoring.yaml",
+        """
+        version: 1
+        scoring: {}
+        """,
+    )
+
+    config = load_scoring_config(path)
+
+    assert config.candidate_discovery.enabled is True
+    assert config.candidate_discovery.max_candidates == 20
+    assert config.candidate_discovery.min_current_mentions == 2
+    assert config.candidate_discovery.rising_growth_ratio == 1.5
+    assert config.candidate_discovery.review_min_current_mentions == 2
+
+
+def test_candidate_discovery_rejects_invalid_threshold(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "scoring.yaml",
+        """
+        version: 1
+        scoring: {}
+        candidate_discovery:
+          min_current_mentions: 0
+        """,
+    )
+
+    with pytest.raises(ConfigError, match="candidate_discovery"):
+        load_scoring_config(path)
+
+
 def test_sample_configs_load_without_network() -> None:
     config_dir = Path("configs")
 

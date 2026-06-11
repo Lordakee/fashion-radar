@@ -114,11 +114,31 @@ class ScoringSettings(BaseModel):
     min_match_confidence: float = Field(default=0.5, ge=0, le=1)
 
 
+class CandidateDiscoverySettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    max_candidates: int = Field(default=20, ge=0)
+    representative_items_per_candidate: int = Field(default=3, ge=0)
+    min_current_mentions: int = Field(default=2, ge=1)
+    min_distinct_sources: int = Field(default=1, ge=1)
+    rising_growth_ratio: float = Field(default=1.5, gt=1)
+    review_min_current_mentions: int = Field(default=2, ge=1)
+    review_min_distinct_sources: int = Field(default=1, ge=1)
+    min_single_token_mentions: int = Field(default=2, ge=1)
+    min_single_token_distinct_sources: int = Field(default=2, ge=1)
+    max_phrase_words: int = Field(default=5, ge=2)
+    max_phrase_chars: int = Field(default=80, ge=10)
+
+
 class ScoringConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     version: Literal[1] = 1
     scoring: ScoringSettings
+    candidate_discovery: CandidateDiscoverySettings = Field(
+        default_factory=CandidateDiscoverySettings
+    )
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
