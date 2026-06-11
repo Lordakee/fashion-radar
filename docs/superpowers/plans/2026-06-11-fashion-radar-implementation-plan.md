@@ -321,29 +321,200 @@ tests/test_collectors_robots.py
 
 ## Stage 4: Heat Scoring And Reports
 
-**Goal:** Compute daily entity metrics and generate Markdown/JSON reports.
+**Goal:** Compute deterministic entity heat metrics and generate Markdown/JSON
+reports from stored Stage 3 data.
+
+**Stage 4 plan review status:** Initial Stage 4 plan review is recorded in
+`docs/reviews/claude-code-stage-4-plan-review.md`. Claude Code approved the
+stage only after fixing the scoring-contract gaps below. Do not start Stage 4
+implementation until this updated plan is re-reviewed.
+
+**Schema prerequisite:** Stage 4 bumps the lightweight schema version from `2`
+to `3` before scoring/reporting code lands. The tested v2->v3 migration adds:
+
+- `items.source_weight` as a weight snapshot copied from `SourceDefinition.weight`
+  at collection/upsert time, defaulting old rows to `1.0`.
+- `items.collected_at` as the UTC time an item entered the local database,
+  defaulting old rows to `published_at` during migration.
+
+`ItemRepository.upsert_item()` should accept optional `source_weight` and
+`collected_at` inputs. `collect_sources()` must pass the current
+`SourceDefinition.weight` and the collector run timestamp when upserting. This
+keeps historical scores deterministic if a user later renames or reweights a
+source. `collected_at` is a first-seen timestamp: it is set on insert and
+preserved on re-upsert/update for an existing normalized URL.
+
+**Scoring window contract:** Stage 4 uses one window model:
+
+- Every scoring/report function accepts an explicit UTC `as_of` argument. Tests
+  must not depend on `datetime.now()`.
+- Window membership is based on `items.collected_at`, not `published_at`.
+  `published_at` remains an attribution/display field.
+- Current window: `current_window_days`, default `7`, inclusive of items with
+  `collected_at > as_of - current_window_days`.
+- Baseline window: the immediately preceding `baseline_window_days`, default
+  `30`, ending at the start of the current window.
+- Growth compares daily rates:
+  `current_rate = current_mentions / current_window_days` and
+  `baseline_rate = baseline_mentions / baseline_window_days`.
+- For baseline mentions > 0, `growth_ratio = current_rate / baseline_rate`.
+- Zero-baseline entities are handled by the `new` branch before ratio math.
+
+**Scoring YAML contract:** Extend `ScoringSettings` and
+`configs/scoring.example.yaml` with explicit constants:
+
+```yaml
+scoring:
+  current_window_days: 7
+  baseline_window_days: 30
+  weighted_mentions_7d: 1.0
+  growth_bonus: 1.5
+  source_diversity_bonus: 1.0
+  high_weight_source_bonus: 0.5
+  high_weight_source_threshold: 1.2
+  new_entity_days: 14
+  new_min_mentions: 1
+  rising_growth_ratio: 1.5
+  rising_min_mentions: 2
+  cooling_growth_ratio: 0.75
+  cooling_min_baseline_mentions: 2
+  hot_score_threshold: 5.0
+  hot_min_distinct_sources: 2
+  stable_min_mentions: 1
+  min_match_confidence: 0.5
+```
+
+**Mention and weighting contract:**
+
+- A mention is one distinct `(entity_name, item_id)` pair. Multiple aliases for
+  the same entity in one item count once.
+- Only item/entity matches with `confidence >= min_match_confidence` count.
+- Weighted mention contribution is `items.source_weight * max(confidence)` for
+  each distinct `(entity_name, item_id)` pair.
+- Source diversity is the number of distinct `source_name` values in the current
+  window. Domain-level diversity is deferred until URL-domain source weighting is
+  explicitly modeled.
+- High-weight source bonus applies when at least one current-window mention for
+  the entity comes from an item with `source_weight >=
+  high_weight_source_threshold`.
+
+**Heat score formula:** `weighted_mentions_7d` is a coefficient applied to the
+current-window weighted mention sum, not a flat term. Compute:
+
+```text
+weighted_mention_component =
+  weighted_mention_sum * scoring.weighted_mentions_7d
+
+growth_component =
+  max(0, growth_ratio - 1) * scoring.growth_bonus
+  when baseline_mentions > 0, otherwise 0
+
+source_diversity_component =
+  max(0, distinct_sources - 1) * scoring.source_diversity_bonus
+
+high_weight_component =
+  scoring.high_weight_source_bonus
+  when any current-window mention has source_weight >=
+  scoring.high_weight_source_threshold, otherwise 0
+
+heat_score =
+  weighted_mention_component
+  + growth_component
+  + source_diversity_component
+  + high_weight_component
+```
+
+Entities with `current_mentions == 0` are omitted from the main ranked sections.
+They may be reported later as a separate inactive/cooling watchlist, but Stage 4
+does not label zero-current entities as `stable`.
+
+**Heat label decision table:** Apply labels in this order:
+
+1. `new`: entity first seen within `new_entity_days` before `as_of` and current
+   mentions >= `new_min_mentions`.
+2. `hot`: heat score >= `hot_score_threshold` and distinct sources >=
+   `hot_min_distinct_sources`.
+3. `rising`: baseline mentions > 0, current mentions >=
+   `rising_min_mentions`, and growth ratio >= `rising_growth_ratio`.
+4. `cooling`: baseline mentions >= `cooling_min_baseline_mentions` and growth
+   ratio <= `cooling_growth_ratio`.
+5. `stable`: current mentions >= `stable_min_mentions`.
+6. `stable`: fallback label only for entities with `current_mentions > 0`.
+
+Ranking order must be total and deterministic: heat score descending, current
+mentions descending, distinct sources descending, then `entity_name` ascending.
+
+**Report boundary:** Reports are generated from a vetted Pydantic report model,
+never by dumping raw database rows. JSON and Markdown must not include
+`content_hash`, full article text, or internal matcher rows. Representative
+items include source name, source URL, publication time, title, and stored short
+summary only. Markdown rendering should use a small package resource template at
+`src/fashion_radar/templates/daily_report.md` with plain Python formatting; do
+not add Jinja2 in Stage 4.
 
 **Planned files:**
 
 ```text
+configs/scoring.example.yaml
+src/fashion_radar/templates/configs/scoring.example.yaml
+src/fashion_radar/db/schema.py
+src/fashion_radar/db/repositories.py
+src/fashion_radar/settings.py
 src/fashion_radar/scoring.py
 src/fashion_radar/reports.py
-templates/daily_report.md.j2
+src/fashion_radar/templates/daily_report.md
 tests/test_scoring.py
 tests/test_reports.py
+tests/test_db.py
+tests/test_config.py
 ```
 
 **TDD tasks:**
 
-- [ ] Write failing tests for weighted mention counting.
-- [ ] Implement daily metrics aggregation.
-- [ ] Write failing tests for heat score status labels: new, rising, hot, stable, cooling.
-- [ ] Write fixture tests comparing weak-new, stable-high-volume, and rising entities.
+- [ ] Ask Claude Code to re-review this updated Stage 4 plan.
+- [ ] Write failing tests for schema version `2` to `3` migration that adds
+  `items.source_weight` and `items.collected_at` without deleting existing rows.
+- [ ] Implement the schema v3 migration.
+- [ ] Write failing tests that `ItemRepository.upsert_item()` stores source
+  weight and first-seen collected time, preserves collected time on re-upsert,
+  and that `collect_sources()` passes the current source weight into upsert.
+- [ ] Implement source weight and collected time persistence.
+- [ ] Write failing config tests for the new scoring window/threshold fields.
+- [ ] Implement `ScoringSettings` extensions and update root/packaged scoring
+  examples.
+- [ ] Write failing tests for weighted mention counting using
+  `COUNT(DISTINCT item_id)` semantics when one item has two aliases for the same
+  entity.
+- [ ] Implement deterministic aggregation from stored rows.
+- [ ] Write failing tests for match confidence filtering and optional confidence
+  weighting in weighted mentions.
+- [ ] Implement confidence-aware weighted mention calculation.
+- [ ] Write failing tests for `as_of` reproducibility and collected-at windowing,
+  including a stale `published_at` item collected inside the current window.
+- [ ] Implement windowed metric queries based on `collected_at`.
+- [ ] Write failing tests for heat score status labels: new, rising, hot,
+  stable, and cooling.
+- [ ] Write fixture tests comparing weak-new, stable-high-volume, rising,
+  cooling, zero-baseline, and high-volume-single-source entities.
+- [ ] Write failing tests for the exact heat score formula components:
+  weighted mention coefficient, scaled growth bonus, source-diversity bonus, and
+  flat high-weight-source bonus.
 - [ ] Implement deterministic heat scoring.
+- [ ] Write failing tests for deterministic ranking tie-breakers.
+- [ ] Implement ranking order.
 - [ ] Write failing tests for Markdown report rendering.
-- [ ] Implement Markdown report renderer with source attribution footer and short snippets only.
+- [ ] Implement Markdown report renderer with source attribution footer and short
+  snippets only, using packaged `src/fashion_radar/templates/daily_report.md`.
 - [ ] Write failing tests for JSON report rendering.
-- [ ] Implement JSON report renderer.
+- [ ] Implement JSON report renderer from the same vetted report model.
+- [ ] Write failing tests that reports include source health/recent failed or
+  skipped collector runs.
+- [ ] Implement source health and recent run sections.
+- [ ] Write failing tests that `content_hash`, full content, and raw matcher rows
+  cannot appear in Markdown or JSON output.
+- [ ] Implement report serialization boundaries.
+- [ ] Write failing tests that an empty database produces a useful empty report.
+- [ ] Implement empty-report handling.
 - [ ] Run `pytest` and `ruff`.
 - [ ] Ask Claude Code to review Stage 4 code and Stage 5 plan.
 - [ ] Fix review findings before Stage 5.
@@ -352,9 +523,18 @@ tests/test_reports.py
 
 - Reports are deterministic from fixture data.
 - Heat score constants come from YAML.
+- Scoring functions require injected `as_of` and do not call `datetime.now()`
+  internally for report windows.
+- Stage 4 migrates schema version `2` to `3` without dropping existing items.
+- Source weights used in scoring are stored snapshots, not live config lookups.
+- Scoring windows use `items.collected_at`; `published_at` is display metadata.
+- Mentions are distinct entity/item pairs, not alias rows.
 - Report output includes rising brands, rising products, celebrity mentions, and source health.
 - Every representative item has source name, source URL, and publication time.
 - Reports do not reproduce full article text.
+- Markdown template ships inside the Python package.
+- JSON reports are serialized from the report model and do not leak `content_hash`
+  or raw database rows.
 - Claude Code review has no unfixed critical or important findings.
 
 ## Stage 5: CLI And Dashboard
