@@ -1,0 +1,17 @@
+version: 1
+sources:
+  - name: Vogue Business RSS
+    type: rss
+    url: https://www.voguebusiness.com/feed
+    enabled: true
+    weight: 1.2
+    tags: [fashion_media, industry_news]
+  - name: GDELT Luxury Fashion
+    type: gdelt
+    query: '(luxury fashion OR designer fashion OR "fashion week")'
+    enabled: true
+    weight: 0.9
+    tags: [news_search, gdelt]
+    gdelt:
+      rate_limit_per_second: 1.0
+

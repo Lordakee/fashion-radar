@@ -1,0 +1,58 @@
+version: 1
+entities:
+  - name: The Row
+    type: brand
+    aliases:
+      - value: The Row
+    context_terms: [fashion, brand, margaux]
+    tags: [luxury, minimalism]
+    initial_weight: 1.1
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Miu Miu
+    type: brand
+    aliases:
+      - value: Miu Miu
+      - value: MiuMiu
+        safe_single_word: true
+        reason: Compact spelling of the Miu Miu brand name.
+    tags: [luxury, prada_group]
+    initial_weight: 1.1
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Jonathan Anderson
+    type: designer
+    aliases:
+      - value: Jonathan Anderson
+      - value: JW Anderson
+    tags: [creative_director]
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Zendaya
+    type: celebrity
+    aliases:
+      - value: Zendaya
+        safe_single_word: true
+        reason: Distinct public figure name.
+    tags: [red_carpet, celebrity_style]
+    active_from: "2024-01-01T00:00:00Z"
+  - name: The Row Margaux
+    type: product
+    parent_brand: The Row
+    aliases:
+      - value: The Row Margaux
+      - value: Margaux
+    context_terms: [the row, bag, handbag, tote]
+    category_tags: [bag, handbag]
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Ballet Flats
+    type: category
+    aliases:
+      - value: ballet flats
+      - value: ballet flat
+    category_tags: [shoes]
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Quiet Luxury
+    type: trend
+    aliases:
+      - value: quiet luxury
+      - value: stealth wealth
+    tags: [aesthetic, consumer_trend]
+    active_from: "2024-01-01T00:00:00Z"

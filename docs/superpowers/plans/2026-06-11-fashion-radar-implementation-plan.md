@@ -1,0 +1,378 @@
+# Fashion Radar Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Build a GitHub-ready free-first Fashion Radar MVP that collects allowed public fashion signals, identifies tracked entities, computes heat changes, and outputs daily reports plus a Streamlit dashboard.
+
+**Architecture:** A local Python application with CLI commands, YAML configuration, SQLite persistence, deterministic entity matching, deterministic heat scoring, Markdown/JSON report generation, and a read-only Streamlit dashboard. Core collectors use RSS and GDELT first; Google News RSS is excluded from v0.1.0, while Google Trends, Reddit, Pinterest, TikTok, Instagram, X, and Xiaohongshu remain opt-in future connectors with explicit risk labels.
+
+**Tech Stack:** Python 3.11+, uv, Typer, Pydantic v2, SQLAlchemy 2.x, feedparser, httpx, trafilatura, robotexclusionrulesparser, PyYAML, pandas, Streamlit, platformdirs, python-dateutil, tenacity, pytest, ruff, SQLite.
+
+---
+
+## Stage 0: Planning And Claude Code Review
+
+**Status:** Current stage.
+
+**Files:**
+
+- Create: `docs/PROJECT_BRIEF.md`
+- Create: `docs/superpowers/specs/2026-06-11-fashion-radar-design.md`
+- Create: `docs/superpowers/plans/2026-06-11-fashion-radar-implementation-plan.md`
+- Create: `docs/reviews/claude-code-plan-review-prompt.md`
+- Create: `docs/reviews/claude-code-plan-review.md`
+
+**Steps:**
+
+- [ ] Write project brief, design spec, and implementation plan.
+- [ ] Ask Claude Code to review objective, stack, architecture, source boundaries, and staged implementation.
+- [ ] Record Claude Code review in `docs/reviews/claude-code-plan-review.md`.
+- [ ] Apply plan changes if Claude Code finds critical or important issues.
+- [ ] Ask the user for approval before writing implementation code.
+
+## Stage 1: Repository Skeleton And Core Models
+
+**Goal:** Create the Python project foundation and deterministic model/config layer.
+
+**Planned files:**
+
+```text
+fashion-radar/
+  README.md
+  LICENSE
+  pyproject.toml
+  .env.example
+  .pre-commit-config.yaml
+  .gitignore
+  .github/workflows/ci.yml
+  configs/sources.example.yaml
+  configs/entities.example.yaml
+  configs/scoring.example.yaml
+  data/README.md
+  reports/README.md
+  src/fashion_radar/__init__.py
+  src/fashion_radar/__main__.py
+  src/fashion_radar/cli.py
+  src/fashion_radar/settings.py
+  src/fashion_radar/models/__init__.py
+  src/fashion_radar/models/item.py
+  src/fashion_radar/models/entity.py
+  src/fashion_radar/models/source.py
+  src/fashion_radar/models/report.py
+  src/fashion_radar/extract/__init__.py
+  src/fashion_radar/extract/text.py
+  src/fashion_radar/utils/__init__.py
+  src/fashion_radar/utils/paths.py
+  src/fashion_radar/utils/dates.py
+  tests/test_config.py
+  tests/test_models.py
+  tests/test_text.py
+  tests/test_dates.py
+```
+
+**TDD tasks:**
+
+- [ ] Write failing tests for loading source/entity/scoring YAML into Pydantic models.
+- [ ] Implement config loading.
+- [ ] Write failing tests for normalized text matching primitives.
+- [ ] Implement text normalization helpers.
+- [ ] Write failing tests for normalized item/entity models.
+- [ ] Implement models.
+- [ ] Write failing tests that all model timestamps normalize to UTC.
+- [ ] Implement UTC date parsing helpers.
+- [ ] Write failing tests for duplicate entity aliases and unsafe common aliases.
+- [ ] Implement config validation for duplicate aliases and unsafe aliases.
+- [ ] Write failing tests for CLI `--help`, `init`, and `doctor`.
+- [ ] Implement minimal Typer CLI skeleton.
+- [ ] Run `pytest` and `ruff`.
+- [ ] Ask Claude Code to review Stage 1 code.
+- [ ] Fix review findings before Stage 2.
+
+**Acceptance criteria:**
+
+- `pytest` passes for config/model/text tests.
+- `ruff check .` passes.
+- Sample YAML loads without network access.
+- `fashion-radar init` creates local config/report/data directories without secrets.
+- Malformed entity YAML fails with helpful errors.
+- Timestamps are stored as UTC-aware values.
+- Claude Code review has no unfixed critical or important findings.
+
+## Stage 2: SQLite Storage And Entity Matching
+
+**Goal:** Persist collected items and attach matched entities through deterministic alias matching.
+
+**Planned files:**
+
+```text
+src/fashion_radar/db.py
+src/fashion_radar/db/__init__.py
+src/fashion_radar/db/engine.py
+src/fashion_radar/db/schema.py
+src/fashion_radar/db/repositories.py
+src/fashion_radar/extract/dictionary.py
+src/fashion_radar/extract/entities.py
+src/fashion_radar/utils/hashing.py
+tests/test_db.py
+tests/test_matcher.py
+tests/test_dedupe.py
+```
+
+**TDD tasks:**
+
+- [ ] Write failing tests for schema initialization.
+- [ ] Implement SQLAlchemy 2.x SQLite schema initializer.
+- [ ] Write failing tests for item upsert and URL/title/date deduplication.
+- [ ] Implement item upsert.
+- [ ] Write failing tests for alias matching across brand, celebrity, designer, product, category, and trend entities.
+- [ ] Implement deterministic matcher with word boundaries and match confidence.
+- [ ] Write failing tests proving common phrases such as `the row` do not match The Row unless configured safely or context supports it.
+- [ ] Write failing tests for URL normalization, tracking parameter stripping, canonical title/date deduplication, and content hash deduplication.
+- [ ] Implement normalized URL and hash helpers.
+- [ ] Write failing tests for storing item/entity matches.
+- [ ] Implement match persistence.
+- [ ] Run `pytest` and `ruff`.
+- [ ] Ask Claude Code to review Stage 2 code and Stage 3 plan.
+- [ ] Fix review findings before Stage 3.
+
+**Acceptance criteria:**
+
+- SQLite database can be initialized in a temp directory.
+- Duplicate URLs do not create duplicate items.
+- Alias matching handles case, punctuation, simple whitespace differences, word boundaries, duplicate alias validation, and confidence.
+- Common-term false positives are tested and blocked.
+- Claude Code review has no unfixed critical or important findings.
+
+## Stage 3: Public Collectors
+
+**Goal:** Collect stable public data from RSS and GDELT, with article extraction limited to allowed pages. Google News RSS is not included in v0.1.0.
+
+**Planned files:**
+
+```text
+src/fashion_radar/collectors/__init__.py
+src/fashion_radar/collectors/base.py
+src/fashion_radar/collectors/rss.py
+src/fashion_radar/collectors/gdelt.py
+src/fashion_radar/collectors/article.py
+src/fashion_radar/collectors/robots.py
+src/fashion_radar/utils/http.py
+tests/fixtures/rss/sample_feed.xml
+tests/fixtures/gdelt/sample_response.json
+tests/test_collectors_rss.py
+tests/test_collectors_gdelt.py
+tests/test_collectors_article.py
+tests/test_collectors_robots.py
+```
+
+**TDD tasks:**
+
+- [ ] Write failing tests for parsing RSS fixture items.
+- [ ] Implement RSS collector using feedparser.
+- [ ] Write failing tests for parsing GDELT fixture responses.
+- [ ] Write failing tests for GDELT request throttling and bounded retry behavior with a default of roughly 1 request per second.
+- [ ] Implement GDELT collector using httpx, descriptive User-Agent, configurable rate limit, conservative default throttle, and bounded exponential backoff.
+- [ ] Write failing tests proving Google News RSS source type is rejected in v0.1.0 with a clear error pointing to future experimental support.
+- [ ] Write failing tests for article extraction fallback behavior.
+- [ ] Write failing tests that article extraction checks robots.txt, caches robots rules per domain within a run, and skips disallowed URLs.
+- [ ] Implement robots.txt checker with per-domain run cache and trafilatura article extraction wrapper.
+- [ ] Write failing tests that paywalled domains are skipped for extraction.
+- [ ] Implement configurable paywalled-domain skip list.
+- [ ] Add per-source run status records.
+- [ ] Write failing tests for source health circuit breaker after repeated failures.
+- [ ] Implement configurable unhealthy-source threshold and skip unhealthy sources until manually reset or retention window expires.
+- [ ] Run `pytest` and `ruff`.
+- [ ] Ask Claude Code to review Stage 3 code and Stage 4 plan.
+- [ ] Fix review findings before Stage 4.
+
+**Acceptance criteria:**
+
+- Collectors can be tested with fixtures without live network.
+- A failed source does not stop other configured sources.
+- Collector run status is stored.
+- Google News RSS is rejected in v0.1.0.
+- Article extraction respects robots.txt.
+- GDELT uses rate limits and retries.
+- All HTTP requests use descriptive User-Agent.
+- robots.txt rules are cached per domain within a run.
+- Repeated source failures mark a source unhealthy according to config.
+- Claude Code review has no unfixed critical or important findings.
+
+## Stage 4: Heat Scoring And Reports
+
+**Goal:** Compute daily entity metrics and generate Markdown/JSON reports.
+
+**Planned files:**
+
+```text
+src/fashion_radar/scoring.py
+src/fashion_radar/reports.py
+templates/daily_report.md.j2
+tests/test_scoring.py
+tests/test_reports.py
+```
+
+**TDD tasks:**
+
+- [ ] Write failing tests for weighted mention counting.
+- [ ] Implement daily metrics aggregation.
+- [ ] Write failing tests for heat score status labels: new, rising, hot, stable, cooling.
+- [ ] Write fixture tests comparing weak-new, stable-high-volume, and rising entities.
+- [ ] Implement deterministic heat scoring.
+- [ ] Write failing tests for Markdown report rendering.
+- [ ] Implement Markdown report renderer with source attribution footer and short snippets only.
+- [ ] Write failing tests for JSON report rendering.
+- [ ] Implement JSON report renderer.
+- [ ] Run `pytest` and `ruff`.
+- [ ] Ask Claude Code to review Stage 4 code and Stage 5 plan.
+- [ ] Fix review findings before Stage 5.
+
+**Acceptance criteria:**
+
+- Reports are deterministic from fixture data.
+- Heat score constants come from YAML.
+- Report output includes rising brands, rising products, celebrity mentions, and source health.
+- Every representative item has source name, source URL, and publication time.
+- Reports do not reproduce full article text.
+- Claude Code review has no unfixed critical or important findings.
+
+## Stage 5: CLI And Dashboard
+
+**Goal:** Provide a usable local command line workflow and Streamlit dashboard.
+
+**Planned files:**
+
+```text
+src/fashion_radar/cli.py
+src/fashion_radar/dashboard.py
+tests/test_cli.py
+```
+
+**TDD tasks:**
+
+- [ ] Write failing CLI tests for `fashion-radar init`.
+- [ ] Implement `init` command.
+- [ ] Write failing CLI tests for `collect`, `score`, `report`, and `run` against fixture/temp data.
+- [ ] Implement CLI workflow commands.
+- [ ] Write failing CLI tests for helpful errors on missing config and invalid YAML.
+- [ ] Implement helpful CLI errors.
+- [ ] Write failing tests or command construction checks proving dashboard binds to localhost by default.
+- [ ] Implement `dashboard` command that launches Streamlit on localhost by default.
+- [ ] Write failing tests for `clean-old-data` command behavior.
+- [ ] Implement `clean-old-data` pruning command with configurable retention days.
+- [ ] Build Streamlit pages for Daily Brief, Brand Heat, Product Radar, Celebrity Style, and Source Health.
+- [ ] Run `pytest`, `ruff`, and a dashboard import smoke check.
+- [ ] Ask Claude Code to review Stage 5 code and GitHub-readiness plan.
+- [ ] Fix review findings before packaging docs.
+
+**Acceptance criteria:**
+
+- A user can run `fashion-radar init`, edit sample config, run `fashion-radar run`, and open dashboard.
+- CLI tests pass with temporary files.
+- Dashboard imports without triggering network collection.
+- Dashboard shows data staleness and source failure status.
+- Claude Code review has no unfixed critical or important findings.
+
+## Stage 6: GitHub Packaging
+
+**Goal:** Make the repository understandable and safe to publish.
+
+**Planned files:**
+
+```text
+README.md
+docs/architecture.md
+docs/source-boundaries.md
+docs/review-workflow.md
+docs/github-upload-checklist.md
+docs/scoring.md
+docs/data-retention.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+CHANGELOG.md
+.github/ISSUE_TEMPLATE/bug_report.yml
+.github/ISSUE_TEMPLATE/feature_request.yml
+.github/pull_request_template.md
+```
+
+**Tasks:**
+
+- [ ] Write README with installation, quickstart, examples, limitations, and source boundaries.
+- [ ] Write architecture documentation.
+- [ ] Write compliance and platform boundary notes.
+- [ ] Write scoring formula and known limitations.
+- [ ] Write data retention and cleanup documentation.
+- [ ] Document expected scale limits for v0.1.0.
+- [ ] Write GitHub upload checklist.
+- [ ] Run full test and lint suite.
+- [ ] Ask Claude Code to review final code and docs before GitHub upload.
+- [ ] Fix critical and important findings.
+- [ ] Prepare repository for user-controlled GitHub remote creation and push.
+
+## Stage 7: Optional Public Source Enhancements
+
+**Goal:** Add richer opt-in sources without weakening MVP stability.
+
+**Candidate files:**
+
+```text
+src/fashion_radar/collectors/webpage.py
+tests/test_collectors_webpage.py
+```
+
+**Tasks:**
+
+- [ ] Ask Claude Code to review a Stage 7 plan before implementation.
+- [ ] Add static webpage monitoring only for explicit URL lists.
+- [ ] Add Google News RSS only as disabled-by-default experimental connector with explicit use-at-your-own-risk documentation, or keep it out.
+- [ ] Add Google Trends only through official API access or keep it disabled.
+- [ ] Add Reddit only with user-provided API credentials and explicit API terms documentation.
+- [ ] Keep Playwright, logged-in crawling, and platform scraping out of this stage.
+- [ ] Ask Claude Code to review Stage 7 code.
+
+**Acceptance criteria:**
+
+- Fresh clone instructions are clear.
+- CI passes locally.
+- No secrets, cookies, accounts, or private data are committed.
+- Final Claude Code review has no unfixed critical or important findings.
+
+## Deferred Features
+
+These are intentionally out of MVP:
+
+- LLM-based summarization.
+- Xiaohongshu logged-in crawler automation.
+- Instagram/TikTok/X logged-in scraping.
+- Proxy/account management.
+- SaaS integrations.
+- Team authentication.
+- Cloud deployment.
+- Automated chat-app push.
+- Image recognition for outfit/product matching.
+- Playwright dynamic page rendering.
+- Embedding-based semantic deduplication.
+- Celery/Redis background workers.
+
+## Claude Code Review Gate Template
+
+At each review gate, ask Claude Code:
+
+```text
+You are reviewing Fashion Radar at the end of [STAGE].
+
+Please check:
+1. Does the implementation satisfy the stage acceptance criteria?
+2. Are there correctness bugs or data integrity risks?
+3. Are source boundaries and platform-risk notes honest?
+4. Are tests meaningful and sufficient for this stage?
+5. Is the next-stage plan safe to execute?
+
+Return findings ordered by severity:
+- Critical
+- Important
+- Minor
+
+Do not rewrite the project. Focus on risks, bugs, missing tests, and unclear boundaries.
+```
