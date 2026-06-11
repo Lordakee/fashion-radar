@@ -885,6 +885,41 @@ without adding new collectors.
 - No secrets, cookies, accounts, or private data are committed.
 - Final Claude Code review has no unfixed critical or important findings.
 
+## Stage 8: Untracked Candidate Discovery
+
+**Status:** Planned on 2026-06-12. The active Stage 8 design and plan are:
+
+- `docs/superpowers/specs/2026-06-12-stage-8-candidate-discovery-design.md`
+- `docs/superpowers/plans/2026-06-12-stage-8-candidate-discovery-plan.md`
+
+**Goal:** Surface candidate brands, designers, products, bags, shoes, and trend
+phrases from already collected local RSS/GDELT items without adding sources,
+scraping, paid APIs, or LLM dependencies.
+
+**Tasks:**
+
+- [ ] Ask Claude Code to review the Stage 8 plan before implementation using
+  `--effort max`.
+- [ ] Add deterministic candidate extraction from item titles and summaries.
+- [ ] Add current/baseline candidate metrics using existing `collected_at`
+  window semantics.
+- [ ] Filter configured and stored tracked entities so they do not reappear as
+  untracked candidates.
+- [ ] Surface candidates in reports, a read-only CLI command, and the dashboard
+  latest-report view.
+- [ ] Add candidate discovery docs and tests.
+- [ ] Ask Claude Code to review Stage 8 code before commit using `--effort max`.
+
+**Acceptance criteria:**
+
+- Candidate discovery uses only retained local SQLite rows from existing
+  RSS/RSSHub/GDELT workflows.
+- Outputs are framed as candidate signals needing human review.
+- Same DB, config, and `as_of` produce deterministic output ordering.
+- No new source, crawler, browser automation, social scraping, paid API, LLM,
+  embedding, vector database, or automatic config mutation is introduced.
+- Final Claude Code review has no unfixed critical or important findings.
+
 ## Deferred Features
 
 These are intentionally out of MVP:
