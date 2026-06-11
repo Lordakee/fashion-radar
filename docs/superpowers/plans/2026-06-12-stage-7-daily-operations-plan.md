@@ -621,7 +621,7 @@ git add .
 git commit -m "feat: add stage 7 daily operations"
 ```
 
-- [ ] Sync to GitHub using normal git push if available. If Git smart HTTP still hangs but GitHub API works, use GitHub API only when it can preserve remote `main` safely and verify remote content afterward.
+- [x] Sync to GitHub using normal git push if available. If Git smart HTTP still hangs but GitHub API works, use GitHub API only when it can preserve remote `main` safely and verify remote content afterward.
 
 ## Acceptance Criteria
 
