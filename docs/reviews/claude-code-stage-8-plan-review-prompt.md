@@ -3,13 +3,17 @@
 Review the proposed Stage 8 plan for Fashion Radar before implementation.
 
 Repo: `/home/ubuntu/fashion-radar`
-Current local head: `3f65920`
-Remote note: Git smart HTTP push times out in this environment, so Stage 7 was
-synced through the GitHub Git Database API and verified by tree/content checks.
+Planning baseline before latest plan fixes: `fdc7913`
+Remote note: Git smart HTTP push times out in this environment, so Stage 7 and
+the first Stage 8 planning draft were synced through the GitHub Git Database
+API and verified by tree/content checks.
 
 User rules:
 
 - This review must use `--effort max`.
+- This is a read-only planning review. Do not edit files, run collectors, add
+  dependencies, access social platforms, scrape/crawl websites, mutate config,
+  or perform network source collection. Return review findings only.
 - Any Codex subagents used during implementation must use
   `reasoning_effort: "xhigh"`.
 - Claude Code plan review must approve before implementation starts.
@@ -27,9 +31,10 @@ Stage 8 proposal:
 
 Goal:
 
-Add deterministic "Untracked Candidate Signals" so users can review emerging
-brands, designers, products, bags, shoes, and trend phrases observed in already
-collected local RSS/GDELT items, without adding new source collection.
+Add deterministic "Untracked Candidate Signals" so users can review observed
+phrases that may warrant human review for brands, designers, products, bags,
+shoes, and style terms already present in locally collected RSS/GDELT items,
+without adding new source collection.
 
 Recommended architecture:
 
@@ -83,7 +88,9 @@ Questions:
 5. Are there correctness risks, data integrity risks, or missing acceptance
    criteria?
 6. Is any part too broad for one stage?
-7. Any blockers before implementation?
+7. Do the report, CLI, dashboard, README, and docs wording avoid implying
+   viral, global, market-wide, or confirmed-brand/product claims?
+8. Any blockers before implementation?
 
 Return findings by severity:
 

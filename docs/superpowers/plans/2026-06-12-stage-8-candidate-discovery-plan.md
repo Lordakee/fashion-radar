@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add deterministic untracked candidate discovery so users can review emerging brands, designers, products, bags, shoes, and trend phrases found in already collected local RSS/GDELT items.
+**Goal:** Add deterministic untracked candidate discovery so users can review observed phrases that may warrant human review for brands, designers, products, bags, shoes, and style terms found in already collected local RSS/GDELT items.
 
 **Architecture:** Add a no-schema discovery module that reads existing SQLite `items` and `item_entities`, extracts deterministic candidate phrases from titles/summaries, filters known tracked entities, computes current/baseline metrics, and surfaces results through reports, a read-only CLI command, and a dashboard tab that reads the latest JSON report. The feature must frame outputs as candidate signals that need human review, not confirmed brands or market-wide trends.
 
@@ -57,7 +57,7 @@ use `--effort max`.
 - Modify: `tests/test_reports.py`
 - Modify: `tests/test_cli.py`
 - Modify: `tests/test_dashboard.py`
-- Create: `docs/reviews/claude-code-stage-8-plan-review-prompt.md`
+- Modify: `docs/reviews/claude-code-stage-8-plan-review-prompt.md`
 - Create after plan review: `docs/reviews/claude-code-stage-8-plan-review.md`
 - Create after implementation: `docs/reviews/claude-code-stage-8-code-review-prompt.md`
 - Create after code review: `docs/reviews/claude-code-stage-8-code-review.md`
@@ -108,6 +108,10 @@ class CandidateMetric:
     representative_items: tuple[RepresentativeItem, ...]
 ```
 
+`contexts` values are controlled extraction labels only, such as
+`proper_name_span` or `fashion_anchor`. They must not contain raw source text,
+aliases, matcher reasons, snippets, or serialized internal extraction state.
+
 Discovery functions:
 
 - `configured_entity_keys(entity_config: EntityConfig | None) -> set[str]`
@@ -123,11 +127,11 @@ fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as
 
 ## Task 1: Claude Code Plan Gate
 
-- [ ] Create `docs/reviews/claude-code-stage-8-plan-review-prompt.md` with the Stage 8 goal, architecture, tech stack, implementation method, tests, docs, and explicit out-of-scope boundaries.
+- [ ] Update `docs/reviews/claude-code-stage-8-plan-review-prompt.md` with the Stage 8 goal, architecture, tech stack, implementation method, tests, docs, explicit read-only review instruction, and explicit out-of-scope boundaries.
 - [ ] Run:
 
 ```bash
-claude -p --effort max --permission-mode bypassPermissions < docs/reviews/claude-code-stage-8-plan-review-prompt.md
+claude -p --effort max < docs/reviews/claude-code-stage-8-plan-review-prompt.md
 ```
 
 - [ ] Save the review to `docs/reviews/claude-code-stage-8-plan-review.md`.
@@ -382,6 +386,8 @@ Expected: passes.
 ```python
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
 from fashion_radar.db.schema import initialize_schema
@@ -474,6 +480,8 @@ def test_excludes_configured_and_stored_entities(tmp_path) -> None:
     keys = {candidate.normalized_key for candidate in candidates}
     assert "the row" not in keys
     assert "margaux" not in keys
+    assert "the row margaux bag" not in keys
+    assert "margaux bag" not in keys
 
 
 def test_uses_collected_at_windows_and_ignores_future_items(tmp_path) -> None:
@@ -494,6 +502,33 @@ def test_uses_collected_at_windows_and_ignores_future_items(tmp_path) -> None:
     candidate = next(item for item in candidates if item.normalized_key == "pierced mule")
     assert candidate.current_mentions == 1
     assert candidate.baseline_mentions == 1
+    assert candidate.growth_ratio == pytest.approx((1 / 7) / (1 / 30))
+
+
+def test_candidate_discovery_settings_control_output(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    _store(engine, title="Khaite boot gains attention", url="https://example.com/a", collected_at=AS_OF - timedelta(hours=1))
+    _store(engine, title="Khaite boot appears again", url="https://example.com/b", source_name="WWD", collected_at=AS_OF - timedelta(hours=2))
+
+    disabled = discover_candidates(
+        engine,
+        scoring=ScoringSettings(),
+        settings=CandidateDiscoverySettings(enabled=False),
+        entity_config=None,
+        as_of=AS_OF,
+    )
+    limited = discover_candidates(
+        engine,
+        scoring=ScoringSettings(),
+        settings=CandidateDiscoverySettings(max_candidates=1, representative_items_per_candidate=1),
+        entity_config=None,
+        as_of=AS_OF,
+    )
+
+    assert disabled == []
+    assert len(limited) == 1
+    assert len(limited[0].representative_items) == 1
 ```
 
 - [ ] Run:
@@ -516,6 +551,24 @@ Implementation requirements:
 - Split current and baseline windows using `collected_at`.
 - Apply single-token thresholds after aggregation.
 - Apply `settings.min_current_mentions`, `settings.min_distinct_sources`, and `limit`.
+- If `settings.enabled` is false, return an empty list.
+- Use `settings.max_candidates` when `limit is None`.
+- Use `min(limit, settings.max_candidates)` when both are provided.
+- Use `settings.representative_items_per_candidate` for representative item count.
+- Use `settings.min_single_token_mentions` and
+  `settings.min_single_token_distinct_sources` for one-token candidates.
+- Reject candidate phrases that contain any configured or stored known entity key
+  as a complete token span, so known entities do not leak through longer phrases
+  such as `the row margaux bag` or `margaux bag`.
+- Compute growth ratio from window rates:
+
+```text
+current_rate = current_mentions / scoring.current_window_days
+baseline_rate = baseline_mentions / scoring.baseline_window_days
+growth_ratio = current_rate / baseline_rate when baseline_mentions > 0
+growth_ratio = None when baseline_mentions == 0
+```
+
 - Compute score and label with the formula in the design.
 - Select representative current-window items sorted by `(collected_at, item_id)` descending.
 - Return a deterministic tuple/list sorted by `(-score, -current_mentions, -distinct_sources, phrase)`.
@@ -576,8 +629,20 @@ def test_daily_report_includes_untracked_candidate_signals(tmp_path) -> None:
     parsed = json.loads(render_json_report(report))
 
     assert "Untracked Candidate Signals" in markdown
+    assert "candidate signal" in markdown.lower()
+    assert "needs review" in markdown.lower()
+    assert "from configured sources" in markdown.lower()
+    assert "viral" not in markdown.lower()
+    assert "market-wide trend" not in markdown.lower()
+    assert "confirmed brand" not in markdown.lower()
     assert "Le Teckel bag" in markdown
+    assert "Fashionista" in markdown
+    assert "https://example.com/le-teckel-a" in markdown
+    assert "Le Teckel bag demand is accelerating." in markdown
     assert parsed["candidates"][0]["phrase"] == "Le Teckel bag"
+    assert parsed["candidates"][0]["representative_items"][0]["source_name"] == "Fashionista"
+    assert parsed["candidates"][0]["representative_items"][0]["source_url"] == "https://example.com/le-teckel-a"
+    assert "Le Teckel bag demand is accelerating." in parsed["candidates"][0]["representative_items"][0]["summary"]
     assert "content_hash" not in json.dumps(parsed["candidates"])
 
 
@@ -630,6 +695,10 @@ class CandidateReport(BaseModel):
         return parse_datetime_utc(value)
 ```
 
+Only include controlled context labels in `contexts`, such as
+`proper_name_span` or `fashion_anchor`. Do not include raw source text, aliases,
+matcher reasons, snippets, or serialized extraction internals.
+
 Add to `DailyReport`:
 
 ```python
@@ -666,7 +735,10 @@ markdown_path, json_path = write_daily_report_files(
 )
 ```
 
-For standalone `report`, try to load `entities.yaml`; if missing or invalid, continue with `entity_config=None` and keep the existing scoring error behavior unchanged.
+For standalone `report`, try to load `entities.yaml`. If the file is missing,
+continue with `entity_config=None` and rely on stored `item_entities` filtering.
+If the file exists but is invalid, preserve the existing config validation error
+behavior and do not silently continue.
 
 - [ ] Update Markdown template:
 
@@ -695,13 +767,14 @@ Expected: passes.
 - [ ] Add CLI tests:
 
 ```python
-def test_candidates_command_prints_json(tmp_path: Path) -> None:
+import json
+
+
+def _prepare_candidate_cli_fixture(tmp_path: Path) -> tuple[Path, Path]:
     config_dir = tmp_path / "config"
     data_dir = tmp_path / "data"
-    reports_dir = tmp_path / "reports"
     config_dir.mkdir()
     data_dir.mkdir()
-    reports_dir.mkdir()
     (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
     (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
     engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
@@ -718,6 +791,24 @@ def test_candidates_command_prints_json(tmp_path: Path) -> None:
         ),
         collected_at=datetime(2026, 6, 11, 11, 0, tzinfo=UTC),
     )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="WWD",
+            source_type=SourceType.RSS,
+            url="https://example.com/le-teckel-2",
+            title="Le Teckel bag appears again",
+            published_at="2026-06-11T10:30:00Z",
+            summary="Another configured source mentions Le Teckel bag.",
+        ),
+        collected_at=datetime(2026, 6, 11, 11, 30, tzinfo=UTC),
+    )
+    return config_dir, data_dir
+
+
+def test_candidates_command_prints_json(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_candidate_cli_fixture(tmp_path)
+    scoring_before = (config_dir / "scoring.yaml").read_bytes()
+    entities_before = (config_dir / "entities.yaml").read_bytes()
 
     result = CliRunner().invoke(
         app,
@@ -737,15 +828,57 @@ def test_candidates_command_prints_json(tmp_path: Path) -> None:
     assert result.exit_code == 0
     payload = json.loads(result.output)
     assert payload[0]["phrase"] == "Le Teckel bag"
+    assert (config_dir / "scoring.yaml").read_bytes() == scoring_before
+    assert (config_dir / "entities.yaml").read_bytes() == entities_before
 
 
 def test_candidates_command_prints_table(tmp_path: Path) -> None:
-    # Build the same fixture as the JSON test.
-    result = CliRunner().invoke(app, ["candidates", "--config-dir", str(config_dir), "--data-dir", str(data_dir), "--as-of", "2026-06-11T12:00:00Z"])
+    config_dir, data_dir = _prepare_candidate_cli_fixture(tmp_path)
+    result = CliRunner().invoke(
+        app,
+        [
+            "candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+        ],
+    )
 
     assert result.exit_code == 0
     assert "Phrase" in result.output
+    assert "candidate signal" in result.output.lower()
     assert "Le Teckel bag" in result.output
+
+
+def test_candidates_command_is_read_only_when_database_is_missing(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == []
+    assert not (data_dir / "fashion-radar.sqlite").exists()
 ```
 
 - [ ] Run:
@@ -767,7 +900,7 @@ def candidates_command(
     config_dir: Path = CONFIG_DIR_OPTION,
     data_dir: Path = DATA_DIR_OPTION,
     as_of: str = AS_OF_OPTION,
-    limit: int = typer.Option(20, min=0, help="Maximum candidates to print."),
+    limit: int | None = typer.Option(None, min=0, help="Maximum candidates to print."),
     output_format: CandidateOutputFormat = typer.Option("table", "--format", help="Output format."),
 ) -> None:
     """Print read-only untracked candidate signals from local collected items."""
@@ -777,8 +910,17 @@ Implementation requirements:
 
 - Load `scoring.yaml`.
 - Try to load `entities.yaml`; continue with `None` only if the file is missing.
-- Create the SQLite engine and initialize schema.
+- If `fashion-radar.sqlite` does not exist, return an empty result without
+  creating the database file.
+- If the database exists, create the SQLite engine without calling
+  `initialize_schema()` in this command path. The command is read-only and must
+  not create tables, write `schema_metadata`, or migrate schema.
+- If the existing database schema is incompatible, show a user-facing error
+  rather than mutating it.
 - Call `discover_candidates`.
+- If `--limit` is omitted, rely on `candidate_discovery.max_candidates`.
+- If `--limit` is provided, cap output with
+  `min(limit, candidate_discovery.max_candidates)`.
 - JSON output uses report-safe fields only.
 - Table output prints a compact header and rows with phrase, type, label, score, mentions, sources.
 - The command does not write reports and does not mutate config.
@@ -802,6 +944,9 @@ Expected: passes.
 - [ ] Add dashboard helper tests:
 
 ```python
+import json
+
+
 def test_latest_candidate_rows_reads_latest_report(tmp_path: Path) -> None:
     reports_dir = tmp_path / "reports"
     reports_dir.mkdir()
@@ -827,6 +972,7 @@ def test_latest_candidate_rows_reads_latest_report(tmp_path: Path) -> None:
     )
 
     rows = latest_candidate_rows(reports_dir)
+    report = latest_candidate_report(reports_dir)
 
     assert rows == [
         {
@@ -840,10 +986,32 @@ def test_latest_candidate_rows_reads_latest_report(tmp_path: Path) -> None:
             "report_date": "2026-06-11T00:00:00Z",
         }
     ]
+    assert report["report_date"] == "2026-06-11T00:00:00Z"
+    assert report["candidate_count"] == 1
 
 
 def test_latest_candidate_rows_returns_empty_for_missing_reports(tmp_path: Path) -> None:
     assert latest_candidate_rows(tmp_path / "reports") == []
+    assert latest_candidate_report(tmp_path / "reports") == {
+        "report_date": None,
+        "candidate_count": 0,
+        "rows": [],
+    }
+
+
+def test_latest_candidate_report_preserves_date_when_no_candidates(tmp_path: Path) -> None:
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "fashion-radar-2026-06-11.json").write_text(
+        '{"metadata": {"report_date": "2026-06-11T00:00:00Z"}, "candidates": []}',
+        encoding="utf-8",
+    )
+
+    assert latest_candidate_report(reports_dir) == {
+        "report_date": "2026-06-11T00:00:00Z",
+        "candidate_count": 0,
+        "rows": [],
+    }
 ```
 
 - [ ] Run:
@@ -854,7 +1022,7 @@ def test_latest_candidate_rows_returns_empty_for_missing_reports(tmp_path: Path)
 
 Expected: fails until dashboard helpers exist.
 
-- [ ] Implement `latest_report_path` and `latest_candidate_rows` in `dashboard/queries.py`:
+- [ ] Implement `latest_report_path`, `latest_candidate_report`, and `latest_candidate_rows` in `dashboard/queries.py`:
 
 ```python
 def latest_report_path(reports_dir: Path) -> Path | None:
@@ -865,9 +1033,13 @@ def latest_report_path(reports_dir: Path) -> Path | None:
 
 
 def latest_candidate_rows(reports_dir: Path) -> list[dict[str, Any]]:
+    return latest_candidate_report(reports_dir)["rows"]
+
+
+def latest_candidate_report(reports_dir: Path) -> dict[str, Any]:
     path = latest_report_path(reports_dir)
     if path is None:
-        return []
+        return {"report_date": None, "candidate_count": 0, "rows": []}
     payload = json.loads(path.read_text(encoding="utf-8"))
     report_date = payload.get("metadata", {}).get("report_date")
     rows = []
@@ -884,10 +1056,15 @@ def latest_candidate_rows(reports_dir: Path) -> list[dict[str, Any]]:
                 "report_date": report_date,
             }
         )
-    return rows
+    return {"report_date": report_date, "candidate_count": len(rows), "rows": rows}
 ```
 
 - [ ] Add a `Candidate Signals` tab to `dashboard/app.py` that displays `latest_candidate_rows(args.reports_dir)` without triggering collection, matching, report generation, or network calls.
+- [ ] In the dashboard tab, show the report date from `latest_candidate_report`
+  even when there are no candidate rows.
+- [ ] In the dashboard tab, include a short caption using bounded language:
+  `Candidate signals are observed phrases from configured sources and need review.`
+  Do not use viral, global, market-wide, or confirmed-brand/product language.
 - [ ] Run:
 
 ```bash
@@ -912,7 +1089,7 @@ Expected: passes.
 
 - [ ] Create `docs/candidate-discovery.md` covering:
   - Candidate signals are observed phrases from already collected local items.
-  - They are not confirmed brands/products and need human review.
+  - They are not validated real-world entities and need human review.
   - Current/baseline windows use `collected_at`.
   - `first_seen_at` is retained-history only and can change after pruning.
   - `fashion-radar candidates` examples for table and JSON.
@@ -930,10 +1107,20 @@ uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 - [ ] Run:
 
 ```bash
-rg -n "(viral|confirmed brand|market-wide trend)" docs README.md src tests
+rg -n "(viral|globally trending|global trend|market-wide trend|confirmed (brand|product)|real brand|real product)" \
+  README.md docs/candidate-discovery.md docs/architecture.md docs/scoring.md docs/dashboard.md CHANGELOG.md \
+  src/fashion_radar/templates src/fashion_radar/cli.py src/fashion_radar/dashboard
 ```
 
-Expected: no matches in Stage 8 additions.
+Expected: no matches in user-facing Stage 8 additions or source files.
+
+Then check tests explicitly assert prohibited claim language is absent:
+
+```bash
+rg -n "viral|market-wide trend|confirmed brand" tests
+```
+
+Expected: only negative assertions such as `not in` or absence checks.
 
 ## Task 9: Full Verification And Claude Code Code Review
 
@@ -990,7 +1177,7 @@ cmp -s configs/scoring.example.yaml src/fashion_radar/templates/configs/scoring.
 - [ ] Run:
 
 ```bash
-claude -p --effort max --permission-mode bypassPermissions < docs/reviews/claude-code-stage-8-code-review-prompt.md
+claude -p --effort max < docs/reviews/claude-code-stage-8-code-review-prompt.md
 ```
 
 - [ ] Save output to `docs/reviews/claude-code-stage-8-code-review.md`.
@@ -998,7 +1185,37 @@ claude -p --effort max --permission-mode bypassPermissions < docs/reviews/claude
 - [ ] Commit with:
 
 ```bash
-git add .
+git status --short
+git add src/fashion_radar/discovery/__init__.py \
+  src/fashion_radar/discovery/candidates.py \
+  src/fashion_radar/settings.py \
+  configs/scoring.example.yaml \
+  src/fashion_radar/templates/configs/scoring.example.yaml \
+  src/fashion_radar/models/report.py \
+  src/fashion_radar/reports.py \
+  src/fashion_radar/templates/daily_report.md \
+  src/fashion_radar/workflows.py \
+  src/fashion_radar/cli.py \
+  src/fashion_radar/dashboard/queries.py \
+  src/fashion_radar/dashboard/app.py \
+  docs/candidate-discovery.md \
+  README.md \
+  docs/architecture.md \
+  docs/scoring.md \
+  docs/dashboard.md \
+  docs/source-boundaries.md \
+  CHANGELOG.md \
+  docs/superpowers/plans/2026-06-11-fashion-radar-implementation-plan.md \
+  docs/superpowers/plans/2026-06-12-stage-8-candidate-discovery-plan.md \
+  docs/superpowers/specs/2026-06-12-stage-8-candidate-discovery-design.md \
+  docs/reviews/claude-code-stage-8-code-review-prompt.md \
+  docs/reviews/claude-code-stage-8-code-review.md \
+  tests/test_candidate_extraction.py \
+  tests/test_candidate_scoring.py \
+  tests/test_config.py \
+  tests/test_reports.py \
+  tests/test_cli.py \
+  tests/test_dashboard.py
 git commit -m "feat: add candidate discovery signals"
 ```
 
