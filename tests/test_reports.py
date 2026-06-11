@@ -244,16 +244,15 @@ def test_daily_report_includes_untracked_candidate_signals(tmp_path) -> None:
         in parsed["candidates"][0]["representative_items"][0]["summary"]
     )
     serialized_candidates = json.dumps(parsed["candidates"])
-    assert set(parsed["candidates"][0]["contexts"]) <= {
-        "proper_name_span",
-        "fashion_anchor",
-        "single_token",
-    }
     for forbidden in (
         "content_hash",
+        "contexts",
         "normalized_key",
         "normalized_url",
         '"id"',
+        "proper_name_span",
+        "fashion_anchor",
+        "single_token",
         "raw reason must stay internal",
         "raw alias must stay internal",
         "raw context must stay internal",

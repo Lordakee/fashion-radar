@@ -128,7 +128,6 @@ def _candidate_report(metric: CandidateMetric) -> CandidateReport:
         distinct_sources=metric.distinct_sources,
         growth_ratio=metric.growth_ratio,
         first_seen_at=metric.first_seen_at,
-        contexts=list(metric.contexts),
         representative_items=list(metric.representative_items),
     )
 
@@ -280,7 +279,6 @@ def _render_candidate_sections(candidates: list[CandidateReport]) -> str:
                     f"{candidate.baseline_mentions} baseline",
                     f"- Distinct sources: {candidate.distinct_sources}",
                     f"- Growth ratio: {growth}",
-                    f"- Context labels: {', '.join(candidate.contexts) or 'n/a'}",
                     "",
                     items_markdown,
                 ]

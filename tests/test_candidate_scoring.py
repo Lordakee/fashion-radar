@@ -272,6 +272,50 @@ def test_stored_entity_filter_uses_min_match_confidence(tmp_path) -> None:
     assert "ghost bag" not in {candidate.normalized_key for candidate in high_confidence_candidates}
 
 
+def test_future_stored_entity_match_does_not_filter_historical_candidate(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    _store(
+        engine,
+        title="Ghost bag gains momentum",
+        url="https://example.com/current-ghost",
+        collected_at=AS_OF - timedelta(hours=1),
+    )
+    future_item_id = _store(
+        engine,
+        title="Ghost appears later",
+        url="https://example.com/future-ghost",
+        collected_at=AS_OF + timedelta(days=1),
+    )
+    repository.replace_item_matches(
+        future_item_id,
+        [
+            {
+                "entity_name": "Ghost",
+                "entity_type": "product",
+                "alias": "Ghost",
+                "confidence": 1.0,
+                "reason": "accepted",
+                "context_terms": [],
+            }
+        ],
+    )
+
+    candidates = discover_candidates(
+        engine,
+        scoring=ScoringSettings(min_match_confidence=0.5),
+        settings=CandidateDiscoverySettings(
+            min_current_mentions=1,
+            review_min_current_mentions=1,
+        ),
+        entity_config=None,
+        as_of=AS_OF,
+    )
+
+    assert "ghost bag" in {candidate.normalized_key for candidate in candidates}
+
+
 def test_uses_collected_at_windows_and_ignores_future_items(tmp_path) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
     initialize_schema(engine)

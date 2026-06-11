@@ -299,7 +299,6 @@ def candidates_command(
             distinct_sources=metric.distinct_sources,
             growth_ratio=metric.growth_ratio,
             first_seen_at=metric.first_seen_at,
-            contexts=list(metric.contexts),
             representative_items=list(metric.representative_items),
         )
         for metric in metrics

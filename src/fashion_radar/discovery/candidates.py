@@ -156,11 +156,23 @@ def extract_candidate_phrases(
     return list(by_key.values())
 
 
-def configured_entity_keys(entity_config: EntityConfig | None) -> set[str]:
+def configured_entity_keys(
+    entity_config: EntityConfig | None,
+    *,
+    as_of: datetime | None = None,
+) -> set[str]:
     keys: set[str] = set()
     if entity_config is None:
         return keys
+    as_of_utc = parse_datetime_utc(as_of) if as_of is not None else None
     for entity in entity_config.entities:
+        if as_of_utc is not None:
+            active_from = parse_datetime_utc(entity.active_from) if entity.active_from else None
+            active_until = parse_datetime_utc(entity.active_until) if entity.active_until else None
+            if active_from is not None and active_from > as_of_utc:
+                continue
+            if active_until is not None and active_until < as_of_utc:
+                continue
         entity_key = _candidate_key(entity.name)
         if entity_key:
             keys.add(entity_key)
@@ -192,9 +204,10 @@ def discover_candidates(
     as_of_utc = parse_datetime_utc(as_of)
     current_start = as_of_utc - timedelta(days=scoring.current_window_days)
     baseline_start = current_start - timedelta(days=scoring.baseline_window_days)
-    known_keys = configured_entity_keys(entity_config) | _stored_entity_keys(
+    known_keys = configured_entity_keys(entity_config, as_of=as_of_utc) | _stored_entity_keys(
         engine,
         min_match_confidence=scoring.min_match_confidence,
+        as_of=as_of_utc,
     )
     mentions = _candidate_mentions(
         engine,
@@ -242,15 +255,26 @@ def discover_candidates(
     )[:resolved_limit]
 
 
-def _stored_entity_keys(engine: Engine, *, min_match_confidence: float) -> set[str]:
+def _stored_entity_keys(
+    engine: Engine,
+    *,
+    min_match_confidence: float,
+    as_of: datetime,
+) -> set[str]:
     with engine.connect() as connection:
         rows = connection.execute(
-            select(item_entities.c.entity_name, item_entities.c.alias).where(
-                item_entities.c.confidence >= min_match_confidence
+            select(
+                item_entities.c.entity_name,
+                item_entities.c.alias,
+                items.c.collected_at,
             )
+            .select_from(item_entities.join(items, item_entities.c.item_id == items.c.id))
+            .where(item_entities.c.confidence >= min_match_confidence)
         ).mappings()
         keys: set[str] = set()
         for row in rows:
+            if parse_datetime_utc(row["collected_at"]) > as_of:
+                continue
             for value in (row["entity_name"], row["alias"]):
                 key = _candidate_key(value)
                 if key:

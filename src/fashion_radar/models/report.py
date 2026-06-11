@@ -61,7 +61,6 @@ class CandidateReport(BaseModel):
     distinct_sources: int
     growth_ratio: float | None = None
     first_seen_at: datetime
-    contexts: list[str] = Field(default_factory=list)
     representative_items: list[RepresentativeItem] = Field(default_factory=list)
 
     @field_validator("first_seen_at", mode="before")
