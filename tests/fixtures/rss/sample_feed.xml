@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Fashion Fixture</title>
+    <link>https://example.com/fashion</link>
+    <description>Fixture feed</description>
+    <item>
+      <title>The Row Margaux handbag gains momentum</title>
+      <link>https://example.com/articles/margaux?utm_source=newsletter</link>
+      <guid>margaux-1</guid>
+      <pubDate>Thu, 11 Jun 2026 10:00:00 GMT</pubDate>
+      <description>A short signal about a handbag.</description>
+    </item>
+    <item>
+      <title>Zendaya red carpet styling highlights archival couture</title>
+      <link>https://example.com/articles/zendaya</link>
+      <guid>zendaya-1</guid>
+      <pubDate>Thu, 11 Jun 2026 11:30:00 GMT</pubDate>
+      <description>A short signal about celebrity styling.</description>
+    </item>
+  </channel>
+</rss>

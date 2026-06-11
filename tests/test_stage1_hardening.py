@@ -160,6 +160,31 @@ sources:
         raise AssertionError("unknown source fields should be rejected")
 
 
+def test_source_config_rejects_unknown_nested_fields(tmp_path: Path) -> None:
+    path = tmp_path / "sources.yaml"
+    path.write_text(
+        """
+version: 1
+sources:
+  - name: Vogue
+    type: rss
+    url: https://example.com/feed.xml
+    http:
+      timeout_seconds: 10
+      unknowable: true
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    try:
+        load_source_config(path)
+    except ConfigError as exc:
+        assert "Extra inputs are not permitted" in str(exc)
+    else:
+        raise AssertionError("unknown nested source fields should be rejected")
+
+
 def test_safe_single_word_alias_requires_reason(tmp_path: Path) -> None:
     path = tmp_path / "entities.yaml"
     path.write_text(

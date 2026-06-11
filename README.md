@@ -31,3 +31,13 @@ uv run ruff check .
 For users in mainland China or slower networks, prefer the mirror-based frozen sync
 commands in [dependency-mirrors.md](docs/dependency-mirrors.md). Do not regenerate the
 public `uv.lock` while a mirror index is active.
+
+Optional article text extraction uses the `article` extra:
+
+```bash
+uv sync --locked --dev --extra article
+```
+
+The core RSS/GDELT workflow does not require this extra. If `trafilatura` is not
+installed, article extraction returns a conservative skipped result instead of
+attempting a fallback scraper.

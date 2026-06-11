@@ -11,20 +11,20 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Fashion Radar contributors" }]
 dependencies = [
+  "feedparser>=6.0.11",
+  "httpx>=0.28.1",
   "platformdirs>=4.3.6",
   "pydantic>=2.10.4",
   "python-dateutil>=2.9.0.post0",
   "pyyaml>=6.0.2",
+  "robotexclusionrulesparser>=1.7.1",
   "sqlalchemy>=2.0.36",
+  "tenacity>=9.0.0",
   "typer>=0.15.1",
 ]
 
 [project.optional-dependencies]
-collectors = [
-  "feedparser>=6.0.11",
-  "httpx>=0.28.1",
-  "robotexclusionrulesparser>=1.7.1",
-  "tenacity>=9.0.0",
+article = [
   "trafilatura>=2.0.0",
 ]
 dashboard = [

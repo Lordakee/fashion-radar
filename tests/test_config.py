@@ -28,6 +28,17 @@ def test_loads_valid_source_config(tmp_path: Path) -> None:
             enabled: true
             weight: 1.4
             tags: [fashion_media, runway]
+            http:
+              timeout_seconds: 12
+              per_domain_delay_seconds: 0.5
+            article:
+              enabled: true
+              respect_robots_txt: true
+              skip_on_robots_failure: true
+              paywalled_domains: ["paywall.example"]
+            health:
+              max_failures: 2
+              retention_hours: 12
           - name: GDELT Fashion Query
             type: gdelt
             query: fashion OR runway
@@ -35,6 +46,8 @@ def test_loads_valid_source_config(tmp_path: Path) -> None:
             weight: 1.0
             gdelt:
               rate_limit_per_second: 1.0
+              lookback_hours: 48
+              max_records: 75
         """,
     )
 
@@ -42,7 +55,43 @@ def test_loads_valid_source_config(tmp_path: Path) -> None:
 
     assert config.version == 1
     assert [source.name for source in config.sources] == ["Vogue Runway", "GDELT Fashion Query"]
+    assert config.sources[0].http.timeout_seconds == 12
+    assert config.sources[0].http.per_domain_delay_seconds == 0.5
+    assert config.sources[0].article.respect_robots_txt is True
+    assert config.sources[0].article.paywalled_domains == ["paywall.example"]
+    assert config.sources[0].health.max_failures == 2
+    assert config.sources[0].health.retention_hours == 12
     assert config.sources[1].gdelt.rate_limit_per_second == 1.0
+    assert config.sources[1].gdelt.lookback_hours == 48
+    assert config.sources[1].gdelt.max_records == 75
+
+
+def test_source_config_supplies_stage_3_defaults(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: GDELT Fashion Query
+            type: gdelt
+            query: fashion OR runway
+        """,
+    )
+
+    config = load_source_config(path)
+    source = config.sources[0]
+
+    assert "FashionRadar/0.1" in source.http.user_agent
+    assert source.http.timeout_seconds == 10.0
+    assert source.http.per_domain_delay_seconds == 1.0
+    assert source.http.max_retries == 2
+    assert source.gdelt.lookback_hours == 24
+    assert source.gdelt.max_records == 100
+    assert source.article.enabled is True
+    assert source.article.skip_on_robots_failure is True
+    assert source.article.max_summary_chars == 500
+    assert source.health.max_failures == 3
+    assert source.health.retention_hours == 24
 
 
 def test_google_news_source_is_rejected_for_v0_1(tmp_path: Path) -> None:

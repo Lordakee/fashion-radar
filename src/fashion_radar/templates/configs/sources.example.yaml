@@ -6,6 +6,16 @@ sources:
     enabled: true
     weight: 1.2
     tags: [fashion_media, industry_news]
+    http:
+      timeout_seconds: 10
+      per_domain_delay_seconds: 1
+    article:
+      enabled: true
+      respect_robots_txt: true
+      skip_on_robots_failure: true
+    health:
+      max_failures: 3
+      retention_hours: 24
   - name: GDELT Luxury Fashion
     type: gdelt
     query: '(luxury fashion OR designer fashion OR "fashion week")'
@@ -13,5 +23,12 @@ sources:
     weight: 0.9
     tags: [news_search, gdelt]
     gdelt:
+      lookback_hours: 24
+      max_records: 100
       rate_limit_per_second: 1.0
-
+    http:
+      timeout_seconds: 10
+      per_domain_delay_seconds: 1
+    health:
+      max_failures: 3
+      retention_hours: 24
