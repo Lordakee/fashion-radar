@@ -13,6 +13,12 @@ paywall bypass, or fragile full social-platform scraping.
   Claude Code review of the new code before moving to the next stage.
 - Fix critical and important review findings before continuing.
 
+## Agent Runtime Settings
+
+- When spawning Codex subagents for this project, set the subagent reasoning
+  effort to `xhigh`.
+- When invoking Claude Code for plan or code review, pass `--effort max`.
+
 ## Dependencies And Mirrors
 
 - Prefer mirror-based installation commands for local dependency/software setup
