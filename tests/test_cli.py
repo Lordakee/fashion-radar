@@ -1,4 +1,5 @@
 import json
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -292,6 +293,181 @@ scoring:
     assert json_path.exists()
     assert "The Row" in markdown_path.read_text(encoding="utf-8")
     assert '"entity_name": "The Row"' in json_path.read_text(encoding="utf-8")
+
+
+def _prepare_candidate_cli_fixture(tmp_path: Path) -> tuple[Path, Path]:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Fashionista",
+            source_type=SourceType.RSS,
+            url="https://example.com/le-teckel",
+            title="Le Teckel bag rises",
+            published_at="2026-06-11T10:00:00Z",
+            summary="Le Teckel bag appears again.",
+        ),
+        collected_at=datetime(2026, 6, 11, 11, 0, tzinfo=UTC),
+    )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="WWD",
+            source_type=SourceType.RSS,
+            url="https://example.com/le-teckel-2",
+            title="Le Teckel bag appears again",
+            published_at="2026-06-11T10:30:00Z",
+            summary="Another configured source mentions Le Teckel bag.",
+        ),
+        collected_at=datetime(2026, 6, 11, 11, 30, tzinfo=UTC),
+    )
+    return config_dir, data_dir
+
+
+def test_candidates_command_prints_json(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_candidate_cli_fixture(tmp_path)
+    scoring_before = (config_dir / "scoring.yaml").read_bytes()
+    entities_before = (config_dir / "entities.yaml").read_bytes()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload[0]["phrase"] == "Le Teckel bag"
+    assert (config_dir / "scoring.yaml").read_bytes() == scoring_before
+    assert (config_dir / "entities.yaml").read_bytes() == entities_before
+
+
+def test_candidates_command_prints_table(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_candidate_cli_fixture(tmp_path)
+    result = CliRunner().invoke(
+        app,
+        [
+            "candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Phrase" in result.output
+    assert "candidate signal" in result.output.lower()
+    assert "Le Teckel bag" in result.output
+
+
+def test_candidates_command_is_read_only_when_database_is_missing(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == []
+    assert not (data_dir / "fashion-radar.sqlite").exists()
+
+
+def test_candidates_command_does_not_create_missing_data_directory(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "missing-data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == []
+    assert not data_dir.exists()
+
+
+def test_candidates_command_rejects_incompatible_database_without_schema_mutation(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+    db_path = data_dir / "fashion-radar.sqlite"
+    db_path.touch()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "schema" in result.output.lower()
+    with sqlite3.connect(db_path) as connection:
+        table_names = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+    assert table_names == set()
 
 
 def test_match_command_stores_entity_matches(tmp_path: Path) -> None:
