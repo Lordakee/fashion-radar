@@ -3,6 +3,7 @@
 from fashion_radar.models.entity import EntityDefinition, EntityType
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.report import (
+    CandidateReport,
     CollectorRunReport,
     DailyReport,
     EntityReport,
@@ -13,6 +14,7 @@ from fashion_radar.models.report import (
 from fashion_radar.models.source import SourceDefinition, SourceType
 
 __all__ = [
+    "CandidateReport",
     "CollectedItem",
     "CollectorRunReport",
     "DailyReport",

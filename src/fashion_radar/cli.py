@@ -211,8 +211,10 @@ def report(
     """Generate Markdown and JSON reports from the local database."""
     try:
         scoring_config = load_scoring_config(config_dir / "scoring.yaml")
+        entity_path = config_dir / "entities.yaml"
+        entity_config = load_entity_config(entity_path) if entity_path.exists() else None
     except ConfigError as exc:
-        typer.echo(f"Invalid scoring config: {exc}", err=True)
+        typer.echo(f"Invalid report config: {exc}", err=True)
         raise typer.Exit(1) from exc
 
     try:
@@ -220,6 +222,8 @@ def report(
             data_dir=data_dir,
             reports_dir=reports_dir,
             scoring=scoring_config.scoring,
+            candidate_discovery=scoring_config.candidate_discovery,
+            entity_config=entity_config,
             as_of=as_of,
         )
     except Exception as exc:
@@ -324,6 +328,8 @@ def run(
             data_dir=data_dir,
             reports_dir=reports_dir,
             scoring=scoring_config.scoring,
+            candidate_discovery=scoring_config.candidate_discovery,
+            entity_config=entity_config,
             as_of=as_of,
         )
     except ConfigError as exc:

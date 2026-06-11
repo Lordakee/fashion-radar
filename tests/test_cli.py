@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -465,3 +466,98 @@ def test_run_command_executes_collect_match_and_report(monkeypatch, tmp_path: Pa
 
     assert result.exit_code == 0
     assert calls == ["collect", "match", "report"]
+
+
+def test_run_command_writes_candidate_report_filtered_by_loaded_entities(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    reports_dir.mkdir()
+    (config_dir / "sources.yaml").write_text("version: 1\nsources: []\n", encoding="utf-8")
+    (config_dir / "scoring.yaml").write_text(
+        """
+version: 1
+scoring: {}
+candidate_discovery:
+  min_current_mentions: 1
+  review_min_current_mentions: 1
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (config_dir / "entities.yaml").write_text(
+        """
+version: 1
+entities:
+  - name: The Row
+    type: brand
+    aliases: [The Row]
+    context_terms: [bag]
+  - name: Margaux
+    type: product
+    aliases: [Margaux]
+    context_terms: [bag]
+""".lstrip(),
+        encoding="utf-8",
+    )
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Fashionista",
+            source_type=SourceType.RSS,
+            url="https://example.com/the-row-margaux",
+            title="The Row Margaux bag gains attention",
+            published_at="2026-06-11T10:00:00Z",
+            summary="The Row Margaux bag appears in coverage.",
+        ),
+        collected_at=datetime(2026, 6, 11, 11, 0, tzinfo=UTC),
+    )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="WWD",
+            source_type=SourceType.RSS,
+            url="https://example.com/le-teckel",
+            title="Le Teckel bag gains attention",
+            published_at="2026-06-11T10:30:00Z",
+            summary="Le Teckel bag appears in coverage.",
+        ),
+        collected_at=datetime(2026, 6, 11, 11, 30, tzinfo=UTC),
+    )
+
+    monkeypatch.setattr(cli_module, "collect_configured_sources", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        cli_module,
+        "match_stored_items",
+        lambda **_kwargs: cli_module.MatchSummary(items_processed=1, matches_stored=0),
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(
+        (reports_dir / "fashion-radar-2026-06-11.json").read_text(encoding="utf-8")
+    )
+    candidate_keys = {candidate["phrase"].lower() for candidate in payload["candidates"]}
+    serialized_candidates = json.dumps(payload["candidates"]).lower()
+    assert "le teckel bag" in candidate_keys
+    assert "margaux" not in serialized_candidates
+    assert "the row" not in serialized_candidates

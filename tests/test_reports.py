@@ -11,6 +11,7 @@ from fashion_radar.db.repositories import (
     SourceHealthRepository,
 )
 from fashion_radar.db.schema import initialize_schema
+from fashion_radar.models.entity import EntityDefinition, EntityType
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceDefinition, SourceType
 from fashion_radar.reports import (
@@ -18,7 +19,7 @@ from fashion_radar.reports import (
     render_json_report,
     render_markdown_report,
 )
-from fashion_radar.settings import ScoringSettings
+from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
 
 AS_OF = datetime(2026, 6, 11, 12, 0, tzinfo=UTC)
 
@@ -184,3 +185,154 @@ def test_empty_database_produces_useful_empty_report(tmp_path) -> None:
     assert report.entities == []
     assert parsed["entities"] == []
     assert "No entity signals in this window." in markdown
+
+
+def test_daily_report_includes_untracked_candidate_signals(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    sentinel_item_id = _store_item(
+        engine,
+        url="https://example.com/le-teckel-a",
+        entity_name="Tracked Placeholder",
+        source_name="Fashionista",
+        collected_at=AS_OF - timedelta(hours=1),
+        summary="Le Teckel bag demand is accelerating.",
+    )
+    _store_item(
+        engine,
+        url="https://example.com/le-teckel-b",
+        entity_name="Tracked Placeholder",
+        source_name="WWD",
+        collected_at=AS_OF - timedelta(hours=2),
+        summary="Le Teckel bag appears again.",
+    )
+    sentinel_match = ItemRepository(engine).list_item_matches(sentinel_item_id)[0]
+    assert sentinel_match["alias"] == "raw alias must stay internal"
+    assert sentinel_match["reason"] == "raw reason must stay internal"
+    assert sentinel_match["context_terms"] == ["raw context must stay internal"]
+
+    report = build_daily_report(
+        engine,
+        scoring=ScoringSettings(),
+        candidate_discovery=CandidateDiscoverySettings(),
+        entity_config=None,
+        as_of=AS_OF,
+        generated_at=AS_OF,
+    )
+    markdown = render_markdown_report(report)
+    parsed = json.loads(render_json_report(report))
+
+    assert "Untracked Candidate Signals" in markdown
+    assert "candidate signal" in markdown.lower()
+    assert "needs review" in markdown.lower()
+    assert "from configured sources" in markdown.lower()
+    assert "viral" not in markdown.lower()
+    assert "market-wide trend" not in markdown.lower()
+    assert "confirmed brand" not in markdown.lower()
+    assert "Le Teckel bag" in markdown
+    assert "Fashionista" in markdown
+    assert "https://example.com/le-teckel-a" in markdown
+    assert "Le Teckel bag demand is accelerating." in markdown
+    assert parsed["candidates"][0]["phrase"] == "Le Teckel bag"
+    assert parsed["candidates"][0]["representative_items"][0]["source_name"] == "Fashionista"
+    assert (
+        parsed["candidates"][0]["representative_items"][0]["source_url"]
+        == "https://example.com/le-teckel-a"
+    )
+    assert (
+        "Le Teckel bag demand is accelerating."
+        in parsed["candidates"][0]["representative_items"][0]["summary"]
+    )
+    serialized_candidates = json.dumps(parsed["candidates"])
+    assert set(parsed["candidates"][0]["contexts"]) <= {
+        "proper_name_span",
+        "fashion_anchor",
+        "single_token",
+    }
+    for forbidden in (
+        "content_hash",
+        "normalized_key",
+        "normalized_url",
+        '"id"',
+        "raw reason must stay internal",
+        "raw alias must stay internal",
+        "raw context must stay internal",
+        "context_terms",
+        "raw extraction context",
+    ):
+        assert forbidden not in serialized_candidates
+        assert forbidden not in markdown
+
+
+def test_empty_candidate_section_is_useful(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+
+    report = build_daily_report(
+        engine,
+        scoring=ScoringSettings(),
+        candidate_discovery=CandidateDiscoverySettings(),
+        entity_config=None,
+        as_of=AS_OF,
+        generated_at=AS_OF,
+    )
+
+    assert report.candidates == []
+    assert "No untracked candidate signals in this window." in render_markdown_report(report)
+
+
+def test_report_candidate_filter_uses_entity_config_without_stored_matches(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Fashionista",
+            source_type=SourceType.RSS,
+            url="https://example.com/the-row-margaux-a",
+            title="The Row Margaux bag gains momentum",
+            published_at=AS_OF - timedelta(hours=1),
+            summary="The Row Margaux bag gets coverage.",
+        ),
+        collected_at=AS_OF - timedelta(hours=1),
+    )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="WWD",
+            source_type=SourceType.RSS,
+            url="https://example.com/the-row-margaux-b",
+            title="Margaux bag appears again",
+            published_at=AS_OF - timedelta(hours=2),
+            summary="Another configured source mentions Margaux bag.",
+        ),
+        collected_at=AS_OF - timedelta(hours=2),
+    )
+    entity_config = EntityConfig(
+        entities=[
+            EntityDefinition(
+                name="The Row",
+                type=EntityType.BRAND,
+                aliases=[{"value": "The Row"}],
+                context_terms=["bag"],
+            ),
+            EntityDefinition(
+                name="Margaux",
+                type=EntityType.PRODUCT,
+                aliases=[{"value": "Margaux"}],
+                context_terms=["bag"],
+            ),
+        ]
+    )
+
+    report = build_daily_report(
+        engine,
+        scoring=ScoringSettings(),
+        candidate_discovery=CandidateDiscoverySettings(),
+        entity_config=entity_config,
+        as_of=AS_OF,
+        generated_at=AS_OF,
+    )
+
+    assert "margaux" not in json.dumps(
+        [candidate.model_dump() for candidate in report.candidates]
+    ).lower()

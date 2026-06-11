@@ -8,6 +8,10 @@
 
 {entity_sections}
 
+## Untracked Candidate Signals
+
+{candidate_sections}
+
 ## Source Health
 
 {source_health_section}

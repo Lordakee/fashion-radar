@@ -41,6 +41,7 @@ FASHION_ANCHORS = {
 GENERIC_STOP_KEYS = {
     "fashion",
     "fashion week",
+    "le",
     "spring collection",
     "fall collection",
     "summer collection",
@@ -468,6 +469,8 @@ def _proper_name_candidates(
         span = tokens[start:index]
         title_tokens = [token for token in span if token.value != "&"]
         if len(title_tokens) < 2:
+            continue
+        if len(span) == 2 and index < len(tokens) and tokens[index].normalized in FASHION_ANCHORS:
             continue
         for offset in range(0, len(span) - 1):
             pair = span[offset : offset + 2]
