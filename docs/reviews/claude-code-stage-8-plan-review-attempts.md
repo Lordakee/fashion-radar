@@ -14,7 +14,12 @@ Commands attempted:
 claude -p --effort max --permission-mode bypassPermissions < docs/reviews/claude-code-stage-8-plan-review-prompt.md
 claude -p --effort max --permission-mode bypassPermissions < docs/reviews/claude-code-stage-8-plan-review-prompt.md
 claude -p --effort max --permission-mode bypassPermissions 'Reply exactly: stage8-claude-availability-ok'
+claude -p --effort max < docs/reviews/claude-code-stage-8-plan-review-prompt.md
 ```
+
+Note: these attempts used the earlier project review command form. The current
+Stage 8 plan-review command has been tightened to a read-only prompt without
+`--permission-mode bypassPermissions`.
 
 Results:
 
@@ -22,6 +27,7 @@ Results:
 Attempt 1: API Error: 503 No available accounts: no available accounts.
 Attempt 2: API Error: 503 No available accounts: no available accounts.
 Attempt 3: timed out after 180 seconds on a minimal availability prompt.
+Attempt 4: API Error: 503 No available accounts: no available accounts.
 ```
 
 Status:

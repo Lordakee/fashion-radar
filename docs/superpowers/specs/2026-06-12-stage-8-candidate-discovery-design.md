@@ -3,13 +3,13 @@
 ## Goal
 
 Add deterministic "Untracked Candidate Signals" so Fashion Radar can surface
-phrases that may represent emerging brands, designers, bags, shoes, products,
-or trend terms already present in locally collected RSS/GDELT items but not yet
+observed phrases that may represent brands, designers, bags, shoes, products,
+or style terms already present in locally collected RSS/GDELT items but not yet
 configured as tracked entities.
 
-This stage directly supports the user need to notice new brands, bags, shoes,
-and designer labels gaining attention, while keeping the project free,
-local-first, and safe for GitHub publication.
+This stage directly supports the user need to notice phrases that may warrant
+human review for brands, bags, shoes, and designer labels while keeping the
+project free, local-first, and safe for GitHub publication.
 
 ## Non-Goals
 
@@ -98,7 +98,7 @@ Candidate types are conservative:
 - `bag`
 - `shoe`
 - `product`
-- `trend`
+- `style_term`
 - `unknown`
 
 Rules:
@@ -123,6 +123,10 @@ Filtering removes:
 - Days, months, seasons, years, broad cities, and generic event phrases such as
   `fashion week` and `spring collection`.
 
+If a candidate phrase contains a configured or stored known entity key as a
+complete token span, reject the full phrase rather than surfacing a composite
+leak such as `the row margaux bag` or `margaux bag`.
+
 If `entities.yaml` is missing in a direct report path, discovery falls back to
 stored `item_entities` filtering. It must not break the existing `report`
 command contract.
@@ -134,7 +138,7 @@ Candidate metrics mirror current/baseline scoring windows:
 ```text
 current_start = as_of - scoring.current_window_days
 baseline_start = current_start - scoring.baseline_window_days
-current window: baseline_start < collected_at <= as_of
+current window: current_start < collected_at <= as_of
 baseline window: baseline_start < collected_at <= current_start
 ```
 
@@ -152,6 +156,16 @@ Metrics:
 - `candidate_type`
 - `contexts`
 - `representative_items`
+
+Growth ratio follows the existing entity scoring convention and compares
+window rates rather than raw counts:
+
+```text
+current_rate = current_mentions / scoring.current_window_days
+baseline_rate = baseline_mentions / scoring.baseline_window_days
+growth_ratio = current_rate / baseline_rate when baseline_mentions > 0
+growth_ratio = None when baseline_mentions == 0
+```
 
 Counting rules:
 
@@ -224,6 +238,10 @@ Report wording must use "candidate signal", "observed phrase", "needs review",
 and "from configured sources". It must not use "viral", "confirmed brand", or
 "market-wide trend".
 
+Public `contexts` values must be short controlled labels such as
+`proper_name_span` or `fashion_anchor`. They must not contain raw source text,
+aliases, matcher reasons, snippets, or serialized internal extraction state.
+
 JSON output must avoid internal DB fields including `content_hash`,
 `normalized_url`, raw matcher reasons, raw aliases, and internal context
 serialization.
@@ -249,7 +267,8 @@ latest generated JSON report in `reports_dir`. It does not collect, match,
 write a report, call the network, or recompute phrase extraction on page load.
 
 The UI should show report date or staleness so users know the dashboard reflects
-the latest report file, not necessarily the newest DB row.
+the latest report file, not necessarily the newest DB row. The dashboard helper
+must return report metadata even when the latest report has zero candidate rows.
 
 ## Safety And Language
 
