@@ -34,38 +34,30 @@ Google News RSS is not included in `v0.1.0`. If added later, it must be disabled
 
 ### Experimental
 
-These connectors are not part of `v0.1.0`, are not required for core operation,
-and must not be treated as endorsed scraping recipes:
+These connector categories are not part of `v0.1.0`, are not required for core
+operation, and must not be treated as endorsed how-to instructions:
 
-- Xiaohongshu/RedNote MCP or crawlers.
-- MediaCrawler.
-- Instaloader.
-- TikTok-Api.
-- TikTok Creative Center page monitoring.
-- Pinterest Trends page monitoring.
-- twscrape.
-- yt-dlp metadata extraction for user-provided URLs.
-- XPOZ or other third-party SaaS free tiers.
+- Non-core platform collectors.
+- User-account-dependent collectors.
+- Media metadata utilities for user-provided URLs.
+- Third-party source aggregation services.
 
 Experimental connectors must not block core collection, scoring, reports, or
-dashboards. Any future connector for Instagram, TikTok, X/Twitter,
-Xiaohongshu/RedNote, Pinterest, Reddit, or similar platforms must be an explicit
-opt-in with its own terms, risk labels, and privacy review.
+dashboards. Any future non-core connector must be an explicit opt-in with its
+own terms, risk labels, and privacy review.
 
 ### Out Of Scope
 
 The project should not include:
 
-- Instagram/TikTok/X/Xiaohongshu full-platform scraping in the default workflow.
-- Login-cookie harvesting.
-- Account/session file collection.
-- CAPTCHA bypass.
-- Paywall bypass.
-- Residential proxy rotation.
+- Broad platform collection in the default workflow.
+- Account-based collection artifacts.
+- Access-control bypasses.
+- Residential network-routing workarounds.
 - Account pools.
-- Hidden scraping workarounds.
+- Hidden platform workarounds.
 - Bulk media download as a default workflow.
-- Tutorials for evading platform controls.
+- Tutorials for evading source controls.
 - Private data collection.
 
 ## Storage Boundaries
@@ -111,16 +103,22 @@ Preferred wording:
 - "Observed in 6 sources"
 - "Mention count increased in this configured source set"
 - "Needs human review"
+- "Candidate signal from configured sources"
+- "Observed phrase needs review"
 
 Avoid wording that implies complete market truth:
 
 - "This is the hottest brand"
-- "This product is definitely viral"
+- "This source-set signal proves external demand"
 - "This celebrity caused the trend"
 
 ## Quality Boundaries
 
-Heat scores are local metrics based on configured sources. They are not global platform rankings.
+Heat scores are local metrics based on configured sources. They are not rankings
+outside that configured source set.
+
+Candidate signals are observed phrases from configured sources and need review.
+They should not be presented as validated entities.
 
 The dashboard should show:
 
@@ -137,9 +135,9 @@ The public README must explain:
 
 - The project does not provide full social-platform coverage.
 - Users are responsible for respecting source terms, robots rules, and API terms.
-- The default workflow avoids logged-in scraping and paywall bypass.
+- The default workflow avoids account-based collection and access-control
+  bypasses.
 - Experimental connectors may stop working and are not production guarantees.
-- Instagram, TikTok, X/Twitter, and Xiaohongshu/RedNote scraping are excluded
-  from `v0.1.0`.
-- Login cookies, account/session files, proxy pools, CAPTCHA bypass, paywall
-  bypass, and private data are not part of the project.
+- Broad non-core platform collection is excluded from `v0.1.0`.
+- Account artifacts, access-control bypasses, and private data are not part of
+  the project.

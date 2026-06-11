@@ -29,6 +29,8 @@ uv run fashion-radar dashboard
 - Does not run entity matching.
 - Does not generate reports.
 - Does not make network requests on import or refresh.
+- Reads candidate signals from the latest report JSON when that file is
+  available.
 
 ## Security
 
@@ -39,14 +41,20 @@ unless you understand that other machines may be able to access it.
 
 ## Current Tabs
 
-Stage 5 dashboard tabs are read-only operational summaries:
+Dashboard tabs are read-only operational summaries:
 
 - Daily Brief
 - Brand Mentions
 - Product Mentions
 - Celebrity Mentions
 - Source Health
+- Candidate Signals
 
 The brand/product/celebrity tabs rank mention counts from the local database.
-They are not the full Stage 4 heat-score ranking. Use the generated daily report
-for heat score, growth ratio, labels, and score components.
+They are not the full heat-score ranking. Use the generated daily report for
+heat score, growth ratio, labels, and score components.
+
+The Candidate Signals tab reads the latest generated report JSON. Candidate
+signals are observed phrases from configured sources and need review. If the
+latest report was generated before the latest collection or matching run, the
+tab may be stale until a new report is written.

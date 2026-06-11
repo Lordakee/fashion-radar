@@ -4,7 +4,9 @@ Fashion Radar is a free-first, local-first fashion intelligence tool for daily
 tracking of fashion signals across allowed public sources. It collects RSS or
 RSSHub-compatible feeds and GDELT metadata, matches configurable brands,
 designers, celebrities, products, categories, and trends, then writes local
-Markdown/JSON reports and a read-only dashboard.
+Markdown/JSON reports and a read-only dashboard. It can also surface candidate
+signals as observed phrases from configured sources that need review before
+being tracked.
 
 The MVP is built for personal research and editorial monitoring. It is not a
 complete social listening platform, and its heat scores are local metrics based
@@ -16,19 +18,19 @@ only on the sources you configure.
 - Stores conservative metadata in a local SQLite database.
 - Matches entities with deterministic alias and context rules.
 - Computes transparent heat scores over current and baseline windows.
+- Surfaces untracked candidate signals as observed phrases from configured
+  sources that need review.
 - Generates daily Markdown and JSON reports with source attribution.
 - Provides an optional local Streamlit dashboard for read-only inspection.
 
 ## What It Does Not Do
 
-Fashion Radar v0.1.0 does not include Instagram, TikTok, X/Twitter,
-Xiaohongshu/RedNote, Pinterest, Reddit, or Google News scraping. It does not use
-login cookies, account/session files, proxy or account pools, CAPTCHA bypass,
-paywall bypass, fingerprint evasion, private data collection, or hidden platform
-workarounds.
+Fashion Radar v0.1.0 does not include broad platform collection, account-based
+source access, access-control bypasses, private data collection, or hidden
+platform workarounds. Google News is not part of the default source set.
 
-Future social-platform connectors, if ever added, must be explicit opt-ins with
-clear risk labels. They are not required for the core workflow.
+Future non-core connectors, if ever added, must be explicit opt-ins with clear
+risk labels. They are not required for the core workflow.
 
 ## Quickstart
 
@@ -62,6 +64,12 @@ Run the daily workflow step by step:
 uv run fashion-radar collect
 uv run fashion-radar match
 uv run fashion-radar report --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+```
+
+Review untracked candidate signals from configured sources:
+
+```bash
+uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 Or run the workflow serially:
@@ -104,9 +112,9 @@ uv run fashion-radar dashboard
 ```
 
 The dashboard defaults to `127.0.0.1:8501`, is read-only, and does not collect,
-match, or fetch network data on page import or refresh. It currently shows
-mention-count summaries for brands/products/celebrities, not the full heat-score
-ranking from the daily report.
+match, or fetch network data on page import or refresh. It shows local
+mention-count summaries and can read candidate signals from the latest report
+JSON, which may be stale until a new report is generated.
 
 There is no authentication layer. Do not bind `--host 0.0.0.0` or any non-local
 address on an untrusted network unless you understand that the dashboard may be
@@ -126,7 +134,8 @@ Starter files live in [configs](configs) and are also packaged for
   categories, and trends. Broad aliases need context terms unless explicitly
   marked safe.
 - `scoring.example.yaml` defines scoring windows, label thresholds, confidence
-  filtering, source diversity bonuses, and high-weight source bonuses.
+  filtering, source diversity bonuses, high-weight source bonuses, and optional
+  candidate discovery thresholds.
 
 Optional public-source starter packs live in [configs/source-packs](configs/source-packs).
 See [docs/source-packs.md](docs/source-packs.md).
@@ -142,7 +151,8 @@ fashion-radar-YYYY-MM-DD.json
 ```
 
 Reports contain source attribution, links, snippets/metadata, matched entities,
-and score components. They should be reviewed before being shared publicly.
+candidate signals, and score components. They should be reviewed before being
+shared publicly.
 
 Use cleanup when you want to prune old collected items:
 
@@ -158,6 +168,7 @@ See [docs/data-retention.md](docs/data-retention.md).
 - [docs/architecture.md](docs/architecture.md)
 - [docs/source-boundaries.md](docs/source-boundaries.md)
 - [docs/scoring.md](docs/scoring.md)
+- [docs/candidate-discovery.md](docs/candidate-discovery.md)
 - [docs/data-retention.md](docs/data-retention.md)
 - [docs/dashboard.md](docs/dashboard.md)
 - [docs/scheduling.md](docs/scheduling.md)
@@ -182,11 +193,11 @@ uv sync --locked --dev --extra article
 
 The core RSS/GDELT workflow does not require this extra. If `trafilatura` is not
 installed, article extraction returns a conservative skipped result instead of
-attempting a fallback scraper.
+attempting a fallback page collector.
 
 ## GitHub Publishing Boundary
 
 This repository can be prepared for GitHub locally, but the user controls remote
 creation, pushing, PyPI publishing, and artifact uploads. Do not upload local
-SQLite databases, generated reports, cookies, browser profiles, account/session
-files, secrets, build artifacts, or CodeGraph database files.
+SQLite databases, generated reports, browser state, account/session artifacts,
+secrets, build artifacts, or CodeGraph database files.

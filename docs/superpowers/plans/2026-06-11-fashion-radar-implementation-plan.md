@@ -557,7 +557,7 @@ clear install hint such as `uv sync --extra dashboard` or
 - Default database path is `<data-dir>/fashion-radar.sqlite`.
 - `collect` loads `sources.yaml`, initializes/migrates SQLite, runs RSS/GDELT
   collectors through `collect_sources()`, records run/source health, and never
-  invokes social-platform scraping or login-cookie collection.
+  invokes non-configured platform collection or account-based collection.
 - `match` loads `entities.yaml`, reads stored items, runs deterministic
   `match_entities()` against title + short summary, and stores accepted matches
   through `ItemRepository.replace_item_matches()`.
@@ -730,9 +730,8 @@ explicitly asks for that action.
   `UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple`, without writing
   mirror URLs into `uv.lock`.
 - Docs must clearly state that MVP sources are RSS/RSSHub-compatible public
-  feeds and GDELT, while Instagram/TikTok/X/Xiaohongshu scraping, login cookies,
-  proxy/account pools, CAPTCHA bypass, paywall bypass, and private data
-  collection are out of scope.
+  feeds and GDELT, while non-core platform collection, account-based source
+  access, access-control bypasses, and private data collection are out of scope.
 - Scoring docs must document the exact Stage 4 formula, windows, label order,
   `source_weight`, `collected_at`, stable first-seen, and known limits.
   Known limits must include that ranked sections omit entities with
@@ -751,8 +750,8 @@ explicitly asks for that action.
 **Repository hygiene contract:**
 
 - Do not commit generated runtime data, `.venv`, `dist`, `reports/*.md`,
-  `reports/*.json`, local SQLite DBs, `.codegraph/*.db*`, cookies, secrets,
-  browser profiles, or account/session files.
+  `reports/*.json`, local SQLite DBs, `.codegraph/*.db*`, browser state,
+  secrets, or account/session artifacts.
 - Keep `.mcp.json`, `.claude/settings.json`, and `.codegraph/.gitignore` if
   Claude Code/Codex project tooling remains useful, but verify no absolute local
   paths or DB files are committed.
@@ -845,7 +844,7 @@ CHANGELOG.md
 - README quickstart works from a fresh clone using local files and no network
   tests.
 - Docs honestly describe MVP source boundaries and excluded high-risk platform
-  scraping.
+  collection.
 - Scoring and data retention docs match implemented behavior.
 - `.gitignore` and tracked files exclude generated data, secrets, local DBs,
   build artifacts, and CodeGraph DB files.
@@ -874,7 +873,8 @@ without adding new collectors.
 - [x] Add public-source starter packs using only existing `rss`, `rsshub`, and
   `gdelt` source types.
 - [x] Keep Google News RSS, Google Trends, Reddit, static webpage monitoring,
-  Playwright, logged-in crawling, and platform scraping out of this stage.
+  dynamic-page collection, logged-in collection, and non-core platform
+  collection out of this stage.
 - [x] Add scheduling/source-pack docs and tests.
 - [x] Ask Claude Code to review Stage 7 code before commit using `--effort max`.
 
@@ -882,19 +882,21 @@ without adding new collectors.
 
 - Fresh clone instructions are clear.
 - CI passes locally.
-- No secrets, cookies, accounts, or private data are committed.
+- No secrets, account artifacts, or private data are committed.
 - Final Claude Code review has no unfixed critical or important findings.
 
 ## Stage 8: Untracked Candidate Discovery
 
-**Status:** Planned on 2026-06-12. The active Stage 8 design and plan are:
+**Status:** Implementation in progress on 2026-06-12. Task 8 documentation is
+tracked in the active Stage 8 plan:
 
 - `docs/superpowers/specs/2026-06-12-stage-8-candidate-discovery-design.md`
 - `docs/superpowers/plans/2026-06-12-stage-8-candidate-discovery-plan.md`
 
-**Goal:** Surface candidate brands, designers, products, bags, shoes, and trend
-phrases from already collected local RSS/GDELT items without adding sources,
-scraping, paid APIs, or LLM dependencies.
+**Goal:** Surface candidate signals for brands, designers, products, bags,
+shoes, and style terms as observed phrases from already collected local
+RSS/GDELT items, from configured sources, without adding source acquisition or
+external inference dependencies.
 
 **Tasks:**
 
@@ -914,27 +916,28 @@ scraping, paid APIs, or LLM dependencies.
 
 - Candidate discovery uses only retained local SQLite rows from existing
   RSS/RSSHub/GDELT workflows.
-- Outputs are framed as candidate signals needing human review.
+- Outputs are framed as candidate signals from configured sources that need
+  human review.
 - Same DB, config, and `as_of` produce deterministic output ordering.
-- No new source, crawler, browser automation, social scraping, paid API, LLM,
-  embedding, vector database, or automatic config mutation is introduced.
+- No new source acquisition, collector type, dynamic-page workflow, external
+  inference service, vector database, or automatic config mutation is
+  introduced.
 - Final Claude Code review has no unfixed critical or important findings.
 
 ## Deferred Features
 
 These are intentionally out of MVP:
 
-- LLM-based summarization.
-- Xiaohongshu logged-in crawler automation.
-- Instagram/TikTok/X logged-in scraping.
-- Proxy/account management.
+- Model-based summarization.
+- Logged-in non-core platform collection.
+- Network-routing/account management.
 - SaaS integrations.
 - Team authentication.
 - Cloud deployment.
 - Automated chat-app push.
 - Image recognition for outfit/product matching.
-- Playwright dynamic page rendering.
-- Embedding-based semantic deduplication.
+- Dynamic page rendering.
+- Semantic deduplication.
 - Celery/Redis background workers.
 
 ## Claude Code Review Gate Template
