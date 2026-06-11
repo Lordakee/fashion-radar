@@ -12,7 +12,9 @@
 
 ## Stage 0: Planning And Claude Code Review
 
-**Status:** Current stage.
+**Status:** Completed. Initial Claude Code plan review is recorded in
+`docs/reviews/claude-code-plan-review.md` and
+`docs/reviews/claude-code-plan-rereview.md`.
 
 **Files:**
 
@@ -31,6 +33,9 @@
 - [ ] Ask the user for approval before writing implementation code.
 
 ## Stage 1: Repository Skeleton And Core Models
+
+**Status:** Completed. Stage 1 code review and fixes are recorded in
+`docs/reviews/claude-code-stage-1-review.md`.
 
 **Goal:** Create the Python project foundation and deterministic model/config layer.
 
@@ -100,12 +105,47 @@ fashion-radar/
 
 ## Stage 2: SQLite Storage And Entity Matching
 
+**Status:** Plan approved by Claude Code. Stage 2 plan review is recorded in
+`docs/reviews/claude-code-stage-2-plan-review.md`.
+
 **Goal:** Persist collected items and attach matched entities through deterministic alias matching.
+
+**Dependency decision:** Move `sqlalchemy>=2.0.36` into core project
+dependencies at the start of Stage 2 because SQLite persistence becomes part of
+the MVP workflow in this stage. Keep `feedparser`, `httpx`, `trafilatura`,
+`robotexclusionrulesparser`, `tenacity`, `pandas`, and `streamlit` optional
+until their collector/dashboard stages.
+
+**Matcher contract:** `alias_pattern()` is only a case-insensitive literal
+word-boundary primitive. Stage 2 must add the context gate that decides whether
+an alias match is accepted. Any alias whose normalized key is single-word or in
+`UNSAFE_COMMON_ALIASES` must require at least one configured `context_terms`
+match in the same item, unless the alias is explicitly marked
+`safe_single_word: true` with a non-empty `reason`. Keep
+`UNSAFE_COMMON_ALIASES` as a small, test-covered code constant seeded with
+clearly ambiguous phrases such as `row`, `gap`, `coach`, `boss`, `pink`,
+`ballet flat`, and `ballet flats`. Multi-word aliases that normalize to an
+unsafe phrase, or include an unsafe brand-like token and can plausibly appear as
+ordinary language, still need context tests. Product aliases with a
+`parent_brand` should match only when the item also contains the parent brand
+alias or one of that product entity's own narrow context terms. Generic shared
+tokens are not enough. This prevents `the row`, `ballet flats`, `Coach`, `Gap`,
+`Boss`, and `Pink` from becoming accepted matches from generic phrases alone.
+
+**Deduplication contract:** URL normalization must have an explicit initial
+tracking-parameter policy: remove `utm_*`, `fbclid`, `gclid`, `msclkid`,
+`igshid`, `mc_cid`, `mc_eid`, `ref`, `ref_src`, and empty query parameters;
+lowercase scheme/host; remove fragments; and keep non-tracking query
+parameters. Content hashes should be computed from normalized title, publication
+date, source, and summary/snippet only, not full article text.
+
+**Schema evolution:** Stage 2 should create a tiny `schema_metadata` table with a
+single integer schema version. Full Alembic migrations remain deferred, but the
+database should fail clearly if a future incompatible schema version is found.
 
 **Planned files:**
 
 ```text
-src/fashion_radar/db.py
 src/fashion_radar/db/__init__.py
 src/fashion_radar/db/engine.py
 src/fashion_radar/db/schema.py
@@ -120,27 +160,39 @@ tests/test_dedupe.py
 
 **TDD tasks:**
 
+- [ ] Move SQLAlchemy from optional `storage` extra to core dependencies, update `uv.lock` without mirror env vars, and verify `uv.lock` contains no mirror-bound URLs.
 - [ ] Write failing tests for schema initialization.
 - [ ] Implement SQLAlchemy 2.x SQLite schema initializer.
-- [ ] Write failing tests for item upsert and URL/title/date deduplication.
+- [ ] Write failing tests for a `schema_metadata` table with schema version `1` and a clear failure for unsupported future versions.
+- [ ] Implement the lightweight schema version guard.
+- [ ] Write failing tests for item upsert and exact URL deduplication.
 - [ ] Implement item upsert.
-- [ ] Write failing tests for alias matching across brand, celebrity, designer, product, category, and trend entities.
-- [ ] Implement deterministic matcher with word boundaries and match confidence.
-- [ ] Write failing tests proving common phrases such as `the row` do not match The Row unless configured safely or context supports it.
-- [ ] Write failing tests for URL normalization, tracking parameter stripping, canonical title/date deduplication, and content hash deduplication.
+- [ ] Write failing tests for URL normalization, explicit tracking parameter stripping, canonical title/date deduplication, and content hash deduplication.
 - [ ] Implement normalized URL and hash helpers.
+- [ ] Write failing tests for alias matching across brand, celebrity, designer, product, category, and trend entities.
+- [ ] Implement deterministic matcher with case-insensitive word boundaries, match confidence, and explicit accepted/rejected match reason fields.
+- [ ] Write failing tests proving common phrases such as `front row seat`, `the row after the show`, `coach the team`, `mind the gap`, `boss said`, `pink room`, and generic `ballet flats` do not become accepted entity matches unless safe alias settings or context terms support them.
+- [ ] Write failing tests proving positive fashion examples still match, such as `The Row Margaux handbag`, `Miu Miu ballet flats`, `Zendaya red carpet`, and `Jonathan Anderson creative director`.
+- [ ] Write failing tests proving context terms are matched case-insensitively and do not rely on substring-only behavior.
+- [ ] Implement context-gated deterministic matcher.
 - [ ] Write failing tests for storing item/entity matches.
 - [ ] Implement match persistence.
+- [ ] Write failing tests that stored items keep source name, source URL, publication time, title, summary/snippet, and no full article body.
+- [ ] Implement storage fields needed for attribution and future report snippets without storing republished full articles.
 - [ ] Run `pytest` and `ruff`.
 - [ ] Ask Claude Code to review Stage 2 code and Stage 3 plan.
 - [ ] Fix review findings before Stage 3.
 
 **Acceptance criteria:**
 
-- SQLite database can be initialized in a temp directory.
+- SQLite database can be initialized at any configured filesystem path; tests use temp directories only as isolated fixtures.
 - Duplicate URLs do not create duplicate items.
-- Alias matching handles case, punctuation, simple whitespace differences, word boundaries, duplicate alias validation, and confidence.
-- Common-term false positives are tested and blocked.
+- URL normalization strips the explicit initial tracking-parameter list and supports canonical hash-based deduplication.
+- Alias matching handles case, punctuation, simple whitespace differences, word boundaries, duplicate alias validation, confidence, and accepted/rejected reasons.
+- Common-term false positives are tested and blocked by context gates.
+- Attribution fields needed by reports are persisted, and Stage 2 storage does not introduce full-article republication.
+- A lightweight schema version guard exists even though full migrations are deferred.
+- `uv.lock` remains free of mirror-bound URLs after adding SQLAlchemy to core dependencies.
 - Claude Code review has no unfixed critical or important findings.
 
 ## Stage 3: Public Collectors
