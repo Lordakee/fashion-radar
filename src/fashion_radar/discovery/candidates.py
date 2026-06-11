@@ -2,9 +2,16 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
+from sqlalchemy import select
+from sqlalchemy.engine import Engine
+
+from fashion_radar.db.schema import item_entities, items
 from fashion_radar.extract.text import normalize_alias_key, normalize_text
-from fashion_radar.settings import CandidateDiscoverySettings
+from fashion_radar.models.report import RepresentativeItem
+from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
+from fashion_radar.utils.dates import parse_datetime_utc
 
 FASHION_ANCHORS = {
     "bag",
@@ -80,9 +87,41 @@ class CandidatePhrase:
 
 
 @dataclass(frozen=True)
+class CandidateMetric:
+    phrase: str
+    normalized_key: str
+    candidate_type: str
+    label: str
+    score: float
+    current_mentions: int
+    baseline_mentions: int
+    distinct_sources: int
+    growth_ratio: float | None
+    first_seen_at: datetime
+    contexts: tuple[str, ...]
+    representative_items: tuple[RepresentativeItem, ...]
+
+
+@dataclass(frozen=True)
 class _Token:
     value: str
     normalized: str
+
+
+@dataclass(frozen=True)
+class _CandidateMention:
+    phrase: str
+    normalized_key: str
+    candidate_type: str
+    contexts: tuple[str, ...]
+    item_id: int
+    source_name: str
+    source_weight: float
+    source_url: str
+    published_at: datetime
+    title: str
+    summary: str | None
+    collected_at: datetime
 
 
 def extract_candidate_phrases(
@@ -114,6 +153,287 @@ def extract_candidate_phrases(
             continue
         by_key.setdefault(candidate.normalized_key, candidate)
     return list(by_key.values())
+
+
+def configured_entity_keys(entity_config: EntityConfig | None) -> set[str]:
+    keys: set[str] = set()
+    if entity_config is None:
+        return keys
+    for entity in entity_config.entities:
+        entity_key = _candidate_key(entity.name)
+        if entity_key:
+            keys.add(entity_key)
+        for alias in entity.aliases:
+            alias_key = _candidate_key(alias.value)
+            if alias_key:
+                keys.add(alias_key)
+    return keys
+
+
+def discover_candidates(
+    engine: Engine,
+    *,
+    scoring: ScoringSettings,
+    settings: CandidateDiscoverySettings,
+    entity_config: EntityConfig | None,
+    as_of: datetime,
+    limit: int | None = None,
+) -> list[CandidateMetric]:
+    if not settings.enabled:
+        return []
+
+    resolved_limit = (
+        settings.max_candidates if limit is None else min(limit, settings.max_candidates)
+    )
+    if resolved_limit <= 0:
+        return []
+
+    as_of_utc = parse_datetime_utc(as_of)
+    current_start = as_of_utc - timedelta(days=scoring.current_window_days)
+    baseline_start = current_start - timedelta(days=scoring.baseline_window_days)
+    known_keys = configured_entity_keys(entity_config) | _stored_entity_keys(
+        engine,
+        min_match_confidence=scoring.min_match_confidence,
+    )
+    mentions = _candidate_mentions(
+        engine,
+        known_keys=known_keys,
+        settings=settings,
+        baseline_start=baseline_start,
+        as_of=as_of_utc,
+    )
+
+    by_key: dict[str, list[_CandidateMention]] = {}
+    for mention in mentions:
+        by_key.setdefault(mention.normalized_key, []).append(mention)
+
+    metrics: list[CandidateMetric] = []
+    for candidate_mentions in by_key.values():
+        current_mentions = [
+            mention
+            for mention in candidate_mentions
+            if current_start < mention.collected_at <= as_of_utc
+        ]
+        if not current_mentions:
+            continue
+        baseline_mentions = [
+            mention
+            for mention in candidate_mentions
+            if baseline_start < mention.collected_at <= current_start
+        ]
+        metric = _score_candidate(
+            current_mentions=current_mentions,
+            baseline_mentions=baseline_mentions,
+            scoring=scoring,
+            settings=settings,
+        )
+        if metric is not None:
+            metrics.append(metric)
+
+    return sorted(
+        metrics,
+        key=lambda metric: (
+            -metric.score,
+            -metric.current_mentions,
+            -metric.distinct_sources,
+            metric.phrase.lower(),
+        ),
+    )[:resolved_limit]
+
+
+def _stored_entity_keys(engine: Engine, *, min_match_confidence: float) -> set[str]:
+    with engine.connect() as connection:
+        rows = connection.execute(
+            select(item_entities.c.entity_name, item_entities.c.alias).where(
+                item_entities.c.confidence >= min_match_confidence
+            )
+        ).mappings()
+        keys: set[str] = set()
+        for row in rows:
+            for value in (row["entity_name"], row["alias"]):
+                key = _candidate_key(value)
+                if key:
+                    keys.add(key)
+        return keys
+
+
+def _candidate_mentions(
+    engine: Engine,
+    *,
+    known_keys: set[str],
+    settings: CandidateDiscoverySettings,
+    baseline_start: datetime,
+    as_of: datetime,
+) -> list[_CandidateMention]:
+    with engine.connect() as connection:
+        rows = list(
+            connection.execute(
+                select(
+                    items.c.id,
+                    items.c.source_name,
+                    items.c.source_weight,
+                    items.c.url,
+                    items.c.published_at,
+                    items.c.title,
+                    items.c.summary,
+                    items.c.collected_at,
+                )
+            ).mappings()
+        )
+
+    mentions: list[_CandidateMention] = []
+    for row in rows:
+        collected_at = parse_datetime_utc(row["collected_at"])
+        if not (baseline_start < collected_at <= as_of):
+            continue
+        text = " ".join(
+            value for value in (row["title"], row["summary"]) if isinstance(value, str)
+        )
+        phrases = extract_candidate_phrases(
+            text,
+            source_name=row["source_name"],
+            known_keys=known_keys,
+            settings=settings,
+        )
+        by_key = _deduplicate_phrases(phrases)
+        for phrase in by_key.values():
+            mentions.append(
+                _CandidateMention(
+                    phrase=phrase.phrase,
+                    normalized_key=phrase.normalized_key,
+                    candidate_type=phrase.candidate_type,
+                    contexts=phrase.contexts,
+                    item_id=int(row["id"]),
+                    source_name=row["source_name"],
+                    source_weight=float(row["source_weight"] or 1.0),
+                    source_url=row["url"],
+                    published_at=parse_datetime_utc(row["published_at"]),
+                    title=row["title"],
+                    summary=row["summary"],
+                    collected_at=collected_at,
+                )
+            )
+    return mentions
+
+
+def _deduplicate_phrases(phrases: list[CandidatePhrase]) -> dict[str, CandidatePhrase]:
+    by_key: dict[str, CandidatePhrase] = {}
+    for phrase in phrases:
+        existing = by_key.get(phrase.normalized_key)
+        if existing is None:
+            by_key[phrase.normalized_key] = phrase
+            continue
+        by_key[phrase.normalized_key] = CandidatePhrase(
+            phrase=existing.phrase,
+            normalized_key=existing.normalized_key,
+            candidate_type=existing.candidate_type,
+            contexts=_merge_contexts(existing.contexts, phrase.contexts),
+        )
+    return by_key
+
+
+def _score_candidate(
+    *,
+    current_mentions: list[_CandidateMention],
+    baseline_mentions: list[_CandidateMention],
+    scoring: ScoringSettings,
+    settings: CandidateDiscoverySettings,
+) -> CandidateMetric | None:
+    current_count = len(current_mentions)
+    distinct_sources = len({mention.source_name for mention in current_mentions})
+    if current_count < settings.review_min_current_mentions:
+        return None
+    if distinct_sources < settings.review_min_distinct_sources:
+        return None
+
+    key = current_mentions[0].normalized_key
+    if len(key.split()) == 1 and (
+        current_count < settings.min_single_token_mentions
+        or distinct_sources < settings.min_single_token_distinct_sources
+    ):
+        return None
+
+    baseline_count = len(baseline_mentions)
+    current_rate = current_count / scoring.current_window_days
+    baseline_rate = baseline_count / scoring.baseline_window_days if baseline_count else 0
+    growth_ratio = current_rate / baseline_rate if baseline_rate > 0 else None
+    weighted_current_mentions = sum(mention.source_weight for mention in current_mentions)
+    score = (
+        weighted_current_mentions * scoring.weighted_mentions_7d
+        + max(0, distinct_sources - 1) * scoring.source_diversity_bonus
+        + (max(0.0, growth_ratio - 1) * scoring.growth_bonus if growth_ratio else 0.0)
+    )
+    ordered_current = sorted(
+        current_mentions,
+        key=lambda mention: (mention.collected_at, mention.item_id),
+        reverse=True,
+    )
+    contexts = _merge_contexts(
+        *(mention.contexts for mention in [*current_mentions, *baseline_mentions])
+    )
+    return CandidateMetric(
+        phrase=ordered_current[0].phrase,
+        normalized_key=key,
+        candidate_type=ordered_current[0].candidate_type,
+        label=_candidate_label(
+            current_mentions=current_count,
+            baseline_mentions=baseline_count,
+            distinct_sources=distinct_sources,
+            growth_ratio=growth_ratio,
+            settings=settings,
+        ),
+        score=score,
+        current_mentions=current_count,
+        baseline_mentions=baseline_count,
+        distinct_sources=distinct_sources,
+        growth_ratio=growth_ratio,
+        first_seen_at=min(
+            mention.collected_at for mention in [*current_mentions, *baseline_mentions]
+        ),
+        contexts=contexts,
+        representative_items=tuple(
+            RepresentativeItem(
+                source_name=mention.source_name,
+                source_url=mention.source_url,
+                published_at=mention.published_at,
+                title=mention.title,
+                summary=mention.summary,
+            )
+            for mention in ordered_current[: settings.representative_items_per_candidate]
+        ),
+    )
+
+
+def _candidate_label(
+    *,
+    current_mentions: int,
+    baseline_mentions: int,
+    distinct_sources: int,
+    growth_ratio: float | None,
+    settings: CandidateDiscoverySettings,
+) -> str:
+    meets_label_mentions = current_mentions >= settings.min_current_mentions
+    meets_label_sources = distinct_sources >= settings.min_distinct_sources
+    if baseline_mentions == 0 and meets_label_mentions and meets_label_sources:
+        return "new_candidate"
+    if (
+        baseline_mentions > 0
+        and growth_ratio is not None
+        and meets_label_mentions
+        and meets_label_sources
+        and growth_ratio >= settings.rising_growth_ratio
+    ):
+        return "rising_candidate"
+    return "review"
+
+
+def _merge_contexts(*context_groups: tuple[str, ...]) -> tuple[str, ...]:
+    ordered: list[str] = []
+    for contexts in context_groups:
+        for context in contexts:
+            if context not in ordered:
+                ordered.append(context)
+    return tuple(ordered)
 
 
 def _tokenize(text: str) -> list[_Token]:
