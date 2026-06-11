@@ -25,7 +25,11 @@ def normalize_alias_key(value: str) -> str:
 
 
 def alias_pattern(alias: str) -> Pattern[str]:
-    """Build a word-boundary pattern for a literal alias."""
+    """Build a case-insensitive word-boundary pattern for a literal alias.
+
+    Ambiguous aliases still need the Stage 2 context gate before they become
+    accepted entity matches.
+    """
     escaped = re.escape(alias.strip())
     escaped = escaped.replace(r"\ ", r"\s+")
     return re.compile(rf"(?<!\w){escaped}(?!\w)", flags=re.IGNORECASE)

@@ -28,7 +28,7 @@ def test_init_uses_packaged_templates(tmp_path: Path) -> None:
 
 
 def test_root_example_configs_match_packaged_templates() -> None:
-    root_config_dir = Path("configs")
+    root_config_dir = Path(__file__).resolve().parents[1] / "configs"
     template_files = resources.files("fashion_radar.templates.configs")
 
     for name in ("sources", "entities", "scoring"):
@@ -96,6 +96,44 @@ def test_doctor_reports_invalid_config_without_traceback(tmp_path: Path) -> None
 
     assert result.exit_code == 1
     assert "Invalid entities config" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_doctor_reports_malformed_yaml_without_traceback(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    init_result = CliRunner().invoke(
+        app,
+        [
+            "init",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+    assert init_result.exit_code == 0
+    (config_dir / "sources.yaml").write_text("version: 1\nsources: [\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Invalid sources config" in result.output
+    assert "Invalid YAML" in result.output
     assert "Traceback" not in result.output
 
 

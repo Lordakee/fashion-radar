@@ -13,6 +13,8 @@ from fashion_radar.models.source import SourceDefinition
 UNSAFE_COMMON_ALIASES = {
     "the row",
     "row",
+    "ballet flat",
+    "ballet flats",
     "gap",
     "coach",
     "boss",

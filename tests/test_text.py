@@ -18,3 +18,11 @@ def test_alias_pattern_handles_multi_word_alias() -> None:
     assert pattern.search("Bella wore The Row Margaux.")
     assert pattern.search("Bella wore the\nrow Margaux.")
     assert not pattern.search("They saw Therewith on the runway.")
+
+
+def test_alias_pattern_handles_category_phrase() -> None:
+    pattern = alias_pattern("ballet flats")
+
+    assert pattern.search("She wore Ballet Flats with socks.")
+    assert pattern.search("She wore ballet\nflats with socks.")
+    assert not pattern.search("The flats were ballet-inspired.")
