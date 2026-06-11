@@ -92,6 +92,97 @@ def test_doctor_requires_initialized_config(tmp_path: Path) -> None:
     assert "Missing required config" in result.output
 
 
+def test_schedule_example_prints_cron_snippet(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "schedule-example",
+            "--mode",
+            "cron",
+            "--project-dir",
+            str(tmp_path),
+            "--config-dir",
+            str(tmp_path / "configs"),
+            "--data-dir",
+            str(tmp_path / "data"),
+            "--reports-dir",
+            str(tmp_path / "reports"),
+            "--time",
+            "08:30",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "crontab -e" in result.output
+    assert "PATH=/usr/local/bin:/usr/bin:/bin" in result.output
+    crontab_path_line = next(
+        line for line in result.output.splitlines() if line.startswith("PATH=")
+    )
+    assert crontab_path_line == "PATH=/usr/local/bin:/usr/bin:/bin"
+    assert 'PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH" uv run' in result.output
+    assert "uv run fashion-radar run" in result.output
+    assert "30 8 * * *" in result.output
+    assert r"$(date -u +\%Y-\%m-\%dT\%H:\%M:\%SZ)" in result.output
+
+
+def test_schedule_example_prints_github_actions_snippet() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "schedule-example",
+            "--mode",
+            "github-actions",
+            "--time",
+            "08:30",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "GitHub Actions schedule times are UTC" in result.output
+    assert "cron: '30 8 * * *'" in result.output
+    assert "uv run fashion-radar run" in result.output
+
+
+def test_schedule_example_prints_systemd_snippet(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "schedule-example",
+            "--mode",
+            "systemd",
+            "--project-dir",
+            str(tmp_path),
+            "--time",
+            "08:30",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "fashion-radar.service" in result.output
+    assert "fashion-radar.timer" in result.output
+    assert f"WorkingDirectory={tmp_path}" in result.output
+    assert "OnCalendar=*-*-* 08:30:00" in result.output
+    assert "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)" in result.output
+
+
+def test_schedule_example_rejects_invalid_time(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "schedule-example",
+            "--mode",
+            "cron",
+            "--project-dir",
+            str(tmp_path),
+            "--time",
+            "25:00",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "HH:MM" in result.output
+
+
 def test_dashboard_command_requires_dashboard_extra(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(cli_module.importlib.util, "find_spec", lambda name: None)
 

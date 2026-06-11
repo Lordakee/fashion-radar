@@ -23,6 +23,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   documentation.
 - CI for locked install, lint, format check, tests, wheel build, installed CLI
   smoke, packaged template smoke, and dashboard extra smoke.
+- Safe `schedule-example` CLI output for cron, systemd user timers, and GitHub
+  Actions.
+- Public RSS/GDELT fashion source-pack example.
+- Scheduling and source-pack documentation.
 
 ### Not Included In 0.1.0
 

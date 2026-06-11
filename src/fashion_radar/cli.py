@@ -5,9 +5,17 @@ import subprocess
 import sys
 from importlib import resources
 from pathlib import Path
+from typing import Literal
 
 import typer
 
+from fashion_radar.scheduling import (
+    render_cron_example,
+    render_github_actions_workflow,
+    render_systemd_service,
+    render_systemd_timer,
+    validate_hhmm,
+)
 from fashion_radar.settings import (
     ConfigError,
     load_entity_config,
@@ -35,6 +43,10 @@ DATA_DIR_OPTION = typer.Option(
 REPORTS_DIR_OPTION = typer.Option(
     default_factory=default_reports_dir,
     envvar="FASHION_RADAR_REPORTS_DIR",
+)
+PROJECT_DIR_OPTION = typer.Option(
+    default_factory=lambda: Path.cwd(),
+    help="Project working directory.",
 )
 HOST_OPTION = typer.Option("127.0.0.1", help="Dashboard host address.")
 PORT_OPTION = typer.Option(8501, min=1, max=65535, help="Dashboard port.")
@@ -106,6 +118,51 @@ def doctor(
         except ConfigError as exc:
             typer.echo(f"Invalid {label} config: {exc}", err=True)
             raise typer.Exit(1) from exc
+
+
+@app.command(name="schedule-example")
+def schedule_example(
+    mode: Literal["cron", "systemd", "github-actions"] = typer.Option(
+        "cron",
+        help="Snippet type to print.",
+    ),
+    project_dir: Path = PROJECT_DIR_OPTION,
+    config_dir: Path = CONFIG_DIR_OPTION,
+    data_dir: Path = DATA_DIR_OPTION,
+    reports_dir: Path = REPORTS_DIR_OPTION,
+    time: str = typer.Option("08:00", help="Daily run time in 24-hour HH:MM format."),
+) -> None:
+    """Print safe daily scheduling examples without installing them."""
+    try:
+        validate_hhmm(time)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+
+    if mode == "cron":
+        typer.echo(
+            render_cron_example(
+                project_dir=str(project_dir),
+                config_dir=str(config_dir),
+                data_dir=str(data_dir),
+                reports_dir=str(reports_dir),
+                time=time,
+            )
+        )
+    elif mode == "systemd":
+        typer.echo("# ~/.config/systemd/user/fashion-radar.service")
+        typer.echo(
+            render_systemd_service(
+                project_dir=str(project_dir),
+                config_dir=str(config_dir),
+                data_dir=str(data_dir),
+                reports_dir=str(reports_dir),
+            )
+        )
+        typer.echo("# ~/.config/systemd/user/fashion-radar.timer")
+        typer.echo(render_systemd_timer(time=time))
+    else:
+        typer.echo(render_github_actions_workflow(time=time))
 
 
 @app.command()

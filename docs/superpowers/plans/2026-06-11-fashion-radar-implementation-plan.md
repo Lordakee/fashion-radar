@@ -853,26 +853,30 @@ CHANGELOG.md
 - Full verification passes locally.
 - Final Claude Code review has no unfixed critical or important findings.
 
-## Stage 7: Optional Public Source Enhancements
+## Stage 7: Scheduling Runbook And Public-Source Starter Packs
 
-**Goal:** Add richer opt-in sources without weakening MVP stability.
+**Status:** Implemented and approved by Claude Code on 2026-06-12. Commit and
+GitHub sync are tracked in the active Stage 7 plan.
 
-**Candidate files:**
+- `docs/superpowers/specs/2026-06-12-stage-7-daily-operations-design.md`
+- `docs/superpowers/plans/2026-06-12-stage-7-daily-operations-plan.md`
 
-```text
-src/fashion_radar/collectors/webpage.py
-tests/test_collectors_webpage.py
-```
+**Goal:** Make the MVP practical for daily use by adding safe scheduling
+examples, an operations runbook, and richer RSS/GDELT source-pack examples
+without adding new collectors.
 
 **Tasks:**
 
-- [ ] Ask Claude Code to review a Stage 7 plan before implementation.
-- [ ] Add static webpage monitoring only for explicit URL lists.
-- [ ] Add Google News RSS only as disabled-by-default experimental connector with explicit use-at-your-own-risk documentation, or keep it out.
-- [ ] Add Google Trends only through official API access or keep it disabled.
-- [ ] Add Reddit only with user-provided API credentials and explicit API terms documentation.
-- [ ] Keep Playwright, logged-in crawling, and platform scraping out of this stage.
-- [ ] Ask Claude Code to review Stage 7 code.
+- [x] Ask Claude Code to review the Stage 7 plan before implementation using
+  `--effort max`.
+- [x] Add schedule example rendering and CLI output only; do not install or
+  mutate any user scheduler.
+- [x] Add public-source starter packs using only existing `rss`, `rsshub`, and
+  `gdelt` source types.
+- [x] Keep Google News RSS, Google Trends, Reddit, static webpage monitoring,
+  Playwright, logged-in crawling, and platform scraping out of this stage.
+- [x] Add scheduling/source-pack docs and tests.
+- [x] Ask Claude Code to review Stage 7 code before commit using `--effort max`.
 
 **Acceptance criteria:**
 

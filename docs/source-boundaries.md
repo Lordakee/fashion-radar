@@ -15,6 +15,10 @@ These connectors are suitable for the default local MVP:
 
 Core connectors should store source URL, title, publication time, source name, short summary where provided by the feed/API, extracted entities, and aggregate metrics.
 
+Repository source packs are examples built from these source types. They are not
+automatic subscriptions, endorsements, or guarantees that a feed will remain
+available.
+
 ### Opt-In
 
 These connectors may be useful but must require explicit user enablement:
