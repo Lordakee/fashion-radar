@@ -21,6 +21,230 @@ def test_cli_help() -> None:
     assert "Fashion Radar" in result.output
 
 
+def test_import_signals_command_imports_csv(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    path = tmp_path / "signals.csv"
+    path.write_text(
+        "url,title,published_at,summary,platform,author_handle,raw_comment,account_id\n"
+        "https://example.com/a,Le Teckel bag,2026-06-12T08:00:00Z,Short note,"
+        "manual,@private,do not store,secret\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals",
+            str(path),
+            "--format",
+            "csv",
+            "--data-dir",
+            str(data_dir),
+            "--source-name",
+            "Manual Export",
+            "--imported-at",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Validated 1 manual signal rows" in result.output
+    assert "Imported 1 manual signal rows" in result.output
+    database_path = data_dir / "fashion-radar.sqlite"
+    assert database_path.exists()
+    engine = create_sqlite_engine(database_path)
+    item = ItemRepository(engine).get_item(1)
+    assert item["source_type"] == "manual_import"
+    assert item["source_name"] == "Manual Export"
+    assert item["summary"] == "Short note"
+    assert "platform" not in item
+    assert "author_handle" not in item
+    assert "raw_comment" not in item
+    assert "account_id" not in item
+
+
+def test_import_signals_command_imports_json(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    path = tmp_path / "signals.json"
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "url": "https://example.com/json",
+                    "title": "East-west tote",
+                    "published_at": "2026-06-12T08:00:00Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals",
+            str(path),
+            "--format",
+            "json",
+            "--data-dir",
+            str(data_dir),
+            "--source-name",
+            "Manual JSON Export",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Imported 1 manual signal rows" in result.output
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    item = ItemRepository(engine).get_item(1)
+    assert item["source_type"] == "manual_import"
+    assert item["source_name"] == "Manual JSON Export"
+
+
+def test_import_signals_command_dry_run_writes_nothing(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    path = tmp_path / "signals.csv"
+    path.write_text(
+        "url,title,published_at\nhttps://example.com/a,Le Teckel bag,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals",
+            str(path),
+            "--format",
+            "csv",
+            "--data-dir",
+            str(data_dir),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Dry run: no rows imported" in result.output
+    assert not data_dir.exists()
+    assert not (data_dir / "fashion-radar.sqlite").exists()
+
+
+def test_import_signals_command_rejects_invalid_file_before_data_dir_creation(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+    path = tmp_path / "signals.csv"
+    path.write_text(
+        "url,title,published_at\n"
+        "https://example.com/a,Valid,2026-06-12T08:00:00Z\n"
+        ",Missing URL,2026-06-12T09:00:00Z\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals",
+            str(path),
+            "--format",
+            "csv",
+            "--data-dir",
+            str(data_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not import signals: row 3" in result.output
+    assert not data_dir.exists()
+    assert not (data_dir / "fashion-radar.sqlite").exists()
+
+
+def test_import_signals_command_rejects_null_published_at_before_data_dir_creation(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+    path = tmp_path / "signals.json"
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "url": "https://example.com/null-date",
+                    "title": "Null date",
+                    "published_at": None,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals",
+            str(path),
+            "--format",
+            "json",
+            "--data-dir",
+            str(data_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not import signals: row 1" in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+    assert not (data_dir / "fashion-radar.sqlite").exists()
+
+
+def test_import_signals_command_rejects_invalid_imported_at(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    path = tmp_path / "signals.csv"
+    path.write_text(
+        "url,title,published_at\nhttps://example.com/a,Le Teckel bag,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals",
+            str(path),
+            "--format",
+            "csv",
+            "--data-dir",
+            str(data_dir),
+            "--imported-at",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not import signals: invalid --imported-at" in result.output
+    assert not data_dir.exists()
+
+
+def test_import_signals_command_rejects_unsupported_format_before_data_dir_creation(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+    path = tmp_path / "signals.xml"
+    path.write_text("<signals />", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals",
+            str(path),
+            "--format",
+            "xml",
+            "--data-dir",
+            str(data_dir),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert not data_dir.exists()
+
+
 def test_init_writes_example_configs(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     data_dir = tmp_path / "data"
@@ -375,6 +599,7 @@ def test_candidates_command_prints_table(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "Phrase" in result.output
     assert "candidate signal" in result.output.lower()
+    assert "configured sources and imported local signals" in result.output
     assert "Le Teckel bag" in result.output
 
 

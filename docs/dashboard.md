@@ -31,6 +31,8 @@ uv run fashion-radar dashboard
 - Does not make network requests on import or refresh.
 - Reads candidate signals from the latest report JSON when that file is
   available.
+- Reflects imported local signals only after those rows have been matched and a
+  new report has been generated.
 
 ## Security
 
@@ -55,6 +57,7 @@ They are not the full heat-score ranking. Use the generated daily report for
 heat score, growth ratio, labels, and score components.
 
 The Candidate Signals tab reads the latest generated report JSON. Candidate
-signals are observed phrases from configured sources and need review. If the
-latest report was generated before the latest collection or matching run, the
-tab may be stale until a new report is written.
+signals are observed phrases from configured sources and imported local signals
+and need review. If the latest report was generated before the latest
+collection, local import, or matching run, the tab may be stale until a new
+report is written.

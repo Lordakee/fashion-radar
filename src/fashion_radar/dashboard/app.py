@@ -12,6 +12,11 @@ from fashion_radar.dashboard.queries import (
 )
 from fashion_radar.utils.paths import default_data_dir, default_reports_dir
 
+CANDIDATE_SIGNAL_CAPTION = (
+    "Candidate signals are observed phrases from configured sources and "
+    "imported local signals and need review."
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(add_help=False)
@@ -52,9 +57,7 @@ def main() -> None:
         st.caption(f"Latest collected at: {summary['latest_collected_at'] or 'n/a'}")
 
     with candidate_tab:
-        st.caption(
-            "Candidate signals are observed phrases from configured sources and need review."
-        )
+        st.caption(CANDIDATE_SIGNAL_CAPTION)
         st.caption(f"Report date: {candidate_report['report_date'] or 'n/a'}")
         if "error" in candidate_report:
             st.warning(candidate_report["error"])

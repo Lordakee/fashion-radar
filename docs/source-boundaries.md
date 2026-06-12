@@ -19,6 +19,10 @@ Repository source packs are examples built from these source types. They are not
 automatic subscriptions, endorsements, or guarantees that a feed will remain
 available.
 
+Manual signal import is a local input path for user-provided CSV/JSON files the
+user is authorized to process. It is not a connector, platform collector, source
+pack, or source-acquisition guide.
+
 ### Opt-In
 
 These connectors may be useful but must require explicit user enablement:
@@ -103,7 +107,7 @@ Preferred wording:
 - "Observed in 6 sources"
 - "Mention count increased in this configured source set"
 - "Needs human review"
-- "Candidate signal from configured sources"
+- "Candidate signal from configured sources and imported local signals"
 - "Observed phrase needs review"
 
 Avoid wording that implies complete market truth:
@@ -114,11 +118,12 @@ Avoid wording that implies complete market truth:
 
 ## Quality Boundaries
 
-Heat scores are local metrics based on configured sources. They are not rankings
-outside that configured source set.
+Heat scores are local metrics based on configured sources and imported local
+signals. They are not rankings outside that local source set.
 
-Candidate signals are observed phrases from configured sources and need review.
-They should not be presented as validated entities.
+Candidate signals are observed phrases from configured sources and imported
+local signals and need review. They should not be presented as validated
+entities.
 
 The dashboard should show:
 
@@ -137,6 +142,8 @@ The public README must explain:
 - Users are responsible for respecting source terms, robots rules, and API terms.
 - The default workflow avoids account-based collection and access-control
   bypasses.
+- Manual signal import is a local input path, not a platform connector or
+  instructions for obtaining platform exports.
 - Experimental connectors may stop working and are not production guarantees.
 - Broad non-core platform collection is excluded from `v0.1.0`.
 - Account artifacts, access-control bypasses, and private data are not part of

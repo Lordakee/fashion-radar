@@ -10,6 +10,7 @@ from fashion_radar.models.entity import EntityDefinition, EntityType
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceDefinition, SourceType
 from fashion_radar.workflows import (
+    _default_collectors,
     clean_old_data,
     collect_configured_sources,
     default_database_path,
@@ -75,6 +76,13 @@ def test_collect_configured_sources_uses_injected_collectors(tmp_path: Path) -> 
     assert results[0].status.status == "success"
     assert stored["source_weight"] == 1.7
     assert stored["collected_at"] == "2026-06-11T12:00:00+00:00"
+
+
+def test_manual_import_is_not_a_default_collector() -> None:
+    collectors = _default_collectors()
+
+    assert SourceType.MANUAL_IMPORT not in collectors
+    assert SourceType.MANUAL_IMPORT.value not in collectors
 
 
 def test_match_stored_items_matches_title_and_summary_and_updates_first_seen(

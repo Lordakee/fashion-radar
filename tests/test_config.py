@@ -127,6 +127,21 @@ def test_google_news_source_is_rejected_for_v0_1(tmp_path: Path) -> None:
         load_source_config(path)
 
 
+def test_source_config_rejects_manual_import_source_type(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: Manual Export
+            type: manual_import
+        """,
+    )
+
+    with pytest.raises(ConfigError, match="manual_import is import-only"):
+        load_source_config(path)
+
+
 def test_duplicate_aliases_are_rejected(tmp_path: Path) -> None:
     path = write_yaml(
         tmp_path / "entities.yaml",

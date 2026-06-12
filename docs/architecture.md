@@ -9,6 +9,7 @@ appeared in a report.
 ```text
 YAML config
   -> collect public sources
+  -> optionally import user-provided local CSV/JSON signals
   -> store items in SQLite
   -> match configured entities
   -> score current vs baseline windows
@@ -24,6 +25,8 @@ YAML config
   `scoring.yaml`.
 - **Collectors:** RSS/RSSHub-compatible feeds and GDELT Doc API metadata.
   Collectors return normalized items and do not write directly to SQLite.
+- **Manual Import:** Local CSV/JSON user-provided signal files are parsed as an
+  input path only. They are not connectors or platform collection workflows.
 - **Storage:** SQLite tables store collected items, source health, collector
   runs, entity matches, and stable entity first/last seen timestamps.
 - **Matching:** Deterministic alias matching with context gates for common or
@@ -31,7 +34,8 @@ YAML config
 - **Scoring:** Local heat metrics over configured time windows, based on
   matched entities and item `collected_at` timestamps.
 - **Candidate Discovery:** Deterministic observed-phrase review over retained
-  local item titles and summaries from configured sources.
+  local item titles and summaries from configured sources and imported local
+  signals.
 - **Reports:** Markdown and JSON daily reports rendered from packaged
   templates.
 - **Dashboard:** Optional Streamlit UI that reads local SQLite/report state.
@@ -66,6 +70,7 @@ Daily reports are:
 fashion-radar init
 fashion-radar doctor
 fashion-radar collect
+fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
 fashion-radar match
 fashion-radar report --as-of 2026-06-11T12:00:00Z
 fashion-radar candidates --as-of 2026-06-11T12:00:00Z
@@ -83,16 +88,18 @@ There are no parallel database writers in the MVP workflow.
 
 Candidate discovery does not add collectors or source types. It reads retained
 local SQLite rows, filters configured and already matched tracked entities, and
-surfaces candidate signals as observed phrases that need review from configured
-sources.
+surfaces candidate signals as observed phrases from configured sources and
+imported local signals that need review.
 
 The read-only `candidates` command computes the same review-oriented signals
 without writing report files.
 
 ## Source Boundary
 
-The core collector set is RSS, RSSHub-compatible feeds, and GDELT. Non-core
-platform collection is not part of v0.1.0. See [source-boundaries.md](source-boundaries.md).
+The core collector set is RSS, RSSHub-compatible feeds, and GDELT. Manual signal
+import is a local input path for user-provided CSV/JSON files, not a connector
+or platform collector. Non-core platform collection is not part of v0.1.0. See
+[source-boundaries.md](source-boundaries.md).
 
 ## Dashboard Boundary
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fashion_radar.dashboard.app import parse_args
+from fashion_radar.dashboard.app import CANDIDATE_SIGNAL_CAPTION, parse_args
 from fashion_radar.dashboard.queries import (
     dashboard_summary,
     database_path,
@@ -47,6 +47,11 @@ def test_dashboard_parse_args_ignores_unknown_streamlit_args(monkeypatch) -> Non
 
     assert args.data_dir == Path("/tmp/data")
     assert args.reports_dir == Path("/tmp/reports")
+
+
+def test_dashboard_candidate_caption_mentions_imported_local_signals() -> None:
+    assert "configured sources and imported local signals" in CANDIDATE_SIGNAL_CAPTION
+    assert "complete platform coverage" not in CANDIDATE_SIGNAL_CAPTION.lower()
 
 
 def test_dashboard_queries_handle_empty_database(tmp_path: Path) -> None:

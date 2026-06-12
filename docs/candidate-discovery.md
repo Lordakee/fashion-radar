@@ -1,12 +1,14 @@
 # Candidate Discovery
 
 Candidate discovery surfaces untracked candidate signals from retained local
-items that were already collected from configured sources. Each candidate signal
-is an observed phrase from item titles or short summaries, and it needs review
-before a user decides whether to track it as an entity.
+items collected from configured sources or imported from local user-provided
+signal files. Each candidate signal is an observed phrase from item titles or
+short summaries, and it needs review before a user decides whether to track it
+as an entity.
 
 Candidate discovery does not validate observed phrases as entities. It only
-helps a reviewer notice repeated or changing phrases from configured sources.
+helps a reviewer notice repeated or changing phrases from configured sources and
+imported local signals.
 
 ## Inputs
 
@@ -60,7 +62,8 @@ Candidate labels are review aids:
 - `review`: the observed phrase meets the lower review floors but does not meet
   the `new_candidate` or `rising_candidate` label rules.
 
-All labels remain candidate signals from configured sources and need review.
+All labels remain candidate signals from configured sources and imported local
+signals and need review.
 
 ## CLI
 
@@ -83,7 +86,8 @@ and should not mutate source, entity, scoring, or report files.
 
 Daily JSON and Markdown reports may include an untracked candidate signal
 section. Representative items keep source attribution so a reviewer can inspect
-where an observed phrase appeared from configured sources.
+where an observed phrase appeared from configured sources and imported local
+signals.
 
 The dashboard reads candidate signals from the latest report JSON. That view can
 be stale until a new report is generated, and it does not recompute candidate
@@ -93,5 +97,5 @@ signals from SQLite on refresh.
 
 Candidate discovery adds no collectors, no new source types, no external
 inference calls, and no background network reads. It uses retained local items
-from configured sources and keeps outputs framed as observed phrases that need
-review.
+from configured sources and imported local signals and keeps outputs framed as
+observed phrases that need review.

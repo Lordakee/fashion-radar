@@ -9,6 +9,7 @@ class SourceType(StrEnum):
     RSS = "rss"
     RSSHUB = "rsshub"
     GDELT = "gdelt"
+    MANUAL_IMPORT = "manual_import"
 
 
 class HttpSourceSettings(BaseModel):
@@ -81,6 +82,8 @@ class SourceDefinition(BaseModel):
 
     @model_validator(mode="after")
     def validate_source_target(self) -> SourceDefinition:
+        if self.type == SourceType.MANUAL_IMPORT:
+            raise ValueError("manual_import is import-only; use fashion-radar import-signals")
         if self.type in {SourceType.RSS, SourceType.RSSHUB} and not self.url:
             raise ValueError(f"{self.type.value} source requires url")
         if self.type == SourceType.GDELT and not self.query:

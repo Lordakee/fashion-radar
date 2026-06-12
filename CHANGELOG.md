@@ -29,6 +29,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Scheduling and source-pack documentation.
 - Stage 8 candidate discovery documentation for observed phrases, review
   windows, CLI usage, report/dashboard behavior, and source boundaries.
+- Manual signal import documentation for local user-provided CSV/JSON files,
+  dry runs, follow-up review commands, and privacy/source boundaries.
+- Report and dashboard wording for candidate signals from configured sources and
+  imported local signals that need review.
 
 ### Not Included In 0.1.0
 

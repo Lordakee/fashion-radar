@@ -1,5 +1,8 @@
 from datetime import UTC, datetime
 
+import pytest
+from pydantic import ValidationError
+
 from fashion_radar.models.entity import EntityDefinition, EntityType
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceDefinition, SourceType
@@ -38,3 +41,12 @@ def test_source_definition_defaults_to_enabled_and_weight_one() -> None:
 
     assert source.enabled is True
     assert source.weight == 1.0
+
+
+def test_manual_import_source_type_exists() -> None:
+    assert SourceType.MANUAL_IMPORT.value == "manual_import"
+
+
+def test_manual_import_is_rejected_in_source_config() -> None:
+    with pytest.raises(ValidationError, match="manual_import is import-only"):
+        SourceDefinition(name="Manual Export", type=SourceType.MANUAL_IMPORT)

@@ -5,21 +5,23 @@ tracking of fashion signals across allowed public sources. It collects RSS or
 RSSHub-compatible feeds and GDELT metadata, matches configurable brands,
 designers, celebrities, products, categories, and trends, then writes local
 Markdown/JSON reports and a read-only dashboard. It can also surface candidate
-signals as observed phrases from configured sources that need review before
-being tracked.
+signals as observed phrases from configured sources and imported local signals
+that need review before being tracked.
 
 The MVP is built for personal research and editorial monitoring. It is not a
 complete social listening platform, and its heat scores are local metrics based
-only on the sources you configure.
+only on the sources you configure and local signals you import.
 
 ## What It Does
 
 - Collects public RSS/Atom, RSSHub-compatible, and GDELT Doc API signals.
+- Imports local user-provided CSV/JSON signal files that you are authorized to
+  process.
 - Stores conservative metadata in a local SQLite database.
 - Matches entities with deterministic alias and context rules.
 - Computes transparent heat scores over current and baseline windows.
 - Surfaces untracked candidate signals as observed phrases from configured
-  sources that need review.
+  sources and imported local signals that need review.
 - Generates daily Markdown and JSON reports with source attribution.
 - Provides an optional local Streamlit dashboard for read-only inspection.
 
@@ -28,6 +30,8 @@ only on the sources you configure.
 Fashion Radar v0.1.0 does not include broad platform collection, account-based
 source access, access-control bypasses, private data collection, or hidden
 platform workarounds. Google News is not part of the default source set.
+Manual signal import is a local input path, not a platform connector or source
+acquisition guide.
 
 Future non-core connectors, if ever added, must be explicit opt-ins with clear
 risk labels. They are not required for the core workflow.
@@ -66,7 +70,14 @@ uv run fashion-radar match
 uv run fashion-radar report --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
-Review untracked candidate signals from configured sources:
+Optionally import local user-provided signals before matching:
+
+```bash
+uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
+```
+
+Review untracked candidate signals from configured sources and imported local
+signals:
 
 ```bash
 uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -151,8 +162,8 @@ fashion-radar-YYYY-MM-DD.json
 ```
 
 Reports contain source attribution, links, snippets/metadata, matched entities,
-candidate signals, and score components. They should be reviewed before being
-shared publicly.
+candidate signals from configured sources and imported local signals, and score
+components. They should be reviewed before being shared publicly.
 
 Use cleanup when you want to prune old collected items:
 
@@ -169,6 +180,7 @@ See [docs/data-retention.md](docs/data-retention.md).
 - [docs/source-boundaries.md](docs/source-boundaries.md)
 - [docs/scoring.md](docs/scoring.md)
 - [docs/candidate-discovery.md](docs/candidate-discovery.md)
+- [docs/manual-signal-import.md](docs/manual-signal-import.md)
 - [docs/data-retention.md](docs/data-retention.md)
 - [docs/dashboard.md](docs/dashboard.md)
 - [docs/scheduling.md](docs/scheduling.md)

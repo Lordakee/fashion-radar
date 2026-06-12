@@ -272,7 +272,7 @@ def _render_candidate_sections(candidates: list[CandidateReport]) -> str:
                 [
                     f"### {candidate.phrase} ({candidate.label})",
                     "This candidate signal is an observed phrase from configured sources and "
-                    "needs review.",
+                    "imported local signals and needs review.",
                     f"- Type: {candidate.candidate_type}",
                     f"- Score: {candidate.score:.2f}",
                     f"- Mentions: {candidate.current_mentions} current, "

@@ -894,9 +894,9 @@ tracked in the active Stage 8 plan:
 - `docs/superpowers/plans/2026-06-12-stage-8-candidate-discovery-plan.md`
 
 **Goal:** Surface candidate signals for brands, designers, products, bags,
-shoes, and style terms as observed phrases from already collected local
-RSS/GDELT items, from configured sources, without adding source acquisition or
-external inference dependencies.
+shoes, and style terms as observed phrases from retained local items from
+configured sources and imported local signals, without adding source acquisition
+or external inference dependencies.
 
 **Tasks:**
 
@@ -915,14 +915,39 @@ external inference dependencies.
 **Acceptance criteria:**
 
 - Candidate discovery uses only retained local SQLite rows from existing
-  RSS/RSSHub/GDELT workflows.
-- Outputs are framed as candidate signals from configured sources that need
-  human review.
+  RSS/RSSHub/GDELT workflows and imported local signals.
+- Outputs are framed as candidate signals from configured sources and imported
+  local signals that need human review.
 - Same DB, config, and `as_of` produce deterministic output ordering.
 - No new source acquisition, collector type, dynamic-page workflow, external
   inference service, vector database, or automatic config mutation is
   introduced.
 - Final Claude Code review has no unfixed critical or important findings.
+
+## Stage 9: Manual Signal Import
+
+**Status:** Implementation in progress on 2026-06-12. Stage 9 documentation is
+tracked in the active manual signal import plan:
+
+- `docs/superpowers/specs/2026-06-12-stage-9-manual-signal-import-design.md`
+- `docs/superpowers/plans/2026-06-12-stage-9-manual-signal-import-plan.md`
+
+**Goal:** Add a local CSV/JSON import path for user-provided fashion signal rows
+that the user is authorized to process. Imported rows enter the existing local
+matching, reporting, dashboard, and candidate-discovery workflows without adding
+platform collectors, source acquisition, account automation, or network
+collection behavior.
+
+**Documentation requirements:**
+
+- Manual signal import is documented as a local input path, not a connector or
+  platform collector.
+- Candidate signals are framed as observed phrases from configured sources and
+  imported local signals that need review.
+- Privacy boundaries exclude private comments, account artifacts, author
+  profiles, follower lists, images, and videos.
+- The project does not provide instructions for obtaining exports from social
+  platforms.
 
 ## Deferred Features
 

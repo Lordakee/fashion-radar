@@ -1,8 +1,8 @@
 # Scoring
 
 Fashion Radar scores entities from local matched items. Scores are useful for
-ranking signals inside your configured source set; they are not rankings outside
-that configured source set.
+ranking signals inside your configured source set and imported local signals;
+they are not rankings outside that local source set.
 
 ## Inputs
 
@@ -118,7 +118,8 @@ from being mislabeled as new after old items are pruned.
 Candidate discovery uses the same `current_window_days`,
 `baseline_window_days`, and `collected_at` window boundaries as entity scoring.
 Instead of scoring configured entities, it reviews observed phrases in retained
-local item titles and summaries from configured sources.
+local item titles and summaries from configured sources and imported local
+signals.
 
 Candidate labels use their own `candidate_discovery` thresholds in
 `scoring.yaml`:
@@ -147,7 +148,8 @@ See `configs/scoring.example.yaml`.
 
 ## Limits
 
-- Scores only reflect configured sources.
+- Scores only reflect configured sources and imported local signals.
+- Candidate signals only reflect configured sources and imported local signals.
 - Counts use collected time, not necessarily publication time.
 - Dashboard mention tabs show mention counts, while candidate signal views read
   the latest report JSON.

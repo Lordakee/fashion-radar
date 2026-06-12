@@ -225,7 +225,7 @@ def test_daily_report_includes_untracked_candidate_signals(tmp_path) -> None:
     assert "Untracked Candidate Signals" in markdown
     assert "candidate signal" in markdown.lower()
     assert "needs review" in markdown.lower()
-    assert "from configured sources" in markdown.lower()
+    assert "from configured sources and imported local signals" in markdown.lower()
     assert "viral" not in markdown.lower()
     assert "market-wide trend" not in markdown.lower()
     assert "confirmed brand" not in markdown.lower()

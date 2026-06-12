@@ -4,6 +4,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
 from typing import Literal
@@ -11,8 +12,14 @@ from typing import Literal
 import typer
 from sqlalchemy import create_engine, inspect, select
 
-from fashion_radar.db.schema import SCHEMA_VERSION, schema_metadata
+from fashion_radar.db.engine import create_sqlite_engine
+from fashion_radar.db.schema import SCHEMA_VERSION, initialize_schema, schema_metadata
 from fashion_radar.discovery.candidates import discover_candidates
+from fashion_radar.importers.manual_signals import (
+    ManualSignalImportError,
+    load_manual_signal_rows,
+    store_manual_signal_rows,
+)
 from fashion_radar.models.report import CandidateReport
 from fashion_radar.scheduling import (
     render_cron_example,
@@ -27,6 +34,7 @@ from fashion_radar.settings import (
     load_scoring_config,
     load_source_config,
 )
+from fashion_radar.utils.dates import parse_datetime_utc
 from fashion_radar.utils.paths import default_config_dir, default_data_dir, default_reports_dir
 from fashion_radar.workflows import (
     MatchSummary,
@@ -60,10 +68,16 @@ AS_OF_OPTION = typer.Option(..., help="UTC report timestamp, for example 2026-06
 NOW_OPTION = typer.Option(None, help="UTC collection timestamp override.")
 RETENTION_DAYS_OPTION = typer.Option(30, min=1, help="Retention window in days.")
 CandidateOutputFormat = Literal["table", "json"]
+ManualSignalInputFormat = Literal["csv", "json"]
 CANDIDATE_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
+)
+MANUAL_SIGNAL_FORMAT_OPTION = typer.Option(
+    "csv",
+    "--format",
+    help="Input file format.",
 )
 
 
@@ -306,6 +320,57 @@ def candidates_command(
     _print_candidate_output(reports, output_format=output_format)
 
 
+@app.command(name="import-signals")
+def import_signals_command(
+    path: Path,
+    data_dir: Path = DATA_DIR_OPTION,
+    input_format: ManualSignalInputFormat = MANUAL_SIGNAL_FORMAT_OPTION,
+    source_name: str = typer.Option("Manual Import", help="Fallback source name."),
+    imported_at: str | None = typer.Option(None, help="UTC import timestamp override."),
+    dry_run: bool = typer.Option(False, help="Validate without writing rows."),
+) -> None:
+    """Import user-provided local signal rows from CSV or JSON."""
+    source_name_value = source_name.strip() or "Manual Import"
+    try:
+        try:
+            if imported_at is not None:
+                imported_at_value = parse_datetime_utc(imported_at)
+            else:
+                imported_at_value = datetime.now(UTC)
+        except (TypeError, ValueError) as exc:
+            typer.echo(
+                f"Could not import signals: invalid --imported-at: {exc}",
+                err=True,
+            )
+            raise typer.Exit(1) from exc
+
+        rows = load_manual_signal_rows(
+            path,
+            input_format=input_format,
+            default_source_name=source_name_value,
+        )
+
+        if dry_run:
+            typer.echo(f"Validated {len(rows)} manual signal rows")
+            typer.echo("Dry run: no rows imported")
+            return
+
+        engine = create_sqlite_engine(default_database_path(data_dir))
+        initialize_schema(engine)
+        result = store_manual_signal_rows(
+            engine,
+            rows=rows,
+            imported_at=imported_at_value,
+        )
+    except ManualSignalImportError as exc:
+        typer.echo(f"Could not import signals: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    typer.echo(f"Validated {result.rows_seen} manual signal rows")
+    typer.echo(f"Imported {result.rows_imported} manual signal rows")
+    typer.echo(f"Items added: {result.items_added}")
+
+
 @app.command()
 def collect(
     config_dir: Path = CONFIG_DIR_OPTION,
@@ -444,7 +509,10 @@ def _print_candidate_output(
         )
         return
 
-    typer.echo("Candidate signals are observed phrases from configured sources and need review.")
+    typer.echo(
+        "Candidate signals are observed phrases from configured sources and "
+        "imported local signals and need review."
+    )
     if not candidates:
         typer.echo("No untracked candidate signals in this window.")
         return
