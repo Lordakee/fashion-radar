@@ -87,6 +87,8 @@ tmp_env="$(mktemp -d)"
 uv venv "$tmp_env/venv"
 uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 "$tmp_env/venv/bin/fashion-radar" --help
+"$tmp_env/venv/bin/fashion-radar" trends --help
+"$tmp_env/venv/bin/fashion-radar" dashboard --help
 "$tmp_env/venv/bin/python" -c "from importlib import resources; text = resources.files('fashion_radar.templates').joinpath('daily_report.md').read_text(encoding='utf-8'); assert 'Fashion Radar Daily Report' in text"
 ```
 

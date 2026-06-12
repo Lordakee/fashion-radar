@@ -8,6 +8,14 @@ from sqlalchemy import func, select
 
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.schema import item_entities, items, source_health
+from fashion_radar.models.trend import TrendComparison
+from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
+from fashion_radar.trends import (
+    build_trend_comparison,
+    create_readonly_sqlite_engine,
+    verify_readonly_trend_schema,
+)
+from fashion_radar.utils.dates import parse_datetime_utc
 
 
 def database_path(data_dir: Path) -> Path:
@@ -135,5 +143,46 @@ def source_health_rows(data_dir: Path) -> list[dict[str, Any]]:
                 )
             ).mappings()
             return [dict(row) for row in rows]
+    finally:
+        engine.dispose()
+
+
+def load_trend_comparison(
+    *,
+    data_dir: Path,
+    scoring: ScoringSettings,
+    candidate_discovery: CandidateDiscoverySettings,
+    entity_config: EntityConfig | None,
+    as_of: Any,
+    baseline_as_of: Any,
+    include_dropped: bool = False,
+    limit: int | None = 20,
+) -> TrendComparison:
+    as_of_value = parse_datetime_utc(as_of)
+    baseline_as_of_value = parse_datetime_utc(baseline_as_of)
+    if baseline_as_of_value >= as_of_value:
+        raise ValueError("baseline_as_of must be before as_of")
+
+    db_path = database_path(data_dir)
+    if not db_path.exists():
+        return TrendComparison(
+            as_of=as_of_value,
+            baseline_as_of=baseline_as_of_value,
+            deltas=[],
+        )
+
+    engine = create_readonly_sqlite_engine(db_path)
+    try:
+        verify_readonly_trend_schema(engine)
+        return build_trend_comparison(
+            engine,
+            scoring=scoring,
+            candidate_discovery=candidate_discovery,
+            entity_config=entity_config,
+            as_of=as_of_value,
+            baseline_as_of=baseline_as_of_value,
+            include_dropped=include_dropped,
+            limit=limit,
+        )
     finally:
         engine.dispose()

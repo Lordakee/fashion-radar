@@ -109,12 +109,18 @@ Preferred wording:
 - "Needs human review"
 - "Candidate signal from configured sources and imported local signals"
 - "Observed phrase needs review"
+- "Local observed trend delta"
+- "Signal changed within this configured local source set"
 
 Avoid wording that implies complete market truth:
 
 - "This is the hottest brand"
 - "This source-set signal proves external demand"
 - "This celebrity caused the trend"
+- "Market-wide trend"
+- "Platform-wide popularity"
+- "Verified demand"
+- "Top social trend"
 
 ## Quality Boundaries
 
@@ -144,6 +150,8 @@ The public README must explain:
   bypasses.
 - Manual signal import is a local input path, not a platform connector or
   instructions for obtaining platform exports.
+- Trend deltas are local observed comparisons, not verified demand or complete
+  source coverage.
 - Experimental connectors may stop working and are not production guarantees.
 - Broad non-core platform collection is excluded from `v0.1.0`.
 - Account artifacts, access-control bypasses, and private data are not part of

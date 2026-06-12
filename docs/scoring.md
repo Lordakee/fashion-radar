@@ -134,6 +134,21 @@ Candidate labels use their own `candidate_discovery` thresholds in
 `first_seen_at` for a candidate signal is based on retained local item history.
 It can change after old items are pruned.
 
+## Trend Deltas
+
+Trend deltas reuse entity scoring and candidate discovery snapshots. They do not
+introduce a new heat formula.
+
+For trend deltas, `current_mentions` is the current comparison snapshot's
+current-window count and `baseline_mentions` is the baseline comparison
+snapshot's current-window count. Scoring's internal baseline-window counts are
+exposed only as `current_internal_baseline_mentions` and
+`baseline_internal_baseline_mentions`.
+
+Existing signals are labeled `rising` or `cooling` only when score and mention
+movement agree. Mixed-direction movement is `stable`. These labels are local
+observed statuses for review, not market-wide popularity claims.
+
 ## Tuning
 
 See `configs/scoring.example.yaml`.
@@ -150,6 +165,8 @@ See `configs/scoring.example.yaml`.
 
 - Scores only reflect configured sources and imported local signals.
 - Candidate signals only reflect configured sources and imported local signals.
+- Trend deltas only reflect configured sources and imported local signals.
+- Candidate deltas are limited by configured candidate discovery thresholds.
 - Counts use collected time, not necessarily publication time.
 - Dashboard mention tabs show mention counts, while candidate signal views read
   the latest report JSON.

@@ -1,24 +1,34 @@
 import json
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from sqlalchemy import select
 from typer.testing import CliRunner
 
 import fashion_radar.cli as cli_module
 from fashion_radar.cli import app
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
-from fashion_radar.db.schema import initialize_schema
+from fashion_radar.db.schema import initialize_schema, item_entities, items
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceType
+from fashion_radar.models.trend import TrendComparison
 
 
 def test_cli_help() -> None:
-    result = CliRunner().invoke(app, ["--help"])
+    result = CliRunner().invoke(app, ["--help"], env={"COLUMNS": "120"})
 
     assert result.exit_code == 0
     assert "Fashion Radar" in result.output
+    assert "trends" in result.output
+
+
+def test_dashboard_command_help_lists_config_dir() -> None:
+    result = CliRunner().invoke(app, ["dashboard", "--help"], env={"COLUMNS": "120"})
+
+    assert result.exit_code == 0
+    assert "--config-dir" in result.output
 
 
 def test_import_signals_command_imports_csv(tmp_path: Path) -> None:
@@ -439,6 +449,8 @@ def test_dashboard_command_launches_streamlit_on_localhost(monkeypatch, tmp_path
             str(tmp_path / "data"),
             "--reports-dir",
             str(tmp_path / "reports"),
+            "--config-dir",
+            str(tmp_path / "config"),
         ],
     )
 
@@ -449,6 +461,12 @@ def test_dashboard_command_launches_streamlit_on_localhost(monkeypatch, tmp_path
     assert command[command.index("--server.address") + 1] == "127.0.0.1"
     assert "--server.port" in command
     assert command[command.index("--server.port") + 1] == "8501"
+    assert "--" in command
+    separator_index = command.index("--")
+    app_args = command[separator_index + 1 :]
+    assert app_args[app_args.index("--data-dir") + 1] == str(tmp_path / "data")
+    assert app_args[app_args.index("--reports-dir") + 1] == str(tmp_path / "reports")
+    assert app_args[app_args.index("--config-dir") + 1] == str(tmp_path / "config")
 
 
 def test_report_command_writes_markdown_and_json(tmp_path: Path) -> None:
@@ -629,6 +647,471 @@ def test_candidates_command_is_read_only_when_database_is_missing(tmp_path: Path
     assert result.exit_code == 0
     assert json.loads(result.output) == []
     assert not (data_dir / "fashion-radar.sqlite").exists()
+
+
+def _prepare_trend_cli_fixture(tmp_path: Path) -> tuple[Path, Path]:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text(
+        """
+version: 1
+scoring:
+  current_window_days: 7
+  baseline_window_days: 30
+  min_match_confidence: 0.5
+candidate_discovery:
+  min_current_mentions: 1
+  review_min_current_mentions: 1
+  min_single_token_mentions: 1
+  min_single_token_distinct_sources: 1
+  max_candidates: 10
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+
+    def store(
+        *,
+        url: str,
+        title: str,
+        source_name: str,
+        collected_at: datetime,
+        entity_name: str,
+        entity_type: str = "brand",
+    ) -> None:
+        item_id = repository.upsert_item(
+            CollectedItem(
+                source_name=source_name,
+                source_type=SourceType.RSS,
+                url=url,
+                title=title,
+                published_at=collected_at,
+                summary=title,
+            ),
+            collected_at=collected_at,
+        )
+        repository.replace_item_matches(
+            item_id,
+            [
+                {
+                    "entity_name": entity_name,
+                    "entity_type": entity_type,
+                    "alias": entity_name,
+                    "confidence": 1.0,
+                    "reason": "accepted",
+                    "context_terms": [],
+                }
+            ],
+        )
+
+    as_of = datetime(2026, 6, 12, 12, 0, tzinfo=UTC)
+    store(
+        url="https://example.com/current-row",
+        title="The Row Margaux bag gains momentum",
+        source_name="Fashionista",
+        collected_at=as_of - timedelta(days=1),
+        entity_name="The Row",
+    )
+    store(
+        url="https://example.com/current-row-2",
+        title="The Row Margaux bag appears again",
+        source_name="WWD",
+        collected_at=as_of - timedelta(days=2),
+        entity_name="The Row",
+    )
+    store(
+        url="https://example.com/baseline-row",
+        title="The Row Margaux bag baseline mention",
+        source_name="Vogue Business",
+        collected_at=as_of - timedelta(days=8),
+        entity_name="The Row",
+    )
+    store(
+        url="https://example.com/dropped",
+        title="Old Brand mention cools",
+        source_name="Vogue Business",
+        collected_at=as_of - timedelta(days=8),
+        entity_name="Old Brand",
+    )
+    return config_dir, data_dir
+
+
+def _prepare_candidate_trend_cli_fixture(tmp_path: Path) -> tuple[Path, Path]:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text(
+        """
+version: 1
+scoring:
+  current_window_days: 7
+  baseline_window_days: 30
+candidate_discovery:
+  min_current_mentions: 1
+  review_min_current_mentions: 1
+  min_single_token_mentions: 99
+  min_single_token_distinct_sources: 99
+  max_candidates: 1
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    as_of = datetime(2026, 6, 12, tzinfo=UTC)
+    baseline_as_of = datetime(2026, 6, 5, tzinfo=UTC)
+
+    def store(*, title: str, url: str, source_name: str, collected_at: datetime) -> None:
+        repository.upsert_item(
+            CollectedItem(
+                source_name=source_name,
+                source_type=SourceType.RSS,
+                url=url,
+                title=title,
+                published_at=collected_at,
+                summary=title,
+            ),
+            collected_at=collected_at,
+        )
+
+    for index, source_name in enumerate(("Source A", "Source B", "Source C"), start=1):
+        store(
+            title="Fading bag baseline mention",
+            url=f"https://example.com/fading-baseline-{index}",
+            source_name=source_name,
+            collected_at=baseline_as_of - timedelta(hours=index),
+        )
+        store(
+            title="Bright bag current mention",
+            url=f"https://example.com/bright-current-{index}",
+            source_name=source_name,
+            collected_at=as_of - timedelta(hours=index),
+        )
+    store(
+        title="Fading bag current mention",
+        url="https://example.com/fading-current",
+        source_name="Source A",
+        collected_at=as_of - timedelta(hours=6),
+    )
+    return config_dir, data_dir
+
+
+def test_trends_command_missing_database_writes_nothing(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trends",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    comparison = TrendComparison.model_validate_json(result.output)
+    assert comparison.deltas == []
+    assert comparison.baseline_as_of == datetime(2026, 6, 5, 12, 0, tzinfo=UTC)
+    assert not data_dir.exists()
+    assert not (data_dir / "fashion-radar.sqlite").exists()
+
+
+def test_trends_command_rejects_invalid_dates_before_data_dir_creation(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trends",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not compare trends: invalid --as-of" in result.output
+    assert not data_dir.exists()
+
+
+def test_trends_command_rejects_invalid_baseline_before_data_dir_creation(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trends",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--baseline-as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not compare trends: invalid --baseline-as-of" in result.output
+    assert not data_dir.exists()
+
+
+def test_trends_command_rejects_baseline_at_or_after_as_of(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trends",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--baseline-as-of",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "baseline-as-of must be before as-of" in result.output
+    assert not data_dir.exists()
+
+
+def test_trends_command_rejects_invalid_scoring_config_before_data_dir_creation(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text(
+        "version: 1\nscoring:\n  current_window_days: 0\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trends",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Invalid trend config" in result.output
+    assert not data_dir.exists()
+
+
+def test_trends_command_rejects_incompatible_database_without_schema_mutation(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    db_path = data_dir / "fashion-radar.sqlite"
+    db_path.touch()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trends",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "schema" in result.output.lower()
+    with sqlite3.connect(db_path) as connection:
+        table_names = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+    assert table_names == set()
+
+
+def test_trends_command_prints_json(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_trend_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trends",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    comparison = TrendComparison.model_validate_json(result.output)
+    assert comparison.deltas
+    assert "The Row" in {delta.name for delta in comparison.deltas}
+
+
+def test_trends_command_prints_table(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_trend_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trends",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Local observed trend deltas need review." in result.output
+    assert "Status | Kind | Type | Name" in result.output
+    assert "The Row" in result.output
+
+
+def test_trends_command_include_dropped_surfaces_baseline_only_signals(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_trend_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trends",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--include-dropped",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    comparison = TrendComparison.model_validate_json(result.output)
+    assert "Old Brand" in {delta.name for delta in comparison.deltas}
+
+
+def test_trends_command_limit_caps_ordered_deltas(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_trend_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trends",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--limit",
+            "1",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    comparison = TrendComparison.model_validate_json(result.output)
+    assert len(comparison.deltas) == 1
+
+
+def test_trends_command_existing_database_remains_read_only(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_trend_cli_fixture(tmp_path)
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    with engine.connect() as connection:
+        item_count = connection.execute(select(items.c.id)).all()
+        match_count = connection.execute(select(item_entities.c.id)).all()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trends",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    with engine.connect() as connection:
+        assert connection.execute(select(items.c.id)).all() == item_count
+        assert connection.execute(select(item_entities.c.id)).all() == match_count
+
+
+def test_trends_command_help_lists_public_flags() -> None:
+    result = CliRunner().invoke(app, ["trends", "--help"], env={"COLUMNS": "120"})
+
+    assert result.exit_code == 0
+    assert "local observed signal deltas" in result.output
+    assert "--config-dir" in result.output
+    assert "--data-dir" in result.output
+    assert "--as-of" in result.output
+    assert "UTC baseline" in result.output
+    assert "--baseline-as-of" in result.output
+    assert "Include signals" in result.output
+    assert "--no-include" in result.output
+    assert "--limit" in result.output
+    assert "--format" in result.output
 
 
 def test_candidates_command_does_not_create_missing_data_directory(tmp_path: Path) -> None:

@@ -15,6 +15,7 @@ YAML config
   -> score current vs baseline windows
   -> discover candidate signals from retained local items
   -> write Markdown/JSON reports
+  -> compare local trend deltas on demand
   -> inspect read-only dashboard
 ```
 
@@ -36,6 +37,9 @@ YAML config
 - **Candidate Discovery:** Deterministic observed-phrase review over retained
   local item titles and summaries from configured sources and imported local
   signals.
+- **Trend Deltas:** Read-only comparison of entity scoring and candidate
+  discovery snapshots from existing local SQLite state. It does not create
+  schema migrations, persistent trend tables, or database writes.
 - **Reports:** Markdown and JSON daily reports rendered from packaged
   templates.
 - **Dashboard:** Optional Streamlit UI that reads local SQLite/report state.
@@ -74,6 +78,7 @@ fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Ex
 fashion-radar match
 fashion-radar report --as-of 2026-06-11T12:00:00Z
 fashion-radar candidates --as-of 2026-06-11T12:00:00Z
+fashion-radar trends --as-of 2026-06-11T12:00:00Z --config-dir ./configs
 ```
 
 `run` executes `collect -> match -> report` serially in one local process:
@@ -110,7 +115,8 @@ fetches.
 
 The dashboard defaults to `127.0.0.1:8501` and has no authentication layer.
 The candidate signal view reads the latest report JSON and may be stale until a
-new report is generated.
+new report is generated. The trend tab computes local observed deltas from
+SQLite using the same config directory as the CLI.
 
 ## Package Extras
 

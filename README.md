@@ -22,6 +22,8 @@ only on the sources you configure and local signals you import.
 - Computes transparent heat scores over current and baseline windows.
 - Surfaces untracked candidate signals as observed phrases from configured
   sources and imported local signals that need review.
+- Compares local observed entity and candidate signal deltas between scoring
+  snapshots.
 - Generates daily Markdown and JSON reports with source attribution.
 - Provides an optional local Streamlit dashboard for read-only inspection.
 
@@ -83,6 +85,15 @@ signals:
 uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
+Compare local observed trend deltas without writing to the database:
+
+```bash
+uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --config-dir "$PWD/configs"
+```
+
+Trend deltas are read-only local comparisons. They do not prove market-wide or
+platform-wide demand.
+
 Or run the workflow serially:
 
 ```bash
@@ -112,7 +123,7 @@ The dashboard is optional:
 
 ```bash
 uv sync --locked --dev --extra dashboard
-uv run fashion-radar dashboard
+uv run fashion-radar dashboard --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports"
 ```
 
 Mirror install:
@@ -124,8 +135,10 @@ uv run fashion-radar dashboard
 
 The dashboard defaults to `127.0.0.1:8501`, is read-only, and does not collect,
 match, or fetch network data on page import or refresh. It shows local
-mention-count summaries and can read candidate signals from the latest report
-JSON, which may be stale until a new report is generated.
+mention-count summaries, reads candidate signals from the latest report JSON,
+and can show a `Trend Deltas` tab computed from local SQLite state with the
+configured scoring window. Candidate signals may be stale until a new report is
+generated.
 
 There is no authentication layer. Do not bind `--host 0.0.0.0` or any non-local
 address on an untrusted network unless you understand that the dashboard may be
@@ -180,6 +193,7 @@ See [docs/data-retention.md](docs/data-retention.md).
 - [docs/source-boundaries.md](docs/source-boundaries.md)
 - [docs/scoring.md](docs/scoring.md)
 - [docs/candidate-discovery.md](docs/candidate-discovery.md)
+- [docs/trend-deltas.md](docs/trend-deltas.md)
 - [docs/manual-signal-import.md](docs/manual-signal-import.md)
 - [docs/data-retention.md](docs/data-retention.md)
 - [docs/dashboard.md](docs/dashboard.md)

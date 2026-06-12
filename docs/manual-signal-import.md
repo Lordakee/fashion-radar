@@ -87,10 +87,14 @@ After import, run the same local review commands used for collected sources:
 uv run fashion-radar match
 uv run fashion-radar report --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 Reports and the dashboard frame candidate signals as observed phrases from
 configured sources and imported local signals that need review.
+
+Imported rows can affect trend deltas only after they are imported and matched.
+This still does not imply platform coverage.
 
 ## Privacy Boundary
 

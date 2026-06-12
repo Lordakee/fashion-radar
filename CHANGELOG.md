@@ -33,6 +33,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   dry runs, follow-up review commands, and privacy/source boundaries.
 - Report and dashboard wording for candidate signals from configured sources and
   imported local signals that need review.
+- Read-only `trends` CLI command for local observed entity and candidate signal
+  deltas between scoring snapshots.
+- Dashboard Trend Deltas view using local SQLite state and forwarded
+  `--config-dir` settings.
+- Trend delta documentation covering local-only scope, baseline windows,
+  read-only behavior, and source-coverage limits.
 
 ### Not Included In 0.1.0
 

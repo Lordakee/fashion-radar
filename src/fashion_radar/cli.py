@@ -4,7 +4,7 @@ import importlib.util
 import json
 import subprocess
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from importlib import resources
 from pathlib import Path
 from typing import Literal
@@ -21,6 +21,7 @@ from fashion_radar.importers.manual_signals import (
     store_manual_signal_rows,
 )
 from fashion_radar.models.report import CandidateReport
+from fashion_radar.models.trend import TrendComparison
 from fashion_radar.scheduling import (
     render_cron_example,
     render_github_actions_workflow,
@@ -34,6 +35,11 @@ from fashion_radar.settings import (
     load_scoring_config,
     load_source_config,
 )
+from fashion_radar.trends import (
+    build_trend_comparison,
+    create_readonly_sqlite_engine,
+    verify_readonly_trend_schema,
+)
 from fashion_radar.utils.dates import parse_datetime_utc
 from fashion_radar.utils.paths import default_config_dir, default_data_dir, default_reports_dir
 from fashion_radar.workflows import (
@@ -45,7 +51,10 @@ from fashion_radar.workflows import (
     write_daily_report_files,
 )
 
-app = typer.Typer(help="Fashion Radar command line interface.")
+app = typer.Typer(
+    help="Fashion Radar command line interface.",
+    context_settings={"max_content_width": 120},
+)
 CONFIG_DIR_OPTION = typer.Option(
     default_factory=default_config_dir,
     envvar="FASHION_RADAR_CONFIG_DIR",
@@ -69,7 +78,13 @@ NOW_OPTION = typer.Option(None, help="UTC collection timestamp override.")
 RETENTION_DAYS_OPTION = typer.Option(30, min=1, help="Retention window in days.")
 CandidateOutputFormat = Literal["table", "json"]
 ManualSignalInputFormat = Literal["csv", "json"]
+TrendOutputFormat = Literal["table", "json"]
 CANDIDATE_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+TREND_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
@@ -193,6 +208,7 @@ def schedule_example(
 
 @app.command()
 def dashboard(
+    config_dir: Path = CONFIG_DIR_OPTION,
     data_dir: Path = DATA_DIR_OPTION,
     reports_dir: Path = REPORTS_DIR_OPTION,
     host: str = HOST_OPTION,
@@ -219,6 +235,8 @@ def dashboard(
         "--server.port",
         str(port),
         "--",
+        "--config-dir",
+        str(config_dir),
         "--data-dir",
         str(data_dir),
         "--reports-dir",
@@ -318,6 +336,79 @@ def candidates_command(
         for metric in metrics
     ]
     _print_candidate_output(reports, output_format=output_format)
+
+
+@app.command(name="trends")
+def trends_command(
+    config_dir: Path = CONFIG_DIR_OPTION,
+    data_dir: Path = DATA_DIR_OPTION,
+    as_of: str = AS_OF_OPTION,
+    baseline_as_of: str | None = typer.Option(None, help="UTC baseline timestamp."),
+    limit: int | None = typer.Option(20, min=0, help="Maximum trend deltas to print."),
+    output_format: TrendOutputFormat = TREND_FORMAT_OPTION,
+    include_dropped: bool = typer.Option(False, help="Include signals present only in baseline."),
+) -> None:
+    """Compare local observed signal deltas between two scoring snapshots."""
+    try:
+        try:
+            as_of_value = parse_datetime_utc(as_of)
+        except (TypeError, ValueError) as exc:
+            typer.echo(f"Could not compare trends: invalid --as-of: {exc}", err=True)
+            raise typer.Exit(1) from exc
+        scoring_config = load_scoring_config(config_dir / "scoring.yaml")
+        try:
+            baseline_as_of_value = (
+                parse_datetime_utc(baseline_as_of)
+                if baseline_as_of is not None
+                else as_of_value - timedelta(days=scoring_config.scoring.current_window_days)
+            )
+        except (TypeError, ValueError) as exc:
+            typer.echo(
+                f"Could not compare trends: invalid --baseline-as-of: {exc}",
+                err=True,
+            )
+            raise typer.Exit(1) from exc
+        if baseline_as_of_value >= as_of_value:
+            typer.echo(
+                "Could not compare trends: baseline-as-of must be before as-of",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        entity_path = config_dir / "entities.yaml"
+        entity_config = load_entity_config(entity_path) if entity_path.exists() else None
+    except ConfigError as exc:
+        typer.echo(f"Invalid trend config: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    db_path = default_database_path(data_dir)
+    if not db_path.exists():
+        _print_trend_output(
+            TrendComparison(as_of=as_of_value, baseline_as_of=baseline_as_of_value, deltas=[]),
+            output_format=output_format,
+        )
+        return
+
+    engine = create_readonly_sqlite_engine(db_path)
+    try:
+        verify_readonly_trend_schema(engine)
+        comparison = build_trend_comparison(
+            engine,
+            scoring=scoring_config.scoring,
+            candidate_discovery=scoring_config.candidate_discovery,
+            entity_config=entity_config,
+            as_of=as_of_value,
+            baseline_as_of=baseline_as_of_value,
+            include_dropped=include_dropped,
+            limit=limit,
+        )
+    except Exception as exc:
+        typer.echo(f"Could not compare trends: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    finally:
+        engine.dispose()
+
+    _print_trend_output(comparison, output_format=output_format)
 
 
 @app.command(name="import-signals")
@@ -523,3 +614,39 @@ def _print_candidate_output(
             f"{candidate.score:.2f} | {candidate.current_mentions} | "
             f"{candidate.distinct_sources}"
         )
+
+
+def _print_trend_output(
+    comparison: TrendComparison,
+    *,
+    output_format: TrendOutputFormat,
+) -> None:
+    if output_format == "json":
+        typer.echo(comparison.model_dump_json(indent=2))
+        return
+
+    for line in _trend_table_lines(comparison):
+        typer.echo(line)
+
+
+def _trend_table_lines(comparison: TrendComparison) -> list[str]:
+    lines = [
+        "Local observed trend deltas need review.",
+        f"As of: {comparison.as_of.isoformat()}",
+        f"Baseline as of: {comparison.baseline_as_of.isoformat()}",
+    ]
+    if not comparison.deltas:
+        lines.append("No local observed trend deltas in this comparison.")
+        return lines
+    lines.append(
+        "Status | Kind | Type | Name | Current Score | Score Delta | "
+        "Mention Delta | Current Label | Baseline Label"
+    )
+    for delta in comparison.deltas:
+        lines.append(
+            f"{delta.status.value} | {delta.signal_kind.value} | {delta.signal_type} | "
+            f"{delta.name} | {delta.current_score:.2f} | {delta.score_delta:+.2f} | "
+            f"{delta.mention_delta:+d} | {delta.current_label or 'n/a'} | "
+            f"{delta.baseline_label or 'n/a'}"
+        )
+    return lines

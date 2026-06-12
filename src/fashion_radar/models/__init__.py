@@ -12,6 +12,7 @@ from fashion_radar.models.report import (
     SourceHealthReport,
 )
 from fashion_radar.models.source import SourceDefinition, SourceType
+from fashion_radar.models.trend import TrendComparison, TrendDelta, TrendSignalKind, TrendStatus
 
 __all__ = [
     "CandidateReport",
@@ -26,4 +27,8 @@ __all__ = [
     "SourceDefinition",
     "SourceType",
     "SourceHealthReport",
+    "TrendComparison",
+    "TrendDelta",
+    "TrendSignalKind",
+    "TrendStatus",
 ]
