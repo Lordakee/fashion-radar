@@ -47,10 +47,9 @@ Also consider the previous review:
 ## Tech Stack
 
 - Python 3.11+
-- Typer
+- Typer with plain table-style `typer.echo` output
 - Pydantic
 - SQLAlchemy read-only SQLite URI connections
-- Rich tables
 - Streamlit optional dashboard
 - pytest
 - ruff
