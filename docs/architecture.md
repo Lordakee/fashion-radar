@@ -12,6 +12,7 @@ YAML config
   -> optionally lint entity-pack quality before matching
   -> collect public sources
   -> optionally lint one community signal CSV/JSON file or a local directory batch before import
+  -> optionally dry-run matched local signal files in one directory before import
   -> optionally import user-provided local CSV/JSON signals
   -> store items in SQLite
   -> match configured entities
@@ -47,6 +48,9 @@ YAML config
   input path only. They are not connectors or platform collection workflows.
   Community signal import is a documented contract and example set for external
   tools that produce sanitized local files for this same importer.
+  `import-signals-dir --dry-run` validates matched regular files directly under
+  one local directory through the same importer model without opening SQLite,
+  importing rows, or creating workflow artifacts.
 - **Community Signal Quality:** Local read-only diagnostics lint one community
   signal CSV/JSON file or a non-recursive batch of matched regular files in one
   local directory before dry-run/import. The linters check strict handoff fields
@@ -115,6 +119,7 @@ fashion-radar entity-pack-lint ./configs/entities.yaml
 fashion-radar collect
 fashion-radar community-signal-lint ./signals.csv --input-format csv --source-name "Manual Export"
 fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Manual Export"
+fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export" --dry-run
 fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
 fashion-radar match
 fashion-radar report --as-of 2026-06-11T12:00:00Z

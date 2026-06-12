@@ -893,6 +893,342 @@ def test_community_signal_lint_dir_does_not_create_project_artifacts(
     )
 
 
+def test_import_signals_dir_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["import-signals-dir", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "--format" in result.output
+    assert "--pattern" in result.output
+    assert "--dry-run" in result.output
+    assert "--output-format" in result.output
+    assert "--source-name" in result.output
+    assert "--data-dir" not in result.output
+    assert "without importing rows" in result.output
+
+
+def test_import_signals_dir_prints_table(tmp_path: Path) -> None:
+    (tmp_path / "signals.csv").write_text(
+        "url,title,published_at,source_name,platform\n"
+        "https://example.com/a,Signal,2026-06-12T08:00:00Z,Tool,community\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(tmp_path),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert f"Import signals directory dry run: {tmp_path}" in result.output
+    assert "Files: 1 total, 1 valid" in result.output
+    assert "Rows: 1 import-ready" in result.output
+
+
+def test_import_signals_dir_prints_json(tmp_path: Path) -> None:
+    (tmp_path / "signals.json").write_text(
+        json.dumps(
+            [
+                {
+                    "url": "https://example.com/a",
+                    "title": "Signal",
+                    "published_at": "2026-06-12T08:00:00Z",
+                    "source_name": "Tool",
+                    "platform": "community",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(tmp_path),
+            "--format",
+            "json",
+            "--pattern",
+            "*.json",
+            "--dry-run",
+            "--output-format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "directory",
+        "input_format",
+        "pattern",
+        "file_count",
+        "valid_file_count",
+        "row_count",
+        "error_count",
+        "source_name_counts",
+        "platform_counts",
+        "files",
+        "findings",
+    ]
+    assert payload["file_count"] == 1
+    assert payload["valid_file_count"] == 1
+    assert payload["row_count"] == 1
+    assert payload["error_count"] == 0
+    assert payload["source_name_counts"] == {"Tool": 1}
+    assert payload["platform_counts"] == {"community": 1}
+    assert payload["files"][0]["findings"] == []
+
+
+def test_import_signals_dir_json_failure_shape(tmp_path: Path) -> None:
+    (tmp_path / "broken.csv").write_text(
+        "url,title,published_at\n,Broken,not-a-date\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(tmp_path),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--dry-run",
+            "--output-format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Traceback" not in result.output
+    payload = json.loads(result.output)
+    assert payload["file_count"] == 1
+    assert payload["valid_file_count"] == 0
+    assert payload["row_count"] == 0
+    assert payload["error_count"] == 1
+    assert payload["findings"] == []
+    assert payload["files"][0]["error_count"] == 1
+    assert payload["files"][0]["findings"][0]["severity"] == "error"
+    assert payload["files"][0]["findings"][0]["code"] == "invalid_file"
+    assert "row 2" in payload["files"][0]["findings"][0]["message"]
+
+
+def test_import_signals_dir_invalid_directory_exits_nonzero(
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "missing"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(missing),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "invalid_directory" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_import_signals_dir_json_no_matching_files_shape(tmp_path: Path) -> None:
+    (tmp_path / "ignored.txt").write_text("ignore", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(tmp_path),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--dry-run",
+            "--output-format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Traceback" not in result.output
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "directory",
+        "input_format",
+        "pattern",
+        "file_count",
+        "valid_file_count",
+        "row_count",
+        "error_count",
+        "source_name_counts",
+        "platform_counts",
+        "files",
+        "findings",
+    ]
+    assert payload["directory"] == str(tmp_path)
+    assert payload["input_format"] == "csv"
+    assert payload["pattern"] == "*.csv"
+    assert payload["file_count"] == 0
+    assert payload["valid_file_count"] == 0
+    assert payload["row_count"] == 0
+    assert payload["error_count"] == 1
+    assert payload["source_name_counts"] == {}
+    assert payload["platform_counts"] == {}
+    assert payload["files"] == []
+    assert payload["findings"] == [
+        {
+            "severity": "error",
+            "code": "no_matching_files",
+            "message": "No regular files matched the pattern in the directory.",
+            "path": None,
+        }
+    ]
+
+
+def test_import_signals_dir_unreadable_directory_exits_nonzero_without_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    original_iterdir = Path.iterdir
+
+    def fail_iterdir(path: Path):
+        if path == tmp_path:
+            raise PermissionError("no access")
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", fail_iterdir)
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(tmp_path),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--dry-run",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 1
+    assert "invalid_directory" in result.output
+    assert "Traceback" not in result.output
+    monkeypatch.setattr(Path, "iterdir", original_iterdir)
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_import_signals_dir_does_not_create_project_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "signals.csv").write_text(
+        "url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(tmp_path),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--dry-run",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 0
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_import_signals_dir_requires_dry_run_before_reading_files(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    missing = tmp_path / "missing"
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(missing),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 1
+    assert "Directory import is not implemented; rerun with --dry-run." in result.output
+    assert "invalid_directory" not in result.output
+    assert "Traceback" not in result.output
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
 def test_init_writes_example_configs(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     data_dir = tmp_path / "data"

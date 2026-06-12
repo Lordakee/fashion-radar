@@ -23,6 +23,11 @@ Manual signal import is a local input path for user-provided CSV/JSON files the
 user is authorized to process. It is not a connector, platform collector, source
 pack, or source-acquisition guide.
 
+Manual signal directory dry run validates matched regular files directly under
+one local directory through the same importer model without importing rows,
+opening SQLite, creating workflow artifacts, fetching URLs, or collecting
+sources.
+
 Community signal import is the same local input pattern with repository
 examples and a JSON schema for tools that produce sanitized local rows. It is
 not a connector, source pack, platform collector, remote community ingestion
@@ -166,6 +171,9 @@ The public README must explain:
   bypasses.
 - Manual signal import is a local input path, not a platform connector or
   instructions for obtaining platform exports.
+- Manual signal directory dry run validates local files only; it is not batch
+  import, source acquisition, platform coverage verification, authorization
+  verification, or a policy workflow feature.
 - Community signal lint validates local file structure and allowed fields only,
   including optional non-recursive directory batches; it is not source
   acquisition, platform coverage verification, authorization verification, or a

@@ -1,3 +1,4 @@
+import inspect
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -10,7 +11,9 @@ from fashion_radar.db.repositories import ItemRepository
 from fashion_radar.db.schema import collector_runs, initialize_schema, source_health
 from fashion_radar.importers.manual_signals import (
     ManualSignalImportError,
+    dry_run_manual_signal_directory,
     load_manual_signal_rows,
+    render_manual_signal_directory_dry_run_table,
     store_manual_signal_rows,
 )
 from fashion_radar.models.item import CollectedItem
@@ -435,3 +438,234 @@ def test_store_manual_signal_rows_preserves_existing_normalized_url_upsert(
     assert item["source_type"] == "manual_import"
     assert item["source_name"] == "Manual Export"
     assert item["title"] == "Manual update"
+
+
+def test_manual_signal_directory_dry_run_aggregates_files_in_sorted_order(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "b.csv").write_text(
+        "url,title,published_at,source_name,platform\n"
+        "https://example.com/b,Second,2026-06-12T09:00:00Z,Zulu,forum\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "a.csv").write_text(
+        "url,title,published_at,platform\n"
+        "https://example.com/a,First,2026-06-12T08:00:00Z,community\n",
+        encoding="utf-8",
+    )
+
+    result = dry_run_manual_signal_directory(
+        tmp_path,
+        input_format="csv",
+        pattern="*.csv",
+        default_source_name="Fallback Source",
+    )
+
+    assert result.ok is True
+    assert result.file_count == 2
+    assert result.valid_file_count == 2
+    assert result.row_count == 2
+    assert result.error_count == 0
+    assert [Path(file.path).name for file in result.files] == ["a.csv", "b.csv"]
+    assert result.source_name_counts == {"Fallback Source": 1, "Zulu": 1}
+    assert list(result.source_name_counts) == ["Fallback Source", "Zulu"]
+    assert result.platform_counts == {"community": 1, "forum": 1}
+    assert list(result.platform_counts) == ["community", "forum"]
+
+
+def test_manual_signal_directory_dry_run_keeps_clean_and_invalid_files(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "clean.csv").write_text(
+        "url,title,published_at,source_name\n"
+        "https://example.com/clean,Clean,2026-06-12T08:00:00Z,Tool\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "broken.csv").write_text(
+        "url,title,published_at\n,Missing,not-a-date\n",
+        encoding="utf-8",
+    )
+
+    result = dry_run_manual_signal_directory(
+        tmp_path,
+        input_format="csv",
+        pattern="*.csv",
+        default_source_name="Fallback Source",
+    )
+
+    assert result.ok is False
+    assert result.file_count == 2
+    assert result.valid_file_count == 1
+    assert result.row_count == 1
+    assert result.error_count == 1
+    assert {Path(file.path).name for file in result.files} == {
+        "broken.csv",
+        "clean.csv",
+    }
+    broken = next(file for file in result.files if Path(file.path).name == "broken.csv")
+    assert broken.error_count == 1
+    assert broken.findings[0].code == "invalid_file"
+    assert "row 2" in broken.findings[0].message
+
+
+def test_manual_signal_directory_dry_run_reports_missing_directory(
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "missing"
+
+    result = dry_run_manual_signal_directory(
+        missing,
+        input_format="csv",
+        pattern="*.csv",
+        default_source_name="Fallback Source",
+    )
+
+    assert result.ok is False
+    assert result.file_count == 0
+    assert result.error_count == 1
+    assert result.findings[0].code == "invalid_directory"
+    assert result.findings[0].message == (
+        "Manual signal directory does not exist or is not a directory."
+    )
+
+
+def test_manual_signal_directory_dry_run_reports_file_path_as_invalid_directory(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "signals.csv"
+    path.write_text("url,title,published_at\n", encoding="utf-8")
+
+    result = dry_run_manual_signal_directory(
+        path,
+        input_format="csv",
+        pattern="*.csv",
+        default_source_name="Fallback Source",
+    )
+
+    assert result.ok is False
+    assert result.file_count == 0
+    assert result.error_count == 1
+    assert result.findings[0].code == "invalid_directory"
+
+
+def test_manual_signal_directory_dry_run_reports_unreadable_directory(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    original_iterdir = Path.iterdir
+
+    def fail_iterdir(path: Path):
+        if path == tmp_path:
+            raise PermissionError("no access")
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", fail_iterdir)
+
+    result = dry_run_manual_signal_directory(
+        tmp_path,
+        input_format="csv",
+        pattern="*.csv",
+        default_source_name="Fallback Source",
+    )
+
+    assert result.ok is False
+    assert result.file_count == 0
+    assert result.error_count == 1
+    assert result.findings[0].code == "invalid_directory"
+    assert result.findings[0].message == "Could not read manual signal directory."
+
+
+def test_manual_signal_directory_dry_run_reports_no_matching_files(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "ignored.txt").write_text("ignore", encoding="utf-8")
+
+    result = dry_run_manual_signal_directory(
+        tmp_path,
+        input_format="csv",
+        pattern="*.csv",
+        default_source_name="Fallback Source",
+    )
+
+    assert result.ok is False
+    assert result.file_count == 0
+    assert result.error_count == 1
+    assert result.findings[0].code == "no_matching_files"
+
+
+def test_manual_signal_directory_dry_run_is_non_recursive(tmp_path: Path) -> None:
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    (nested / "nested.csv").write_text(
+        "url,title,published_at\nhttps://example.com/nested,Nested,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "top.csv").write_text(
+        "url,title,published_at\nhttps://example.com/top,Top,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+
+    result = dry_run_manual_signal_directory(
+        tmp_path,
+        input_format="csv",
+        pattern="*.csv",
+        default_source_name="Fallback Source",
+    )
+
+    assert result.file_count == 1
+    assert Path(result.files[0].path).name == "top.csv"
+
+
+def test_manual_signal_directory_dry_run_double_star_pattern_does_not_recurse(
+    tmp_path: Path,
+) -> None:
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    (nested / "nested.csv").write_text(
+        "url,title,published_at\nhttps://example.com/nested,Nested,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+
+    result = dry_run_manual_signal_directory(
+        tmp_path,
+        input_format="csv",
+        pattern="**/*.csv",
+        default_source_name="Fallback Source",
+    )
+
+    assert result.file_count == 0
+    assert result.error_count == 1
+    assert result.findings[0].code == "no_matching_files"
+
+
+def test_render_manual_signal_directory_dry_run_table_includes_summary_and_files(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "signals.csv").write_text(
+        "url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+
+    lines = render_manual_signal_directory_dry_run_table(
+        dry_run_manual_signal_directory(
+            tmp_path,
+            input_format="csv",
+            pattern="*.csv",
+            default_source_name="Fallback Source",
+        )
+    )
+
+    assert lines[0] == f"Import signals directory dry run: {tmp_path}"
+    assert "Input format: csv" in lines
+    assert "Pattern: *.csv" in lines
+    assert "Files: 1 total, 1 valid" in lines
+    assert "Rows: 1 import-ready" in lines
+    assert any(line.startswith(f"- {tmp_path / 'signals.csv'}:") for line in lines)
+    assert "No manual signal directory dry-run errors." in lines
+
+
+def test_manual_signal_directory_dry_run_does_not_use_path_glob() -> None:
+    source = inspect.getsource(dry_run_manual_signal_directory)
+
+    assert ".glob(" not in source
+    assert ".rglob(" not in source

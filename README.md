@@ -87,6 +87,7 @@ External community tools can target the local community signal contract:
 ```bash
 uv run fashion-radar community-signal-lint examples/community-signals.example.csv --input-format csv --source-name "Community Tool Export"
 uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export"
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --dry-run
 uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --dry-run
 ```
 
@@ -212,11 +213,17 @@ run or import:
 
 ```bash
 uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export"
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --dry-run
 ```
 
 The linters are local and read-only. They do not collect sources, fetch live
 feeds or URLs, run matching/scoring, open SQLite, import rows, or create
 config/data/report artifacts.
+
+`import-signals-dir --dry-run` is also local and read-only. It validates matched
+regular files directly under one local directory through the same importer model
+as `import-signals --dry-run`; it does not recurse, open SQLite, import rows, or
+create config/data/report artifacts.
 
 ## Reports And Storage
 

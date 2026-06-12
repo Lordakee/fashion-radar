@@ -35,7 +35,9 @@ from fashion_radar.entity_packs import (
 )
 from fashion_radar.importers.manual_signals import (
     ManualSignalImportError,
+    dry_run_manual_signal_directory,
     load_manual_signal_rows,
+    render_manual_signal_directory_dry_run_table,
     store_manual_signal_rows,
 )
 from fashion_radar.models.report import CandidateReport
@@ -102,6 +104,7 @@ RETENTION_DAYS_OPTION = typer.Option(30, min=1, help="Retention window in days."
 CandidateOutputFormat = Literal["table", "json"]
 ManualSignalInputFormat = Literal["csv", "json"]
 CommunitySignalLintOutputFormat = Literal["table", "json"]
+ImportSignalsDirOutputFormat = Literal["table", "json"]
 EntityPackLintOutputFormat = Literal["table", "json"]
 SourcePackLintOutputFormat = Literal["table", "json"]
 TrendOutputFormat = Literal["table", "json"]
@@ -129,6 +132,21 @@ COMMUNITY_SIGNAL_SOURCE_NAME_OPTION = typer.Option(
     "Community Signal Import",
     "--source-name",
     help="Fallback source name for rows that omit source_name.",
+)
+IMPORT_SIGNALS_DIR_OUTPUT_FORMAT_OPTION = typer.Option(
+    "table",
+    "--output-format",
+    help="Diagnostics output format.",
+)
+MANUAL_SIGNAL_DIR_FORMAT_OPTION = typer.Option(
+    ...,
+    "--format",
+    help="Input file format.",
+)
+MANUAL_SIGNAL_PATTERN_OPTION = typer.Option(
+    ...,
+    "--pattern",
+    help="Non-recursive file glob pattern, for example *.csv or *.json.",
 )
 ENTITY_PACK_LINT_FORMAT_OPTION = typer.Option(
     "table",
@@ -338,6 +356,36 @@ def community_signal_lint_dir_command(
             typer.echo(line)
 
     if result.error_count or (strict and result.warning_count):
+        raise typer.Exit(1)
+
+
+@app.command(name="import-signals-dir")
+def import_signals_dir_command(
+    directory: Path,
+    input_format: ManualSignalInputFormat = MANUAL_SIGNAL_DIR_FORMAT_OPTION,
+    pattern: str = MANUAL_SIGNAL_PATTERN_OPTION,
+    dry_run: bool = typer.Option(False, help="Validate without importing rows."),
+    output_format: ImportSignalsDirOutputFormat = IMPORT_SIGNALS_DIR_OUTPUT_FORMAT_OPTION,
+    source_name: str = typer.Option("Manual Import", help="Fallback source name."),
+) -> None:
+    """Dry-run local manual signal files in one directory without importing rows."""
+    if not dry_run:
+        typer.echo("Directory import is not implemented; rerun with --dry-run.", err=True)
+        raise typer.Exit(1)
+
+    result = dry_run_manual_signal_directory(
+        directory,
+        input_format=input_format,
+        pattern=pattern,
+        default_source_name=source_name.strip() or "Manual Import",
+    )
+    if output_format == "json":
+        typer.echo(result.model_dump_json(indent=2))
+    else:
+        for line in render_manual_signal_directory_dry_run_table(result):
+            typer.echo(line)
+
+    if result.error_count:
         raise typer.Exit(1)
 
 

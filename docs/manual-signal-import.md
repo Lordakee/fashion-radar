@@ -77,6 +77,27 @@ uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Ma
 A dry run is intended to check parsing and validation. It does not import rows
 into the local database.
 
+## Directory Dry Run
+
+Use `import-signals-dir --dry-run` to validate matched files directly under one
+local directory through the same importer model:
+
+```bash
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export" --dry-run
+uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Manual Export" --dry-run --output-format json
+```
+
+Directory dry run is non-recursive. It validates regular files directly under
+the supplied directory only, using the single input format selected by
+`--format`. Run it separately for CSV and JSON folders or patterns. In this
+version `--dry-run` is required; batch import is not implemented by this
+command.
+
+Directory dry run does not open SQLite, create data/config/report directories,
+import rows, fetch URLs, collect sources, verify platform coverage, or run
+matching/scoring. It also does not estimate `items_added`, because that would
+require reading the local database.
+
 ## Import And Review
 
 Import a CSV file:

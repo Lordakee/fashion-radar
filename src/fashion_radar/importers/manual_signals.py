@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import csv
+import fnmatch
 import json
+from collections import Counter
+from collections.abc import Iterable
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
@@ -84,6 +88,54 @@ class ManualSignalImportResult(BaseModel):
     items_added: int
 
 
+class ManualSignalDryRunFindingSeverity(StrEnum):
+    ERROR = "error"
+
+
+class ManualSignalDirectoryDryRunFinding(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    severity: ManualSignalDryRunFindingSeverity
+    code: str
+    message: str
+    path: str | None = None
+
+
+class ManualSignalDirectoryDryRunFileResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: str
+    row_count: int = 0
+    error_count: int = 0
+    source_name_counts: dict[str, int] = Field(default_factory=dict)
+    platform_counts: dict[str, int] = Field(default_factory=dict)
+    findings: list[ManualSignalDirectoryDryRunFinding] = Field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return self.error_count == 0
+
+
+class ManualSignalDirectoryDryRunResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    directory: str
+    input_format: ManualSignalFormat
+    pattern: str
+    file_count: int = 0
+    valid_file_count: int = 0
+    row_count: int = 0
+    error_count: int = 0
+    source_name_counts: dict[str, int] = Field(default_factory=dict)
+    platform_counts: dict[str, int] = Field(default_factory=dict)
+    files: list[ManualSignalDirectoryDryRunFileResult] = Field(default_factory=list)
+    findings: list[ManualSignalDirectoryDryRunFinding] = Field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return self.error_count == 0
+
+
 def load_manual_signal_rows(
     path: Path,
     *,
@@ -129,6 +181,156 @@ def _read_raw_rows(path: Path, *, input_format: ManualSignalFormat) -> list[obje
     raise ManualSignalImportError("JSON import must be a list or an object with an items list")
 
 
+def dry_run_manual_signal_directory(
+    directory: Path,
+    *,
+    input_format: ManualSignalFormat,
+    pattern: str,
+    default_source_name: str,
+) -> ManualSignalDirectoryDryRunResult:
+    findings: list[ManualSignalDirectoryDryRunFinding] = []
+    try:
+        if not directory.is_dir():
+            return ManualSignalDirectoryDryRunResult(
+                directory=str(directory),
+                input_format=input_format,
+                pattern=pattern,
+                error_count=1,
+                findings=[
+                    ManualSignalDirectoryDryRunFinding(
+                        severity=ManualSignalDryRunFindingSeverity.ERROR,
+                        code="invalid_directory",
+                        message=("Manual signal directory does not exist or is not a directory."),
+                    )
+                ],
+            )
+        children = list(directory.iterdir())
+    except OSError:
+        return ManualSignalDirectoryDryRunResult(
+            directory=str(directory),
+            input_format=input_format,
+            pattern=pattern,
+            error_count=1,
+            findings=[
+                ManualSignalDirectoryDryRunFinding(
+                    severity=ManualSignalDryRunFindingSeverity.ERROR,
+                    code="invalid_directory",
+                    message="Could not read manual signal directory.",
+                )
+            ],
+        )
+
+    paths: list[Path] = []
+    for path in children:
+        try:
+            is_regular_file = path.is_file()
+        except OSError:
+            continue
+        if is_regular_file and fnmatch.fnmatch(path.name, pattern):
+            paths.append(path)
+    paths = sorted(paths, key=lambda path: str(path))
+
+    if not paths:
+        findings.append(
+            ManualSignalDirectoryDryRunFinding(
+                severity=ManualSignalDryRunFindingSeverity.ERROR,
+                code="no_matching_files",
+                message="No regular files matched the pattern in the directory.",
+            )
+        )
+
+    file_results = [
+        _dry_run_manual_signal_file(
+            path,
+            input_format=input_format,
+            default_source_name=default_source_name,
+        )
+        for path in paths
+    ]
+    return ManualSignalDirectoryDryRunResult(
+        directory=str(directory),
+        input_format=input_format,
+        pattern=pattern,
+        file_count=len(file_results),
+        valid_file_count=sum(1 for file in file_results if file.ok),
+        row_count=sum(file.row_count for file in file_results),
+        error_count=len(findings) + sum(file.error_count for file in file_results),
+        source_name_counts=_merge_count_dicts(file.source_name_counts for file in file_results),
+        platform_counts=_merge_count_dicts(file.platform_counts for file in file_results),
+        files=file_results,
+        findings=findings,
+    )
+
+
+def render_manual_signal_directory_dry_run_table(
+    result: ManualSignalDirectoryDryRunResult,
+) -> list[str]:
+    lines = [
+        f"Import signals directory dry run: {result.directory}",
+        f"Input format: {result.input_format}",
+        f"Pattern: {result.pattern}",
+        f"Files: {result.file_count} total, {result.valid_file_count} valid",
+        f"Rows: {result.row_count} import-ready",
+        f"Sources: {_format_counts(result.source_name_counts)}",
+        f"Platforms: {_format_counts(result.platform_counts)}",
+        f"Errors: {result.error_count}",
+    ]
+    if result.files:
+        lines.append("Files:")
+        for file in result.files:
+            lines.append(f"- {file.path}: {file.row_count} rows, {file.error_count} errors")
+    if not result.findings and all(not file.findings for file in result.files):
+        lines.append("No manual signal directory dry-run errors.")
+        return lines
+
+    lines.append("Severity | File | Code | Message")
+    for finding in result.findings:
+        lines.append(
+            f"{finding.severity.value} | {finding.path or 'n/a'} | "
+            f"{finding.code} | {finding.message}"
+        )
+    for file in result.files:
+        for finding in file.findings:
+            lines.append(
+                f"{finding.severity.value} | {file.path} | {finding.code} | {finding.message}"
+            )
+    return lines
+
+
+def _dry_run_manual_signal_file(
+    path: Path,
+    *,
+    input_format: ManualSignalFormat,
+    default_source_name: str,
+) -> ManualSignalDirectoryDryRunFileResult:
+    try:
+        rows = load_manual_signal_rows(
+            path,
+            input_format=input_format,
+            default_source_name=default_source_name,
+        )
+    except ManualSignalImportError as exc:
+        return ManualSignalDirectoryDryRunFileResult(
+            path=str(path),
+            error_count=1,
+            findings=[
+                ManualSignalDirectoryDryRunFinding(
+                    severity=ManualSignalDryRunFindingSeverity.ERROR,
+                    code="invalid_file",
+                    message=f"Could not dry-run import file: {exc}",
+                    path=str(path),
+                )
+            ],
+        )
+
+    return ManualSignalDirectoryDryRunFileResult(
+        path=str(path),
+        row_count=len(rows),
+        source_name_counts=dict(sorted(Counter(row.source_name for row in rows).items())),
+        platform_counts=dict(sorted(Counter(row.platform for row in rows if row.platform).items())),
+    )
+
+
 def store_manual_signal_rows(
     engine: Engine,
     *,
@@ -157,3 +359,16 @@ def store_manual_signal_rows(
         rows_imported=len(rows),
         items_added=max(0, after_count - before_count),
     )
+
+
+def _merge_count_dicts(counts: Iterable[dict[str, int]]) -> dict[str, int]:
+    merged: Counter[str] = Counter()
+    for count_map in counts:
+        merged.update(count_map)
+    return dict(sorted(merged.items()))
+
+
+def _format_counts(counts: dict[str, int]) -> str:
+    if not counts:
+        return "none"
+    return ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))

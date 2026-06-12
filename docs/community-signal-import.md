@@ -72,6 +72,14 @@ uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pa
 uv run fashion-radar community-signal-lint-dir ./exports --input-format json --pattern "*.json" --source-name "Community Tool Export" --strict
 ```
 
+Then validate the same local directory through the importer model without
+writing rows:
+
+```bash
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --dry-run
+uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Community Tool Export" --dry-run --output-format json
+```
+
 The linters validate allowed columns/fields, excluded raw/private fields,
 import-readiness, duplicate URLs, missing provenance, and implicit defaults.
 `community-signal-lint` reads one local file. `community-signal-lint-dir` reads
@@ -79,6 +87,13 @@ matched regular files directly under one local directory and does not recurse.
 They do not create config/data/report directories, open SQLite, import rows,
 fetch URLs, collect sources, verify authorization, provide platform/community
 data acquisition steps, or run matching/scoring.
+
+`import-signals-dir --dry-run` is the importer-model directory check. It reads
+matched regular files directly under one local directory, does not recurse, and
+does not open SQLite or import rows. It is less strict than
+`community-signal-lint-dir` because the manual importer remains
+backward-compatible with extra columns. Use the same `--source-name` across
+lint, directory dry run, and import when you want source summaries to align.
 
 See [community-signal-quality.md](community-signal-quality.md).
 
@@ -143,5 +158,11 @@ provide instructions for obtaining platform or community data.
 local directory passed to it. They report contract findings. They do not fetch
 URLs, log in, recurse, download media, verify authorization, or provide
 instructions for obtaining platform/community data.
+
+`import-signals-dir --dry-run` reads only matched regular files directly under
+the local directory passed to it and validates them through the importer model.
+It does not fetch URLs, log in, recurse, download media, open SQLite, import
+rows, verify authorization, or provide instructions for obtaining
+platform/community data.
 
 Users are responsible for importing only rows they are authorized to process.
