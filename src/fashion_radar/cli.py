@@ -41,6 +41,11 @@ from fashion_radar.settings import (
     load_scoring_config,
     load_source_config,
 )
+from fashion_radar.source_packs import (
+    SourcePackFindingSeverity,
+    lint_source_pack,
+    render_source_pack_lint_table,
+)
 from fashion_radar.trends import (
     build_trend_comparison,
     create_readonly_sqlite_engine,
@@ -84,8 +89,14 @@ NOW_OPTION = typer.Option(None, help="UTC collection timestamp override.")
 RETENTION_DAYS_OPTION = typer.Option(30, min=1, help="Retention window in days.")
 CandidateOutputFormat = Literal["table", "json"]
 ManualSignalInputFormat = Literal["csv", "json"]
+SourcePackLintOutputFormat = Literal["table", "json"]
 TrendOutputFormat = Literal["table", "json"]
 CANDIDATE_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+SOURCE_PACK_LINT_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
@@ -185,6 +196,30 @@ def doctor(
         except ConfigError as exc:
             typer.echo(f"Invalid {label} config: {exc}", err=True)
             raise typer.Exit(1) from exc
+
+
+@app.command(name="source-pack-lint")
+def source_pack_lint_command(
+    path: Path,
+    output_format: SourcePackLintOutputFormat = SOURCE_PACK_LINT_FORMAT_OPTION,
+    strict: bool = typer.Option(False, help="Exit non-zero when warnings are present."),
+) -> None:
+    """Lint a local source pack without collecting sources."""
+    result = lint_source_pack(path)
+    if output_format == "json":
+        typer.echo(result.model_dump_json(indent=2))
+    else:
+        for line in render_source_pack_lint_table(result):
+            typer.echo(line)
+
+    has_errors = any(
+        finding.severity == SourcePackFindingSeverity.ERROR for finding in result.findings
+    )
+    has_warnings = any(
+        finding.severity == SourcePackFindingSeverity.WARNING for finding in result.findings
+    )
+    if has_errors or (strict and has_warnings):
+        raise typer.Exit(1)
 
 
 @app.command(name="schedule-example")

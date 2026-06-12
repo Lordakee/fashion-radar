@@ -175,6 +175,15 @@ Starter files live in [configs](configs) and are also packaged for
 Optional public-source starter packs live in [configs/source-packs](configs/source-packs).
 See [docs/source-packs.md](docs/source-packs.md).
 
+Check a source pack before copying or editing it:
+
+```bash
+uv run fashion-radar source-pack-lint configs/source-packs/fashion-public.example.yaml
+```
+
+The linter is local and read-only. It does not collect sources, fetch live
+feeds, open SQLite, or create config/data/report artifacts.
+
 ## Reports And Storage
 
 The local database defaults to `fashion-radar.sqlite` under the configured data
@@ -222,6 +231,7 @@ See [docs/data-retention.md](docs/data-retention.md).
 - [docs/dashboard.md](docs/dashboard.md)
 - [docs/scheduling.md](docs/scheduling.md)
 - [docs/source-packs.md](docs/source-packs.md)
+- [docs/source-pack-quality.md](docs/source-pack-quality.md)
 - [docs/github-upload-checklist.md](docs/github-upload-checklist.md)
 - [docs/REVIEW_PROTOCOL.md](docs/REVIEW_PROTOCOL.md)
 

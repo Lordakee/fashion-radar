@@ -1273,6 +1273,169 @@ def test_trends_command_help_lists_public_flags() -> None:
     assert "--format" in result.output
 
 
+def test_source_pack_lint_help_lists_format_and_strict() -> None:
+    result = CliRunner().invoke(app, ["source-pack-lint", "--help"], env={"COLUMNS": "120"})
+
+    assert result.exit_code == 0
+    assert "--format" in result.output
+    assert "--strict" in result.output
+    assert "without collecting sources" in result.output
+
+
+def test_source_pack_lint_prints_table_for_public_pack() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["source-pack-lint", "configs/source-packs/fashion-public.example.yaml"],
+    )
+
+    assert result.exit_code == 0
+    assert "Source pack: configs/source-packs/fashion-public.example.yaml" in result.output
+    assert "Sources:" in result.output
+    assert "Findings:" in result.output
+    assert "errors" in result.output
+
+
+def test_source_pack_lint_prints_json_for_public_pack() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "source-pack-lint",
+            "configs/source-packs/fashion-public.example.yaml",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["path"] == "configs/source-packs/fashion-public.example.yaml"
+    assert payload["source_count"] == 16
+    assert payload["type_counts"] == {"gdelt": 10, "rss": 6}
+    assert isinstance(payload["findings"], list)
+
+
+def test_source_pack_lint_strict_exits_nonzero_on_warnings(tmp_path: Path) -> None:
+    path = tmp_path / "sources.yaml"
+    path.write_text(
+        """
+version: 1
+sources:
+  - name: Untagged GDELT
+    type: gdelt
+    query: fashion
+    weight: 0.8
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["source-pack-lint", str(path), "--strict"])
+
+    assert result.exit_code == 1
+    assert "missing_tags" in result.output
+
+
+def test_source_pack_lint_invalid_config_exits_nonzero_without_traceback(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "sources.yaml"
+    path.write_text(
+        """
+version: 1
+sources:
+  - name: Broken Feed
+    type: rss
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["source-pack-lint", str(path)])
+
+    assert result.exit_code == 1
+    assert "invalid_config" in result.output
+    assert "requires url" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_source_pack_lint_does_not_create_default_or_explicit_config_data_report_dirs(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    path = tmp_path / "sources.yaml"
+    path.write_text(
+        """
+version: 1
+sources:
+  - name: GDELT Local
+    type: gdelt
+    query: fashion
+    weight: 0.8
+    tags: [gdelt]
+""".lstrip(),
+        encoding="utf-8",
+    )
+    workdir = tmp_path / "workdir"
+    workdir.mkdir()
+    explicit_config = tmp_path / "explicit-config"
+    explicit_data = tmp_path / "explicit-data"
+    explicit_reports = tmp_path / "explicit-reports"
+    monkeypatch.chdir(workdir)
+
+    result = CliRunner().invoke(
+        app,
+        ["source-pack-lint", str(path)],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(explicit_config),
+            "FASHION_RADAR_DATA_DIR": str(explicit_data),
+            "FASHION_RADAR_REPORTS_DIR": str(explicit_reports),
+        },
+    )
+
+    assert result.exit_code == 0
+    assert not (workdir / "config").exists()
+    assert not (workdir / "data").exists()
+    assert not (workdir / "reports").exists()
+    assert not explicit_config.exists()
+    assert not explicit_data.exists()
+    assert not explicit_reports.exists()
+
+
+def test_source_pack_lint_does_not_create_sqlite_or_workflow_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    path = tmp_path / "sources.yaml"
+    path.write_text(
+        """
+version: 1
+sources:
+  - name: GDELT Local
+    type: gdelt
+    query: fashion
+    weight: 0.8
+    tags: [gdelt]
+""".lstrip(),
+        encoding="utf-8",
+    )
+    workdir = tmp_path / "workdir"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+
+    result = CliRunner().invoke(app, ["source-pack-lint", str(path)])
+
+    assert result.exit_code == 0
+    artifact_names = {artifact.name for artifact in workdir.rglob("*")}
+    assert "fashion-radar.sqlite" not in artifact_names
+    assert not any(artifact.match("*.sqlite*") for artifact in workdir.rglob("*"))
+    assert not any(artifact.match("collector-*") for artifact in workdir.rglob("*"))
+    assert not any(artifact.match("collector_runs*") for artifact in workdir.rglob("*"))
+    assert not any(artifact.match("fashion-radar-*.md") for artifact in workdir.rglob("*"))
+    assert not any(artifact.match("fashion-radar-*.json") for artifact in workdir.rglob("*"))
+    assert not (workdir / "latest.md").exists()
+    assert not (workdir / "latest.json").exists()
+    assert not (workdir / "report-index.json").exists()
+    assert not any(artifact.match("*.eml") for artifact in workdir.rglob("*"))
+
+
 def test_candidates_command_does_not_create_missing_data_directory(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     data_dir = tmp_path / "missing-data"

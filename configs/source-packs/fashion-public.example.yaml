@@ -92,3 +92,63 @@ sources:
       lookback_hours: 24
       max_records: 100
       rate_limit_per_second: 1.0
+  - name: GDELT Runway Fashion Week
+    type: gdelt
+    query: '("runway show" OR "fashion week schedule" OR "fashion week collection") (designer OR fashion)'
+    enabled: true
+    weight: 0.8
+    tags: [gdelt, runway, fashion_week]
+    gdelt:
+      lookback_hours: 24
+      max_records: 100
+      rate_limit_per_second: 1.0
+  - name: GDELT Designer Brand Momentum
+    type: gdelt
+    query: '("designer brand" OR "quiet luxury" OR "heritage fashion house" OR "independent fashion label")'
+    enabled: true
+    weight: 0.8
+    tags: [gdelt, designer_brands, luxury]
+    gdelt:
+      lookback_hours: 24
+      max_records: 100
+      rate_limit_per_second: 1.0
+  - name: GDELT Retail Resale Fashion
+    type: gdelt
+    query: '(fashion retail OR luxury retail OR resale marketplace OR consignment) (brand OR designer)'
+    enabled: true
+    weight: 0.7
+    tags: [gdelt, retail, resale]
+    gdelt:
+      lookback_hours: 24
+      max_records: 100
+      rate_limit_per_second: 1.0
+  - name: GDELT Footwear Sneakers
+    type: gdelt
+    query: '(sneakers OR footwear OR loafers OR "ballet flats" OR boots) (fashion OR designer OR luxury)'
+    enabled: true
+    weight: 0.8
+    tags: [gdelt, footwear, shoes, streetwear]
+    gdelt:
+      lookback_hours: 24
+      max_records: 100
+      rate_limit_per_second: 1.0
+  - name: GDELT Creative Director Moves
+    type: gdelt
+    query: '("creative director" OR "artistic director" OR "chief executive") ("fashion house" OR luxury OR designer)'
+    enabled: true
+    weight: 0.8
+    tags: [gdelt, creative_directors, executive_moves]
+    gdelt:
+      lookback_hours: 24
+      max_records: 100
+      rate_limit_per_second: 1.0
+  - name: GDELT Beauty Fashion Crossover
+    type: gdelt
+    query: '(beauty OR fragrance OR makeup OR skincare) ("fashion brand" OR designer OR luxury)'
+    enabled: true
+    weight: 0.7
+    tags: [gdelt, beauty, brand_news]
+    gdelt:
+      lookback_hours: 24
+      max_records: 100
+      rate_limit_per_second: 1.0

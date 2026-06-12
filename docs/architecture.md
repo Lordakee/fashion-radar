@@ -8,6 +8,7 @@ appeared in a report.
 
 ```text
 YAML config
+  -> optionally lint source-pack quality before collection
   -> collect public sources
   -> optionally import user-provided local CSV/JSON signals
   -> store items in SQLite
@@ -25,6 +26,12 @@ YAML config
 - **CLI:** Typer commands in `fashion_radar.cli`.
 - **Config:** Pydantic models load `sources.yaml`, `entities.yaml`, and
   `scoring.yaml`.
+- **Source-Pack Quality:** Local read-only diagnostics lint one source YAML or
+  source-pack YAML file for duplicate names, duplicate targets, duplicate GDELT
+  queries, missing tags, disabled sources, implicit weights, empty enabled
+  source sets, invalid config, and article extraction settings before
+  collection. The linter does not fetch sources, open SQLite, collect items, or
+  create config/data/report directories.
 - **Collectors:** RSS/RSSHub-compatible feeds and GDELT Doc API metadata.
   Collectors return normalized items and do not write directly to SQLite.
 - **Manual Import:** Local CSV/JSON user-provided signal files are parsed as an
@@ -87,6 +94,7 @@ Optional local digest artifacts are:
 ```bash
 fashion-radar init
 fashion-radar doctor
+fashion-radar source-pack-lint ./configs/sources.yaml
 fashion-radar collect
 fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
 fashion-radar match
@@ -103,6 +111,14 @@ fashion-radar run --as-of 2026-06-11T12:00:00Z
 ```
 
 There are no parallel database writers in the MVP workflow.
+
+## Source-Pack Quality Boundary
+
+`source-pack-lint` is a pre-collection diagnostics command for local YAML files.
+It reads raw YAML for omitted-field checks, validates the same source schema used
+by collection, and prints table or JSON findings. It does not check live source
+availability, run collectors, open the local database, or create workflow
+artifacts.
 
 ## Candidate Discovery Boundary
 

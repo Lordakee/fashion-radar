@@ -42,6 +42,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Optional local digest packaging for generated daily reports, including latest
   report artifacts, a report index, a local `.eml` handoff file, and stdout
   summary output.
+- Local read-only `source-pack-lint` command for source YAML quality diagnostics
+  and documentation for expanded public-pack RSS/GDELT categories.
 
 ### Not Included In 0.1.0
 

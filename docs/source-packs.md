@@ -18,10 +18,51 @@ It uses only existing v0.1.0 source types:
 - `rss`
 - `gdelt`
 
-It does not include Instagram, TikTok, X/Twitter, Xiaohongshu/RedNote, Google
-News RSS, Google Trends, Reddit, Pinterest, Playwright, login cookies,
-account/session files, proxy pools, CAPTCHA bypass, paywall bypass, or private
-data collection.
+The expanded public pack keeps the RSS entries conservative and adds bounded
+GDELT lanes for runway and fashion week, designer-brand momentum, retail and
+resale, footwear, handbags and accessories, creative-director moves, and
+beauty/fashion crossover signals inside the configured source set.
+
+It does not include Google News RSS, Google Trends, account-based source access,
+browser automation, access-control bypasses, paywall bypass, or private data
+collection.
+
+## Check Pack Quality
+
+Before copying or editing a pack, run the local linter:
+
+```bash
+uv run fashion-radar source-pack-lint configs/source-packs/fashion-public.example.yaml
+```
+
+JSON output is available for scripts and CI:
+
+```bash
+uv run fashion-radar source-pack-lint configs/source-packs/fashion-public.example.yaml --format json
+```
+
+Example JSON shape:
+
+```json
+{
+  "path": "configs/source-packs/fashion-public.example.yaml",
+  "source_count": 16,
+  "enabled_count": 16,
+  "disabled_count": 0,
+  "type_counts": {
+    "gdelt": 10,
+    "rss": 6
+  },
+  "tag_counts": {
+    "industry_news": 5,
+    "gdelt": 10
+  },
+  "findings": []
+}
+```
+
+See [source-pack-quality.md](source-pack-quality.md) for finding codes,
+severity meanings, and tag/weight tuning guidance.
 
 ## Use A Pack
 

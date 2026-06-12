@@ -9,6 +9,11 @@ from fashion_radar.settings import (
     load_scoring_config,
     load_source_config,
 )
+from fashion_radar.source_packs import (
+    normalize_gdelt_query,
+    normalize_source_name,
+    normalize_source_target,
+)
 
 
 def write_yaml(path: Path, content: str) -> Path:
@@ -357,8 +362,23 @@ def test_sample_configs_load_without_network() -> None:
 def test_public_fashion_source_pack_loads() -> None:
     config = load_source_config(Path("configs/source-packs/fashion-public.example.yaml"))
 
-    assert len(config.sources) >= 10
+    assert len(config.sources) >= 16
     assert {source.type.value for source in config.sources} == {"rss", "gdelt"}
     assert all(
         source.article.enabled is False for source in config.sources if source.type.value == "rss"
     )
+    source_names = [normalize_source_name(source.name) for source in config.sources]
+    assert len(source_names) == len(set(source_names))
+    feed_urls = [
+        normalize_source_target(source.url)
+        for source in config.sources
+        if source.type.value == "rss" and source.url is not None
+    ]
+    assert len(feed_urls) == len(set(feed_urls))
+    gdelt_queries = [
+        normalize_gdelt_query(source.query)
+        for source in config.sources
+        if source.type.value == "gdelt" and source.query is not None
+    ]
+    assert len(gdelt_queries) == len(set(gdelt_queries))
+    assert all(source.tags for source in config.sources)
