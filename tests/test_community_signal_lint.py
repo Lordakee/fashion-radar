@@ -4,7 +4,9 @@ from textwrap import dedent
 
 from fashion_radar.community_signals import (
     CommunitySignalFindingSeverity,
+    lint_community_signal_directory,
     lint_community_signal_file,
+    render_community_signal_directory_lint_table,
     render_community_signal_lint_table,
 )
 from fashion_radar.importers.manual_signals import load_manual_signal_rows
@@ -287,3 +289,242 @@ def test_render_community_signal_lint_table_includes_summary_and_findings(
     assert "Rows: 1 total, 1 import-ready" in lines
     assert "Severity | Code | Row | Field | Message" in lines
     assert any("missing_source_name" in line for line in lines)
+
+
+def test_directory_lint_aggregates_matched_files_in_sorted_order(
+    tmp_path: Path,
+) -> None:
+    write_text(
+        tmp_path / "b.csv",
+        """
+        url,title,published_at,source_name,platform,summary,source_weight
+        https://example.com/b,Second,2026-06-12T09:00:00Z,Zulu,forum,Note,1.1
+        """,
+    )
+    write_text(
+        tmp_path / "a.csv",
+        """
+        url,title,published_at,source_name,platform,summary
+        https://example.com/a,First,2026-06-12T08:00:00Z,Alpha,community,Note
+        """,
+    )
+
+    result = lint_community_signal_directory(
+        tmp_path,
+        input_format="csv",
+        pattern="*.csv",
+    )
+
+    assert result.ok is True
+    assert result.file_count == 2
+    assert result.row_count == 2
+    assert result.valid_row_count == 2
+    assert [Path(file.path).name for file in result.files] == ["a.csv", "b.csv"]
+    assert result.source_name_counts == {"Alpha": 1, "Zulu": 1}
+    assert list(result.source_name_counts) == ["Alpha", "Zulu"]
+    assert result.platform_counts == {"community": 1, "forum": 1}
+    assert list(result.platform_counts) == ["community", "forum"]
+    assert list(result.field_counts) == sorted(result.field_counts)
+    assert result.field_counts["source_weight"] == 1
+
+
+def test_directory_lint_keeps_clean_and_invalid_file_results(
+    tmp_path: Path,
+) -> None:
+    write_text(
+        tmp_path / "clean.csv",
+        """
+        url,title,published_at,source_name,platform,summary
+        https://example.com/clean,Clean,2026-06-12T08:00:00Z,Tool,community,Note
+        """,
+    )
+    write_text(tmp_path / "broken.csv", "url,title,published_at\n,Missing,not-a-date")
+
+    result = lint_community_signal_directory(
+        tmp_path,
+        input_format="csv",
+        pattern="*.csv",
+    )
+
+    assert result.ok is False
+    assert result.file_count == 2
+    assert result.row_count == 2
+    assert result.valid_row_count == 1
+    assert result.error_count == 1
+    assert {Path(file.path).name for file in result.files} == {
+        "clean.csv",
+        "broken.csv",
+    }
+
+
+def test_directory_lint_reports_no_matching_files(tmp_path: Path) -> None:
+    write_text(tmp_path / "ignored.txt", "not a signal file")
+
+    result = lint_community_signal_directory(
+        tmp_path,
+        input_format="csv",
+        pattern="*.csv",
+    )
+
+    assert result.ok is False
+    assert result.file_count == 0
+    assert result.error_count == 1
+    assert result.findings[0].code == "no_matching_files"
+
+
+def test_directory_lint_reports_missing_directory(tmp_path: Path) -> None:
+    missing = tmp_path / "missing"
+
+    result = lint_community_signal_directory(
+        missing,
+        input_format="csv",
+        pattern="*.csv",
+    )
+
+    assert result.ok is False
+    assert result.file_count == 0
+    assert result.error_count == 1
+    assert result.findings[0].code == "invalid_directory"
+
+
+def test_directory_lint_reports_file_path_as_invalid_directory(
+    tmp_path: Path,
+) -> None:
+    path = write_text(tmp_path / "signals.csv", "url,title,published_at")
+
+    result = lint_community_signal_directory(
+        path,
+        input_format="csv",
+        pattern="*.csv",
+    )
+
+    assert result.ok is False
+    assert result.file_count == 0
+    assert result.error_count == 1
+    assert result.findings[0].code == "invalid_directory"
+
+
+def test_directory_lint_reports_unreadable_directory(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    original_iterdir = Path.iterdir
+
+    def fail_iterdir(path: Path):
+        if path == tmp_path:
+            raise PermissionError("no access")
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", fail_iterdir)
+
+    result = lint_community_signal_directory(
+        tmp_path,
+        input_format="csv",
+        pattern="*.csv",
+    )
+
+    assert result.ok is False
+    assert result.file_count == 0
+    assert result.error_count == 1
+    assert result.findings[0].code == "invalid_directory"
+    assert result.findings[0].message == "Could not read community signal directory."
+
+
+def test_directory_lint_is_non_recursive(tmp_path: Path) -> None:
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    write_text(
+        nested / "nested.csv",
+        """
+        url,title,published_at
+        https://example.com/nested,Nested,2026-06-12T08:00:00Z
+        """,
+    )
+    write_text(
+        tmp_path / "top.csv",
+        """
+        url,title,published_at
+        https://example.com/top,Top,2026-06-12T08:00:00Z
+        """,
+    )
+
+    result = lint_community_signal_directory(
+        tmp_path,
+        input_format="csv",
+        pattern="*.csv",
+    )
+
+    assert result.file_count == 1
+    assert Path(result.files[0].path).name == "top.csv"
+
+
+def test_directory_lint_double_star_pattern_does_not_recurse(tmp_path: Path) -> None:
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    write_text(
+        nested / "nested.csv",
+        """
+        url,title,published_at
+        https://example.com/nested,Nested,2026-06-12T08:00:00Z
+        """,
+    )
+
+    result = lint_community_signal_directory(
+        tmp_path,
+        input_format="csv",
+        pattern="**/*.csv",
+    )
+
+    assert result.file_count == 0
+    assert result.error_count == 1
+    assert result.findings[0].code == "no_matching_files"
+
+
+def test_render_community_signal_directory_lint_table_includes_aggregate_and_file_lines(
+    tmp_path: Path,
+) -> None:
+    write_text(
+        tmp_path / "signals.csv",
+        """
+        url,title,published_at
+        https://example.com/a,Signal,2026-06-12T08:00:00Z
+        """,
+    )
+
+    lines = render_community_signal_directory_lint_table(
+        lint_community_signal_directory(
+            tmp_path,
+            input_format="csv",
+            pattern="*.csv",
+        )
+    )
+
+    assert lines[0] == f"Community signal directory: {tmp_path}"
+    assert "Input format: csv" in lines
+    assert "Pattern: *.csv" in lines
+    assert "Files: 1" in lines
+    assert any(line.startswith(f"- {tmp_path / 'signals.csv'}:") for line in lines)
+    assert "Severity | File | Code | Row | Field | Message" in lines
+
+
+def test_render_community_signal_directory_lint_table_clean_directory(
+    tmp_path: Path,
+) -> None:
+    write_text(
+        tmp_path / "signals.csv",
+        """
+        url,title,published_at,source_name,platform,summary,source_weight,collected_at
+        https://example.com/a,Signal,2026-06-12T08:00:00Z,Tool,community,Note,1.0,2026-06-12T08:30:00Z
+        """,
+    )
+
+    lines = render_community_signal_directory_lint_table(
+        lint_community_signal_directory(
+            tmp_path,
+            input_format="csv",
+            pattern="*.csv",
+        )
+    )
+
+    assert "Findings: 0 errors, 0 warnings, 0 info" in lines
+    assert "No community-signal directory findings." in lines

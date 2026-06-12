@@ -11,7 +11,7 @@ YAML config
   -> optionally lint source-pack quality before collection
   -> optionally lint entity-pack quality before matching
   -> collect public sources
-  -> optionally lint community signal CSV/JSON files before import
+  -> optionally lint one community signal CSV/JSON file or a local directory batch before import
   -> optionally import user-provided local CSV/JSON signals
   -> store items in SQLite
   -> match configured entities
@@ -48,10 +48,10 @@ YAML config
   Community signal import is a documented contract and example set for external
   tools that produce sanitized local files for this same importer.
 - **Community Signal Quality:** Local read-only diagnostics lint one community
-  signal CSV/JSON file before dry-run/import. The linter checks strict handoff
-  fields and import-readiness but does not import rows, open SQLite, collect
-  sources, fetch URLs, run matching/scoring, or create config/data/report
-  directories.
+  signal CSV/JSON file or a non-recursive batch of matched regular files in one
+  local directory before dry-run/import. The linters check strict handoff fields
+  and import-readiness but do not import rows, open SQLite, collect sources,
+  fetch URLs, run matching/scoring, or create config/data/report directories.
 - **Storage:** SQLite tables store collected items, source health, collector
   runs, entity matches, and stable entity first/last seen timestamps.
 - **Matching:** Deterministic alias matching with context gates for common or
@@ -114,6 +114,7 @@ fashion-radar source-pack-lint ./configs/sources.yaml
 fashion-radar entity-pack-lint ./configs/entities.yaml
 fashion-radar collect
 fashion-radar community-signal-lint ./signals.csv --input-format csv --source-name "Manual Export"
+fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Manual Export"
 fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
 fashion-radar match
 fashion-radar report --as-of 2026-06-11T12:00:00Z
@@ -148,12 +149,14 @@ digest packaging, or dashboard workflows.
 
 ## Community Signal Quality Boundary
 
-`community-signal-lint` is a pre-import diagnostics command for local CSV/JSON
-files. It reads one local handoff file, validates strict community fields,
-checks import-readiness through the same manual signal row model, and prints
-table or JSON findings. It does not import rows, open the local database, fetch
-URLs, collect sources, run matching/scoring, package digests, generate reports,
-perform platform search, or create workflow artifacts.
+`community-signal-lint` is a pre-import diagnostics command for one local
+CSV/JSON file. `community-signal-lint-dir` is a non-recursive directory wrapper
+over the same single-file contract for matched regular files directly under one
+local directory. Both validate strict community fields, check import-readiness
+through the same manual signal row model, and print table or JSON findings. They
+do not import rows, open the local database, fetch URLs, collect sources, run
+matching/scoring, package digests, generate reports, perform platform search, or
+create workflow artifacts.
 
 ## Candidate Discovery Boundary
 

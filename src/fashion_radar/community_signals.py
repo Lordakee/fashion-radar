@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import csv
+import fnmatch
 import json
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -83,6 +84,29 @@ class CommunitySignalLintResult(BaseModel):
         return self.error_count == 0
 
 
+class CommunitySignalDirectoryLintResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    directory: str
+    input_format: ManualSignalFormat
+    pattern: str
+    file_count: int = 0
+    row_count: int = 0
+    valid_row_count: int = 0
+    error_count: int = 0
+    warning_count: int = 0
+    info_count: int = 0
+    field_counts: dict[str, int] = Field(default_factory=dict)
+    source_name_counts: dict[str, int] = Field(default_factory=dict)
+    platform_counts: dict[str, int] = Field(default_factory=dict)
+    files: list[CommunitySignalLintResult] = Field(default_factory=list)
+    findings: list[CommunitySignalFinding] = Field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return self.error_count == 0
+
+
 def lint_community_signal_file(
     path: Path,
     *,
@@ -153,6 +177,103 @@ def lint_community_signal_file(
     )
 
 
+def lint_community_signal_directory(
+    directory: Path,
+    *,
+    input_format: ManualSignalFormat,
+    pattern: str,
+    default_source_name: str = "Community Signal Import",
+) -> CommunitySignalDirectoryLintResult:
+    findings: list[CommunitySignalFinding] = []
+    try:
+        if not directory.is_dir():
+            return CommunitySignalDirectoryLintResult(
+                directory=str(directory),
+                input_format=input_format,
+                pattern=pattern,
+                error_count=1,
+                findings=[
+                    CommunitySignalFinding(
+                        severity=CommunitySignalFindingSeverity.ERROR,
+                        code="invalid_directory",
+                        message=(
+                            "Community signal directory does not exist or is not a directory."
+                        ),
+                    )
+                ],
+            )
+        children = list(directory.iterdir())
+    except OSError:
+        return CommunitySignalDirectoryLintResult(
+            directory=str(directory),
+            input_format=input_format,
+            pattern=pattern,
+            error_count=1,
+            findings=[
+                CommunitySignalFinding(
+                    severity=CommunitySignalFindingSeverity.ERROR,
+                    code="invalid_directory",
+                    message="Could not read community signal directory.",
+                )
+            ],
+        )
+
+    paths: list[Path] = []
+    for path in children:
+        try:
+            is_regular_file = path.is_file()
+        except OSError:
+            continue
+        if is_regular_file and fnmatch.fnmatch(path.name, pattern):
+            paths.append(path)
+    paths = sorted(paths, key=lambda path: str(path))
+
+    if not paths:
+        findings.append(
+            CommunitySignalFinding(
+                severity=CommunitySignalFindingSeverity.ERROR,
+                code="no_matching_files",
+                message="No regular files matched the pattern in the directory.",
+            )
+        )
+
+    file_results = [
+        lint_community_signal_file(
+            path,
+            input_format=input_format,
+            default_source_name=default_source_name,
+        )
+        for path in paths
+    ]
+    error_count = _count_findings(findings, CommunitySignalFindingSeverity.ERROR) + sum(
+        file.error_count for file in file_results
+    )
+    warning_count = _count_findings(
+        findings,
+        CommunitySignalFindingSeverity.WARNING,
+    ) + sum(file.warning_count for file in file_results)
+    info_count = _count_findings(findings, CommunitySignalFindingSeverity.INFO) + sum(
+        file.info_count for file in file_results
+    )
+
+    return CommunitySignalDirectoryLintResult(
+        directory=str(directory),
+        input_format=input_format,
+        pattern=pattern,
+        file_count=len(file_results),
+        row_count=sum(file.row_count for file in file_results),
+        valid_row_count=sum(file.valid_row_count for file in file_results),
+        error_count=error_count,
+        warning_count=warning_count,
+        info_count=info_count,
+        field_counts=_merge_count_dicts(file.field_counts for file in file_results),
+        source_name_counts=_merge_count_dicts(file.source_name_counts for file in file_results),
+        platform_counts=_merge_count_dicts(file.platform_counts for file in file_results),
+        files=file_results,
+        findings=_sort_findings(findings),
+    )
+
+
 def render_community_signal_lint_table(result: CommunitySignalLintResult) -> list[str]:
     lines = [
         f"Community signal file: {result.path}",
@@ -176,6 +297,51 @@ def render_community_signal_lint_table(result: CommunitySignalLintResult) -> lis
             f"{finding.severity.value} | {finding.code} | {finding.row or 'n/a'} | "
             f"{finding.field or 'n/a'} | {finding.message}"
         )
+    return lines
+
+
+def render_community_signal_directory_lint_table(
+    result: CommunitySignalDirectoryLintResult,
+) -> list[str]:
+    lines = [
+        f"Community signal directory: {result.directory}",
+        f"Input format: {result.input_format}",
+        f"Pattern: {result.pattern}",
+        f"Files: {result.file_count}",
+        f"Rows: {result.row_count} total, {result.valid_row_count} import-ready",
+        f"Fields: {_format_counts(result.field_counts)}",
+        f"Sources: {_format_counts(result.source_name_counts)}",
+        f"Platforms: {_format_counts(result.platform_counts)}",
+        (
+            f"Findings: {result.error_count} errors, {result.warning_count} warnings, "
+            f"{result.info_count} info"
+        ),
+    ]
+    if result.files:
+        lines.append("Files:")
+        for file in result.files:
+            lines.append(
+                f"- {file.path}: {file.row_count} rows, "
+                f"{file.valid_row_count} import-ready, {file.error_count} errors, "
+                f"{file.warning_count} warnings, {file.info_count} info"
+            )
+    if not result.findings and all(not file.findings for file in result.files):
+        lines.append("No community-signal directory findings.")
+        return lines
+
+    lines.append("Severity | File | Code | Row | Field | Message")
+    for finding in result.findings:
+        lines.append(
+            f"{finding.severity.value} | n/a | {finding.code} | "
+            f"{finding.row or 'n/a'} | {finding.field or 'n/a'} | {finding.message}"
+        )
+    for file in result.files:
+        for finding in file.findings:
+            lines.append(
+                f"{finding.severity.value} | {file.path} | {finding.code} | "
+                f"{finding.row or 'n/a'} | {finding.field or 'n/a'} | "
+                f"{finding.message}"
+            )
     return lines
 
 
@@ -401,6 +567,13 @@ def _format_counts(counts: Mapping[str, int]) -> str:
     if not counts:
         return "none"
     return ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
+
+
+def _merge_count_dicts(counts: Iterable[Mapping[str, int]]) -> dict[str, int]:
+    merged: Counter[str] = Counter()
+    for count_map in counts:
+        merged.update(count_map)
+    return dict(sorted(merged.items()))
 
 
 def _invalid_file(message: str) -> CommunitySignalFinding:

@@ -26,8 +26,9 @@ backward-compatible manual imports, but this community contract asks external
 tools to omit unknown, raw, private, media, account, cookie, session, and token
 fields.
 
-Use `community-signal-lint` when you want Fashion Radar to enforce the strict
-community handoff contract before dry-run/import.
+Use `community-signal-lint` or `community-signal-lint-dir` when you want
+Fashion Radar to enforce the strict community handoff contract before
+dry-run/import.
 
 ## Required Fields
 
@@ -64,11 +65,20 @@ Check a local file produced by another tool:
 uv run fashion-radar community-signal-lint ./community-signals.csv --input-format csv --source-name "Community Tool Export" --strict
 ```
 
-The linter reads one local file only. It validates allowed columns/fields,
-excluded raw/private fields, import-readiness, duplicate URLs, missing
-provenance, and implicit defaults. It does not create config/data/report
-directories, open SQLite, import rows, fetch URLs, collect sources, or run
-matching/scoring.
+Check a local directory of files produced by another tool:
+
+```bash
+uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export" --strict
+uv run fashion-radar community-signal-lint-dir ./exports --input-format json --pattern "*.json" --source-name "Community Tool Export" --strict
+```
+
+The linters validate allowed columns/fields, excluded raw/private fields,
+import-readiness, duplicate URLs, missing provenance, and implicit defaults.
+`community-signal-lint` reads one local file. `community-signal-lint-dir` reads
+matched regular files directly under one local directory and does not recurse.
+They do not create config/data/report directories, open SQLite, import rows,
+fetch URLs, collect sources, verify authorization, provide platform/community
+data acquisition steps, or run matching/scoring.
 
 See [community-signal-quality.md](community-signal-quality.md).
 
@@ -128,9 +138,10 @@ Fashion Radar reads only the local CSV/JSON file passed to `import-signals`.
 It does not fetch the URLs in the file, log in to services, download media, or
 provide instructions for obtaining platform or community data.
 
-`community-signal-lint` reads only the local CSV/JSON file passed to it and
-reports contract findings. It does not fetch URLs, log in, download media,
-verify authorization, or provide instructions for obtaining platform/community
-data.
+`community-signal-lint` reads only the local CSV/JSON file passed to it.
+`community-signal-lint-dir` reads only matched regular files directly under the
+local directory passed to it. They report contract findings. They do not fetch
+URLs, log in, recurse, download media, verify authorization, or provide
+instructions for obtaining platform/community data.
 
 Users are responsible for importing only rows they are authorized to process.

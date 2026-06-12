@@ -14,7 +14,9 @@ from sqlalchemy import create_engine, inspect, select
 
 from fashion_radar.community_signals import (
     CommunitySignalFindingSeverity,
+    lint_community_signal_directory,
     lint_community_signal_file,
+    render_community_signal_directory_lint_table,
     render_community_signal_lint_table,
 )
 from fashion_radar.db.engine import create_sqlite_engine
@@ -117,6 +119,11 @@ COMMUNITY_SIGNAL_INPUT_FORMAT_OPTION = typer.Option(
     ...,
     "--input-format",
     help="Input file format.",
+)
+COMMUNITY_SIGNAL_PATTERN_OPTION = typer.Option(
+    ...,
+    "--pattern",
+    help="Non-recursive file glob pattern, for example *.csv or *.json.",
 )
 COMMUNITY_SIGNAL_SOURCE_NAME_OPTION = typer.Option(
     "Community Signal Import",
@@ -305,6 +312,32 @@ def community_signal_lint_command(
         finding.severity == CommunitySignalFindingSeverity.WARNING for finding in result.findings
     )
     if has_errors or (strict and has_warnings):
+        raise typer.Exit(1)
+
+
+@app.command(name="community-signal-lint-dir")
+def community_signal_lint_dir_command(
+    directory: Path,
+    input_format: ManualSignalInputFormat = COMMUNITY_SIGNAL_INPUT_FORMAT_OPTION,
+    pattern: str = COMMUNITY_SIGNAL_PATTERN_OPTION,
+    output_format: CommunitySignalLintOutputFormat = COMMUNITY_SIGNAL_LINT_FORMAT_OPTION,
+    source_name: str = COMMUNITY_SIGNAL_SOURCE_NAME_OPTION,
+    strict: bool = typer.Option(False, help="Exit non-zero when warnings are present."),
+) -> None:
+    """Lint local community signal files in one directory without importing rows."""
+    result = lint_community_signal_directory(
+        directory,
+        input_format=input_format,
+        pattern=pattern,
+        default_source_name=source_name,
+    )
+    if output_format == "json":
+        typer.echo(result.model_dump_json(indent=2))
+    else:
+        for line in render_community_signal_directory_lint_table(result):
+            typer.echo(line)
+
+    if result.error_count or (strict and result.warning_count):
         raise typer.Exit(1)
 
 

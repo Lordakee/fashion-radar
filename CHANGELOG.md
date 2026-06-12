@@ -49,6 +49,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Local read-only `community-signal-lint` command for community CSV/JSON handoff
   contract diagnostics before import, without fetching URLs, opening SQLite,
   importing rows, or creating artifacts.
+- Local read-only `community-signal-lint-dir` command for non-recursive
+  directory-level community CSV/JSON handoff diagnostics before import.
 - Optional fashion entity watchlist pack for broader local matching coverage
   using the existing `entities.yaml` schema.
 - Local read-only `entity-pack-lint` command for entity YAML quality diagnostics

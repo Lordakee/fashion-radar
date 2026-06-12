@@ -404,6 +404,495 @@ def test_community_signal_lint_does_not_create_project_artifacts(
     assert list(tmp_path.rglob("collection-workflow*.json")) == []
 
 
+def assert_no_community_lint_artifacts(
+    tmp_path: Path,
+    *,
+    config_dir: Path,
+    data_dir: Path,
+    reports_dir: Path,
+) -> None:
+    assert not config_dir.exists()
+    assert not data_dir.exists()
+    assert not reports_dir.exists()
+    assert not Path("configs").exists()
+    assert not Path("data").exists()
+    assert not Path("reports").exists()
+    assert list(tmp_path.rglob("*.sqlite")) == []
+    assert list(tmp_path.rglob("*.sqlite-*")) == []
+    assert list(tmp_path.rglob("*.sqlite3")) == []
+    assert list(tmp_path.rglob("*.db")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.json")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.md")) == []
+    assert list(tmp_path.rglob("*digest*")) == []
+    assert list(tmp_path.rglob("*.eml")) == []
+    assert list(tmp_path.rglob("latest.*")) == []
+    assert list(tmp_path.rglob("report-index.json")) == []
+    assert list(tmp_path.rglob("collection-workflow*.json")) == []
+
+
+def test_community_signal_lint_dir_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["community-signal-lint-dir", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "--input-format" in result.output
+    assert "--pattern" in result.output
+    assert "--format" in result.output
+    assert "--source-name" in result.output
+    assert "--strict" in result.output
+    assert "without importing rows" in result.output
+
+
+def test_community_signal_lint_dir_prints_table(tmp_path: Path) -> None:
+    path = tmp_path / "signals.csv"
+    path.write_text(
+        "url,title,published_at,source_name,platform,summary\n"
+        "https://example.com/a,Signal,2026-06-12T08:00:00Z,Tool,community,Note\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-signal-lint-dir",
+            str(tmp_path),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert f"Community signal directory: {tmp_path}" in result.output
+    assert "Files: 1" in result.output
+    assert "Rows: 1 total, 1 import-ready" in result.output
+
+
+def test_community_signal_lint_dir_prints_json(tmp_path: Path) -> None:
+    path = tmp_path / "signals.json"
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "url": "https://example.com/a",
+                    "title": "Signal",
+                    "published_at": "2026-06-12T08:00:00Z",
+                    "source_name": "Tool",
+                    "platform": "community",
+                    "summary": "Note",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-signal-lint-dir",
+            str(tmp_path),
+            "--input-format",
+            "json",
+            "--pattern",
+            "*.json",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "directory",
+        "input_format",
+        "pattern",
+        "file_count",
+        "row_count",
+        "valid_row_count",
+        "error_count",
+        "warning_count",
+        "info_count",
+        "field_counts",
+        "source_name_counts",
+        "platform_counts",
+        "files",
+        "findings",
+    ]
+    assert payload["file_count"] == 1
+    assert payload["row_count"] == 1
+    assert payload["valid_row_count"] == 1
+    assert payload["error_count"] == 0
+    assert payload["warning_count"] == 0
+    assert payload["info_count"] == 2
+    assert payload["files"][0]["row_count"] == 1
+
+
+def test_community_signal_lint_dir_json_counts_and_file_order(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "b.csv").write_text(
+        "url,title,published_at\nhttps://example.com/b,Warning Only,2026-06-12T09:00:00Z\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "a.csv").write_text(
+        "url,title,published_at\n,Broken,not-a-date\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-signal-lint-dir",
+            str(tmp_path),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert [Path(file["path"]).name for file in payload["files"]] == [
+        "a.csv",
+        "b.csv",
+    ]
+    assert payload["file_count"] == 2
+    assert payload["row_count"] == 2
+    assert payload["valid_row_count"] == 1
+    assert payload["error_count"] == 1
+    assert payload["warning_count"] == 3
+    assert payload["info_count"] == 2
+    assert list(payload["field_counts"]) == sorted(payload["field_counts"])
+    assert payload["source_name_counts"] == {"Community Signal Import": 1}
+    assert payload["platform_counts"] == {}
+
+
+def test_community_signal_lint_dir_json_invalid_directory_shape(
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "missing"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-signal-lint-dir",
+            str(missing),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Traceback" not in result.output
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "directory",
+        "input_format",
+        "pattern",
+        "file_count",
+        "row_count",
+        "valid_row_count",
+        "error_count",
+        "warning_count",
+        "info_count",
+        "field_counts",
+        "source_name_counts",
+        "platform_counts",
+        "files",
+        "findings",
+    ]
+    assert payload["directory"] == str(missing)
+    assert payload["input_format"] == "csv"
+    assert payload["pattern"] == "*.csv"
+    assert payload["file_count"] == 0
+    assert payload["row_count"] == 0
+    assert payload["valid_row_count"] == 0
+    assert payload["error_count"] == 1
+    assert payload["warning_count"] == 0
+    assert payload["info_count"] == 0
+    assert payload["field_counts"] == {}
+    assert payload["source_name_counts"] == {}
+    assert payload["platform_counts"] == {}
+    assert payload["files"] == []
+    assert payload["findings"] == [
+        {
+            "severity": "error",
+            "code": "invalid_directory",
+            "message": "Community signal directory does not exist or is not a directory.",
+            "row": None,
+            "field": None,
+        }
+    ]
+    assert list(payload["findings"][0]) == [
+        "severity",
+        "code",
+        "message",
+        "row",
+        "field",
+    ]
+
+
+def test_community_signal_lint_dir_json_no_matching_files_shape(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "ignored.txt").write_text("ignore", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-signal-lint-dir",
+            str(tmp_path),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Traceback" not in result.output
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "directory",
+        "input_format",
+        "pattern",
+        "file_count",
+        "row_count",
+        "valid_row_count",
+        "error_count",
+        "warning_count",
+        "info_count",
+        "field_counts",
+        "source_name_counts",
+        "platform_counts",
+        "files",
+        "findings",
+    ]
+    assert payload["directory"] == str(tmp_path)
+    assert payload["input_format"] == "csv"
+    assert payload["pattern"] == "*.csv"
+    assert payload["file_count"] == 0
+    assert payload["row_count"] == 0
+    assert payload["valid_row_count"] == 0
+    assert payload["error_count"] == 1
+    assert payload["warning_count"] == 0
+    assert payload["info_count"] == 0
+    assert payload["field_counts"] == {}
+    assert payload["source_name_counts"] == {}
+    assert payload["platform_counts"] == {}
+    assert payload["files"] == []
+    assert payload["findings"] == [
+        {
+            "severity": "error",
+            "code": "no_matching_files",
+            "message": "No regular files matched the pattern in the directory.",
+            "row": None,
+            "field": None,
+        }
+    ]
+    assert list(payload["findings"][0]) == [
+        "severity",
+        "code",
+        "message",
+        "row",
+        "field",
+    ]
+
+
+def test_community_signal_lint_dir_invalid_directory_exits_nonzero(
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "missing"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-signal-lint-dir",
+            str(missing),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "invalid_directory" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_community_signal_lint_dir_file_path_as_directory_exits_nonzero(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "signals.csv"
+    path.write_text("url,title,published_at\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-signal-lint-dir",
+            str(path),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "invalid_directory" in result.output
+
+
+def test_community_signal_lint_dir_unreadable_directory_exits_nonzero_without_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    original_iterdir = Path.iterdir
+
+    def fail_iterdir(path: Path):
+        if path == tmp_path:
+            raise PermissionError("no access")
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", fail_iterdir)
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-signal-lint-dir",
+            str(tmp_path),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 1
+    assert "invalid_directory" in result.output
+    assert "Traceback" not in result.output
+    monkeypatch.setattr(Path, "iterdir", original_iterdir)
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_community_signal_lint_dir_warning_only_exits_zero_without_strict(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "signals.csv"
+    path.write_text(
+        "url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-signal-lint-dir",
+            str(tmp_path),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "missing_source_name" in result.output
+
+
+def test_community_signal_lint_dir_warning_only_exits_nonzero_with_strict(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "signals.csv"
+    path.write_text(
+        "url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-signal-lint-dir",
+            str(tmp_path),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--strict",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "missing_source_name" in result.output
+
+
+def test_community_signal_lint_dir_does_not_create_project_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    path = tmp_path / "signals.csv"
+    path.write_text(
+        "url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-signal-lint-dir",
+            str(tmp_path),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 0
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
 def test_init_writes_example_configs(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     data_dir = tmp_path / "data"

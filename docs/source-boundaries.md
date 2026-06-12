@@ -28,10 +28,11 @@ examples and a JSON schema for tools that produce sanitized local rows. It is
 not a connector, source pack, platform collector, remote community ingestion
 workflow, or source-acquisition guide.
 
-Community signal lint is local contract validation for those CSV/JSON files. It
-is not a connector, source pack, platform collector, remote community ingestion
-workflow, source-acquisition guide, authorization verifier, policy workflow, or
-platform coverage check.
+Community signal lint is local contract validation for one CSV/JSON file or a
+non-recursive batch of matched regular files directly under one local directory.
+It is not a connector, source pack, platform collector, remote community
+ingestion workflow, source-acquisition guide, authorization verifier, policy
+workflow, or platform coverage check.
 
 Entity packs are local `entities.yaml` templates. They change only local entity
 matching configuration and do not add sources, source setup, collection
@@ -165,9 +166,10 @@ The public README must explain:
   bypasses.
 - Manual signal import is a local input path, not a platform connector or
   instructions for obtaining platform exports.
-- Community signal lint validates local file structure and allowed fields only;
-  it is not source acquisition, platform coverage verification, authorization
-  verification, or a policy workflow feature.
+- Community signal lint validates local file structure and allowed fields only,
+  including optional non-recursive directory batches; it is not source
+  acquisition, platform coverage verification, authorization verification, or a
+  policy workflow feature.
 - Trend deltas are local observed comparisons, not verified demand or complete
   source coverage.
 - Experimental connectors may stop working and are not production guarantees.

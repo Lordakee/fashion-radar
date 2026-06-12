@@ -1,0 +1,18 @@
+Not approved
+
+- `Critical:` None.
+
+- `Important:`
+  - `docs/superpowers/plans/2026-06-12-stage-17-community-signal-directory-lint-plan.md`, Task 2 Step 2: the proposed `directory.glob(pattern)` does not guarantee Stage 17’s non-recursive behavior. `Path.glob("**/*.csv")` can recurse, and patterns with path separators can match nested paths. The design says nested files are ignored. Change the plan to enumerate direct children only, e.g. `directory.iterdir()` + `path.is_file()` + `fnmatch.fnmatch(path.name, pattern)`, or explicitly reject recursive/path-containing patterns.
+  - `docs/superpowers/plans/2026-06-12-stage-17-community-signal-directory-lint-plan.md`, Task 2 Step 2: invalid/unreadable directory handling is incomplete. The design defines `invalid_directory` as “directory cannot be read or is not a directory,” but the plan only checks `directory.is_dir()` and then enumerates. Add `OSError`/`PermissionError` handling around directory stat/enumeration and return a stable `invalid_directory` finding.
+  - `docs/superpowers/plans/2026-06-12-stage-17-community-signal-directory-lint-plan.md`, Task 2 Step 1 and Task 3 JSON test: JSON shape contradicts the design. The design includes serialized `error_count`, `warning_count`, and `info_count`, but the plan defines them as plain `@property` values, which Pydantic v2 will not include in `model_dump_json()` by default. Either make them serialized computed fields/stored fields and update the JSON test to expect them, or revise the design. Prefer matching the design.
+  - `docs/superpowers/plans/2026-06-12-stage-17-community-signal-directory-lint-plan.md`, Tasks 1 and 3: invalid-directory test coverage is underspecified. The design requires invalid-directory CLI/module coverage. Add focused tests for missing path or file-path-as-directory, and unreadable directory where feasible, asserting `invalid_directory`, non-zero exit, stable table/JSON output, and no artifact creation.
+  - `docs/superpowers/plans/2026-06-12-stage-17-community-signal-directory-lint-plan.md`, Task 2 Step 2: aggregate count ordering should be explicitly deterministic. `_merge_count_dicts()` should return `dict(sorted(counter.items()))`, matching existing single-file linter behavior.
+
+- `Minor:`
+  - `docs/superpowers/plans/2026-06-12-stage-17-community-signal-directory-lint-plan.md`, Task 3: no-artifact CLI tests should explicitly mirror the existing artifact-isolation style by setting `FASHION_RADAR_CONFIG_DIR`, `FASHION_RADAR_DATA_DIR`, and `FASHION_RADAR_REPORTS_DIR`, then asserting no SQLite/report/latest/config artifacts are created.
+  - `docs/superpowers/plans/2026-06-12-stage-17-community-signal-directory-lint-plan.md`, Task 2 Step 3: directory-level findings are currently only no-match/invalid-directory, but the plan should specify deterministic sorting, preferably by reusing `_sort_findings()` if compatible.
+  - `docs/superpowers/plans/2026-06-12-stage-17-community-signal-directory-lint-plan.md`, Task 1 Step 4: add a clean-directory table rendering test that asserts the stable “No community-signal directory findings.” path.
+  - `docs/superpowers/plans/2026-06-12-stage-17-community-signal-directory-lint-plan.md`, Task 4: docs boundaries are mostly strong, but keep the examples strictly to already-sanitized local handoff files and avoid expanding the word “exports” into instructions for obtaining platform/community exports.
+
+Overall: directory batch lint is the right next local-only step, and reusing `lint_community_signal_file()` is the correct module boundary. The plan is close, but it should not proceed until direct-child matching, unreadable-directory handling, serialized JSON severity counts, and explicit invalid-directory/no-artifact tests are corrected.

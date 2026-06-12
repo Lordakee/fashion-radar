@@ -86,6 +86,7 @@ External community tools can target the local community signal contract:
 
 ```bash
 uv run fashion-radar community-signal-lint examples/community-signals.example.csv --input-format csv --source-name "Community Tool Export"
+uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export"
 uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --dry-run
 ```
 
@@ -204,6 +205,13 @@ Check a community signal handoff file before import:
 
 ```bash
 uv run fashion-radar community-signal-lint examples/community-signals.example.csv --input-format csv --source-name "Community Tool Export"
+```
+
+Check a directory of community signal handoff files before choosing files to dry
+run or import:
+
+```bash
+uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export"
 ```
 
 The linters are local and read-only. They do not collect sources, fetch live
