@@ -126,11 +126,19 @@ uv run fashion-radar import-signals ./signals.json --format json --source-name "
 After import, run the same local review commands used for collected sources:
 
 ```bash
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Manual Export"
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --unmatched-only
 uv run fashion-radar match
 uv run fashion-radar report --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
+
+`imported-signals` reviews retained `manual_import` rows already stored in the
+local SQLite database. It is read-only and does not import rows, run matching,
+score signals, generate reports, fetch URLs, monitor folders, or create
+dashboard/report artifacts.
 
 Reports and the dashboard frame candidate signals as observed phrases from
 configured sources and imported local signals that need review.

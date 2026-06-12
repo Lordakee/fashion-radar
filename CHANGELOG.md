@@ -55,6 +55,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   importer-model validation of matched local signal files without SQLite writes.
 - Validated local `import-signals-dir` execution for non-recursive directory
   import after every matched file passes importer-model validation.
+- Local read-only `imported-signals` command for reviewing retained
+  `manual_import` rows and stored match presence after local file imports.
 - Optional fashion entity watchlist pack for broader local matching coverage
   using the existing `entities.yaml` schema.
 - Local read-only `entity-pack-lint` command for entity YAML quality diagnostics

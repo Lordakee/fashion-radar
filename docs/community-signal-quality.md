@@ -61,6 +61,7 @@ Recommended order:
 uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export" --strict
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --dry-run
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export"
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --unmatched-only
 uv run fashion-radar community-signal-lint ./community-signals.csv --input-format csv --source-name "Community Tool Export" --strict
 uv run fashion-radar import-signals ./community-signals.csv --format csv --source-name "Community Tool Export" --dry-run
 uv run fashion-radar import-signals ./community-signals.csv --format csv --source-name "Community Tool Export"
@@ -71,6 +72,8 @@ Use `import-signals-dir --dry-run` next when you want the broader manual
 importer model to validate matched local files without writing rows. Then use
 `import-signals-dir` without `--dry-run` to import the same local files only
 after the full matched set validates.
+Use `imported-signals --unmatched-only` after import to inspect retained local
+rows that do not currently have stored matches.
 
 Directory linting is non-recursive in this version. A pattern such as `*.csv`
 matches regular files directly under the supplied directory only. Nested files

@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from sqlalchemy import create_engine, inspect, select
 from sqlalchemy.engine import Engine
@@ -80,8 +81,9 @@ def compare_trends(
 
 
 def create_readonly_sqlite_engine(db_path: Path) -> Engine:
+    quoted_path = quote(db_path.as_posix(), safe="/")
     return create_engine(
-        f"sqlite:///file:{db_path.as_posix()}?mode=ro&uri=true",
+        f"sqlite:///file:{quoted_path}?mode=ro&uri=true",
         future=True,
     )
 

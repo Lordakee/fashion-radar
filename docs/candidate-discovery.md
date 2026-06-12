@@ -81,6 +81,9 @@ uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --forma
 
 The command reads local config and local SQLite state. It is intended for review
 and should not mutate source, entity, scoring, or report files.
+After local imports, `imported-signals` can inspect retained `manual_import`
+rows before candidate discovery; candidate discovery still computes observed
+phrases from retained local items.
 
 ## Reports And Dashboard
 

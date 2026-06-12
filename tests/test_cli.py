@@ -10,7 +10,7 @@ import fashion_radar.cli as cli_module
 from fashion_radar.cli import app
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
-from fashion_radar.db.schema import initialize_schema, item_entities, items
+from fashion_radar.db.schema import SCHEMA_VERSION, initialize_schema, item_entities, items
 from fashion_radar.digests import DigestOptions, DigestResult
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceType
@@ -1646,6 +1646,405 @@ def test_import_signals_dir_rejects_invalid_dry_run_imported_at_with_json_output
         data_dir=data_dir,
         reports_dir=reports_dir,
     )
+
+
+def test_imported_signals_command_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["imported-signals", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "--data-dir" in result.output
+    assert "--as-of" in result.output
+    assert "--lookback-days" in result.output
+    assert "--limit" in result.output
+    assert "--source-name" in result.output
+    assert "--unmatched-only" in result.output
+    assert "--format" in result.output
+    assert "UTC review timestamp" in result.output
+
+
+def test_imported_signals_command_requires_as_of(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+
+    result = CliRunner().invoke(
+        app,
+        ["imported-signals", "--data-dir", str(data_dir)],
+    )
+
+    assert result.exit_code != 0
+    assert "--as-of" in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_signals_command_invalid_as_of_creates_no_data_dir(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review imported signals: invalid --as-of" in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_signals_command_invalid_as_of_skips_query_when_database_exists(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "fashion-radar.sqlite").touch()
+
+    def fail_query(*args, **kwargs):
+        raise AssertionError("query_imported_signals should not be called")
+
+    monkeypatch.setattr(cli_module, "query_imported_signals", fail_query)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review imported signals: invalid --as-of" in result.output
+    assert "query_imported_signals should not be called" not in result.output
+    assert "Traceback" not in result.output
+
+
+def test_imported_signals_command_missing_database_is_read_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--format",
+            "json",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["total_count"] == 0
+    assert payload["row_count"] == 0
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_imported_signals_command_prints_table(tmp_path: Path) -> None:
+    data_dir = _prepare_imported_signals_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--lookback-days",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Imported manual signals from local SQLite." in result.output
+    assert (
+        "Window: 2026-06-11T12:00:00+00:00 < collected_at <= 2026-06-12T12:00:00+00:00"
+    ) in result.output
+    assert "Rows: 2 shown, 2 total" in result.output
+    assert "Matches: 1 matched, 1 unmatched" in result.output
+    assert "Sources: Community Tool Export=2" in result.output
+    assert "Unmatched local item" in result.output
+    assert "Margaux interest" in result.output
+    assert "https://example.com/margaux" in result.output
+    assert "Old local item" not in result.output
+    assert "RSS item" not in result.output
+
+
+def test_imported_signals_command_prints_json_with_stable_keys(tmp_path: Path) -> None:
+    data_dir = _prepare_imported_signals_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--lookback-days",
+            "1",
+            "--source-name",
+            "Community Tool Export",
+            "--limit",
+            "1",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "database",
+        "as_of",
+        "window_start",
+        "lookback_days",
+        "source_name",
+        "unmatched_only",
+        "limit",
+        "row_count",
+        "total_count",
+        "matched_count",
+        "unmatched_count",
+        "source_name_counts",
+        "latest_collected_at",
+        "items",
+    ]
+    assert payload["source_name"] == "Community Tool Export"
+    assert payload["limit"] == 1
+    assert payload["row_count"] == 1
+    assert payload["total_count"] == 2
+    assert payload["matched_count"] == 1
+    assert payload["unmatched_count"] == 1
+    assert payload["source_name_counts"] == {"Community Tool Export": 2}
+    assert payload["latest_collected_at"] == "2026-06-12T10:00:00+00:00"
+    assert payload["items"][0]["title"] == "Unmatched local item"
+    assert list(payload["items"][0]) == [
+        "id",
+        "source_name",
+        "url",
+        "title",
+        "published_at",
+        "collected_at",
+        "source_weight",
+        "summary",
+        "match_status",
+        "matches",
+    ]
+    assert "normalized_url" not in payload["items"][0]
+    assert "content_hash" not in payload["items"][0]
+
+
+def test_imported_signals_command_json_match_keys_exclude_internal_fields(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_imported_signals_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--lookback-days",
+            "1",
+            "--limit",
+            "2",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    matched_item = next(item for item in payload["items"] if item["match_status"] == "matched")
+    assert list(matched_item["matches"][0]) == [
+        "entity_name",
+        "entity_type",
+        "alias",
+        "confidence",
+    ]
+    assert "reason" not in matched_item["matches"][0]
+    assert "context_terms" not in matched_item["matches"][0]
+
+
+def test_imported_signals_command_unmatched_only(tmp_path: Path) -> None:
+    data_dir = _prepare_imported_signals_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--lookback-days",
+            "1",
+            "--unmatched-only",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["unmatched_only"] is True
+    assert payload["total_count"] == 1
+    assert payload["matched_count"] == 0
+    assert payload["unmatched_count"] == 1
+    assert payload["items"][0]["match_status"] == "unmatched"
+    assert payload["items"][0]["matches"] == []
+
+
+def test_imported_signals_command_invalid_schema_no_traceback(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    with sqlite3.connect(data_dir / "fashion-radar.sqlite") as connection:
+        connection.execute("create table schema_metadata (version integer primary key)")
+        connection.execute(f"insert into schema_metadata (version) values ({SCHEMA_VERSION})")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review imported signals" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_imported_signals_command_does_not_mutate_existing_database(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_imported_signals_cli_fixture(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    with sqlite3.connect(db_path) as connection:
+        before_items = connection.execute("select count(*) from items").fetchone()[0]
+        before_matches = connection.execute("select count(*) from item_entities").fetchone()[0]
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    with sqlite3.connect(db_path) as connection:
+        after_items = connection.execute("select count(*) from items").fetchone()[0]
+        after_matches = connection.execute("select count(*) from item_entities").fetchone()[0]
+    assert after_items == before_items
+    assert after_matches == before_matches
+
+
+def _prepare_imported_signals_cli_fixture(tmp_path: Path) -> Path:
+    data_dir = tmp_path / "data"
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    matched_id = repository.upsert_item(
+        CollectedItem(
+            source_name="Community Tool Export",
+            source_type=SourceType.MANUAL_IMPORT,
+            url="https://example.com/margaux",
+            title="Margaux interest",
+            published_at=datetime(2026, 6, 12, 8, 0, tzinfo=UTC),
+            summary="Margaux appears in local notes.",
+        ),
+        source_weight=1.4,
+        collected_at=datetime(2026, 6, 12, 9, 0, tzinfo=UTC),
+    )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Community Tool Export",
+            source_type=SourceType.MANUAL_IMPORT,
+            url="https://example.com/unmatched",
+            title="Unmatched local item",
+            published_at=datetime(2026, 6, 12, 8, 30, tzinfo=UTC),
+        ),
+        collected_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+    )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Manual Import",
+            source_type=SourceType.MANUAL_IMPORT,
+            url="https://example.com/old",
+            title="Old local item",
+            published_at=datetime(2026, 6, 10, 8, 0, tzinfo=UTC),
+        ),
+        collected_at=datetime(2026, 6, 10, 9, 0, tzinfo=UTC),
+    )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="RSS Source",
+            source_type=SourceType.RSS,
+            url="https://example.com/rss",
+            title="RSS item",
+            published_at=datetime(2026, 6, 12, 8, 0, tzinfo=UTC),
+        ),
+        collected_at=datetime(2026, 6, 12, 11, 0, tzinfo=UTC),
+    )
+    repository.replace_item_matches(
+        matched_id,
+        [
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "The Row",
+                "confidence": 1.0,
+                "reason": "context",
+                "context_terms": ["margaux"],
+            }
+        ],
+    )
+    engine.dispose()
+    return data_dir
 
 
 def test_init_writes_example_configs(tmp_path: Path) -> None:

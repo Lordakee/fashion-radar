@@ -33,6 +33,10 @@ from fashion_radar.entity_packs import (
     lint_entity_pack,
     render_entity_pack_lint_table,
 )
+from fashion_radar.imported_signals import (
+    query_imported_signals,
+    render_imported_signals_table,
+)
 from fashion_radar.importers.manual_signals import (
     ManualSignalDirectoryDryRunFinding,
     ManualSignalDirectoryDryRunResult,
@@ -110,6 +114,7 @@ CandidateOutputFormat = Literal["table", "json"]
 ManualSignalInputFormat = Literal["csv", "json"]
 CommunitySignalLintOutputFormat = Literal["table", "json"]
 ImportSignalsDirOutputFormat = Literal["table", "json"]
+ImportedSignalsOutputFormat = Literal["table", "json"]
 EntityPackLintOutputFormat = Literal["table", "json"]
 SourcePackLintOutputFormat = Literal["table", "json"]
 TrendOutputFormat = Literal["table", "json"]
@@ -142,6 +147,16 @@ IMPORT_SIGNALS_DIR_OUTPUT_FORMAT_OPTION = typer.Option(
     "table",
     "--output-format",
     help="Diagnostics output format.",
+)
+IMPORTED_SIGNALS_AS_OF_OPTION = typer.Option(
+    ...,
+    "--as-of",
+    help="UTC review timestamp, for example 2026-06-12T12:00:00Z.",
+)
+IMPORTED_SIGNALS_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
 )
 MANUAL_SIGNAL_DIR_FORMAT_OPTION = typer.Option(
     ...,
@@ -731,6 +746,45 @@ def trends_command(
         engine.dispose()
 
     _print_trend_output(comparison, output_format=output_format)
+
+
+@app.command(name="imported-signals")
+def imported_signals_command(
+    data_dir: Path = DATA_DIR_OPTION,
+    as_of: str = IMPORTED_SIGNALS_AS_OF_OPTION,
+    lookback_days: int = typer.Option(7, min=1, help="Review window in days."),
+    limit: int | None = typer.Option(50, min=0, help="Maximum imported rows to print."),
+    source_name: str | None = typer.Option(None, help="Exact imported source name filter."),
+    unmatched_only: bool = typer.Option(False, help="Only show rows without stored matches."),
+    output_format: ImportedSignalsOutputFormat = IMPORTED_SIGNALS_FORMAT_OPTION,
+) -> None:
+    """Review manual imported signals already stored in local SQLite."""
+    try:
+        try:
+            as_of_value = parse_datetime_utc(as_of)
+        except (TypeError, ValueError) as exc:
+            typer.echo(f"Could not review imported signals: invalid --as-of: {exc}", err=True)
+            raise typer.Exit(1) from exc
+
+        review = query_imported_signals(
+            default_database_path(data_dir),
+            as_of=as_of_value,
+            lookback_days=lookback_days,
+            limit=limit,
+            source_name=source_name,
+            unmatched_only=unmatched_only,
+        )
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        typer.echo(f"Could not review imported signals: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(review.model_dump_json(indent=2))
+        return
+    for line in render_imported_signals_table(review):
+        typer.echo(line)
 
 
 @app.command(name="import-signals")

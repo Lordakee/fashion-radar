@@ -29,6 +29,11 @@ opening SQLite, creating workflow artifacts, fetching URLs, or collecting
 sources. Manual signal directory import uses the same non-recursive local file
 matching and writes only after every matched file validates.
 
+Imported signal review reads retained `manual_import` rows from an existing
+local SQLite database in read-only mode. It is not a connector, source pack,
+platform collector, remote community ingestion workflow, source-acquisition
+guide, authorization verifier, policy workflow, or platform coverage check.
+
 Community signal import is the same local input pattern with repository
 examples and a JSON schema for tools that produce sanitized local rows. It is
 not a connector, source pack, platform collector, remote community ingestion
@@ -175,6 +180,9 @@ The public README must explain:
 - Manual signal directory dry run and explicit directory import read matched
   local files only; they are not source acquisition, platform coverage
   verification, authorization verification, or policy workflow features.
+- Imported signal review reads retained local SQLite rows only; it is not source
+  acquisition, platform/community coverage verification, authorization
+  verification, or a policy workflow feature.
 - Community signal lint validates local file structure and allowed fields only,
   including optional non-recursive directory batches; it is not source
   acquisition, platform coverage verification, authorization verification, or a

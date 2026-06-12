@@ -59,6 +59,7 @@ Manual imports participate only after they are imported and matched:
 
 ```bash
 uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Manual Export"
 uv run fashion-radar match
 uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```

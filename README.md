@@ -19,6 +19,8 @@ on the sources you configure and local signals you import.
   process.
 - Lints local community signal CSV/JSON files against the handoff contract
   before import, without fetching URLs or importing rows.
+- Reviews retained `manual_import` rows already stored in local SQLite without
+  importing, collecting, matching, scoring, or writing reports.
 - Stores conservative metadata in a local SQLite database.
 - Matches entities with deterministic alias and context rules.
 - Computes transparent heat scores over current and baseline windows.
@@ -90,6 +92,15 @@ uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pa
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --dry-run
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export"
 uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --dry-run
+```
+
+Inspect retained imported rows before matching or downstream review:
+
+```bash
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --unmatched-only
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
 ```
 
 Review untracked candidate signals from configured sources and imported local
@@ -230,6 +241,11 @@ create config/data/report artifacts.
 `import-signals-dir` without `--dry-run` imports the same matched local files
 only after every matched file validates. Validation failures import nothing and
 do not create the data directory or SQLite database.
+
+`imported-signals` is local and read-only. It opens an existing SQLite database
+in read-only mode and returns retained rows where `source_type` is
+`manual_import`; it does not import rows, fetch URLs, run matching/scoring,
+generate reports, monitor folders, or create dashboard/report artifacts.
 
 ## Reports And Storage
 

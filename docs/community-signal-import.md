@@ -147,11 +147,17 @@ applies.
 Run the normal local review workflow after importing:
 
 ```bash
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --unmatched-only
 uv run fashion-radar match
 uv run fashion-radar report --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
+
+`imported-signals` reads retained imported rows from local SQLite only. It does
+not import rows, run matching/scoring, generate reports, fetch URLs, monitor
+directories, or infer platform/community coverage.
 
 Results remain local observed signals from configured sources and imported
 local files. They do not prove demand outside the configured source set.
@@ -173,5 +179,10 @@ the local directory passed to it and validates them through the importer model.
 It does not fetch URLs, log in, recurse, download media, open SQLite, import
 rows, verify authorization, or provide instructions for obtaining
 platform/community data.
+
+`imported-signals` opens an existing local SQLite database in read-only mode and
+reviews retained `manual_import` rows. It does not acquire source files, fetch
+URLs, run matching/scoring, write reports, or create dashboard/report
+artifacts.
 
 Users are responsible for importing only rows they are authorized to process.

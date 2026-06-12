@@ -43,6 +43,8 @@ uv run fashion-radar dashboard --config-dir "$PWD/configs" --data-dir "$PWD/data
   creating the data directory or database.
 - Reflects imported local signals only after those rows have been matched and a
   new report has been generated.
+- `imported-signals` can inspect retained imported rows from local SQLite before
+  matching or report/dashboard review; it does not add a dashboard tab.
 
 ## Security
 

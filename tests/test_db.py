@@ -35,6 +35,20 @@ def _source() -> SourceDefinition:
     )
 
 
+def test_create_sqlite_engine_handles_uri_special_characters(tmp_path) -> None:
+    path = tmp_path / "data ? # & %" / "fashion.db"
+    engine = create_sqlite_engine(path)
+
+    initialize_schema(engine)
+
+    assert path.exists()
+    with engine.connect() as connection:
+        database_path = [
+            row[2] for row in connection.execute(text("pragma database_list")) if row[1] == "main"
+        ][0]
+    assert database_path == str(path)
+
+
 def _create_v1_schema_with_item(engine) -> None:
     with engine.begin() as connection:
         connection.exec_driver_sql("create table schema_metadata (version integer primary key)")
