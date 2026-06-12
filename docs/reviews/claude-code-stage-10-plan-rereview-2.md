@@ -1,0 +1,47 @@
+Not approved
+
+- `Critical:` `docs/superpowers/plans/2026-06-12-stage-10-trend-delta-plan.md`, Task 2 still contradicts the design and rereview requirement for mixed-direction movement.
+  - The design correctly says mixed-direction score/mention movement must be `stable`:
+    - `docs/superpowers/specs/2026-06-12-stage-10-trend-delta-design.md`, “Status rules”, lines 165-175.
+  - But the implementation plan still says the opposite:
+    - Test names:
+      - `test_compare_trends_treats_score_up_mentions_down_as_rising`
+      - `test_compare_trends_treats_score_down_mentions_up_as_cooling`
+      - `docs/superpowers/plans/2026-06-12-stage-10-trend-delta-plan.md`, Task 2 test list, lines 135-136.
+    - Core assertions:
+      - “A current entity with score up is `status == "rising"`, even if mentions are down.”
+      - “A current entity with score down is `status == "cooling"`, even if mentions are up.”
+      - `docs/superpowers/plans/2026-06-12-stage-10-trend-delta-plan.md`, lines 149-150.
+    - Status helper requirements:
+      - `RISING`: `score_delta > 0`, or `score_delta == 0 and mention_delta > 0`.
+      - `COOLING`: `score_delta < 0`, or `score_delta == 0 and mention_delta < 0`.
+      - “Score delta is the primary movement signal. Mention delta only decides status when score delta is exactly zero.”
+      - `docs/superpowers/plans/2026-06-12-stage-10-trend-delta-plan.md`, lines 283-287.
+  - Change needed:
+    - Rename the mixed-direction tests to expect `stable`, e.g.:
+      - `test_compare_trends_treats_score_up_mentions_down_as_stable`
+      - `test_compare_trends_treats_score_down_mentions_up_as_stable`
+    - Update core assertions so mixed-direction movement is always `stable`.
+    - Update `_status()` requirements to match the design:
+      - `rising`: present in both snapshots with `score_delta > 0 and mention_delta >= 0`, or `score_delta == 0 and mention_delta > 0`.
+      - `cooling`: present in both snapshots with `score_delta < 0 and mention_delta <= 0`, or `score_delta == 0 and mention_delta < 0`.
+      - `stable`: no movement or mixed-direction movement, including `score_delta > 0 and mention_delta < 0` and `score_delta < 0 and mention_delta > 0`.
+    - Keep the explanatory rule from the design: score and mention movement must agree before labeling an existing signal as rising or cooling.
+
+- `Important:` No additional blocking rereview findings found. The rest of the prior review items appear addressed in the plan:
+  - Invalid date/config paths are tested before database opening and before `data_dir` creation.
+  - CLI and dashboard trend paths reject incompatible existing databases read-only.
+  - Dashboard trend query verifies schema before reading and avoids schema initialization/migration.
+  - Stage 10 forbids migrations, persistent trend tables, writable indexes, and DB writes.
+  - Dashboard `--config-dir` parsing and CLI forwarding are specified.
+  - Integration tests require `build_trend_comparison()` to compose `score_entities()` and `discover_candidates()`.
+  - CLI option plumbing for `--include-dropped`, `--limit`, default baseline, and missing-DB JSON output is covered.
+  - Runtime no-external-services scope is explicit.
+  - Dashboard/docs copy is constrained to local observed signals and avoids market/platform-wide claims.
+
+- `Minor:` `docs/superpowers/plans/2026-06-12-stage-10-trend-delta-plan.md`, Task 2 could add one explicit equality-boundary test for each status rule:
+  - `score_delta > 0, mention_delta == 0` → `rising`
+  - `score_delta < 0, mention_delta == 0` → `cooling`
+  - `score_delta == 0, mention_delta > 0` → `rising`
+  - `score_delta == 0, mention_delta < 0` → `cooling`
+  - This is optional, but it would make the conservative status logic harder to regress.
