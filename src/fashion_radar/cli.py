@@ -21,6 +21,11 @@ from fashion_radar.digests import (
     package_daily_digest,
 )
 from fashion_radar.discovery.candidates import discover_candidates
+from fashion_radar.entity_packs import (
+    EntityPackFindingSeverity,
+    lint_entity_pack,
+    render_entity_pack_lint_table,
+)
 from fashion_radar.importers.manual_signals import (
     ManualSignalImportError,
     load_manual_signal_rows,
@@ -89,9 +94,15 @@ NOW_OPTION = typer.Option(None, help="UTC collection timestamp override.")
 RETENTION_DAYS_OPTION = typer.Option(30, min=1, help="Retention window in days.")
 CandidateOutputFormat = Literal["table", "json"]
 ManualSignalInputFormat = Literal["csv", "json"]
+EntityPackLintOutputFormat = Literal["table", "json"]
 SourcePackLintOutputFormat = Literal["table", "json"]
 TrendOutputFormat = Literal["table", "json"]
 CANDIDATE_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+ENTITY_PACK_LINT_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
@@ -217,6 +228,30 @@ def source_pack_lint_command(
     )
     has_warnings = any(
         finding.severity == SourcePackFindingSeverity.WARNING for finding in result.findings
+    )
+    if has_errors or (strict and has_warnings):
+        raise typer.Exit(1)
+
+
+@app.command(name="entity-pack-lint")
+def entity_pack_lint_command(
+    path: Path,
+    output_format: EntityPackLintOutputFormat = ENTITY_PACK_LINT_FORMAT_OPTION,
+    strict: bool = typer.Option(False, help="Exit non-zero when warnings are present."),
+) -> None:
+    """Lint a local entity pack without matching, scoring, or collecting sources."""
+    result = lint_entity_pack(path)
+    if output_format == "json":
+        typer.echo(result.model_dump_json(indent=2))
+    else:
+        for line in render_entity_pack_lint_table(result):
+            typer.echo(line)
+
+    has_errors = any(
+        finding.severity == EntityPackFindingSeverity.ERROR for finding in result.findings
+    )
+    has_warnings = any(
+        finding.severity == EntityPackFindingSeverity.WARNING for finding in result.findings
     )
     if has_errors or (strict and has_warnings):
         raise typer.Exit(1)

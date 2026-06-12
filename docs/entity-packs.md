@@ -15,6 +15,24 @@ categories, designers, celebrity style signals, and style terms. It is not a
 hot-list, ranking, current-hotness detector, platform-wide signal, or
 market-wide demand proof.
 
+## Lint The Pack
+
+Check the pack before copying or editing it:
+
+```bash
+uv run fashion-radar entity-pack-lint configs/entity-packs/fashion-watchlist.example.yaml
+```
+
+Use JSON output for scripts or CI:
+
+```bash
+uv run fashion-radar entity-pack-lint configs/entity-packs/fashion-watchlist.example.yaml --format json
+```
+
+Use `--strict` when a local edited pack should fail on advisory warnings as well
+as errors. See [entity-pack-quality.md](entity-pack-quality.md) for finding
+codes, matcher-rule notes, and limits.
+
 ## Use The Pack
 
 Copy the pack into the config directory you want to use:

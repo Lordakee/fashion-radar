@@ -9,6 +9,7 @@ appeared in a report.
 ```text
 YAML config
   -> optionally lint source-pack quality before collection
+  -> optionally lint entity-pack quality before matching
   -> collect public sources
   -> optionally import user-provided local CSV/JSON signals
   -> store items in SQLite
@@ -27,6 +28,12 @@ YAML config
 - **Config:** Pydantic models load `sources.yaml`, `entities.yaml`, and
   `scoring.yaml`. Optional entity packs are static `entities.yaml` templates
   users can copy and edit; they do not add runtime behavior.
+- **Entity-Pack Quality:** Local read-only diagnostics lint one entity YAML or
+  entity-pack YAML file for invalid config, empty packs, aliases that cannot
+  match, matcher-context surprises, product parent-brand precision issues,
+  metadata-list hygiene, missing tags, and omitted scoring defaults. The linter
+  does not match items, score entities, open SQLite, collect sources, or create
+  config/data/report directories.
 - **Source-Pack Quality:** Local read-only diagnostics lint one source YAML or
   source-pack YAML file for duplicate names, duplicate targets, duplicate GDELT
   queries, missing tags, disabled sources, implicit weights, empty enabled
@@ -98,6 +105,7 @@ Optional local digest artifacts are:
 fashion-radar init
 fashion-radar doctor
 fashion-radar source-pack-lint ./configs/sources.yaml
+fashion-radar entity-pack-lint ./configs/entities.yaml
 fashion-radar collect
 fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
 fashion-radar match
@@ -122,6 +130,14 @@ It reads raw YAML for omitted-field checks, validates the same source schema use
 by collection, and prints table or JSON findings. It does not check live source
 availability, run collectors, open the local database, or create workflow
 artifacts.
+
+## Entity-Pack Quality Boundary
+
+`entity-pack-lint` is a pre-matching diagnostics command for local YAML files.
+It reads raw YAML for omitted-field checks, validates the same entity schema used
+by matching, and prints table or JSON findings. It does not run matching,
+scoring, collection, source acquisition, platform search, report generation,
+digest packaging, or dashboard workflows.
 
 ## Candidate Discovery Boundary
 

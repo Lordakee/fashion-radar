@@ -154,8 +154,8 @@ The dashboard defaults to `127.0.0.1:8501`, is read-only, and does not collect,
 match, or fetch network data on page import or refresh. It shows local
 mention-count summaries, reads candidate signals from the latest report JSON,
 and can show a `Trend Deltas` tab computed from local SQLite state with the
-configured scoring window. Candidate signals may be stale until a new report is
-generated.
+configured scoring window. This local read does not create trend tables or write
+database state. Candidate signals may be stale until a new report is generated.
 
 There is no authentication layer. Do not bind `--host 0.0.0.0` or any non-local
 address on an untrusted network unless you understand that the dashboard may be
@@ -172,8 +172,9 @@ Starter files live in [configs](configs) and are also packaged for
   weights, HTTP settings, article extraction settings, and source-health
   circuit-breaker behavior.
 - `entities.example.yaml` defines brands, designers, celebrities, products,
-  categories, and trends. Broad aliases need context terms unless explicitly
-  marked safe.
+  categories, and trends. Single-word/common aliases may need context terms
+  unless explicitly marked safe with a reason; ordinary multi-word aliases can
+  match without context under current matcher rules.
 - `scoring.example.yaml` defines scoring windows, label thresholds, confidence
   filtering, source diversity bonuses, high-weight source bonuses, and optional
   candidate discovery thresholds.
@@ -190,8 +191,14 @@ Check a source pack before copying or editing it:
 uv run fashion-radar source-pack-lint configs/source-packs/fashion-public.example.yaml
 ```
 
-The linter is local and read-only. It does not collect sources, fetch live
-feeds, open SQLite, or create config/data/report artifacts.
+Check an entity pack before copying or editing it:
+
+```bash
+uv run fashion-radar entity-pack-lint configs/entity-packs/fashion-watchlist.example.yaml
+```
+
+The linters are local and read-only. They do not collect sources, fetch live
+feeds, run matching/scoring, open SQLite, or create config/data/report artifacts.
 
 ## Reports And Storage
 
@@ -238,6 +245,7 @@ See [docs/data-retention.md](docs/data-retention.md).
 - [docs/manual-signal-import.md](docs/manual-signal-import.md)
 - [docs/community-signal-import.md](docs/community-signal-import.md)
 - [docs/entity-packs.md](docs/entity-packs.md)
+- [docs/entity-pack-quality.md](docs/entity-pack-quality.md)
 - [docs/data-retention.md](docs/data-retention.md)
 - [docs/dashboard.md](docs/dashboard.md)
 - [docs/scheduling.md](docs/scheduling.md)

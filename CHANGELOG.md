@@ -48,6 +48,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   sanitized local CSV/JSON handoff into the existing manual import command.
 - Optional fashion entity watchlist pack for broader local matching coverage
   using the existing `entities.yaml` schema.
+- Local read-only `entity-pack-lint` command for entity YAML quality diagnostics
+  and documentation for matcher-context, product parent-brand, tag, and default
+  weight/confidence review.
 
 ### Not Included In 0.1.0
 
