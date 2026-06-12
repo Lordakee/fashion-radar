@@ -53,6 +53,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   directory-level community CSV/JSON handoff diagnostics before import.
 - Local read-only `import-signals-dir --dry-run` command for non-recursive
   importer-model validation of matched local signal files without SQLite writes.
+- Validated local `import-signals-dir` execution for non-recursive directory
+  import after every matched file passes importer-model validation.
 - Optional fashion entity watchlist pack for broader local matching coverage
   using the existing `entities.yaml` schema.
 - Local read-only `entity-pack-lint` command for entity YAML quality diagnostics

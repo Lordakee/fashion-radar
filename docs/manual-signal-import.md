@@ -77,7 +77,7 @@ uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Ma
 A dry run is intended to check parsing and validation. It does not import rows
 into the local database.
 
-## Directory Dry Run
+## Directory Dry Run And Import
 
 Use `import-signals-dir --dry-run` to validate matched files directly under one
 local directory through the same importer model:
@@ -87,16 +87,27 @@ uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv"
 uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Manual Export" --dry-run --output-format json
 ```
 
-Directory dry run is non-recursive. It validates regular files directly under
+Directory matching is non-recursive. It validates regular files directly under
 the supplied directory only, using the single input format selected by
-`--format`. Run it separately for CSV and JSON folders or patterns. In this
-version `--dry-run` is required; batch import is not implemented by this
-command.
+`--format`. Run it separately for CSV and JSON folders or patterns.
 
 Directory dry run does not open SQLite, create data/config/report directories,
 import rows, fetch URLs, collect sources, verify platform coverage, or run
 matching/scoring. It also does not estimate `items_added`, because that would
 require reading the local database.
+
+After a successful dry run, omit `--dry-run` to import the same local directory:
+
+```bash
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export" --data-dir "$PWD/data"
+uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Manual Export" --imported-at "2026-06-12T12:00:00Z" --data-dir "$PWD/data"
+```
+
+Actual directory import validates every matched file before opening SQLite. If
+any matched file or the directory itself fails validation, no rows are imported
+from otherwise-clean files and no data directory or SQLite database is created.
+`--imported-at` is validated even during `--dry-run`; during dry run it is only a
+command preflight and no rows are written.
 
 ## Import And Review
 

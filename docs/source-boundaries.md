@@ -26,7 +26,8 @@ pack, or source-acquisition guide.
 Manual signal directory dry run validates matched regular files directly under
 one local directory through the same importer model without importing rows,
 opening SQLite, creating workflow artifacts, fetching URLs, or collecting
-sources.
+sources. Manual signal directory import uses the same non-recursive local file
+matching and writes only after every matched file validates.
 
 Community signal import is the same local input pattern with repository
 examples and a JSON schema for tools that produce sanitized local rows. It is
@@ -171,9 +172,9 @@ The public README must explain:
   bypasses.
 - Manual signal import is a local input path, not a platform connector or
   instructions for obtaining platform exports.
-- Manual signal directory dry run validates local files only; it is not batch
-  import, source acquisition, platform coverage verification, authorization
-  verification, or a policy workflow feature.
+- Manual signal directory dry run and explicit directory import read matched
+  local files only; they are not source acquisition, platform coverage
+  verification, authorization verification, or policy workflow features.
 - Community signal lint validates local file structure and allowed fields only,
   including optional non-recursive directory batches; it is not source
   acquisition, platform coverage verification, authorization verification, or a

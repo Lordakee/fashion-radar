@@ -34,10 +34,15 @@ from fashion_radar.entity_packs import (
     render_entity_pack_lint_table,
 )
 from fashion_radar.importers.manual_signals import (
+    ManualSignalDirectoryDryRunFinding,
+    ManualSignalDirectoryDryRunResult,
+    ManualSignalDirectoryImportResult,
+    ManualSignalDryRunFindingSeverity,
     ManualSignalImportError,
-    dry_run_manual_signal_directory,
+    load_manual_signal_directory_rows,
     load_manual_signal_rows,
     render_manual_signal_directory_dry_run_table,
+    render_manual_signal_directory_import_table,
     store_manual_signal_rows,
 )
 from fashion_radar.models.report import CandidateReport
@@ -362,31 +367,107 @@ def community_signal_lint_dir_command(
 @app.command(name="import-signals-dir")
 def import_signals_dir_command(
     directory: Path,
+    data_dir: Path = DATA_DIR_OPTION,
     input_format: ManualSignalInputFormat = MANUAL_SIGNAL_DIR_FORMAT_OPTION,
     pattern: str = MANUAL_SIGNAL_PATTERN_OPTION,
-    dry_run: bool = typer.Option(False, help="Validate without importing rows."),
+    imported_at: str | None = typer.Option(None, help="UTC import timestamp override."),
+    dry_run: bool = typer.Option(False, help="Validate without writing rows."),
     output_format: ImportSignalsDirOutputFormat = IMPORT_SIGNALS_DIR_OUTPUT_FORMAT_OPTION,
     source_name: str = typer.Option("Manual Import", help="Fallback source name."),
 ) -> None:
-    """Dry-run local manual signal files in one directory without importing rows."""
-    if not dry_run:
-        typer.echo("Directory import is not implemented; rerun with --dry-run.", err=True)
-        raise typer.Exit(1)
+    """Validate or import local manual signal files from one directory."""
+    source_name_value = source_name.strip() or "Manual Import"
+    try:
+        if imported_at is not None:
+            imported_at_value = parse_datetime_utc(imported_at)
+        else:
+            imported_at_value = datetime.now(UTC)
+    except (TypeError, ValueError) as exc:
+        message = f"Could not import signals directory: invalid --imported-at: {exc}"
+        if output_format == "json":
+            typer.echo(
+                _invalid_imported_at_directory_result(
+                    directory,
+                    input_format=input_format,
+                    pattern=pattern,
+                    message=message,
+                ).model_dump_json(indent=2)
+            )
+        else:
+            typer.echo(message, err=True)
+        raise typer.Exit(1) from exc
 
-    result = dry_run_manual_signal_directory(
+    loaded = load_manual_signal_directory_rows(
         directory,
         input_format=input_format,
         pattern=pattern,
-        default_source_name=source_name.strip() or "Manual Import",
+        default_source_name=source_name_value,
+    )
+    result = loaded.result
+
+    if dry_run or result.error_count:
+        _print_manual_signal_directory_diagnostics(result, output_format=output_format)
+        if result.error_count:
+            raise typer.Exit(1)
+        return
+
+    engine = create_sqlite_engine(default_database_path(data_dir))
+    initialize_schema(engine)
+    import_result = store_manual_signal_rows(
+        engine,
+        rows=loaded.rows,
+        imported_at=imported_at_value,
+    )
+    directory_import_result = ManualSignalDirectoryImportResult(
+        directory=result.directory,
+        input_format=result.input_format,
+        pattern=result.pattern,
+        file_count=result.file_count,
+        row_count=result.row_count,
+        rows_imported=import_result.rows_imported,
+        items_added=import_result.items_added,
+        source_name_counts=result.source_name_counts,
+        platform_counts=result.platform_counts,
     )
     if output_format == "json":
-        typer.echo(result.model_dump_json(indent=2))
+        typer.echo(directory_import_result.model_dump_json(indent=2))
     else:
-        for line in render_manual_signal_directory_dry_run_table(result):
+        for line in render_manual_signal_directory_import_table(directory_import_result):
             typer.echo(line)
 
-    if result.error_count:
-        raise typer.Exit(1)
+
+def _print_manual_signal_directory_diagnostics(
+    result: ManualSignalDirectoryDryRunResult,
+    *,
+    output_format: ImportSignalsDirOutputFormat,
+) -> None:
+    if output_format == "json":
+        typer.echo(result.model_dump_json(indent=2))
+        return
+    for line in render_manual_signal_directory_dry_run_table(result):
+        typer.echo(line)
+
+
+def _invalid_imported_at_directory_result(
+    directory: Path,
+    *,
+    input_format: ManualSignalInputFormat,
+    pattern: str,
+    message: str,
+) -> ManualSignalDirectoryDryRunResult:
+    return ManualSignalDirectoryDryRunResult(
+        directory=str(directory),
+        input_format=input_format,
+        pattern=pattern,
+        error_count=1,
+        findings=[
+            ManualSignalDirectoryDryRunFinding(
+                severity=ManualSignalDryRunFindingSeverity.ERROR,
+                code="invalid_imported_at",
+                message=message,
+            )
+        ],
+    )
 
 
 @app.command(name="schedule-example")

@@ -136,6 +136,27 @@ class ManualSignalDirectoryDryRunResult(BaseModel):
         return self.error_count == 0
 
 
+class ManualSignalDirectoryLoadResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    result: ManualSignalDirectoryDryRunResult
+    rows: list[ManualSignalRow] = Field(default_factory=list)
+
+
+class ManualSignalDirectoryImportResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    directory: str
+    input_format: ManualSignalFormat
+    pattern: str
+    file_count: int = 0
+    row_count: int = 0
+    rows_imported: int = 0
+    items_added: int = 0
+    source_name_counts: dict[str, int] = Field(default_factory=dict)
+    platform_counts: dict[str, int] = Field(default_factory=dict)
+
+
 def load_manual_signal_rows(
     path: Path,
     *,
@@ -188,10 +209,45 @@ def dry_run_manual_signal_directory(
     pattern: str,
     default_source_name: str,
 ) -> ManualSignalDirectoryDryRunResult:
+    return load_manual_signal_directory_rows(
+        directory,
+        input_format=input_format,
+        pattern=pattern,
+        default_source_name=default_source_name,
+    ).result
+
+
+def load_manual_signal_directory_rows(
+    directory: Path,
+    *,
+    input_format: ManualSignalFormat,
+    pattern: str,
+    default_source_name: str,
+) -> ManualSignalDirectoryLoadResult:
     findings: list[ManualSignalDirectoryDryRunFinding] = []
     try:
         if not directory.is_dir():
-            return ManualSignalDirectoryDryRunResult(
+            return ManualSignalDirectoryLoadResult(
+                result=ManualSignalDirectoryDryRunResult(
+                    directory=str(directory),
+                    input_format=input_format,
+                    pattern=pattern,
+                    error_count=1,
+                    findings=[
+                        ManualSignalDirectoryDryRunFinding(
+                            severity=ManualSignalDryRunFindingSeverity.ERROR,
+                            code="invalid_directory",
+                            message=(
+                                "Manual signal directory does not exist or is not a directory."
+                            ),
+                        )
+                    ],
+                )
+            )
+        children = list(directory.iterdir())
+    except OSError:
+        return ManualSignalDirectoryLoadResult(
+            result=ManualSignalDirectoryDryRunResult(
                 directory=str(directory),
                 input_format=input_format,
                 pattern=pattern,
@@ -200,24 +256,10 @@ def dry_run_manual_signal_directory(
                     ManualSignalDirectoryDryRunFinding(
                         severity=ManualSignalDryRunFindingSeverity.ERROR,
                         code="invalid_directory",
-                        message=("Manual signal directory does not exist or is not a directory."),
+                        message="Could not read manual signal directory.",
                     )
                 ],
             )
-        children = list(directory.iterdir())
-    except OSError:
-        return ManualSignalDirectoryDryRunResult(
-            directory=str(directory),
-            input_format=input_format,
-            pattern=pattern,
-            error_count=1,
-            findings=[
-                ManualSignalDirectoryDryRunFinding(
-                    severity=ManualSignalDryRunFindingSeverity.ERROR,
-                    code="invalid_directory",
-                    message="Could not read manual signal directory.",
-                )
-            ],
         )
 
     paths: list[Path] = []
@@ -239,15 +281,18 @@ def dry_run_manual_signal_directory(
             )
         )
 
-    file_results = [
-        _dry_run_manual_signal_file(
+    file_results: list[ManualSignalDirectoryDryRunFileResult] = []
+    rows: list[ManualSignalRow] = []
+    for path in paths:
+        file_result, file_rows = _load_manual_signal_file(
             path,
             input_format=input_format,
             default_source_name=default_source_name,
         )
-        for path in paths
-    ]
-    return ManualSignalDirectoryDryRunResult(
+        file_results.append(file_result)
+        rows.extend(file_rows)
+
+    result = ManualSignalDirectoryDryRunResult(
         directory=str(directory),
         input_format=input_format,
         pattern=pattern,
@@ -259,6 +304,10 @@ def dry_run_manual_signal_directory(
         platform_counts=_merge_count_dicts(file.platform_counts for file in file_results),
         files=file_results,
         findings=findings,
+    )
+    return ManualSignalDirectoryLoadResult(
+        result=result,
+        rows=[] if result.error_count else rows,
     )
 
 
@@ -297,12 +346,37 @@ def render_manual_signal_directory_dry_run_table(
     return lines
 
 
+def render_manual_signal_directory_import_table(
+    result: ManualSignalDirectoryImportResult,
+) -> list[str]:
+    return [
+        f"Validated {result.row_count} manual signal rows across {result.file_count} files",
+        f"Imported {result.rows_imported} manual signal rows",
+        f"Items added: {result.items_added}",
+        f"Sources: {_format_counts(result.source_name_counts)}",
+        f"Platforms: {_format_counts(result.platform_counts)}",
+    ]
+
+
 def _dry_run_manual_signal_file(
     path: Path,
     *,
     input_format: ManualSignalFormat,
     default_source_name: str,
 ) -> ManualSignalDirectoryDryRunFileResult:
+    return _load_manual_signal_file(
+        path,
+        input_format=input_format,
+        default_source_name=default_source_name,
+    )[0]
+
+
+def _load_manual_signal_file(
+    path: Path,
+    *,
+    input_format: ManualSignalFormat,
+    default_source_name: str,
+) -> tuple[ManualSignalDirectoryDryRunFileResult, list[ManualSignalRow]]:
     try:
         rows = load_manual_signal_rows(
             path,
@@ -310,24 +384,32 @@ def _dry_run_manual_signal_file(
             default_source_name=default_source_name,
         )
     except ManualSignalImportError as exc:
-        return ManualSignalDirectoryDryRunFileResult(
-            path=str(path),
-            error_count=1,
-            findings=[
-                ManualSignalDirectoryDryRunFinding(
-                    severity=ManualSignalDryRunFindingSeverity.ERROR,
-                    code="invalid_file",
-                    message=f"Could not dry-run import file: {exc}",
-                    path=str(path),
-                )
-            ],
+        return (
+            ManualSignalDirectoryDryRunFileResult(
+                path=str(path),
+                error_count=1,
+                findings=[
+                    ManualSignalDirectoryDryRunFinding(
+                        severity=ManualSignalDryRunFindingSeverity.ERROR,
+                        code="invalid_file",
+                        message=f"Could not dry-run import file: {exc}",
+                        path=str(path),
+                    )
+                ],
+            ),
+            [],
         )
 
-    return ManualSignalDirectoryDryRunFileResult(
-        path=str(path),
-        row_count=len(rows),
-        source_name_counts=dict(sorted(Counter(row.source_name for row in rows).items())),
-        platform_counts=dict(sorted(Counter(row.platform for row in rows if row.platform).items())),
+    return (
+        ManualSignalDirectoryDryRunFileResult(
+            path=str(path),
+            row_count=len(rows),
+            source_name_counts=dict(sorted(Counter(row.source_name for row in rows).items())),
+            platform_counts=dict(
+                sorted(Counter(row.platform for row in rows if row.platform).items())
+            ),
+        ),
+        rows,
     )
 
 

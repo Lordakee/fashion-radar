@@ -60,6 +60,7 @@ Recommended order:
 ```bash
 uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export" --strict
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --dry-run
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export"
 uv run fashion-radar community-signal-lint ./community-signals.csv --input-format csv --source-name "Community Tool Export" --strict
 uv run fashion-radar import-signals ./community-signals.csv --format csv --source-name "Community Tool Export" --dry-run
 uv run fashion-radar import-signals ./community-signals.csv --format csv --source-name "Community Tool Export"
@@ -67,7 +68,9 @@ uv run fashion-radar import-signals ./community-signals.csv --format csv --sourc
 
 Use `community-signal-lint-dir` first for strict community handoff quality.
 Use `import-signals-dir --dry-run` next when you want the broader manual
-importer model to validate matched local files without writing rows.
+importer model to validate matched local files without writing rows. Then use
+`import-signals-dir` without `--dry-run` to import the same local files only
+after the full matched set validates.
 
 Directory linting is non-recursive in this version. A pattern such as `*.csv`
 matches regular files directly under the supplied directory only. Nested files

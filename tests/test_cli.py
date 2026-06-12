@@ -906,8 +906,9 @@ def test_import_signals_dir_help_lists_options() -> None:
     assert "--dry-run" in result.output
     assert "--output-format" in result.output
     assert "--source-name" in result.output
-    assert "--data-dir" not in result.output
-    assert "without importing rows" in result.output
+    assert "--data-dir" in result.output
+    assert "--imported-at" in result.output
+    assert "without importing rows" not in result.output
 
 
 def test_import_signals_dir_prints_table(tmp_path: Path) -> None:
@@ -989,6 +990,157 @@ def test_import_signals_dir_prints_json(tmp_path: Path) -> None:
     assert payload["source_name_counts"] == {"Tool": 1}
     assert payload["platform_counts"] == {"community": 1}
     assert payload["files"][0]["findings"] == []
+
+
+def test_import_signals_dir_imports_csv_directory(tmp_path: Path) -> None:
+    exports_dir = tmp_path / "exports"
+    data_dir = tmp_path / "data"
+    exports_dir.mkdir()
+    (exports_dir / "b.csv").write_text(
+        "url,title,published_at,source_name,platform,author_handle,raw_comment,account_id\n"
+        "https://example.com/b,Second,2026-06-12T09:00:00Z,Tool,x,"
+        "@private,do not store,secret\n",
+        encoding="utf-8",
+    )
+    (exports_dir / "a.csv").write_text(
+        "url,title,published_at,summary\nhttps://example.com/a,First,2026-06-12T08:00:00Z,Signal\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(exports_dir),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--data-dir",
+            str(data_dir),
+            "--source-name",
+            "Fallback Source",
+            "--imported-at",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Validated 2 manual signal rows across 2 files" in result.output
+    assert "Imported 2 manual signal rows" in result.output
+    assert "Items added: 2" in result.output
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    repository = ItemRepository(engine)
+    first = repository.get_item(1)
+    second = repository.get_item(2)
+    assert [first["url"], second["url"]] == [
+        "https://example.com/a",
+        "https://example.com/b",
+    ]
+    assert first["source_type"] == "manual_import"
+    assert first["source_name"] == "Fallback Source"
+    assert first["collected_at"] == "2026-06-12T12:00:00+00:00"
+    assert second["source_type"] == "manual_import"
+    assert second["source_name"] == "Tool"
+    assert "platform" not in second
+    assert "author_handle" not in second
+    assert "raw_comment" not in second
+    assert "account_id" not in second
+
+
+def test_import_signals_dir_imports_json_directory_with_json_output(
+    tmp_path: Path,
+) -> None:
+    exports_dir = tmp_path / "exports"
+    data_dir = tmp_path / "data"
+    exports_dir.mkdir()
+    (exports_dir / "signals.json").write_text(
+        json.dumps(
+            [
+                {
+                    "url": "https://example.com/json",
+                    "title": "JSON signal",
+                    "published_at": "2026-06-12T08:00:00Z",
+                    "source_name": "JSON Tool",
+                    "platform": "instagram",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(exports_dir),
+            "--format",
+            "json",
+            "--pattern",
+            "*.json",
+            "--data-dir",
+            str(data_dir),
+            "--output-format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "directory",
+        "input_format",
+        "pattern",
+        "file_count",
+        "row_count",
+        "rows_imported",
+        "items_added",
+        "source_name_counts",
+        "platform_counts",
+    ]
+    assert payload["directory"] == str(exports_dir)
+    assert payload["input_format"] == "json"
+    assert payload["pattern"] == "*.json"
+    assert payload["file_count"] == 1
+    assert payload["row_count"] == 1
+    assert payload["rows_imported"] == 1
+    assert payload["items_added"] == 1
+    assert payload["source_name_counts"] == {"JSON Tool": 1}
+    assert payload["platform_counts"] == {"instagram": 1}
+
+
+def test_import_signals_dir_reports_duplicate_url_upserts(tmp_path: Path) -> None:
+    exports_dir = tmp_path / "exports"
+    data_dir = tmp_path / "data"
+    exports_dir.mkdir()
+    (exports_dir / "a.csv").write_text(
+        "url,title,published_at\nhttps://example.com/shared,First,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+    (exports_dir / "b.csv").write_text(
+        "url,title,published_at\nhttps://example.com/shared,Second,2026-06-12T09:00:00Z\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(exports_dir),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--data-dir",
+            str(data_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Imported 2 manual signal rows" in result.output
+    assert "Items added: 1" in result.output
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    assert ItemRepository(engine).count_items() == 1
 
 
 def test_import_signals_dir_json_failure_shape(tmp_path: Path) -> None:
@@ -1103,6 +1255,128 @@ def test_import_signals_dir_json_no_matching_files_shape(tmp_path: Path) -> None
     ]
 
 
+def test_import_signals_dir_invalid_directory_import_exits_without_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    missing = tmp_path / "missing"
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(missing),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 1
+    assert "invalid_directory" in result.output
+    assert "Traceback" not in result.output
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_import_signals_dir_no_matching_files_import_exits_without_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "ignored.txt").write_text("ignore", encoding="utf-8")
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(tmp_path),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 1
+    assert "no_matching_files" in result.output
+    assert "Traceback" not in result.output
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_import_signals_dir_invalid_file_import_exits_without_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "a-clean.csv").write_text(
+        "url,title,published_at\nhttps://example.com/clean,Clean,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "b-broken.csv").write_text(
+        "url,title,published_at\n,Broken,not-a-date\n",
+        encoding="utf-8",
+    )
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(tmp_path),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 1
+    assert "invalid_file" in result.output
+    assert "b-broken.csv" in result.output
+    assert "Traceback" not in result.output
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
 def test_import_signals_dir_unreadable_directory_exits_nonzero_without_artifacts(
     tmp_path: Path,
     monkeypatch,
@@ -1129,7 +1403,6 @@ def test_import_signals_dir_unreadable_directory_exits_nonzero_without_artifacts
             "csv",
             "--pattern",
             "*.csv",
-            "--dry-run",
         ],
         env={
             "FASHION_RADAR_CONFIG_DIR": str(config_dir),
@@ -1173,6 +1446,8 @@ def test_import_signals_dir_does_not_create_project_artifacts(
             "--pattern",
             "*.csv",
             "--dry-run",
+            "--data-dir",
+            str(data_dir),
         ],
         env={
             "FASHION_RADAR_CONFIG_DIR": str(config_dir),
@@ -1190,7 +1465,7 @@ def test_import_signals_dir_does_not_create_project_artifacts(
     )
 
 
-def test_import_signals_dir_requires_dry_run_before_reading_files(
+def test_import_signals_dir_rejects_invalid_imported_at_before_reading_files(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -1209,6 +1484,8 @@ def test_import_signals_dir_requires_dry_run_before_reading_files(
             "csv",
             "--pattern",
             "*.csv",
+            "--imported-at",
+            "not-a-date",
         ],
         env={
             "FASHION_RADAR_CONFIG_DIR": str(config_dir),
@@ -1218,9 +1495,151 @@ def test_import_signals_dir_requires_dry_run_before_reading_files(
     )
 
     assert result.exit_code == 1
-    assert "Directory import is not implemented; rerun with --dry-run." in result.output
+    assert "Could not import signals directory: invalid --imported-at" in result.output
     assert "invalid_directory" not in result.output
     assert "Traceback" not in result.output
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_import_signals_dir_rejects_invalid_dry_run_imported_at_before_reading_files(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    missing = tmp_path / "missing"
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(missing),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--dry-run",
+            "--imported-at",
+            "not-a-date",
+            "--data-dir",
+            str(data_dir),
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 1
+    assert "Could not import signals directory: invalid --imported-at" in result.output
+    assert "invalid_directory" not in result.output
+    assert "Traceback" not in result.output
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_import_signals_dir_rejects_invalid_imported_at_with_json_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    missing = tmp_path / "missing"
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(missing),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--imported-at",
+            "not-a-date",
+            "--output-format",
+            "json",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 1
+    assert "Traceback" not in result.output
+    payload = json.loads(result.output)
+    assert payload["directory"] == str(missing)
+    assert payload["input_format"] == "csv"
+    assert payload["pattern"] == "*.csv"
+    assert payload["error_count"] == 1
+    assert payload["findings"][0]["code"] == "invalid_imported_at"
+    assert "invalid --imported-at" in payload["findings"][0]["message"]
+    assert "invalid_directory" not in result.output
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_import_signals_dir_rejects_invalid_dry_run_imported_at_with_json_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    missing = tmp_path / "missing"
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals-dir",
+            str(missing),
+            "--format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--dry-run",
+            "--imported-at",
+            "not-a-date",
+            "--data-dir",
+            str(data_dir),
+            "--output-format",
+            "json",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 1
+    assert "Traceback" not in result.output
+    payload = json.loads(result.output)
+    assert payload["error_count"] == 1
+    assert payload["findings"][0]["code"] == "invalid_imported_at"
+    assert "invalid --imported-at" in payload["findings"][0]["message"]
+    assert "invalid_directory" not in result.output
     assert_no_community_lint_artifacts(
         tmp_path,
         config_dir=config_dir,

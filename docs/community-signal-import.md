@@ -80,6 +80,13 @@ uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv"
 uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Community Tool Export" --dry-run --output-format json
 ```
 
+After the importer-model dry run succeeds, import the same local directory:
+
+```bash
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --data-dir "$PWD/data"
+uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Community Tool Export" --imported-at "2026-06-12T12:00:00Z" --data-dir "$PWD/data"
+```
+
 The linters validate allowed columns/fields, excluded raw/private fields,
 import-readiness, duplicate URLs, missing provenance, and implicit defaults.
 `community-signal-lint` reads one local file. `community-signal-lint-dir` reads
@@ -94,6 +101,8 @@ does not open SQLite or import rows. It is less strict than
 `community-signal-lint-dir` because the manual importer remains
 backward-compatible with extra columns. Use the same `--source-name` across
 lint, directory dry run, and import when you want source summaries to align.
+`import-signals-dir` without `--dry-run` imports only after every matched local
+file validates; a validation failure imports nothing.
 
 See [community-signal-quality.md](community-signal-quality.md).
 

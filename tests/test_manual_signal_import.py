@@ -10,10 +10,13 @@ from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
 from fashion_radar.db.schema import collector_runs, initialize_schema, source_health
 from fashion_radar.importers.manual_signals import (
+    ManualSignalDirectoryImportResult,
     ManualSignalImportError,
     dry_run_manual_signal_directory,
+    load_manual_signal_directory_rows,
     load_manual_signal_rows,
     render_manual_signal_directory_dry_run_table,
+    render_manual_signal_directory_import_table,
     store_manual_signal_rows,
 )
 from fashion_radar.models.item import CollectedItem
@@ -438,6 +441,87 @@ def test_store_manual_signal_rows_preserves_existing_normalized_url_upsert(
     assert item["source_type"] == "manual_import"
     assert item["source_name"] == "Manual Export"
     assert item["title"] == "Manual update"
+
+
+def test_manual_signal_directory_load_returns_rows_and_validation_result(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "b.csv").write_text(
+        "url,title,published_at,source_name,platform\n"
+        "https://example.com/b,Second,2026-06-12T09:00:00Z,Zulu,x\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "a.csv").write_text(
+        "url,title,published_at,platform\n"
+        "https://example.com/a,First,2026-06-12T08:00:00Z,instagram\n",
+        encoding="utf-8",
+    )
+
+    loaded = load_manual_signal_directory_rows(
+        tmp_path,
+        input_format="csv",
+        pattern="*.csv",
+        default_source_name="Fallback Source",
+    )
+
+    assert loaded.result.ok is True
+    assert loaded.result.file_count == 2
+    assert loaded.result.row_count == 2
+    assert [row.url for row in loaded.rows] == [
+        "https://example.com/a",
+        "https://example.com/b",
+    ]
+    assert loaded.result.source_name_counts == {"Fallback Source": 1, "Zulu": 1}
+    assert loaded.result.platform_counts == {"instagram": 1, "x": 1}
+
+
+def test_manual_signal_directory_load_returns_no_rows_when_any_file_is_invalid(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "a-clean.csv").write_text(
+        "url,title,published_at\nhttps://example.com/clean,Clean,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "b-broken.csv").write_text(
+        "url,title,published_at\n,Broken,not-a-date\n",
+        encoding="utf-8",
+    )
+
+    loaded = load_manual_signal_directory_rows(
+        tmp_path,
+        input_format="csv",
+        pattern="*.csv",
+        default_source_name="Fallback Source",
+    )
+
+    assert loaded.result.ok is False
+    assert loaded.rows == []
+    assert loaded.result.file_count == 2
+    assert loaded.result.valid_file_count == 1
+    assert loaded.result.row_count == 1
+    assert loaded.result.error_count == 1
+
+
+def test_render_manual_signal_directory_import_table() -> None:
+    result = ManualSignalDirectoryImportResult(
+        directory="exports",
+        input_format="csv",
+        pattern="*.csv",
+        file_count=2,
+        row_count=3,
+        rows_imported=3,
+        items_added=2,
+        source_name_counts={"Manual Import": 1, "Tool": 2},
+        platform_counts={"instagram": 2, "x": 1},
+    )
+
+    assert render_manual_signal_directory_import_table(result) == [
+        "Validated 3 manual signal rows across 2 files",
+        "Imported 3 manual signal rows",
+        "Items added: 2",
+        "Sources: Manual Import=1, Tool=2",
+        "Platforms: instagram=2, x=1",
+    ]
 
 
 def test_manual_signal_directory_dry_run_aggregates_files_in_sorted_order(

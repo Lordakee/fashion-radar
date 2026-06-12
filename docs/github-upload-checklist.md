@@ -89,6 +89,12 @@ uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 "$tmp_env/venv/bin/fashion-radar" --help
 "$tmp_env/venv/bin/fashion-radar" trends --help
 "$tmp_env/venv/bin/fashion-radar" dashboard --help
+tmp_run="$(mktemp -d)"
+mkdir -p "$tmp_run/exports"
+printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00Z\n' > "$tmp_run/exports/signals.csv"
+"$tmp_env/venv/bin/fashion-radar" import-signals-dir --help
+"$tmp_env/venv/bin/fashion-radar" import-signals-dir "$tmp_run/exports" --format csv --pattern "*.csv" --dry-run
+"$tmp_env/venv/bin/fashion-radar" import-signals-dir "$tmp_run/exports" --format csv --pattern "*.csv" --data-dir "$tmp_run/data"
 "$tmp_env/venv/bin/python" -c "from importlib import resources; text = resources.files('fashion_radar.templates').joinpath('daily_report.md').read_text(encoding='utf-8'); assert 'Fashion Radar Daily Report' in text"
 ```
 
