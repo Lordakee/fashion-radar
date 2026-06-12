@@ -28,6 +28,11 @@ examples and a JSON schema for tools that produce sanitized local rows. It is
 not a connector, source pack, platform collector, remote community ingestion
 workflow, or source-acquisition guide.
 
+Entity packs are local `entities.yaml` templates. They change only local entity
+matching configuration and do not add sources, source setup, collection
+workflows, platform/community ingestion, scraping, social monitoring, ranking
+semantics, or source-acquisition guidance.
+
 ### Opt-In
 
 These connectors may be useful but must require explicit user enablement:

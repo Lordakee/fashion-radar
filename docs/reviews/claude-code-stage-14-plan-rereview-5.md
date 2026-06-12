@@ -1,0 +1,17 @@
+Approved for Stage 14 implementation
+
+- `Critical:` None.
+
+- `Important:`
+  - `docs/superpowers/plans/2026-06-12-stage-14-entity-watchlist-pack-plan.md`, Task 3 wording guard: the planned `rg` pattern includes prohibited terms such as `scraper`, `crawler`, `Playwright`, `Selenium`, `cookie`, `session`, `token`, `proxy`, `CAPTCHA`, `fingerprint`, `hot-list`, and `ranking`, while the docs are also instructed to contain negative boundary wording for some of those concepts. That is acceptable if every match is manually classified, but the plan should make this explicit for all negative-scope terms, not only “hot-list/ranking,” so implementers do not remove useful boundary language or misread the guard as a hard zero-match check.
+  - `docs/superpowers/plans/2026-06-12-stage-14-entity-watchlist-pack-plan.md`, Task 4: creating `docs/reviews/claude-code-stage-14-code-review-prompt.md` and `docs/reviews/claude-code-stage-14-code-review.md` is framed as part of implementation verification. That is fine as staged-process metadata, but these files should remain clearly excluded from product/runtime behavior and should not be treated as required package functionality for GitHub upload. The plan mostly says this already; keep that boundary in the actual review prompt/output.
+
+- `Minor:`
+  - The optional watchlist pack is the right next stage after the community import contract: it broadens local matching coverage using the existing `EntityConfig` and matcher without adding ingestion, collection, ranking, or runtime behavior.
+  - Keeping `configs/entities.example.yaml` and the packaged init template unchanged is the right boundary. It preserves the small starter/smoke-test config while letting power users opt into broader coverage by copying the pack.
+  - The proposed pack contents are useful as a seed watchlist without making current-hotness or market-wide demand claims. The design and plan repeatedly frame the pack as static local config, not a ranking or proof of external demand.
+  - Alias/context/parent-brand handling is generally safe for the existing matcher. The plan correctly notes that `context_terms` only gate products with `parent_brand`, single-word aliases, and aliases in `UNSAFE_COMMON_ALIASES`; it does not overstate phrase-level disambiguation for every multi-word category/trend alias.
+  - The planned tests cover the main risks: pack loading through `load_entity_config()`, type mix, expected examples, parent-brand references, default starter preservation, single-word/common alias guardrails, generic rejection for broad aliases, and positive acceptance with parent brand or fashion context.
+  - Consider adding one small assertion that normalized alias keys are globally unique via the real loaded config or by relying explicitly on `load_entity_config()` validation. The validator already enforces this, so this is optional, but an explicit test name can make the intent clearer.
+  - The documentation plan avoids platform/source-acquisition instructions and ranking claims. The proposed commands begin after signals already exist and use existing local commands (`match`, `report`, `candidates`, `trends`) rather than `collect` or new source setup.
+  - Verification is sufficient for GitHub upload: focused tests, full pytest, ruff check/format check, `git diff --check`, local CodeGraph status, and a max-effort Claude Code review are appropriate for a static YAML/docs/tests stage.

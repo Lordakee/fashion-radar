@@ -181,6 +181,9 @@ Starter files live in [configs](configs) and are also packaged for
 Optional public-source starter packs live in [configs/source-packs](configs/source-packs).
 See [docs/source-packs.md](docs/source-packs.md).
 
+Optional entity watchlist packs live in [configs/entity-packs](configs/entity-packs).
+See [docs/entity-packs.md](docs/entity-packs.md).
+
 Check a source pack before copying or editing it:
 
 ```bash
@@ -234,6 +237,7 @@ See [docs/data-retention.md](docs/data-retention.md).
 - [docs/daily-digest.md](docs/daily-digest.md)
 - [docs/manual-signal-import.md](docs/manual-signal-import.md)
 - [docs/community-signal-import.md](docs/community-signal-import.md)
+- [docs/entity-packs.md](docs/entity-packs.md)
 - [docs/data-retention.md](docs/data-retention.md)
 - [docs/dashboard.md](docs/dashboard.md)
 - [docs/scheduling.md](docs/scheduling.md)

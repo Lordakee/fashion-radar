@@ -25,7 +25,8 @@ YAML config
 
 - **CLI:** Typer commands in `fashion_radar.cli`.
 - **Config:** Pydantic models load `sources.yaml`, `entities.yaml`, and
-  `scoring.yaml`.
+  `scoring.yaml`. Optional entity packs are static `entities.yaml` templates
+  users can copy and edit; they do not add runtime behavior.
 - **Source-Pack Quality:** Local read-only diagnostics lint one source YAML or
   source-pack YAML file for duplicate names, duplicate targets, duplicate GDELT
   queries, missing tags, disabled sources, implicit weights, empty enabled
