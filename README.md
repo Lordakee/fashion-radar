@@ -80,6 +80,12 @@ Optionally import local user-provided signals before matching:
 uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
 ```
 
+External community tools can target the local community signal contract:
+
+```bash
+uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --dry-run
+```
+
 Review untracked candidate signals from configured sources and imported local
 signals:
 
@@ -227,6 +233,7 @@ See [docs/data-retention.md](docs/data-retention.md).
 - [docs/trend-deltas.md](docs/trend-deltas.md)
 - [docs/daily-digest.md](docs/daily-digest.md)
 - [docs/manual-signal-import.md](docs/manual-signal-import.md)
+- [docs/community-signal-import.md](docs/community-signal-import.md)
 - [docs/data-retention.md](docs/data-retention.md)
 - [docs/dashboard.md](docs/dashboard.md)
 - [docs/scheduling.md](docs/scheduling.md)

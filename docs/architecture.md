@@ -36,6 +36,8 @@ YAML config
   Collectors return normalized items and do not write directly to SQLite.
 - **Manual Import:** Local CSV/JSON user-provided signal files are parsed as an
   input path only. They are not connectors or platform collection workflows.
+  Community signal import is a documented contract and example set for external
+  tools that produce sanitized local files for this same importer.
 - **Storage:** SQLite tables store collected items, source health, collector
   runs, entity matches, and stable entity first/last seen timestamps.
 - **Matching:** Deterministic alias matching with context gates for common or

@@ -23,6 +23,11 @@ Manual signal import is a local input path for user-provided CSV/JSON files the
 user is authorized to process. It is not a connector, platform collector, source
 pack, or source-acquisition guide.
 
+Community signal import is the same local input pattern with repository
+examples and a JSON schema for tools that produce sanitized local rows. It is
+not a connector, source pack, platform collector, remote community ingestion
+workflow, or source-acquisition guide.
+
 ### Opt-In
 
 These connectors may be useful but must require explicit user enablement:

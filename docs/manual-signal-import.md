@@ -56,6 +56,11 @@ JSON example:
 }
 ```
 
+For external tools that need a stable sanitized handoff template, see
+[community-signal-import.md](community-signal-import.md). That contract is a
+template layer over this importer. It does not add platform collection or
+instructions for obtaining platform/community data.
+
 ## Dry Run
 
 Use `--dry-run` to validate the local file before writing rows:

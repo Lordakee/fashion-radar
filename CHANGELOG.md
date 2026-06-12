@@ -44,6 +44,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   summary output.
 - Local read-only `source-pack-lint` command for source YAML quality diagnostics
   and documentation for expanded public-pack RSS/GDELT categories.
+- Community signal import contract documentation, examples, and JSON schema for
+  sanitized local CSV/JSON handoff into the existing manual import command.
 
 ### Not Included In 0.1.0
 

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Lordakee/fashion-radar/blob/main/schemas/community-signals.schema.json",
+  "title": "Fashion Radar Community Signal Import",
+  "description": "Strict local JSON handoff contract for sanitized community or external-tool signal rows accepted by fashion-radar import-signals.",
+  "oneOf": [
+    {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/communitySignal"
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/communitySignal"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "communitySignal": {
+      "type": "object",
+      "required": [
+        "url",
+        "title",
+        "published_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Source URL or stable reference URL for the observed item."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short observed text, headline, or normalized signal phrase."
+        },
+        "published_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Publication or observation timestamp."
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short sanitized note for local review."
+        },
+        "source_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Display name for the external tool or local export."
+        },
+        "platform": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short provenance label. This is not stored as platform coverage."
+        },
+        "source_weight": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 5,
+          "description": "Local score weight accepted by import-signals."
+        },
+        "collected_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp for when the external tool produced the row."
+        }
+      }
+    }
+  }
+}
