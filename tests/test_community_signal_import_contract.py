@@ -4,6 +4,10 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from fashion_radar.cli import app
+from fashion_radar.community_signals import (
+    ALLOWED_COMMUNITY_SIGNAL_FIELDS,
+    lint_community_signal_file,
+)
 from fashion_radar.importers.manual_signals import load_manual_signal_rows
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -97,6 +101,23 @@ def test_community_examples_use_same_allowed_contract_fields() -> None:
 
     assert set(csv_header) <= allowed
     assert json_keys <= allowed
+
+
+def test_community_signal_linter_allowed_fields_match_schema() -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    allowed = set(schema["$defs"]["communitySignal"]["properties"])
+
+    assert ALLOWED_COMMUNITY_SIGNAL_FIELDS == allowed
+
+
+def test_community_signal_linter_accepts_repository_examples() -> None:
+    csv_result = lint_community_signal_file(CSV_EXAMPLE, input_format="csv")
+    json_result = lint_community_signal_file(JSON_EXAMPLE, input_format="json")
+
+    assert csv_result.ok is True
+    assert csv_result.findings == []
+    assert json_result.ok is True
+    assert json_result.findings == []
 
 
 def test_import_signals_dry_run_validates_community_examples_without_artifacts(

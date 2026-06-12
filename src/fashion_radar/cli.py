@@ -12,6 +12,11 @@ from typing import Literal
 import typer
 from sqlalchemy import create_engine, inspect, select
 
+from fashion_radar.community_signals import (
+    CommunitySignalFindingSeverity,
+    lint_community_signal_file,
+    render_community_signal_lint_table,
+)
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.schema import SCHEMA_VERSION, initialize_schema, schema_metadata
 from fashion_radar.digests import (
@@ -94,6 +99,7 @@ NOW_OPTION = typer.Option(None, help="UTC collection timestamp override.")
 RETENTION_DAYS_OPTION = typer.Option(30, min=1, help="Retention window in days.")
 CandidateOutputFormat = Literal["table", "json"]
 ManualSignalInputFormat = Literal["csv", "json"]
+CommunitySignalLintOutputFormat = Literal["table", "json"]
 EntityPackLintOutputFormat = Literal["table", "json"]
 SourcePackLintOutputFormat = Literal["table", "json"]
 TrendOutputFormat = Literal["table", "json"]
@@ -101,6 +107,21 @@ CANDIDATE_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
+)
+COMMUNITY_SIGNAL_LINT_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+COMMUNITY_SIGNAL_INPUT_FORMAT_OPTION = typer.Option(
+    ...,
+    "--input-format",
+    help="Input file format.",
+)
+COMMUNITY_SIGNAL_SOURCE_NAME_OPTION = typer.Option(
+    "Community Signal Import",
+    "--source-name",
+    help="Fallback source name for rows that omit source_name.",
 )
 ENTITY_PACK_LINT_FORMAT_OPTION = typer.Option(
     "table",
@@ -252,6 +273,36 @@ def entity_pack_lint_command(
     )
     has_warnings = any(
         finding.severity == EntityPackFindingSeverity.WARNING for finding in result.findings
+    )
+    if has_errors or (strict and has_warnings):
+        raise typer.Exit(1)
+
+
+@app.command(name="community-signal-lint")
+def community_signal_lint_command(
+    path: Path,
+    input_format: ManualSignalInputFormat = COMMUNITY_SIGNAL_INPUT_FORMAT_OPTION,
+    output_format: CommunitySignalLintOutputFormat = COMMUNITY_SIGNAL_LINT_FORMAT_OPTION,
+    source_name: str = COMMUNITY_SIGNAL_SOURCE_NAME_OPTION,
+    strict: bool = typer.Option(False, help="Exit non-zero when warnings are present."),
+) -> None:
+    """Lint a local community signal file without importing rows."""
+    result = lint_community_signal_file(
+        path,
+        input_format=input_format,
+        default_source_name=source_name,
+    )
+    if output_format == "json":
+        typer.echo(result.model_dump_json(indent=2))
+    else:
+        for line in render_community_signal_lint_table(result):
+            typer.echo(line)
+
+    has_errors = any(
+        finding.severity == CommunitySignalFindingSeverity.ERROR for finding in result.findings
+    )
+    has_warnings = any(
+        finding.severity == CommunitySignalFindingSeverity.WARNING for finding in result.findings
     )
     if has_errors or (strict and has_warnings):
         raise typer.Exit(1)

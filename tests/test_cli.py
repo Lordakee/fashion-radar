@@ -256,6 +256,154 @@ def test_import_signals_command_rejects_unsupported_format_before_data_dir_creat
     assert not data_dir.exists()
 
 
+def test_community_signal_lint_help_lists_input_format_output_format_and_strict() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["community-signal-lint", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "--input-format" in result.output
+    assert "--format" in result.output
+    assert "--source-name" in result.output
+    assert "--strict" in result.output
+    assert "without importing rows" in result.output
+
+
+def test_community_signal_lint_prints_table_for_csv_example() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-signal-lint",
+            "examples/community-signals.example.csv",
+            "--input-format",
+            "csv",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Community signal file: examples/community-signals.example.csv" in result.output
+    assert "Rows: 2 total, 2 import-ready" in result.output
+    assert "Findings:" in result.output
+
+
+def test_community_signal_lint_prints_json_for_json_example() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-signal-lint",
+            "examples/community-signals.example.json",
+            "--input-format",
+            "json",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["path"] == "examples/community-signals.example.json"
+    assert payload["input_format"] == "json"
+    assert payload["row_count"] == 2
+    assert payload["valid_row_count"] == 2
+
+
+def test_community_signal_lint_strict_exits_nonzero_on_warnings(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "signals.csv"
+    path.write_text(
+        "url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["community-signal-lint", str(path), "--input-format", "csv", "--strict"],
+    )
+
+    assert result.exit_code == 1
+    assert "missing_source_name" in result.output
+
+
+def test_community_signal_lint_non_strict_exits_zero_on_warnings(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "signals.csv"
+    path.write_text(
+        "url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["community-signal-lint", str(path), "--input-format", "csv"],
+    )
+
+    assert result.exit_code == 0
+    assert "missing_source_name" in result.output
+
+
+def test_community_signal_lint_invalid_file_exits_nonzero_without_traceback(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "signals.json"
+    path.write_text("{", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        ["community-signal-lint", str(path), "--input-format", "json"],
+    )
+
+    assert result.exit_code == 1
+    assert "invalid_file" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_community_signal_lint_does_not_create_project_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    path = tmp_path / "signals.csv"
+    path.write_text(
+        "url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        ["community-signal-lint", str(path), "--input-format", "csv"],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 0
+    assert not config_dir.exists()
+    assert not data_dir.exists()
+    assert not reports_dir.exists()
+    assert not Path("configs").exists()
+    assert not Path("data").exists()
+    assert not Path("reports").exists()
+    assert list(tmp_path.rglob("*.sqlite")) == []
+    assert list(tmp_path.rglob("*.sqlite-*")) == []
+    assert list(tmp_path.rglob("*.db")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.json")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.md")) == []
+    assert list(tmp_path.rglob("*digest*")) == []
+    assert list(tmp_path.rglob("*.eml")) == []
+    assert list(tmp_path.rglob("latest.*")) == []
+    assert list(tmp_path.rglob("report-index.json")) == []
+    assert list(tmp_path.rglob("collection-workflow*.json")) == []
+
+
 def test_init_writes_example_configs(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     data_dir = tmp_path / "data"

@@ -1,0 +1,14 @@
+Not approved
+
+- `Critical:` None.
+
+- `Important:`
+  - `docs/superpowers/plans/2026-06-12-stage-16-community-signal-file-diagnostics-plan.md`, Task 1 / Task 2: add explicit `csv_extra_cells` implementation and test coverage. The design requires `csv_extra_cells` when a CSV row has more cells than headers, but the plan only generally mentions invalid CSV/header handling. Add a focused test with an over-wide CSV row and require the linter to emit `csv_extra_cells`, not a generic `invalid_file`.
+  - `docs/superpowers/plans/2026-06-12-stage-16-community-signal-file-diagnostics-plan.md`, lines 486-487: clarify prohibited-field classification. The plan says `_raw_field_findings()` emits both `unknown_field` and `prohibited_field`, which risks double-reporting fields like `author_handle`. The design distinguishes prohibited raw/private/account/media/session fields from other unknown fields. Add a rule and test that `author_handle` emits only `prohibited_field`, while an unrelated extra field emits `unknown_field`.
+  - `docs/superpowers/plans/2026-06-12-stage-16-community-signal-file-diagnostics-plan.md`, lines 488-491: align fallback `source_name` behavior with `load_manual_signal_rows()` rather than hard-coding it in a way that could drift. Current importer behavior applies `default_source_name.strip() or "Manual Import"`. The linter plan should either reuse the same helper/constant path if available or explicitly test equivalence with `load_manual_signal_rows()` for missing/blank `source_name`.
+
+- `Minor:`
+  - `docs/superpowers/plans/2026-06-12-stage-16-community-signal-file-diagnostics-plan.md`, lines 606-609: make no-artifact CLI tests more explicit. The plan says “like source/entity lint,” but Stage 16’s read-only guarantee is central. Spell out assertions for no config/data/reports directories, no SQLite files, no digest/report/workflow artifacts, and no default/env directory creation.
+  - `docs/superpowers/plans/2026-06-12-stage-16-community-signal-file-diagnostics-plan.md`, Task 5: separate optional release/upload steps more clearly from Stage 16 implementation acceptance. The optional release checks are marked optional, but “Commit and push” appears in the same task sequence. Consider moving upload/release operations into a clearly post-acceptance section so the implementation scope remains local diagnostics only.
+
+Overall assessment: the proposed Stage 16 direction is sound: a read-only local file linter is a good next step after the import contract and entity-pack diagnostics; the new `community_signals.py` boundary is appropriate; using `ManualSignalRow` keeps import-readiness aligned; the CLI shape is clear; and the docs largely preserve the no-platform/no-acquisition boundary. Approval should wait until the three Important issues above are tightened in the plan.

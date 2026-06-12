@@ -26,6 +26,9 @@ backward-compatible manual imports, but this community contract asks external
 tools to omit unknown, raw, private, media, account, cookie, session, and token
 fields.
 
+Use `community-signal-lint` when you want Fashion Radar to enforce the strict
+community handoff contract before dry-run/import.
+
 ## Required Fields
 
 - `url`: source URL or stable reference URL for the observed item.
@@ -46,6 +49,29 @@ account IDs, follower lists, profile URLs, images, videos, cookies, sessions,
 tokens, or other account/private material in community import files. Keep
 context in `summary` short and sanitized.
 
+## Preflight Lint
+
+Check repository examples without importing rows:
+
+```bash
+uv run fashion-radar community-signal-lint examples/community-signals.example.csv --input-format csv --source-name "Community Tool Export"
+uv run fashion-radar community-signal-lint examples/community-signals.example.json --input-format json --source-name "Community Tool Export"
+```
+
+Check a local file produced by another tool:
+
+```bash
+uv run fashion-radar community-signal-lint ./community-signals.csv --input-format csv --source-name "Community Tool Export" --strict
+```
+
+The linter reads one local file only. It validates allowed columns/fields,
+excluded raw/private fields, import-readiness, duplicate URLs, missing
+provenance, and implicit defaults. It does not create config/data/report
+directories, open SQLite, import rows, fetch URLs, collect sources, or run
+matching/scoring.
+
+See [community-signal-quality.md](community-signal-quality.md).
+
 ## Dry Run
 
 Validate the repository examples without writing rows:
@@ -61,7 +87,8 @@ Validate a local file produced by another tool:
 uv run fashion-radar import-signals ./community-signals.csv --format csv --source-name "Community Tool Export" --dry-run
 ```
 
-Dry-run validation does not create the local SQLite database or import rows.
+Dry-run validation uses the same parser/import model as the write path. It does
+not create the local SQLite database or import rows.
 
 ## Import
 
@@ -100,5 +127,10 @@ local files. They do not prove demand outside the configured source set.
 Fashion Radar reads only the local CSV/JSON file passed to `import-signals`.
 It does not fetch the URLs in the file, log in to services, download media, or
 provide instructions for obtaining platform or community data.
+
+`community-signal-lint` reads only the local CSV/JSON file passed to it and
+reports contract findings. It does not fetch URLs, log in, download media,
+verify authorization, or provide instructions for obtaining platform/community
+data.
 
 Users are responsible for importing only rows they are authorized to process.

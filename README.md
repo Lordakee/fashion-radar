@@ -17,6 +17,8 @@ on the sources you configure and local signals you import.
 - Collects public RSS/Atom, RSSHub-compatible, and GDELT Doc API signals.
 - Imports local user-provided CSV/JSON signal files that you are authorized to
   process.
+- Lints local community signal CSV/JSON files against the handoff contract
+  before import, without fetching URLs or importing rows.
 - Stores conservative metadata in a local SQLite database.
 - Matches entities with deterministic alias and context rules.
 - Computes transparent heat scores over current and baseline windows.
@@ -83,6 +85,7 @@ uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Ma
 External community tools can target the local community signal contract:
 
 ```bash
+uv run fashion-radar community-signal-lint examples/community-signals.example.csv --input-format csv --source-name "Community Tool Export"
 uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --dry-run
 ```
 
@@ -197,8 +200,15 @@ Check an entity pack before copying or editing it:
 uv run fashion-radar entity-pack-lint configs/entity-packs/fashion-watchlist.example.yaml
 ```
 
+Check a community signal handoff file before import:
+
+```bash
+uv run fashion-radar community-signal-lint examples/community-signals.example.csv --input-format csv --source-name "Community Tool Export"
+```
+
 The linters are local and read-only. They do not collect sources, fetch live
-feeds, run matching/scoring, open SQLite, or create config/data/report artifacts.
+feeds or URLs, run matching/scoring, open SQLite, import rows, or create
+config/data/report artifacts.
 
 ## Reports And Storage
 
@@ -244,6 +254,7 @@ See [docs/data-retention.md](docs/data-retention.md).
 - [docs/daily-digest.md](docs/daily-digest.md)
 - [docs/manual-signal-import.md](docs/manual-signal-import.md)
 - [docs/community-signal-import.md](docs/community-signal-import.md)
+- [docs/community-signal-quality.md](docs/community-signal-quality.md)
 - [docs/entity-packs.md](docs/entity-packs.md)
 - [docs/entity-pack-quality.md](docs/entity-pack-quality.md)
 - [docs/data-retention.md](docs/data-retention.md)

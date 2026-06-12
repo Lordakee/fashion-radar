@@ -46,6 +46,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and documentation for expanded public-pack RSS/GDELT categories.
 - Community signal import contract documentation, examples, and JSON schema for
   sanitized local CSV/JSON handoff into the existing manual import command.
+- Local read-only `community-signal-lint` command for community CSV/JSON handoff
+  contract diagnostics before import, without fetching URLs, opening SQLite,
+  importing rows, or creating artifacts.
 - Optional fashion entity watchlist pack for broader local matching coverage
   using the existing `entities.yaml` schema.
 - Local read-only `entity-pack-lint` command for entity YAML quality diagnostics

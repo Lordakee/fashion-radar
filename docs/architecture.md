@@ -11,6 +11,7 @@ YAML config
   -> optionally lint source-pack quality before collection
   -> optionally lint entity-pack quality before matching
   -> collect public sources
+  -> optionally lint community signal CSV/JSON files before import
   -> optionally import user-provided local CSV/JSON signals
   -> store items in SQLite
   -> match configured entities
@@ -46,6 +47,11 @@ YAML config
   input path only. They are not connectors or platform collection workflows.
   Community signal import is a documented contract and example set for external
   tools that produce sanitized local files for this same importer.
+- **Community Signal Quality:** Local read-only diagnostics lint one community
+  signal CSV/JSON file before dry-run/import. The linter checks strict handoff
+  fields and import-readiness but does not import rows, open SQLite, collect
+  sources, fetch URLs, run matching/scoring, or create config/data/report
+  directories.
 - **Storage:** SQLite tables store collected items, source health, collector
   runs, entity matches, and stable entity first/last seen timestamps.
 - **Matching:** Deterministic alias matching with context gates for common or
@@ -107,6 +113,7 @@ fashion-radar doctor
 fashion-radar source-pack-lint ./configs/sources.yaml
 fashion-radar entity-pack-lint ./configs/entities.yaml
 fashion-radar collect
+fashion-radar community-signal-lint ./signals.csv --input-format csv --source-name "Manual Export"
 fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
 fashion-radar match
 fashion-radar report --as-of 2026-06-11T12:00:00Z
@@ -138,6 +145,15 @@ It reads raw YAML for omitted-field checks, validates the same entity schema use
 by matching, and prints table or JSON findings. It does not run matching,
 scoring, collection, source acquisition, platform search, report generation,
 digest packaging, or dashboard workflows.
+
+## Community Signal Quality Boundary
+
+`community-signal-lint` is a pre-import diagnostics command for local CSV/JSON
+files. It reads one local handoff file, validates strict community fields,
+checks import-readiness through the same manual signal row model, and prints
+table or JSON findings. It does not import rows, open the local database, fetch
+URLs, collect sources, run matching/scoring, package digests, generate reports,
+perform platform search, or create workflow artifacts.
 
 ## Candidate Discovery Boundary
 

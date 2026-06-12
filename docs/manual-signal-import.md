@@ -61,6 +61,11 @@ For external tools that need a stable sanitized handoff template, see
 template layer over this importer. It does not add platform collection or
 instructions for obtaining platform/community data.
 
+Manual import remains broader and backward-compatible: unknown columns may be
+ignored by the importer. Use
+[`community-signal-lint`](community-signal-quality.md) when a local external
+tool should meet the stricter community handoff contract before dry-run/import.
+
 ## Dry Run
 
 Use `--dry-run` to validate the local file before writing rows:
