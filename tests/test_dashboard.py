@@ -79,11 +79,18 @@ def test_dashboard_candidate_caption_mentions_imported_local_signals() -> None:
 def test_dashboard_trend_caption_is_local_observed() -> None:
     assert "Local observed signal deltas" in TREND_SIGNAL_CAPTION
     assert "configured RSS/web sources and imported manual signals" in TREND_SIGNAL_CAPTION
-    assert "do not represent full social-platform or market-wide coverage" in TREND_SIGNAL_CAPTION
+    assert "describe only this configured source set" in TREND_SIGNAL_CAPTION
     assert "Trend Deltas" in DASHBOARD_TAB_LABELS
     assert TREND_EMPTY_MESSAGE == "No local observed signal deltas in this comparison."
     combined_copy = " ".join([*DASHBOARD_TAB_LABELS, TREND_SIGNAL_CAPTION, TREND_EMPTY_MESSAGE])
-    for forbidden in ("trending overall", "market trends", "social trends", "what's hot"):
+    for forbidden in (
+        "trending overall",
+        "market trends",
+        "social trends",
+        "market-wide",
+        "platform-wide",
+        "what's hot",
+    ):
         assert forbidden not in combined_copy.lower()
 
 

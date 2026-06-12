@@ -14,6 +14,25 @@ collection timestamp and the report window timestamp.
 Do not schedule overlapping runs against the same SQLite database. If a previous
 run is still active, wait for it to finish before starting another.
 
+## Local Digest Artifacts
+
+You can add digest flags to the scheduled `run` command when you want local
+helper files for daily review:
+
+```bash
+fashion-radar run \
+  --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --digest-latest copy \
+  --digest-index \
+  --digest-summary
+```
+
+These flags write local files such as `latest.md`, `latest.json`, and
+`report-index.json`, and optionally print a short local observed summary. They
+do not send email, call webhooks, open a browser, or install a notification
+daemon. Use `--digest-eml` only when you want a local `.eml` handoff file that
+you review yourself.
+
 ## Generate Examples
 
 Use `schedule-example` to print snippets. It does not install anything:
@@ -134,6 +153,8 @@ uv run fashion-radar clean-old-data --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --r
 ```
 
 See [data-retention.md](data-retention.md).
+
+See [daily-digest.md](daily-digest.md) for local digest artifact details.
 
 ## Dashboard
 

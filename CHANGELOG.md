@@ -39,6 +39,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `--config-dir` settings.
 - Trend delta documentation covering local-only scope, baseline windows,
   read-only behavior, and source-coverage limits.
+- Optional local digest packaging for generated daily reports, including latest
+  report artifacts, a report index, a local `.eml` handoff file, and stdout
+  summary output.
 
 ### Not Included In 0.1.0
 

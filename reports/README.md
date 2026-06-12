@@ -9,7 +9,16 @@ fashion-radar-YYYY-MM-DD.md
 fashion-radar-YYYY-MM-DD.json
 ```
 
-Generated reports are ignored by git. They contain source attribution, links,
-snippets/metadata, matched entities, and score components. Review reports before
-sharing them publicly, especially if your configured sources include private or
-internal feeds.
+Optional local digest artifacts use these names:
+
+```text
+latest.md
+latest.json
+report-index.json
+fashion-radar-YYYY-MM-DD.eml
+```
+
+Generated reports and digest artifacts are ignored by git. They contain source
+attribution, links, snippets/metadata, matched entities, and score components.
+Review reports before sharing them publicly, especially if your configured
+sources include private or internal feeds.

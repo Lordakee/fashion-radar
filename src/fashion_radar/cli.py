@@ -14,6 +14,12 @@ from sqlalchemy import create_engine, inspect, select
 
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.schema import SCHEMA_VERSION, initialize_schema, schema_metadata
+from fashion_radar.digests import (
+    DigestLatestMode,
+    DigestOptions,
+    DigestResult,
+    package_daily_digest,
+)
 from fashion_radar.discovery.candidates import discover_candidates
 from fashion_radar.importers.manual_signals import (
     ManualSignalImportError,
@@ -88,6 +94,26 @@ TREND_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
+)
+DIGEST_LATEST_OPTION = typer.Option(
+    DigestLatestMode.NONE,
+    "--digest-latest",
+    help="Write local latest report artifacts: none, copy, or symlink.",
+)
+DIGEST_INDEX_OPTION = typer.Option(
+    False,
+    "--digest-index/--no-digest-index",
+    help="Write local reports/report-index.json.",
+)
+DIGEST_EML_OPTION = typer.Option(
+    False,
+    "--digest-eml/--no-digest-eml",
+    help="Write a local .eml digest file without sending email.",
+)
+DIGEST_SUMMARY_OPTION = typer.Option(
+    False,
+    "--digest-summary/--no-digest-summary",
+    help="Print a local observed digest summary.",
 )
 MANUAL_SIGNAL_FORMAT_OPTION = typer.Option(
     "csv",
@@ -251,6 +277,10 @@ def report(
     data_dir: Path = DATA_DIR_OPTION,
     reports_dir: Path = REPORTS_DIR_OPTION,
     as_of: str = AS_OF_OPTION,
+    digest_latest: DigestLatestMode = DIGEST_LATEST_OPTION,
+    digest_index: bool = DIGEST_INDEX_OPTION,
+    digest_eml: bool = DIGEST_EML_OPTION,
+    digest_summary: bool = DIGEST_SUMMARY_OPTION,
 ) -> None:
     """Generate Markdown and JSON reports from the local database."""
     try:
@@ -276,6 +306,15 @@ def report(
 
     typer.echo(f"Wrote Markdown report: {markdown_path}")
     typer.echo(f"Wrote JSON report: {json_path}")
+    _package_digest_or_exit(
+        markdown_path=markdown_path,
+        json_path=json_path,
+        reports_dir=reports_dir,
+        digest_latest=digest_latest,
+        digest_index=digest_index,
+        digest_eml=digest_eml,
+        digest_summary=digest_summary,
+    )
 
 
 @app.command(name="candidates")
@@ -537,6 +576,10 @@ def run(
     data_dir: Path = DATA_DIR_OPTION,
     reports_dir: Path = REPORTS_DIR_OPTION,
     as_of: str = AS_OF_OPTION,
+    digest_latest: DigestLatestMode = DIGEST_LATEST_OPTION,
+    digest_index: bool = DIGEST_INDEX_OPTION,
+    digest_eml: bool = DIGEST_EML_OPTION,
+    digest_summary: bool = DIGEST_SUMMARY_OPTION,
 ) -> None:
     """Run collect, match, and report serially."""
     try:
@@ -570,6 +613,59 @@ def run(
     typer.echo(f"Stored {summary.matches_stored} matches")
     typer.echo(f"Wrote Markdown report: {markdown_path}")
     typer.echo(f"Wrote JSON report: {json_path}")
+    _package_digest_or_exit(
+        markdown_path=markdown_path,
+        json_path=json_path,
+        reports_dir=reports_dir,
+        digest_latest=digest_latest,
+        digest_index=digest_index,
+        digest_eml=digest_eml,
+        digest_summary=digest_summary,
+    )
+
+
+def _package_digest_or_exit(
+    *,
+    markdown_path: Path,
+    json_path: Path,
+    reports_dir: Path,
+    digest_latest: DigestLatestMode,
+    digest_index: bool,
+    digest_eml: bool,
+    digest_summary: bool,
+) -> None:
+    options = DigestOptions(
+        latest=DigestLatestMode(digest_latest),
+        write_index=digest_index,
+        write_eml=digest_eml,
+        print_summary=digest_summary,
+    )
+    if options == DigestOptions():
+        return
+    try:
+        result = package_daily_digest(
+            markdown_path=markdown_path,
+            json_path=json_path,
+            reports_dir=reports_dir,
+            options=options,
+        )
+    except Exception as exc:
+        typer.echo(f"Could not package digest: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    _print_digest_result(result)
+
+
+def _print_digest_result(result: DigestResult) -> None:
+    if result.latest_markdown_path is not None:
+        typer.echo(f"Wrote latest Markdown: {result.latest_markdown_path}")
+    if result.latest_json_path is not None:
+        typer.echo(f"Wrote latest JSON: {result.latest_json_path}")
+    if result.index_path is not None:
+        typer.echo(f"Wrote report index: {result.index_path}")
+    if result.eml_path is not None:
+        typer.echo(f"Wrote local EML digest: {result.eml_path}")
+    if result.summary_text:
+        typer.echo(result.summary_text)
 
 
 def _verify_candidate_database_schema(engine) -> None:

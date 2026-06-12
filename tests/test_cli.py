@@ -11,6 +11,7 @@ from fashion_radar.cli import app
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
 from fashion_radar.db.schema import initialize_schema, item_entities, items
+from fashion_radar.digests import DigestOptions, DigestResult
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceType
 from fashion_radar.models.trend import TrendComparison
@@ -535,6 +536,164 @@ scoring:
     assert json_path.exists()
     assert "The Row" in markdown_path.read_text(encoding="utf-8")
     assert '"entity_name": "The Row"' in json_path.read_text(encoding="utf-8")
+
+
+def _write_report_cli_config(config_dir: Path) -> None:
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+
+def _write_daily_report_pair(reports_dir: Path, report_date: str) -> tuple[Path, Path]:
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    markdown_path = reports_dir / f"fashion-radar-{report_date}.md"
+    json_path = reports_dir / f"fashion-radar-{report_date}.json"
+    markdown_path.write_text(f"# Fashion Radar {report_date}\n", encoding="utf-8")
+    json_path.write_text(
+        json.dumps({"metadata": {"report_date": f"{report_date}T00:00:00+00:00"}}),
+        encoding="utf-8",
+    )
+    return markdown_path, json_path
+
+
+def test_report_command_packages_digest_artifacts(monkeypatch, tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    _write_report_cli_config(config_dir)
+
+    monkeypatch.setattr(
+        cli_module,
+        "write_daily_report_files",
+        lambda **kwargs: _write_daily_report_pair(kwargs["reports_dir"], "2026-06-11"),
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "report",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+            "--digest-latest",
+            "copy",
+            "--digest-index",
+            "--digest-eml",
+            "--digest-summary",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert (reports_dir / "latest.md").exists()
+    assert (reports_dir / "latest.json").exists()
+    assert (reports_dir / "report-index.json").exists()
+    assert (reports_dir / "fashion-radar-2026-06-11.eml").exists()
+    assert "Wrote latest Markdown: " in result.output
+    assert "Wrote latest JSON: " in result.output
+    assert "Wrote report index: " in result.output
+    assert "Wrote local EML digest: " in result.output
+    assert "Local observed fashion report is ready for review." in result.output
+
+
+def test_report_command_digest_packaging_error_exits_nonzero(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    _write_report_cli_config(config_dir)
+
+    monkeypatch.setattr(
+        cli_module,
+        "write_daily_report_files",
+        lambda **kwargs: _write_daily_report_pair(kwargs["reports_dir"], "2026-06-11"),
+    )
+
+    def fail_package_daily_digest(**_kwargs: object) -> DigestResult:
+        raise RuntimeError("bad digest")
+
+    monkeypatch.setattr(
+        cli_module,
+        "package_daily_digest",
+        fail_package_daily_digest,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "report",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+            "--digest-index",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not package digest: bad digest" in result.output
+
+
+def test_report_command_help_lists_digest_options() -> None:
+    result = CliRunner().invoke(app, ["report", "--help"], env={"COLUMNS": "140"})
+
+    assert result.exit_code == 0
+    assert "--digest-latest" in result.output
+    assert "--digest-index" in result.output
+    assert "--digest-eml" in result.output
+    assert "--digest-summary" in result.output
+
+
+def test_report_command_default_output_creates_no_digest_artifacts(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    _write_report_cli_config(config_dir)
+
+    monkeypatch.setattr(
+        cli_module,
+        "write_daily_report_files",
+        lambda **kwargs: _write_daily_report_pair(kwargs["reports_dir"], "2026-06-11"),
+    )
+    markdown_path = reports_dir / "fashion-radar-2026-06-11.md"
+    json_path = reports_dir / "fashion-radar-2026-06-11.json"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "report",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert result.output == (
+        f"Wrote Markdown report: {markdown_path}\nWrote JSON report: {json_path}\n"
+    )
+    assert not (reports_dir / "latest.md").exists()
+    assert not (reports_dir / "latest.json").exists()
+    assert not (reports_dir / "report-index.json").exists()
+    assert not (reports_dir / "fashion-radar-2026-06-11.eml").exists()
 
 
 def _prepare_candidate_cli_fixture(tmp_path: Path) -> tuple[Path, Path]:
@@ -1350,6 +1509,146 @@ def test_run_command_executes_collect_match_and_report(monkeypatch, tmp_path: Pa
 
     assert result.exit_code == 0
     assert calls == ["collect", "match", "report"]
+
+
+def test_run_command_packages_digest_after_report(monkeypatch, tmp_path: Path) -> None:
+    calls: list[str] = []
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    config_dir.mkdir()
+    (config_dir / "sources.yaml").write_text("version: 1\nsources: []\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        cli_module,
+        "collect_configured_sources",
+        lambda **_kwargs: calls.append("collect") or [],
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "match_stored_items",
+        lambda **_kwargs: (
+            calls.append("match") or cli_module.MatchSummary(items_processed=0, matches_stored=0)
+        ),
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "write_daily_report_files",
+        lambda **kwargs: (
+            calls.append("report") or _write_daily_report_pair(kwargs["reports_dir"], "2026-06-11")
+        ),
+    )
+
+    def fake_package_daily_digest(
+        *,
+        markdown_path: Path,
+        json_path: Path,
+        reports_dir: Path,
+        options: DigestOptions,
+    ) -> DigestResult:
+        calls.append("digest")
+        assert markdown_path == reports_dir / "fashion-radar-2026-06-11.md"
+        assert json_path == reports_dir / "fashion-radar-2026-06-11.json"
+        assert options.write_index is True
+        assert options.print_summary is True
+        return DigestResult(
+            index_path=reports_dir / "report-index.json",
+            summary_text="Local observed fashion report is ready for review.",
+        )
+
+    monkeypatch.setattr(
+        cli_module,
+        "package_daily_digest",
+        fake_package_daily_digest,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+            "--digest-index",
+            "--digest-summary",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert calls == ["collect", "match", "report", "digest"]
+    assert "Wrote report index: " in result.output
+    assert "Local observed fashion report is ready for review." in result.output
+
+
+def test_run_command_default_output_creates_no_digest_artifacts(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[str] = []
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    config_dir.mkdir()
+    (config_dir / "sources.yaml").write_text("version: 1\nsources: []\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    markdown_path = reports_dir / "fashion-radar-2026-06-11.md"
+    json_path = reports_dir / "fashion-radar-2026-06-11.json"
+
+    monkeypatch.setattr(
+        cli_module,
+        "collect_configured_sources",
+        lambda **_kwargs: calls.append("collect") or [],
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "match_stored_items",
+        lambda **_kwargs: (
+            calls.append("match") or cli_module.MatchSummary(items_processed=0, matches_stored=0)
+        ),
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "write_daily_report_files",
+        lambda **kwargs: (
+            calls.append("report") or _write_daily_report_pair(kwargs["reports_dir"], "2026-06-11")
+        ),
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Stored 0 matches\n"
+        f"Wrote Markdown report: {markdown_path}\n"
+        f"Wrote JSON report: {json_path}\n"
+    )
+    assert calls == ["collect", "match", "report"]
+    assert not (reports_dir / "latest.md").exists()
+    assert not (reports_dir / "latest.json").exists()
+    assert not (reports_dir / "report-index.json").exists()
+    assert not (reports_dir / "fashion-radar-2026-06-11.eml").exists()
 
 
 def test_run_command_writes_candidate_report_filtered_by_loaded_entities(

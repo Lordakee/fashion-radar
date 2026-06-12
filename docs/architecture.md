@@ -15,6 +15,7 @@ YAML config
   -> score current vs baseline windows
   -> discover candidate signals from retained local items
   -> write Markdown/JSON reports
+  -> optionally package local digest artifacts
   -> compare local trend deltas on demand
   -> inspect read-only dashboard
 ```
@@ -42,6 +43,10 @@ YAML config
   schema migrations, persistent trend tables, or database writes.
 - **Reports:** Markdown and JSON daily reports rendered from packaged
   templates.
+- **Local Digest:** Optional post-report packaging that writes local
+  `latest.md`, `latest.json`, `report-index.json`, `.eml`, or stdout summary
+  artifacts from already-generated reports. It does not collect sources or send
+  anything.
 - **Dashboard:** Optional Streamlit UI that reads local SQLite/report state.
 
 ## Default Paths
@@ -68,6 +73,15 @@ Daily reports are:
 <reports-dir>/fashion-radar-YYYY-MM-DD.json
 ```
 
+Optional local digest artifacts are:
+
+```text
+<reports-dir>/latest.md
+<reports-dir>/latest.json
+<reports-dir>/report-index.json
+<reports-dir>/fashion-radar-YYYY-MM-DD.eml
+```
+
 ## Command Flow
 
 ```bash
@@ -77,6 +91,7 @@ fashion-radar collect
 fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
 fashion-radar match
 fashion-radar report --as-of 2026-06-11T12:00:00Z
+fashion-radar report --as-of 2026-06-11T12:00:00Z --digest-latest copy --digest-index
 fashion-radar candidates --as-of 2026-06-11T12:00:00Z
 fashion-radar trends --as-of 2026-06-11T12:00:00Z --config-dir ./configs
 ```

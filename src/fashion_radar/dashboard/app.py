@@ -29,8 +29,8 @@ CANDIDATE_SIGNAL_CAPTION = (
 )
 TREND_SIGNAL_CAPTION = (
     "Local observed signal deltas from configured RSS/web sources and imported manual "
-    "signals. These are directional signals only and need review; they do not represent "
-    "full social-platform or market-wide coverage."
+    "signals. These are directional signals only and need review; they describe only "
+    "this configured source set."
 )
 TREND_EMPTY_MESSAGE = "No local observed signal deltas in this comparison."
 DASHBOARD_TAB_LABELS = (

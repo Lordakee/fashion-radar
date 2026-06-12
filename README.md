@@ -9,8 +9,8 @@ signals as observed phrases from configured sources and imported local signals
 that need review before being tracked.
 
 The MVP is built for personal research and editorial monitoring. It is not a
-complete social listening platform, and its heat scores are local metrics based
-only on the sources you configure and local signals you import.
+full social-listening service, and its heat scores are local metrics based only
+on the sources you configure and local signals you import.
 
 ## What It Does
 
@@ -25,6 +25,8 @@ only on the sources you configure and local signals you import.
 - Compares local observed entity and candidate signal deltas between scoring
   snapshots.
 - Generates daily Markdown and JSON reports with source attribution.
+- Can package optional local digest artifacts such as latest report copies, a
+  report index, and a local `.eml` handoff file.
 - Provides an optional local Streamlit dashboard for read-only inspection.
 
 ## What It Does Not Do
@@ -91,14 +93,23 @@ Compare local observed trend deltas without writing to the database:
 uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --config-dir "$PWD/configs"
 ```
 
-Trend deltas are read-only local comparisons. They do not prove market-wide or
-platform-wide demand.
+Trend deltas are read-only local comparisons. They do not prove demand outside
+your configured source set.
 
 Or run the workflow serially:
 
 ```bash
 uv run fashion-radar run --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
+
+Package local digest artifacts after a report or serial run:
+
+```bash
+uv run fashion-radar run --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --digest-latest copy --digest-index --digest-summary
+```
+
+Digest artifacts are local files only. Fashion Radar does not send email,
+webhooks, or push notifications.
 
 Print a daily scheduling example:
 
@@ -178,6 +189,17 @@ Reports contain source attribution, links, snippets/metadata, matched entities,
 candidate signals from configured sources and imported local signals, and score
 components. They should be reviewed before being shared publicly.
 
+Optional local digest artifacts can make daily output easier to find:
+
+```text
+latest.md
+latest.json
+report-index.json
+fashion-radar-YYYY-MM-DD.eml
+```
+
+See [docs/daily-digest.md](docs/daily-digest.md).
+
 Use cleanup when you want to prune old collected items:
 
 ```bash
@@ -194,6 +216,7 @@ See [docs/data-retention.md](docs/data-retention.md).
 - [docs/scoring.md](docs/scoring.md)
 - [docs/candidate-discovery.md](docs/candidate-discovery.md)
 - [docs/trend-deltas.md](docs/trend-deltas.md)
+- [docs/daily-digest.md](docs/daily-digest.md)
 - [docs/manual-signal-import.md](docs/manual-signal-import.md)
 - [docs/data-retention.md](docs/data-retention.md)
 - [docs/dashboard.md](docs/dashboard.md)

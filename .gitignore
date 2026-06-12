@@ -25,9 +25,15 @@ data/**/*.sqlite-*
 data/**/*.sqlite3
 data/**/*.sqlite3-*
 data/cache/
+# Generated reports and local digest artifacts are ignored. These patterns also
+# cover Stage 11 latest.md, latest.json, and report-index.json helper files.
 reports/*.md
 reports/*.json
+reports/*.eml
+reports/*.txt
 reports/**/*.md
 reports/**/*.json
+reports/**/*.eml
+reports/**/*.txt
 !data/README.md
 !reports/README.md
