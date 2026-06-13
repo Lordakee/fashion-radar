@@ -26,8 +26,9 @@ paywall bypass, or fragile full social-platform scraping.
 - Keep public `uv.lock` free of mirror-bound URLs.
 - Use `uv sync --frozen --dev` with `UV_DEFAULT_INDEX=...` for local mirror
   installs.
-- Use `uv sync --locked --dev` and `uv lock --check` without mirror env vars for
-  CI, verification, and committed lockfile checks.
+- Use `UV_NO_CONFIG=1 uv sync --locked --dev --check` and
+  `UV_NO_CONFIG=1 uv lock --check` for CI, verification, and committed lockfile
+  checks, so user-level uv mirror config cannot affect the public lockfile.
 - Do not commit virtual environments, package caches, build artifacts, cookies,
   tokens, or local account data.
 

@@ -87,6 +87,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Clarified `imported-signals` table output by labeling stored match presence
   as matched rows, and added CLI/read-only SQLite regressions.
+- Aligned CI, contribution docs, PR/issue templates, and upload smoke commands
+  with release lockfile checks that ignore user-level uv mirror config.
 
 ### Not Included In 0.1.0
 

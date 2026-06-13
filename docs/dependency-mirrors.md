@@ -35,6 +35,9 @@ the resulting `uv.lock` will be committed. Public lockfiles should keep the
 default PyPI registry URLs so GitHub Actions and global contributors get
 reproducible installs.
 
+If `~/.config/uv/uv.toml` sets a mirror as the default index, run public
+lockfile checks with `UV_NO_CONFIG=1`.
+
 For direct package installation into an existing virtual environment:
 
 ```bash
@@ -52,7 +55,9 @@ https://pypi.mirrors.ustc.edu.cn/simple/
 
 - Prefer mirror-based install commands in local development notes.
 - Use `uv sync --frozen --dev` with mirrors for local installs.
-- Use `uv sync --locked --dev` and `uv lock --check` without mirrors for CI and commits.
+- Use `UV_NO_CONFIG=1 uv sync --locked --dev --check` and
+  `UV_NO_CONFIG=1 uv lock --check` for CI and release checks, so user-level
+  mirror config cannot rewrite or invalidate the public lockfile.
 - Keep dependencies in `pyproject.toml`.
 - Avoid committing local virtual environments or downloaded package caches.
 - Avoid committing mirror-bound URLs in `uv.lock`.

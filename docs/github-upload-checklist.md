@@ -118,7 +118,7 @@ Use `/tmp` for build artifacts:
 ```bash
 tmp_build="$(mktemp -d)"
 uv build --out-dir "$tmp_build"
-python -m zipfile -l "$tmp_build"/*.whl | rg 'fashion_radar/templates/(daily_report.md|configs/(sources|entities|scoring)\.example\.yaml)'
+uv run python -m zipfile -l "$tmp_build"/*.whl | rg 'fashion_radar/templates/(daily_report.md|configs/(sources|entities|scoring)\.example\.yaml)'
 ```
 
 Installed-wheel smoke:

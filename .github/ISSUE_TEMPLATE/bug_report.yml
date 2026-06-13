@@ -97,7 +97,7 @@ body:
         uv run pytest
         uv run ruff check .
         uv run ruff format --check .
-        uv lock --check
+        UV_NO_CONFIG=1 uv lock --check
   - type: checkboxes
     id: boundaries
     attributes:

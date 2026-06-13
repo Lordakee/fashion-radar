@@ -68,14 +68,5 @@ or platform coverage verification.
 
 ## Review Artifacts
 
-- `docs/reviews/claude-code-stage-31-plan-review.md`
-- `docs/reviews/claude-code-stage-31-plan-rereview.md`
-- `docs/reviews/claude-code-stage-31-plan-rereview-2.md`
-- `docs/reviews/claude-code-stage-31-plan-rereview-3.md`
-- `docs/reviews/claude-code-stage-31-plan-rereview-4.md`
-- `docs/reviews/claude-code-stage-31-plan-rereview-5.md`
-- `docs/reviews/claude-code-stage-31-plan-rereview-6.md`
-- `docs/reviews/claude-code-stage-31-plan-rereview-7.md`
-- `docs/reviews/claude-code-stage-31-plan-rereview-8.md`
-- `docs/reviews/claude-code-stage-31-release-review-prompt.md`
-- `docs/reviews/claude-code-stage-31-release-review.md`
+- All Stage 31 Claude Code review artifacts are stored under
+  `docs/reviews/claude-code-stage-31-*.md`.

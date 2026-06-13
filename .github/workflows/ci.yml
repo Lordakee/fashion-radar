@@ -10,29 +10,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+      - name: Public lockfile check
+        run: |
+          UV_NO_CONFIG=1 uv lock --check
+          UV_NO_CONFIG=1 uv sync --locked --dev --check
+          if rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock; then
+            exit 1
+          fi
       - name: Install dependencies
-        run: uv sync --locked --dev
+        run: UV_NO_CONFIG=1 uv sync --locked --dev
       - name: Lint
         run: uv run ruff check .
       - name: Format check
         run: uv run ruff format --check .
       - name: Tests
         run: uv run pytest
-      - name: Build and installed CLI smoke
+      - name: Build, installed CLI smoke, and dashboard extra smoke
         run: |
-          uv build
+          tmp_build="$(mktemp -d)"
+          uv build --out-dir "$tmp_build"
           tmp_env="$(mktemp -d)"
           uv venv "$tmp_env/venv"
-          uv pip install --python "$tmp_env/venv/bin/python" dist/*.whl
+          uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
           tmp_run="$(mktemp -d)"
           "$tmp_env/venv/bin/fashion-radar" --help
           "$tmp_env/venv/bin/fashion-radar" init --config-dir "$tmp_run/config" --data-dir "$tmp_run/data" --reports-dir "$tmp_run/reports"
           "$tmp_env/venv/bin/fashion-radar" doctor --config-dir "$tmp_run/config" --data-dir "$tmp_run/data" --reports-dir "$tmp_run/reports"
           "$tmp_env/venv/bin/python" -c "from importlib import resources; text = resources.files('fashion_radar.templates').joinpath('daily_report.md').read_text(encoding='utf-8'); assert 'Fashion Radar Daily Report' in text"
-      - name: Dashboard extra smoke
-        run: |
-          tmp_env="$(mktemp -d)"
-          uv venv "$tmp_env/venv"
-          wheel_path="$(ls dist/*.whl | head -n 1)"
-          uv pip install --python "$tmp_env/venv/bin/python" "${wheel_path}[dashboard]"
-          "$tmp_env/venv/bin/python" -c "import fashion_radar.dashboard.app; import fashion_radar.dashboard.queries"
+          tmp_dash="$(mktemp -d)"
+          uv venv "$tmp_dash/venv"
+          wheel_path="$(ls "$tmp_build"/*.whl | head -n 1)"
+          uv pip install --python "$tmp_dash/venv/bin/python" "${wheel_path}[dashboard]"
+          "$tmp_dash/venv/bin/python" -c "import fashion_radar.dashboard.app; import fashion_radar.dashboard.queries"

@@ -374,6 +374,7 @@ See [docs/data-retention.md](docs/data-retention.md).
 
 - [docs/architecture.md](docs/architecture.md)
 - [docs/source-boundaries.md](docs/source-boundaries.md)
+- [docs/dependency-mirrors.md](docs/dependency-mirrors.md)
 - [docs/scoring.md](docs/scoring.md)
 - [docs/candidate-discovery.md](docs/candidate-discovery.md)
 - [docs/trend-deltas.md](docs/trend-deltas.md)
@@ -389,6 +390,7 @@ See [docs/data-retention.md](docs/data-retention.md).
 - [docs/source-packs.md](docs/source-packs.md)
 - [docs/source-pack-quality.md](docs/source-pack-quality.md)
 - [docs/github-upload-checklist.md](docs/github-upload-checklist.md)
+- [docs/release-gate-stage31.md](docs/release-gate-stage31.md)
 - [docs/REVIEW_PROTOCOL.md](docs/REVIEW_PROTOCOL.md)
 
 ## Development
@@ -399,6 +401,10 @@ uv run ruff check .
 uv run ruff format --check .
 uv run pytest
 ```
+
+For PR/release verification, use [CONTRIBUTING.md](CONTRIBUTING.md) or
+[docs/github-upload-checklist.md](docs/github-upload-checklist.md); public
+lockfile checks should use `UV_NO_CONFIG=1`.
 
 Optional article text extraction uses the `article` extra:
 

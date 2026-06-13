@@ -52,12 +52,15 @@ uv run fashion-radar dashboard
 Run before opening a pull request:
 
 ```bash
-uv lock --check
-uv sync --locked --dev
+UV_NO_CONFIG=1 uv lock --check
+UV_NO_CONFIG=1 uv sync --locked --dev --check
 uv run ruff check .
 uv run ruff format --check .
 uv run pytest
 ```
+
+`UV_NO_CONFIG=1` keeps release lockfile checks independent of user-level mirror
+configuration.
 
 If packaging, templates, dashboard, or optional dependencies changed, also run
 the relevant smoke checks from
