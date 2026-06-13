@@ -1,5 +1,7 @@
 import json
+import os
 import sqlite3
+import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -3201,6 +3203,225 @@ def test_imported_review_workflow_command_prints_table() -> None:
     assert "--data-dir" in result.output
     assert "'data ? # & %'" in result.output
     assert "--source-name 'Community | Tool Export'" in result.output
+
+
+def test_community_handoff_workflow_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["community-handoff-workflow", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "--input-format" in result.output
+    assert "--pattern" in result.output
+    assert "--config-dir" in result.output
+    assert "--data-dir" in result.output
+    assert "--as-of" in result.output
+    assert "--source-name" in result.output
+    assert "--format" in result.output
+    assert "Print a local community handoff command checklist" in result.output
+
+
+def test_community_handoff_workflow_command_prints_json_with_stable_keys(
+    tmp_path: Path,
+) -> None:
+    directory = tmp_path / "missing exports"
+    config_dir = tmp_path / "config dir"
+    data_dir = tmp_path / "data dir"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-workflow",
+            str(directory),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--source-name",
+            "Community Tool Export",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "directory",
+        "input_format",
+        "pattern",
+        "as_of",
+        "config_dir",
+        "data_dir",
+        "source_name",
+        "execution_mode",
+        "step_count",
+        "steps",
+    ]
+    assert payload["directory"] == str(directory)
+    assert payload["execution_mode"] == "print_only"
+    assert payload["step_count"] == 5
+    assert list(payload["steps"][0]) == [
+        "order",
+        "name",
+        "purpose",
+        "command",
+        "suggested_effect",
+    ]
+    assert [step["name"] for step in payload["steps"]] == [
+        "lint_handoff_directory",
+        "preview_candidate_phrases",
+        "dry_run_directory_import",
+        "import_directory_signals",
+        "print_post_import_review",
+    ]
+    assert payload["steps"][3]["suggested_effect"] == "updates_local_imports"
+    assert not directory.exists()
+    assert not config_dir.exists()
+    assert not data_dir.exists()
+
+
+def test_community_handoff_workflow_command_prints_table_without_artifacts(
+    tmp_path: Path,
+) -> None:
+    directory = tmp_path / "missing exports"
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-workflow",
+            str(directory),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Community signal handoff workflow." in result.output
+    assert "Commands were not executed." in result.output
+    assert "community-signal-lint-dir" in result.output
+    assert "community-candidates-dir" in result.output
+    assert "import-signals-dir" in result.output
+    assert "imported-review-workflow" in result.output
+    assert str(directory) in result.output
+    assert str(config_dir) in result.output
+    assert str(data_dir) in result.output
+    assert not directory.exists()
+    assert not config_dir.exists()
+    assert not data_dir.exists()
+
+
+def test_community_handoff_workflow_invalid_as_of_is_clean_error(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-workflow",
+            str(tmp_path / "exports"),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not build community handoff workflow: invalid --as-of" in result.output
+
+
+def test_community_handoff_workflow_does_not_read_directory_or_run_side_effects(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    directory = tmp_path / "exports"
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    guarded_paths = {directory}
+
+    def fail_side_effect(*args, **kwargs):
+        raise AssertionError("side effect should not run")
+
+    def is_guarded_path(path) -> bool:
+        try:
+            return Path(path) in guarded_paths
+        except TypeError:
+            return False
+
+    def guard_path_method(name: str):
+        original = getattr(Path, name)
+
+        def guarded(self: Path, *args, **kwargs):
+            if self in guarded_paths:
+                raise AssertionError(f"{name} should not inspect supplied paths")
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, name, guarded)
+
+    def guard_os_function(name: str):
+        original = getattr(os, name)
+
+        def guarded(path, *args, **kwargs):
+            if is_guarded_path(path):
+                raise AssertionError(f"os.{name} should not inspect supplied path: {path}")
+            return original(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, name, guarded)
+
+    for name in ("iterdir", "glob", "rglob", "exists", "is_dir", "stat", "lstat"):
+        guard_path_method(name)
+    for name in ("scandir", "stat", "listdir", "walk"):
+        guard_os_function(name)
+    monkeypatch.setattr(cli_module.subprocess, "run", fail_side_effect)
+    monkeypatch.setattr(subprocess, "Popen", fail_side_effect)
+    monkeypatch.setattr(sqlite3, "connect", fail_side_effect)
+    monkeypatch.setattr(cli_module, "create_sqlite_engine", fail_side_effect)
+    monkeypatch.setattr(cli_module, "initialize_schema", fail_side_effect)
+    monkeypatch.setattr(cli_module, "load_manual_signal_directory_rows", fail_side_effect)
+    monkeypatch.setattr(cli_module, "store_manual_signal_rows", fail_side_effect)
+    monkeypatch.setattr(cli_module, "collect_configured_sources", fail_side_effect)
+    monkeypatch.setattr(cli_module, "write_daily_report_files", fail_side_effect)
+    monkeypatch.setattr(cli_module, "package_daily_digest", fail_side_effect)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-workflow",
+            str(directory),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
 
 
 def _fail_imported_review_workflow_builder(*args, **kwargs):

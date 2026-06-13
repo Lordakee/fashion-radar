@@ -60,6 +60,18 @@ It is not a connector, source pack, platform collector, remote community
 ingestion workflow, source-acquisition guide, authorization verifier, policy
 workflow, or platform coverage check.
 
+`community-handoff-workflow` prints copyable local commands for
+`community-signal-lint-dir`, `community-candidates-dir`,
+`import-signals-dir --dry-run`, `import-signals-dir`, and
+`imported-review-workflow`. It does not execute commands, read the supplied
+directory, validate files, import rows, open or write SQLite, fetch URLs, log in,
+download media, automate browsers, scrape, monitor, watch folders, schedule
+work, add source/platform connectors, prove demand, verify platform coverage,
+rank sources, write reports, update dashboards, generate configs, or generate
+entity files. It may intentionally print the supplied directory/config/data
+paths inside copyable local commands; this differs from aggregate candidate
+preview output, which suppresses paths and row details.
+
 `community-candidates` reads one local CSV/JSON handoff file plus local config
 and prints aggregate candidate phrases. It does not import rows, open SQLite,
 fetch URLs, recurse directories, log in, write reports, update dashboards, or
@@ -230,6 +242,11 @@ The public README must explain:
   including optional non-recursive directory batches; it is not source
   acquisition, platform coverage verification, authorization verification, or a
   policy workflow feature.
+- Community handoff workflow prints copyable local commands only; it does not
+  execute commands, read the supplied directory, validate files, import rows,
+  open/write SQLite, add source/platform connectors, prove demand, verify
+  platform coverage, rank sources, write reports, update dashboards, generate
+  configs, or generate entity files.
 - Community candidate directory preview reads matched local files only and
   outputs aggregate candidate phrase metrics only; it is not source acquisition,
   platform/community coverage verification, authorization verification, or a

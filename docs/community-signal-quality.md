@@ -55,6 +55,12 @@ Fail on warnings as well as errors:
 uv run fashion-radar community-signal-lint ./community-signals.csv --input-format csv --strict
 ```
 
+Print a copyable local directory handoff workflow without running it:
+
+```bash
+uv run fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
+```
+
 Recommended order:
 
 ```bash
@@ -75,6 +81,8 @@ uv run fashion-radar import-signals ./community-signals.csv --format csv --sourc
 ```
 
 Use `community-signal-lint-dir` first for strict community handoff quality.
+Use `community-handoff-workflow` when you want that directory sequence printed
+as copyable local commands without executing anything.
 Use `import-signals-dir --dry-run` next when you want the broader manual
 importer model to validate matched local files without writing rows. Then use
 `import-signals-dir` without `--dry-run` to import the same local files only
@@ -100,6 +108,16 @@ reports only aggregate candidate phrase metrics and keeps the supplied directory
 path, matched file paths, matched file names, row URLs, row titles, summaries,
 raw text, normalized keys, candidate contexts, raw validation findings,
 account/private fields, and representative item details out of output.
+`community-handoff-workflow` is different from aggregate preview output: it
+intentionally prints supplied directory/config/data paths inside copyable local
+commands.
+
+`community-handoff-workflow` does not execute commands, read the supplied
+directory, validate files, import rows, open or write SQLite, fetch URLs, log in,
+download media, automate browsers, scrape, monitor, watch folders, schedule work,
+add source/platform connectors, prove demand, verify platform coverage, rank
+sources, write reports, update dashboards, generate configs, or generate entity
+files.
 
 Directory linting is non-recursive in this version. A pattern such as `*.csv`
 matches regular files directly under the supplied directory only. Nested files

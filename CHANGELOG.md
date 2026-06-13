@@ -73,6 +73,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   files in one directory.
 - Local `imported-review-workflow` command for printing a copyable post-import
   review sequence without executing it.
+- Local print-only `community-handoff-workflow` command for printing the
+  directory community handoff sequence without reading the supplied directory or
+  executing generated commands, intentionally including supplied
+  directory/config/data paths inside copyable local commands.
 - Optional fashion entity watchlist pack for broader local matching coverage
   using the existing `entities.yaml` schema.
 - Local read-only `entity-pack-lint` command for entity YAML quality diagnostics

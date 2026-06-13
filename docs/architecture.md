@@ -11,6 +11,7 @@ YAML config
   -> optionally lint source-pack quality before collection
   -> optionally lint entity-pack quality before matching
   -> collect public sources
+  -> optionally print a community directory handoff checklist without executing it
   -> optionally lint one community signal CSV/JSON file or a local directory batch before import
   -> optionally dry-run matched local signal files in one directory before import
   -> optionally import user-provided local CSV/JSON signals from one file or one directory
@@ -57,6 +58,12 @@ YAML config
   `community-candidates` is an in-memory pre-import preview over one local
   handoff file. It sits before manual import and does not write database,
   report, config, or dashboard state.
+  `community-handoff-workflow` is a print-only helper over the local directory
+  handoff sequence. It prints copyable commands for `community-signal-lint-dir`,
+  `community-candidates-dir`, `import-signals-dir --dry-run`,
+  `import-signals-dir`, and `imported-review-workflow` without reading the
+  supplied directory, validating files, importing rows, opening or writing
+  SQLite, fetching URLs, or creating workflow artifacts.
   `import-signals-dir --dry-run` validates matched regular files directly under
   one local directory through the same importer model without opening SQLite,
   importing rows, or creating workflow artifacts. `import-signals-dir` without
@@ -142,6 +149,7 @@ fashion-radar doctor
 fashion-radar source-pack-lint ./configs/sources.yaml
 fashion-radar entity-pack-lint ./configs/entities.yaml
 fashion-radar collect
+fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --data-dir ./data --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar community-signal-lint ./signals.csv --input-format csv --source-name "Manual Export"
 fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Manual Export"
 fashion-radar community-candidates-dir ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
@@ -173,6 +181,15 @@ There are no parallel database writers in the MVP workflow.
 regular files directly under one local directory. It sits before manual
 directory import and does not write database, report, config, entity, or
 dashboard state.
+
+`community-handoff-workflow` prints a copyable local directory sequence and does
+not execute commands, read the supplied directory, validate files, import rows,
+open or write SQLite, fetch URLs, log in, download media, automate browsers,
+scrape, monitor, watch folders, schedule work, add source/platform connectors,
+prove demand, verify platform coverage, rank sources, write reports, update
+dashboards, generate configs, or generate entity files. It intentionally prints
+the supplied directory/config/data paths inside copyable local commands, unlike
+aggregate candidate preview output.
 
 ## Source-Pack Quality Boundary
 

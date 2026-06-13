@@ -72,6 +72,23 @@ uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pa
 uv run fashion-radar community-signal-lint-dir ./exports --input-format json --pattern "*.json" --source-name "Community Tool Export" --strict
 ```
 
+Print a copyable directory handoff workflow without running it:
+
+```bash
+uv run fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
+```
+
+`community-handoff-workflow` prints the local sequence
+`community-signal-lint-dir`, `community-candidates-dir`,
+`import-signals-dir --dry-run`, `import-signals-dir`, and
+`imported-review-workflow`. It does not execute commands, read the supplied
+directory, validate files, import rows, open or write SQLite, fetch URLs, log in,
+download media, automate browsers, scrape, monitor, watch folders, schedule
+work, add source/platform connectors, prove demand, verify platform coverage,
+rank sources, write reports, update dashboards, generate configs, or generate
+entity files. It intentionally prints the supplied directory/config/data paths
+inside copyable local commands, unlike aggregate candidate preview output.
+
 Preview aggregate candidate phrases from one local handoff file before import:
 
 ```bash
@@ -131,6 +148,12 @@ backward-compatible with extra columns. Use the same `--source-name` across
 lint, directory dry run, and import when you want source summaries to align.
 `import-signals-dir` without `--dry-run` imports only after every matched local
 file validates; a validation failure imports nothing.
+
+Use `community-handoff-workflow` when you want Fashion Radar to print that
+directory order without running any step. It may print supplied
+directory/config/data paths because its output is a copyable local checklist;
+that is different from `community-candidates-dir`, which suppresses paths and
+row details in aggregate preview output.
 
 See [community-signal-quality.md](community-signal-quality.md).
 
@@ -227,6 +250,14 @@ provide instructions for obtaining platform or community data.
 local directory passed to it. They report contract findings. They do not fetch
 URLs, log in, recurse, download media, verify authorization, or provide
 instructions for obtaining platform/community data.
+
+`community-handoff-workflow` does not execute commands, read the supplied
+directory, validate files, import rows, open or write SQLite, fetch URLs, log in,
+download media, automate browsers, scrape, monitor, watch folders, schedule work,
+add source/platform connectors, prove demand, verify platform coverage, rank
+sources, write reports, update dashboards, generate configs, or generate entity
+files. It only prints copyable local commands and may echo supplied
+directory/config/data paths inside those commands.
 
 `community-candidates-dir` reads only matched regular files directly under the
 local directory passed to it plus local config. It does not recurse, import

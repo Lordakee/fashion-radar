@@ -52,6 +52,20 @@ Stage 29 docs check:
       validation finding, account/private field, or representative item detail
       exposure.
 
+Stage 30 docs check:
+
+- [ ] `community-handoff-workflow` docs describe a local print-only directory
+      workflow for `community-signal-lint-dir`, `community-candidates-dir`,
+      `import-signals-dir --dry-run`, `import-signals-dir`, and
+      `imported-review-workflow`; no command execution, directory reads, file
+      validation, row import, SQLite open/write, URL fetching, login, media
+      download, browser automation, scraping, monitoring, folder watching,
+      scheduling, source/platform connectors, demand proof, platform coverage
+      verification, source ranking, report writing, dashboard updates, config
+      generation, or entity file generation; and intentional printing of
+      supplied directory/config/data paths inside copyable local commands,
+      unlike aggregate candidate preview output.
+
 ## Exclude
 
 Do not commit or upload:
@@ -122,10 +136,12 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --help
 "$tmp_env/venv/bin/fashion-radar" imported-candidate-evidence --help
 "$tmp_env/venv/bin/fashion-radar" imported-review-workflow --help
+"$tmp_env/venv/bin/fashion-radar" community-handoff-workflow --help
 "$tmp_env/venv/bin/fashion-radar" imported-signals --data-dir "$tmp_run/data" --as-of "2026-06-12T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidate-evidence --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --phrase "Le Teckel bag" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-review-workflow --data-dir "$tmp_run/data ? # & %" --config-dir "$tmp_run/config ? # & %" --as-of "2026-06-13T12:00:00Z" --format json
+"$tmp_env/venv/bin/fashion-radar" community-handoff-workflow "$tmp_run/missing ? # & %" --input-format csv --pattern "*.csv" --config-dir "$tmp_run/config ? # & %" --data-dir "$tmp_run/data ? # & %" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/python" -c "from importlib import resources; text = resources.files('fashion_radar.templates').joinpath('daily_report.md').read_text(encoding='utf-8'); assert 'Fashion Radar Daily Report' in text"
 ```
 

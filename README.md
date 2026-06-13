@@ -19,6 +19,8 @@ on the sources you configure and local signals you import.
   process.
 - Lints local community signal CSV/JSON files against the handoff contract
   before import, without fetching URLs or importing rows.
+- Prints a local community directory handoff checklist without reading the
+  supplied directory or running the generated commands.
 - Reviews retained `manual_import` rows already stored in local SQLite without
   importing, collecting, matching, scoring, or writing reports.
 - Stores conservative metadata in a local SQLite database.
@@ -87,6 +89,7 @@ uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Ma
 External community tools can target the local community signal contract:
 
 ```bash
+uv run fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
 uv run fashion-radar community-signal-lint examples/community-signals.example.csv --input-format csv --source-name "Community Tool Export"
 uv run fashion-radar community-candidates ./community-signals.csv --input-format csv --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
 uv run fashion-radar community-candidates ./community-signals.csv --input-format csv --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
@@ -143,6 +146,19 @@ paths, expose matched file names, or expose row URLs, row titles, summaries,
 raw text, normalized keys, candidate contexts, raw validation findings,
 account/private fields, or representative item details. The output is not proof
 of demand, not platform coverage, and not source ranking.
+
+`community-handoff-workflow` is local and print-only. It prints the ordered
+local sequence `community-signal-lint-dir`, `community-candidates-dir`,
+`import-signals-dir --dry-run`, `import-signals-dir`, and
+`imported-review-workflow` for a supplied directory. It does not execute
+commands, read the supplied directory, validate files, import rows, open or
+write SQLite, fetch URLs, log in, download media, automate browsers, scrape,
+monitor, watch folders, schedule work, add source/platform connectors, prove
+demand, verify platform coverage, rank sources, write reports, update
+dashboards, generate configs, or generate entity files. It intentionally prints
+the supplied directory/config/data paths inside copyable local commands; this
+differs from aggregate candidate preview output, which suppresses paths and row
+details.
 
 Review untracked candidate signals from configured sources and imported local
 signals:
@@ -265,6 +281,7 @@ Check a directory of community signal handoff files before choosing files to dry
 run or import:
 
 ```bash
+uv run fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
 uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export"
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --dry-run
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export"
@@ -282,6 +299,14 @@ create config/data/report artifacts.
 `import-signals-dir` without `--dry-run` imports the same matched local files
 only after every matched file validates. Validation failures import nothing and
 do not create the data directory or SQLite database.
+
+`community-handoff-workflow` can print the same directory handoff order before
+you run any step. It prints copyable commands only; it does not execute them,
+read the supplied directory, validate files, import rows, open or write SQLite,
+fetch URLs, log in, download media, automate browsers, scrape, monitor, watch
+folders, schedule work, add source/platform connectors, prove demand, verify
+platform coverage, rank sources, write reports, update dashboards, generate
+configs, or generate entity files.
 
 `imported-signals` is local and read-only. It opens an existing SQLite database
 in read-only mode and returns retained rows where `source_type` is
