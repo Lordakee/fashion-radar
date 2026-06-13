@@ -11,8 +11,12 @@ from fashion_radar.db.schema import SCHEMA_VERSION, initialize_schema
 from fashion_radar.imported_signals import (
     ImportedSignalItem,
     ImportedSignalMatch,
+    ImportedSignalSourceSummaryRow,
     ImportedSignalsReview,
+    ImportedSignalsSourceSummary,
     query_imported_signals,
+    query_imported_signals_summary,
+    render_imported_signals_summary_table,
     render_imported_signals_table,
     verify_imported_signals_schema,
 )
@@ -619,6 +623,197 @@ def test_render_imported_signals_table_populated_sanitizes_cells() -> None:
         "2 | 2026-06-12T11:00:00+00:00 | unmatched | Manual Import | 1.00 | Le Teckel bag rises | https://example.com/le-teckel",
     ]
     assert all(not line.startswith("Matches:") for line in render_imported_signals_table(review))
+
+
+def test_query_imported_signals_summary_missing_database_returns_empty_without_creating_dir(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "missing" / "fashion-radar.sqlite"
+
+    summary = query_imported_signals_summary(db_path)
+
+    assert summary.database == str(db_path)
+    assert summary.source_type == "manual_import"
+    assert summary.source_count == 0
+    assert summary.row_count == 0
+    assert summary.matched_count == 0
+    assert summary.unmatched_count == 0
+    assert summary.first_collected_at is None
+    assert summary.latest_collected_at is None
+    assert summary.sources == []
+    assert not db_path.parent.exists()
+
+
+def test_query_imported_signals_summary_groups_manual_rows_and_match_presence(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "fashion-radar.sqlite"
+    engine = create_sqlite_engine(db_path)
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    matched_id = _store_item(
+        repository,
+        source_name="Community Tool Export",
+        url="https://example.com/margaux",
+        title="Margaux interest",
+        published_at=datetime(2026, 6, 12, 8, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 12, 9, 0, tzinfo=UTC),
+    )
+    _store_item(
+        repository,
+        source_name="Community Tool Export",
+        url="https://example.com/unmatched",
+        title="Unmatched item",
+        published_at=datetime(2026, 6, 12, 8, 30, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+    )
+    _store_item(
+        repository,
+        source_name="Manual Import",
+        url="https://example.com/manual",
+        title="Manual item",
+        published_at=datetime(2026, 6, 10, 7, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 10, 9, 0, tzinfo=UTC),
+    )
+    _store_item(
+        repository,
+        source_name="RSS Source",
+        source_type=SourceType.RSS,
+        url="https://example.com/rss",
+        title="RSS item",
+        published_at=datetime(2026, 6, 12, 7, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 12, 11, 0, tzinfo=UTC),
+    )
+    repository.replace_item_matches(
+        matched_id,
+        [
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "The Row",
+                "confidence": 1.0,
+                "reason": "context",
+                "context_terms": ["margaux"],
+            },
+            {
+                "entity_name": "Margaux",
+                "entity_type": "product",
+                "alias": "Margaux",
+                "confidence": 0.9,
+                "reason": "context",
+                "context_terms": ["bag"],
+            },
+        ],
+    )
+    engine.dispose()
+
+    summary = query_imported_signals_summary(db_path)
+
+    assert summary.source_count == 2
+    assert summary.row_count == 3
+    assert summary.matched_count == 1
+    assert summary.unmatched_count == 2
+    assert summary.first_collected_at == "2026-06-10T09:00:00+00:00"
+    assert summary.latest_collected_at == "2026-06-12T10:00:00+00:00"
+    assert [source.source_name for source in summary.sources] == [
+        "Community Tool Export",
+        "Manual Import",
+    ]
+    assert summary.sources[0].row_count == 2
+    assert summary.sources[0].matched_count == 1
+    assert summary.sources[0].unmatched_count == 1
+    assert summary.sources[0].first_collected_at == "2026-06-12T09:00:00+00:00"
+    assert summary.sources[0].latest_collected_at == "2026-06-12T10:00:00+00:00"
+    assert summary.sources[1].row_count == 1
+    assert summary.sources[1].matched_count == 0
+    assert summary.sources[1].unmatched_count == 1
+
+
+def test_query_imported_signals_summary_uses_readonly_engine(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db_path = tmp_path / "fashion-radar.sqlite"
+    engine = create_sqlite_engine(db_path)
+    initialize_schema(engine)
+    _store_item(
+        ItemRepository(engine),
+        source_name="Manual Import",
+        url="https://example.com/manual",
+        title="Manual item",
+        published_at=datetime(2026, 6, 12, 8, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 12, 9, 0, tzinfo=UTC),
+    )
+    engine.dispose()
+    calls: list[Path] = []
+    original = imported_signals_module.create_readonly_sqlite_engine
+
+    def wrapped_create_readonly_sqlite_engine(path: Path):
+        calls.append(path)
+        return original(path)
+
+    monkeypatch.setattr(
+        imported_signals_module,
+        "create_readonly_sqlite_engine",
+        wrapped_create_readonly_sqlite_engine,
+    )
+
+    query_imported_signals_summary(db_path)
+
+    assert calls == [db_path]
+
+
+def test_render_imported_signals_summary_table_empty() -> None:
+    summary = ImportedSignalsSourceSummary(database="missing.sqlite")
+
+    assert render_imported_signals_summary_table(summary) == [
+        "Imported manual signal source summary from local SQLite.",
+        "Rows: 0 retained manual rows across 0 sources",
+        "Matched rows: 0 matched, 0 unmatched",
+        "Collected at: none",
+        "No imported manual signal sources found.",
+    ]
+
+
+def test_render_imported_signals_summary_table_populated_sanitizes_cells() -> None:
+    summary = ImportedSignalsSourceSummary(
+        database="data/fashion-radar.sqlite",
+        source_count=2,
+        row_count=3,
+        matched_count=1,
+        unmatched_count=2,
+        first_collected_at="2026-06-10T09:00:00+00:00",
+        latest_collected_at="2026-06-12T10:00:00+00:00",
+        sources=[
+            ImportedSignalSourceSummaryRow(
+                source_name="Community | Tool\nExport",
+                row_count=2,
+                matched_count=1,
+                unmatched_count=1,
+                first_collected_at="2026-06-12T09:00:00+00:00",
+                latest_collected_at="2026-06-12T10:00:00+00:00",
+            ),
+            ImportedSignalSourceSummaryRow(
+                source_name="Manual Import",
+                row_count=1,
+                matched_count=0,
+                unmatched_count=1,
+                first_collected_at="2026-06-10T09:00:00+00:00",
+                latest_collected_at="2026-06-10T09:00:00+00:00",
+            ),
+        ],
+    )
+
+    assert render_imported_signals_summary_table(summary) == [
+        "Imported manual signal source summary from local SQLite.",
+        "Rows: 3 retained manual rows across 2 sources",
+        "Matched rows: 1 matched, 2 unmatched",
+        "Collected at: 2026-06-10T09:00:00+00:00 first, 2026-06-12T10:00:00+00:00 latest",
+        "Source | Rows | Matched Rows | Unmatched Rows | First Collected At | Latest Collected At",
+        "Community / Tool Export | 2 | 1 | 1 | "
+        "2026-06-12T09:00:00+00:00 | 2026-06-12T10:00:00+00:00",
+        "Manual Import | 1 | 0 | 1 | 2026-06-10T09:00:00+00:00 | 2026-06-10T09:00:00+00:00",
+    ]
 
 
 def _store_item(

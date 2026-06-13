@@ -28,6 +28,9 @@ one local directory through the same importer model without importing rows,
 opening SQLite, creating workflow artifacts, fetching URLs, or collecting
 sources. Manual signal directory import uses the same non-recursive local file
 matching and writes only after every matched file validates.
+Imported signal summary reads existing `manual_import` rows from local SQLite,
+groups row counts by stored `source_name`, and creates no config, data, report,
+or dashboard artifacts.
 
 Imported signal review reads retained `manual_import` rows from an existing
 local SQLite database in read-only mode. It is not a connector, source pack,

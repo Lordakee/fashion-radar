@@ -35,6 +35,8 @@ from fashion_radar.entity_packs import (
 )
 from fashion_radar.imported_signals import (
     query_imported_signals,
+    query_imported_signals_summary,
+    render_imported_signals_summary_table,
     render_imported_signals_table,
 )
 from fashion_radar.importers.manual_signals import (
@@ -115,6 +117,7 @@ ManualSignalInputFormat = Literal["csv", "json"]
 CommunitySignalLintOutputFormat = Literal["table", "json"]
 ImportSignalsDirOutputFormat = Literal["table", "json"]
 ImportedSignalsOutputFormat = Literal["table", "json"]
+ImportedSignalsSummaryOutputFormat = Literal["table", "json"]
 EntityPackLintOutputFormat = Literal["table", "json"]
 SourcePackLintOutputFormat = Literal["table", "json"]
 TrendOutputFormat = Literal["table", "json"]
@@ -154,6 +157,11 @@ IMPORTED_SIGNALS_AS_OF_OPTION = typer.Option(
     help="UTC review timestamp, for example 2026-06-12T12:00:00Z.",
 )
 IMPORTED_SIGNALS_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+IMPORTED_SIGNALS_SUMMARY_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
@@ -746,6 +754,25 @@ def trends_command(
         engine.dispose()
 
     _print_trend_output(comparison, output_format=output_format)
+
+
+@app.command(name="imported-signals-summary")
+def imported_signals_summary_command(
+    data_dir: Path = DATA_DIR_OPTION,
+    output_format: ImportedSignalsSummaryOutputFormat = IMPORTED_SIGNALS_SUMMARY_FORMAT_OPTION,
+) -> None:
+    """Summarize imported manual signal source labels already stored in local SQLite."""
+    try:
+        summary = query_imported_signals_summary(default_database_path(data_dir))
+    except Exception as exc:
+        typer.echo(f"Could not summarize imported signals: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(summary.model_dump_json(indent=2))
+        return
+    for line in render_imported_signals_summary_table(summary):
+        typer.echo(line)
 
 
 @app.command(name="imported-signals")

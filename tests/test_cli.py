@@ -2099,6 +2099,250 @@ def test_imported_signals_command_does_not_mutate_existing_database(
     assert after_matches == before_matches
 
 
+def test_imported_signals_summary_command_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["imported-signals-summary", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "--data-dir" in result.output
+    assert "--format" in result.output
+    assert "Summarize imported manual signal source labels" in result.output
+
+
+def test_imported_signals_summary_command_missing_database_is_read_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals-summary",
+            "--data-dir",
+            str(data_dir),
+            "--format",
+            "json",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["row_count"] == 0
+    assert payload["source_count"] == 0
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_imported_signals_summary_command_prints_table(tmp_path: Path) -> None:
+    data_dir = _prepare_imported_signals_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals-summary",
+            "--data-dir",
+            str(data_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Imported manual signal source summary from local SQLite." in result.output
+    assert "Rows: 3 retained manual rows across 2 sources" in result.output
+    assert "Matched rows: 1 matched, 2 unmatched" in result.output
+    assert "Community Tool Export | 2 | 1 | 1" in result.output
+    assert "Manual Import | 1 | 0 | 1" in result.output
+    assert "Margaux interest" not in result.output
+    assert "https://example.com/margaux" not in result.output
+    assert "RSS Source" not in result.output
+
+
+def test_imported_signals_summary_command_prints_json_with_stable_keys(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_imported_signals_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals-summary",
+            "--data-dir",
+            str(data_dir),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "database",
+        "source_type",
+        "source_count",
+        "row_count",
+        "matched_count",
+        "unmatched_count",
+        "first_collected_at",
+        "latest_collected_at",
+        "sources",
+    ]
+    assert payload["source_type"] == "manual_import"
+    assert payload["source_count"] == 2
+    assert payload["row_count"] == 3
+    assert payload["matched_count"] == 1
+    assert payload["unmatched_count"] == 2
+    assert list(payload["sources"][0]) == [
+        "source_name",
+        "row_count",
+        "matched_count",
+        "unmatched_count",
+        "first_collected_at",
+        "latest_collected_at",
+    ]
+    assert "title" not in payload["sources"][0]
+    assert "url" not in payload["sources"][0]
+
+
+def _fail_imported_signals_summary_query(*args, **kwargs):
+    raise AssertionError("query_imported_signals_summary should not be called")
+
+
+def test_imported_signals_summary_command_rejects_invalid_format_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_signals_summary",
+        _fail_imported_signals_summary_query,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals-summary",
+            "--data-dir",
+            str(data_dir),
+            "--format",
+            "xml",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--format" in result.output
+    assert "query_imported_signals_summary should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_signals_summary_command_handles_special_character_data_dir(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_imported_signals_cli_fixture(
+        tmp_path,
+        data_dir_name="data ? # & %",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals-summary",
+            "--data-dir",
+            str(data_dir),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["row_count"] == 3
+    assert payload["database"] == str(data_dir / "fashion-radar.sqlite")
+
+
+def test_imported_signals_summary_command_invalid_schema_no_traceback(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    with sqlite3.connect(data_dir / "fashion-radar.sqlite") as connection:
+        connection.execute("create table schema_metadata (version integer primary key)")
+        connection.execute(f"insert into schema_metadata (version) values ({SCHEMA_VERSION})")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals-summary",
+            "--data-dir",
+            str(data_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not summarize imported signals" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_imported_signals_summary_command_does_not_mutate_existing_database(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_imported_signals_cli_fixture(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    with sqlite3.connect(db_path) as connection:
+        before_items = connection.execute("select count(*) from items").fetchone()[0]
+        before_matches = connection.execute("select count(*) from item_entities").fetchone()[0]
+        before_schema_version = connection.execute(
+            "select version from schema_metadata"
+        ).fetchone()[0]
+        before_tables = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals-summary",
+            "--data-dir",
+            str(data_dir),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    with sqlite3.connect(db_path) as connection:
+        after_items = connection.execute("select count(*) from items").fetchone()[0]
+        after_matches = connection.execute("select count(*) from item_entities").fetchone()[0]
+        after_schema_version = connection.execute("select version from schema_metadata").fetchone()[
+            0
+        ]
+        after_tables = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+    assert after_items == before_items
+    assert after_matches == before_matches
+    assert after_schema_version == before_schema_version
+    assert after_tables == before_tables
+
+
 def _prepare_imported_signals_cli_fixture(
     tmp_path: Path,
     *,

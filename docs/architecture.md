@@ -16,6 +16,7 @@ YAML config
   -> optionally import user-provided local CSV/JSON signals from one file or one directory
   -> store items in SQLite
   -> optionally review retained manual_import rows from local SQLite
+  -> optionally summarize retained manual_import rows by stored source-name label
   -> match configured entities
   -> score current vs baseline windows
   -> discover candidate signals from retained local items
@@ -56,7 +57,9 @@ YAML config
 - **Imported Signal Review:** Local read-only review of retained
   `manual_import` rows from existing SQLite state. It verifies schema before
   querying and does not import rows, collect sources, fetch URLs, run matching,
-  score signals, generate reports, or create dashboard/report artifacts.
+  score signals, generate reports, or create dashboard/report artifacts. The
+  summary command uses the same existing SQLite read boundary and groups
+  retained rows by stored `source_name`.
 - **Community Signal Quality:** Local read-only diagnostics lint one community
   signal CSV/JSON file or a non-recursive batch of matched regular files in one
   local directory before dry-run/import. The linters check strict handoff fields
@@ -128,6 +131,7 @@ fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "
 fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export" --dry-run
 fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export"
 fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
+fashion-radar imported-signals-summary --data-dir ./data
 fashion-radar imported-signals --data-dir ./data --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar match
 fashion-radar report --as-of 2026-06-11T12:00:00Z

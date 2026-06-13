@@ -57,6 +57,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   import after every matched file passes importer-model validation.
 - Local read-only `imported-signals` command for reviewing retained
   `manual_import` rows and stored match presence after local file imports.
+- Local read-only `imported-signals-summary` command for grouping retained
+  `manual_import` rows by stored source-name label and item-level stored match
+  presence.
 - Optional fashion entity watchlist pack for broader local matching coverage
   using the existing `entities.yaml` schema.
 - Local read-only `entity-pack-lint` command for entity YAML quality diagnostics

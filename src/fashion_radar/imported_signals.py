@@ -58,6 +58,31 @@ class ImportedSignalsReview(BaseModel):
     items: list[ImportedSignalItem] = Field(default_factory=list)
 
 
+class ImportedSignalSourceSummaryRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_name: str
+    row_count: int
+    matched_count: int = 0
+    unmatched_count: int = 0
+    first_collected_at: str | None = None
+    latest_collected_at: str | None = None
+
+
+class ImportedSignalsSourceSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    database: str
+    source_type: Literal["manual_import"] = "manual_import"
+    source_count: int = 0
+    row_count: int = 0
+    matched_count: int = 0
+    unmatched_count: int = 0
+    first_collected_at: str | None = None
+    latest_collected_at: str | None = None
+    sources: list[ImportedSignalSourceSummaryRow] = Field(default_factory=list)
+
+
 REQUIRED_SCHEMA_METADATA_COLUMNS = {"version"}
 REQUIRED_ITEMS_COLUMNS = {
     "id",
@@ -122,6 +147,19 @@ def query_imported_signals(
         engine.dispose()
 
 
+def query_imported_signals_summary(db_path: Path) -> ImportedSignalsSourceSummary:
+    summary_base = {"database": str(db_path)}
+    if not db_path.exists():
+        return ImportedSignalsSourceSummary(**summary_base)
+
+    engine = create_readonly_sqlite_engine(db_path)
+    try:
+        verify_imported_signals_schema(engine)
+        return _query_imported_signals_summary(engine, summary_base=summary_base)
+    finally:
+        engine.dispose()
+
+
 def verify_imported_signals_schema(engine: Engine) -> None:
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
@@ -159,6 +197,31 @@ def render_imported_signals_table(review: ImportedSignalsReview) -> list[str]:
             f"{item.id} | {item.collected_at} | {_format_match_cell(item)} | "
             f"{_table_cell(item.source_name)} | {item.source_weight:.2f} | "
             f"{_table_cell(item.title)} | {_table_cell(item.url)}"
+        )
+    return lines
+
+
+def render_imported_signals_summary_table(
+    summary: ImportedSignalsSourceSummary,
+) -> list[str]:
+    lines = [
+        "Imported manual signal source summary from local SQLite.",
+        (f"Rows: {summary.row_count} retained manual rows across {summary.source_count} sources"),
+        f"Matched rows: {summary.matched_count} matched, {summary.unmatched_count} unmatched",
+        _format_collected_at_range(summary.first_collected_at, summary.latest_collected_at),
+    ]
+    if not summary.sources:
+        lines.append("No imported manual signal sources found.")
+        return lines
+
+    lines.append(
+        "Source | Rows | Matched Rows | Unmatched Rows | First Collected At | Latest Collected At"
+    )
+    for source in summary.sources:
+        lines.append(
+            f"{_table_cell(source.source_name)} | {source.row_count} | "
+            f"{source.matched_count} | {source.unmatched_count} | "
+            f"{source.first_collected_at or ''} | {source.latest_collected_at or ''}"
         )
     return lines
 
@@ -237,6 +300,65 @@ def _query_imported_signals(
     )
 
 
+def _query_imported_signals_summary(
+    engine: Engine,
+    *,
+    summary_base: dict[str, object],
+) -> ImportedSignalsSourceSummary:
+    match_exists = select(item_entities.c.id).where(item_entities.c.item_id == items.c.id).exists()
+    conditions = [items.c.source_type == SourceType.MANUAL_IMPORT.value]
+
+    with engine.connect() as connection:
+        source_rows = connection.execute(
+            select(
+                items.c.source_name,
+                func.count(),
+                func.min(items.c.collected_at),
+                func.max(items.c.collected_at),
+            )
+            .where(*conditions)
+            .group_by(items.c.source_name)
+            .order_by(items.c.source_name)
+        ).all()
+        matched_rows = connection.execute(
+            select(items.c.source_name, func.count())
+            .where(*conditions, match_exists)
+            .group_by(items.c.source_name)
+        ).all()
+
+    matched_by_source = {str(name): int(count) for name, count in matched_rows}
+    sources: list[ImportedSignalSourceSummaryRow] = []
+    for name, count, first_collected_at, latest_collected_at in source_rows:
+        source_name = str(name)
+        row_count = int(count)
+        matched_count = matched_by_source.get(source_name, 0)
+        sources.append(
+            ImportedSignalSourceSummaryRow(
+                source_name=source_name,
+                row_count=row_count,
+                matched_count=matched_count,
+                unmatched_count=row_count - matched_count,
+                first_collected_at=parse_datetime_utc(first_collected_at).isoformat(),
+                latest_collected_at=parse_datetime_utc(latest_collected_at).isoformat(),
+            )
+        )
+
+    row_count = sum(source.row_count for source in sources)
+    matched_count = sum(source.matched_count for source in sources)
+    first_values = [source.first_collected_at for source in sources if source.first_collected_at]
+    latest_values = [source.latest_collected_at for source in sources if source.latest_collected_at]
+    return ImportedSignalsSourceSummary(
+        **summary_base,
+        source_count=len(sources),
+        row_count=row_count,
+        matched_count=matched_count,
+        unmatched_count=row_count - matched_count,
+        first_collected_at=min(first_values) if first_values else None,
+        latest_collected_at=max(latest_values) if latest_values else None,
+        sources=sources,
+    )
+
+
 def _fetch_matches_by_item_id(
     connection: Any,
     item_ids: list[int],
@@ -312,6 +434,12 @@ def _format_match_cell(item: ImportedSignalItem) -> str:
         return "unmatched"
     names = ", ".join(_table_cell(match.entity_name) for match in item.matches)
     return f"matched:{names}"
+
+
+def _format_collected_at_range(first: str | None, latest: str | None) -> str:
+    if first is None or latest is None:
+        return "Collected at: none"
+    return f"Collected at: {first} first, {latest} latest"
 
 
 def _table_cell(value: str) -> str:

@@ -97,6 +97,8 @@ uv run fashion-radar import-signals examples/community-signals.example.csv --for
 Inspect retained imported rows before matching or downstream review:
 
 ```bash
+uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
+uv run fashion-radar imported-signals-summary --data-dir "$PWD/data" --format json
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --unmatched-only
@@ -246,6 +248,13 @@ do not create the data directory or SQLite database.
 in read-only mode and returns retained rows where `source_type` is
 `manual_import`; it does not import rows, fetch URLs, run matching/scoring,
 generate reports, monitor folders, or create dashboard/report artifacts.
+
+`imported-signals-summary` is local and read-only. It opens an existing SQLite
+database in read-only mode and groups retained `manual_import` rows by stored
+`source_name`, showing row counts and item-level stored match presence without
+exposing row titles, URLs, summaries, import file paths, or match details.
+`source_name` is a stored local provenance label, not a statement about
+anything outside the local database.
 
 ## Reports And Storage
 
