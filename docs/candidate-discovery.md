@@ -106,6 +106,14 @@ phrase extraction and configured-entity suppression, but it does not open
 SQLite, consult stored matches, write reports, or expose representative items.
 The preview is aggregate-only and is limited to the supplied file.
 
+`community-candidates-dir` is the batch counterpart for matched regular
+CSV/JSON files directly under one local directory. It uses the same in-memory
+candidate extraction and configured-entity suppression, but it does not recurse,
+open SQLite, consult stored matches, import rows, write reports, expose matched
+file paths, expose matched file names, expose account/private fields, or expose
+representative items. The preview is aggregate-only and is limited to the
+matched local files.
+
 ## Reports And Dashboard
 
 Daily JSON and Markdown reports may include an untracked candidate signal

@@ -68,6 +68,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `manual_import` rows behind one imported candidate phrase.
 - Added `community-candidates` for local pre-import candidate phrase previews
   from one supplied community signal CSV/JSON handoff file.
+- Added `community-candidates-dir` for local non-recursive aggregate-only
+  pre-import candidate phrase previews from matched community signal handoff
+  files in one directory.
 - Local `imported-review-workflow` command for printing a copyable post-import
   review sequence without executing it.
 - Optional fashion entity watchlist pack for broader local matching coverage

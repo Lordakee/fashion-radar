@@ -69,6 +69,19 @@ representative item details.
 
 `community-candidates` is not proof of demand, not platform coverage, not source ranking, not a source connector, not an acquisition workflow, not a scraper, not a watcher, not a scheduler, not a report writer, not a dashboard updater, not a database import, and not an entity YAML generator.
 
+`community-candidates-dir` reads matched regular CSV/JSON handoff files directly
+under one local directory plus local config and prints aggregate candidate
+phrase metrics. It does not recurse, import rows, open SQLite, fetch URLs, log
+in, write reports, update dashboards, generate entity files, print the supplied
+directory path, expose matched file paths, expose matched file names, or expose
+row URLs, row titles, summaries, raw text, normalized keys, candidate contexts,
+raw validation findings, account/private fields, or representative item details.
+
+`community-candidates-dir` is not proof of demand, not platform coverage, not
+source ranking, not a source connector, not an acquisition workflow, not a
+scraper, not a watcher, not a scheduler, not a report writer, not a dashboard
+updater, not a database import, and not an entity YAML generator.
+
 Entity packs are local `entities.yaml` templates. They change only local entity
 matching configuration and do not add sources, source setup, collection
 workflows, platform/community ingestion, scraping, social monitoring, ranking
@@ -216,6 +229,10 @@ The public README must explain:
 - Community signal lint validates local file structure and allowed fields only,
   including optional non-recursive directory batches; it is not source
   acquisition, platform coverage verification, authorization verification, or a
+  policy workflow feature.
+- Community candidate directory preview reads matched local files only and
+  outputs aggregate candidate phrase metrics only; it is not source acquisition,
+  platform/community coverage verification, authorization verification, or a
   policy workflow feature.
 - Trend deltas are local observed comparisons, not verified demand or complete
   source coverage.

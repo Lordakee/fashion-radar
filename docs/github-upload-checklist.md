@@ -43,6 +43,15 @@ Stage 27B docs check:
       input file path, row URL, row title, summary, raw text, normalized key,
       candidate context, or representative item detail exposure.
 
+Stage 29 docs check:
+
+- [ ] `community-candidates-dir` docs describe local non-recursive directory
+      preview, aggregate-only output, no SQLite writes, no URL fetching, and no
+      supplied directory path, matched file path, matched file name, row URL,
+      row title, summary, raw text, normalized key, candidate context, raw
+      validation finding, account/private field, or representative item detail
+      exposure.
+
 ## Exclude
 
 Do not commit or upload:

@@ -144,6 +144,7 @@ fashion-radar entity-pack-lint ./configs/entities.yaml
 fashion-radar collect
 fashion-radar community-signal-lint ./signals.csv --input-format csv --source-name "Manual Export"
 fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Manual Export"
+fashion-radar community-candidates-dir ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export" --dry-run
 fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export"
 fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
@@ -167,6 +168,11 @@ fashion-radar run --as-of 2026-06-11T12:00:00Z
 ```
 
 There are no parallel database writers in the MVP workflow.
+
+`community-candidates-dir` is an in-memory pre-import preview over matched
+regular files directly under one local directory. It sits before manual
+directory import and does not write database, report, config, entity, or
+dashboard state.
 
 ## Source-Pack Quality Boundary
 

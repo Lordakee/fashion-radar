@@ -59,6 +59,7 @@ Recommended order:
 
 ```bash
 uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export" --strict
+uv run fashion-radar community-candidates-dir ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --dry-run
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export"
 uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -93,6 +94,12 @@ want an aggregate preview of candidate phrases before import. It reports only
 aggregate candidate phrase metrics and keeps the supplied input file path, row
 URLs, row titles, summaries, raw text, normalized keys, candidate contexts, and
 representative item details out of output.
+Use `community-candidates-dir` when a local directory batch passes strict lint
+and you want an aggregate preview of candidate phrases before import. It
+reports only aggregate candidate phrase metrics and keeps the supplied directory
+path, matched file paths, matched file names, row URLs, row titles, summaries,
+raw text, normalized keys, candidate contexts, raw validation findings,
+account/private fields, and representative item details out of output.
 
 Directory linting is non-recursive in this version. A pattern such as `*.csv`
 matches regular files directly under the supplied directory only. Nested files

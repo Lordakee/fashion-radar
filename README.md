@@ -90,6 +90,8 @@ External community tools can target the local community signal contract:
 uv run fashion-radar community-signal-lint examples/community-signals.example.csv --input-format csv --source-name "Community Tool Export"
 uv run fashion-radar community-candidates ./community-signals.csv --input-format csv --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
 uv run fashion-radar community-candidates ./community-signals.csv --input-format csv --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
+uv run fashion-radar community-candidates-dir ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
+uv run fashion-radar community-candidates-dir ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
 uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export"
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --dry-run
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export"
@@ -132,6 +134,15 @@ phrase metrics from one supplied community signal CSV/JSON file before import.
 It does not store rows, open SQLite, fetch URLs, print the supplied input file
 path, or expose row URLs, row titles, summaries, raw text, normalized keys,
 candidate contexts, or representative item details. The output is not proof of demand, not platform coverage, and not source ranking.
+
+`community-candidates-dir` is local and read-only. It previews aggregate
+candidate phrase metrics from matched regular CSV/JSON handoff files directly
+under one supplied directory before import. It does not recurse, import rows,
+open SQLite, fetch URLs, print the supplied directory path, expose matched file
+paths, expose matched file names, or expose row URLs, row titles, summaries,
+raw text, normalized keys, candidate contexts, raw validation findings,
+account/private fields, or representative item details. The output is not proof
+of demand, not platform coverage, and not source ranking.
 
 Review untracked candidate signals from configured sources and imported local
 signals:

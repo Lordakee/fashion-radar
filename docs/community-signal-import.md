@@ -85,6 +85,21 @@ import rows, open SQLite, recurse directories, fetch URLs, or expose the
 supplied input file path, row URLs, row titles, summaries, raw text, normalized
 keys, candidate contexts, or representative item details.
 
+Preview aggregate candidate phrases from a local directory batch before import:
+
+```bash
+uv run fashion-radar community-candidates-dir ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
+uv run fashion-radar community-candidates-dir ./exports --input-format json --pattern "*.json" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
+```
+
+`community-candidates-dir` reads matched regular files directly under one local
+directory and local config, then prints aggregate-only candidate phrase metrics
+before import. It does not recurse, import rows, open SQLite, fetch URLs, print
+the supplied directory path, expose matched file paths, expose matched file
+names, or expose row URLs, row titles, summaries, raw text, normalized keys,
+candidate contexts, raw validation findings, account/private fields, or
+representative item details.
+
 Then validate the same local directory through the importer model without
 writing rows:
 
@@ -212,6 +227,12 @@ provide instructions for obtaining platform or community data.
 local directory passed to it. They report contract findings. They do not fetch
 URLs, log in, recurse, download media, verify authorization, or provide
 instructions for obtaining platform/community data.
+
+`community-candidates-dir` reads only matched regular files directly under the
+local directory passed to it plus local config. It does not recurse, import
+rows, open SQLite, fetch URLs, log in, download media, expose matched file paths
+or matched file names, expose account/private fields, or provide instructions
+for obtaining platform/community data.
 
 `import-signals-dir --dry-run` reads only matched regular files directly under
 the local directory passed to it and validates them through the importer model.
