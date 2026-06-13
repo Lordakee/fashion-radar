@@ -13,12 +13,13 @@ jobs:
       - name: Public lockfile check
         run: |
           UV_NO_CONFIG=1 uv lock --check
-          UV_NO_CONFIG=1 uv sync --locked --dev --check
           if rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock; then
             exit 1
           fi
       - name: Install dependencies
-        run: UV_NO_CONFIG=1 uv sync --locked --dev
+        run: |
+          UV_NO_CONFIG=1 uv sync --locked --dev
+          UV_NO_CONFIG=1 uv sync --locked --dev --check
       - name: Lint
         run: uv run ruff check .
       - name: Format check

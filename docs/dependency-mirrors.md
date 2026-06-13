@@ -55,9 +55,11 @@ https://pypi.mirrors.ustc.edu.cn/simple/
 
 - Prefer mirror-based install commands in local development notes.
 - Use `uv sync --frozen --dev` with mirrors for local installs.
-- Use `UV_NO_CONFIG=1 uv sync --locked --dev --check` and
-  `UV_NO_CONFIG=1 uv lock --check` for CI and release checks, so user-level
-  mirror config cannot rewrite or invalidate the public lockfile.
+- Use `UV_NO_CONFIG=1 uv lock --check` for public lockfile validation, so
+  user-level mirror config cannot rewrite or invalidate the public lockfile.
+- Use `UV_NO_CONFIG=1 uv sync --locked --dev` for fresh CI/release installs,
+  then `UV_NO_CONFIG=1 uv sync --locked --dev --check` after the project
+  environment exists.
 - Keep dependencies in `pyproject.toml`.
 - Avoid committing local virtual environments or downloaded package caches.
 - Avoid committing mirror-bound URLs in `uv.lock`.

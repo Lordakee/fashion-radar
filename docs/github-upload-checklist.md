@@ -15,6 +15,7 @@ git status --short --untracked-files=all
 git status --ignored --short
 git diff --check
 UV_NO_CONFIG=1 uv lock --check
+UV_NO_CONFIG=1 uv sync --locked --dev
 UV_NO_CONFIG=1 uv sync --locked --dev --check
 uv run ruff check .
 uv run ruff format --check .
@@ -35,6 +36,7 @@ lockfile checks isolated from that config:
 
 ```bash
 UV_NO_CONFIG=1 uv lock --check
+UV_NO_CONFIG=1 uv sync --locked --dev
 UV_NO_CONFIG=1 uv sync --locked --dev --check
 ```
 

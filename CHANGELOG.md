@@ -89,6 +89,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   as matched rows, and added CLI/read-only SQLite regressions.
 - Aligned CI, contribution docs, PR/issue templates, and upload smoke commands
   with release lockfile checks that ignore user-level uv mirror config.
+- Adjusted CI and contributor verification so `uv sync --check` runs after a
+  fresh locked environment install instead of before `.venv` exists.
 
 ### Not Included In 0.1.0
 
