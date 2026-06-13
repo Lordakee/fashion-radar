@@ -12,6 +12,10 @@ from typing import Literal
 import typer
 from sqlalchemy import create_engine, inspect, select
 
+from fashion_radar.community_candidates import (
+    preview_community_candidates,
+    render_community_candidates_table,
+)
 from fashion_radar.community_signals import (
     CommunitySignalFindingSeverity,
     lint_community_signal_directory,
@@ -130,6 +134,7 @@ NOW_OPTION = typer.Option(None, help="UTC collection timestamp override.")
 RETENTION_DAYS_OPTION = typer.Option(30, min=1, help="Retention window in days.")
 CandidateOutputFormat = Literal["table", "json"]
 ManualSignalInputFormat = Literal["csv", "json"]
+CommunityCandidatesOutputFormat = Literal["table", "json"]
 CommunitySignalLintOutputFormat = Literal["table", "json"]
 ImportSignalsDirOutputFormat = Literal["table", "json"]
 ImportedCandidateEvidenceOutputFormat = Literal["table", "json"]
@@ -150,6 +155,26 @@ COMMUNITY_SIGNAL_LINT_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
+)
+COMMUNITY_CANDIDATES_AS_OF_OPTION = typer.Option(
+    ...,
+    "--as-of",
+    help="UTC community candidate preview timestamp, for example 2026-06-13T12:00:00Z.",
+)
+COMMUNITY_CANDIDATES_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+COMMUNITY_CANDIDATES_SOURCE_NAME_OPTION = typer.Option(
+    "Community Tool Export",
+    "--source-name",
+    help="Fallback source name for rows that omit source_name.",
+)
+COMMUNITY_CANDIDATES_INPUT_FORMAT_OPTION = typer.Option(
+    "csv",
+    "--input-format",
+    help="Input file format.",
 )
 COMMUNITY_SIGNAL_INPUT_FORMAT_OPTION = typer.Option(
     ...,
@@ -445,6 +470,66 @@ def community_signal_lint_dir_command(
 
     if result.error_count or (strict and result.warning_count):
         raise typer.Exit(1)
+
+
+@app.command(name="community-candidates")
+def community_candidates_command(
+    path: Path,
+    config_dir: Path = CONFIG_DIR_OPTION,
+    input_format: ManualSignalInputFormat = COMMUNITY_CANDIDATES_INPUT_FORMAT_OPTION,
+    as_of: str = COMMUNITY_CANDIDATES_AS_OF_OPTION,
+    source_name: str = COMMUNITY_CANDIDATES_SOURCE_NAME_OPTION,
+    limit: int | None = typer.Option(50, min=0, help="Maximum candidates to print."),
+    output_format: CommunityCandidatesOutputFormat = COMMUNITY_CANDIDATES_FORMAT_OPTION,
+) -> None:
+    """Preview candidate phrases from one local community signal file."""
+    try:
+        try:
+            as_of_value = parse_datetime_utc(as_of)
+        except (TypeError, ValueError) as exc:
+            typer.echo(
+                f"Could not preview community candidates: invalid --as-of: {exc}",
+                err=True,
+            )
+            raise typer.Exit(1) from exc
+        scoring_config = load_scoring_config(config_dir / "scoring.yaml")
+        entity_path = config_dir / "entities.yaml"
+        entity_config = load_entity_config(entity_path) if entity_path.exists() else None
+    except typer.Exit:
+        raise
+    except ConfigError as exc:
+        typer.echo(f"Invalid community candidate config: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    try:
+        preview = preview_community_candidates(
+            path,
+            input_format=input_format,
+            scoring=scoring_config.scoring,
+            settings=scoring_config.candidate_discovery,
+            entity_config=entity_config,
+            as_of=as_of_value,
+            default_source_name=source_name,
+            limit=limit,
+        )
+    except ManualSignalImportError as exc:
+        typer.echo(
+            "Could not preview community candidates: input file could not be read or validated",
+            err=True,
+        )
+        raise typer.Exit(1) from exc
+    except Exception as exc:
+        message = str(exc)
+        if str(path) in message or path.name in message:
+            message = "input file could not be read or validated"
+        typer.echo(f"Could not preview community candidates: {message}", err=True)
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(preview.model_dump_json(indent=2))
+        return
+    for line in render_community_candidates_table(preview):
+        typer.echo(line)
 
 
 @app.command(name="import-signals-dir")

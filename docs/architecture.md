@@ -54,6 +54,9 @@ YAML config
   input path only. They are not connectors or platform collection workflows.
   Community signal import is a documented contract and example set for external
   tools that produce sanitized local files for this same importer.
+  `community-candidates` is an in-memory pre-import preview over one local
+  handoff file. It sits before manual import and does not write database,
+  report, config, or dashboard state.
   `import-signals-dir --dry-run` validates matched regular files directly under
   one local directory through the same importer model without opening SQLite,
   importing rows, or creating workflow artifacts. `import-signals-dir` without

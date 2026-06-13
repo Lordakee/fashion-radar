@@ -68,6 +68,7 @@ uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$P
 uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --phrase "Le Teckel bag" --source-name "Community Tool Export"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --unmatched-only
 uv run fashion-radar community-signal-lint ./community-signals.csv --input-format csv --source-name "Community Tool Export" --strict
+uv run fashion-radar community-candidates ./community-signals.csv --input-format csv --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
 uv run fashion-radar import-signals ./community-signals.csv --format csv --source-name "Community Tool Export" --dry-run
 uv run fashion-radar import-signals ./community-signals.csv --format csv --source-name "Community Tool Export"
 ```
@@ -87,6 +88,11 @@ Use `imported-candidate-evidence` to inspect retained local rows behind one
 requested candidate phrase.
 Use `imported-signals --unmatched-only` for row-level review of retained local
 rows without stored matches.
+Use `community-candidates` when a single local handoff file passes lint and you
+want an aggregate preview of candidate phrases before import. It reports only
+aggregate candidate phrase metrics and keeps the supplied input file path, row
+URLs, row titles, summaries, raw text, normalized keys, candidate contexts, and
+representative item details out of output.
 
 Directory linting is non-recursive in this version. A pattern such as `*.csv`
 matches regular files directly under the supplied directory only. Nested files

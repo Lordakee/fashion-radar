@@ -60,6 +60,15 @@ It is not a connector, source pack, platform collector, remote community
 ingestion workflow, source-acquisition guide, authorization verifier, policy
 workflow, or platform coverage check.
 
+`community-candidates` reads one local CSV/JSON handoff file plus local config
+and prints aggregate candidate phrases. It does not import rows, open SQLite,
+fetch URLs, recurse directories, log in, write reports, update dashboards, or
+generate entity files. It does not output the supplied file path, row URLs,
+row titles, summaries, raw text, normalized keys, candidate contexts, or
+representative item details.
+
+`community-candidates` is not proof of demand, not platform coverage, not source ranking, not a source connector, not an acquisition workflow, not a scraper, not a watcher, not a scheduler, not a report writer, not a dashboard updater, not a database import, and not an entity YAML generator.
+
 Entity packs are local `entities.yaml` templates. They change only local entity
 matching configuration and do not add sources, source setup, collection
 workflows, platform/community ingestion, scraping, social monitoring, ranking

@@ -72,6 +72,19 @@ uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pa
 uv run fashion-radar community-signal-lint-dir ./exports --input-format json --pattern "*.json" --source-name "Community Tool Export" --strict
 ```
 
+Preview aggregate candidate phrases from one local handoff file before import:
+
+```bash
+uv run fashion-radar community-candidates ./community-signals.csv --input-format csv --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
+uv run fashion-radar community-candidates ./community-signals.json --input-format json --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
+```
+
+`community-candidates` reads one local handoff file and local config, then
+prints aggregate-only candidate phrase metrics before import. It does not
+import rows, open SQLite, recurse directories, fetch URLs, or expose the
+supplied input file path, row URLs, row titles, summaries, raw text, normalized
+keys, candidate contexts, or representative item details.
+
 Then validate the same local directory through the importer model without
 writing rows:
 

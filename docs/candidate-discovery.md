@@ -98,6 +98,14 @@ platform coverage.
 `imported-candidate-evidence` is the phrase-scoped local read-only view of the
 retained `manual_import` rows behind one observed candidate phrase.
 
+## Community Candidate Preview
+
+`community-candidates` previews candidate phrases from one supplied community
+signal CSV/JSON file before import. It uses the same deterministic candidate
+phrase extraction and configured-entity suppression, but it does not open
+SQLite, consult stored matches, write reports, or expose representative items.
+The preview is aggregate-only and is limited to the supplied file.
+
 ## Reports And Dashboard
 
 Daily JSON and Markdown reports may include an untracked candidate signal

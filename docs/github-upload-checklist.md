@@ -27,11 +27,21 @@ Mirror install check:
 UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv sync --frozen --dev --check
 ```
 
+Do not stage `uv.lock` if mirror-backed local operations changed it. Regenerate
+the lockfile only against the default PyPI registry before publishing.
+
 Check the public lockfile has no mirror URLs:
 
 ```bash
 rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock
 ```
+
+Stage 27B docs check:
+
+- [ ] `community-candidates` docs describe one-file local pre-import preview,
+      aggregate-only output, no SQLite writes, no URL fetching, and no supplied
+      input file path, row URL, row title, summary, raw text, normalized key,
+      candidate context, or representative item detail exposure.
 
 ## Exclude
 
