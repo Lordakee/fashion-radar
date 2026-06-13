@@ -126,6 +126,8 @@ uv run fashion-radar import-signals ./signals.json --format json --source-name "
 After import, run the same local review commands used for collected sources:
 
 ```bash
+uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
 uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -136,6 +138,10 @@ uv run fashion-radar report --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
+
+`imported-review-workflow` prints a copyable sequence for existing local review
+commands. It does not execute those commands, open SQLite, read configs, import
+rows, run matching, score signals, generate reports, or create artifacts.
 
 `imported-signals-summary` groups retained `manual_import` rows by stored
 `source_name` for a local count overview before row-level review.

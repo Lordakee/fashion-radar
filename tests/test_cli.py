@@ -2343,6 +2343,305 @@ def test_imported_signals_summary_command_does_not_mutate_existing_database(
     assert after_tables == before_tables
 
 
+def test_imported_review_workflow_command_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["imported-review-workflow", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "--config-dir" in result.output
+    assert "--data-dir" in result.output
+    assert "--as-of" in result.output
+    assert "--source-name" in result.output
+    assert "--lookback-days" in result.output
+    assert "--current-days" in result.output
+    assert "--baseline-days" in result.output
+    assert "--format" in result.output
+    assert "Print a post-import review command checklist" in result.output
+
+
+def test_imported_review_workflow_command_prints_json_with_stable_keys(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config dir"
+    data_dir = tmp_path / "data dir"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-review-workflow",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--source-name",
+            "Community Tool Export",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "as_of",
+        "config_dir",
+        "data_dir",
+        "source_name",
+        "lookback_days",
+        "current_days",
+        "baseline_days",
+        "execution_mode",
+        "step_count",
+        "steps",
+    ]
+    assert payload["as_of"] == "2026-06-13T12:00:00+00:00"
+    assert payload["config_dir"] == str(config_dir)
+    assert payload["data_dir"] == str(data_dir)
+    assert payload["source_name"] == "Community Tool Export"
+    assert payload["execution_mode"] == "print_only"
+    assert payload["step_count"] == 4
+    assert list(payload["steps"][0]) == [
+        "order",
+        "name",
+        "purpose",
+        "command",
+        "suggested_effect",
+    ]
+    assert payload["steps"][1]["suggested_effect"] == "updates_local_matches"
+    assert "--source-name 'Community Tool Export'" in payload["steps"][2]["command"]
+    assert "--source-name 'Community Tool Export'" in payload["steps"][3]["command"]
+
+
+def test_imported_review_workflow_command_prints_table() -> None:
+    config_dir = Path("config ? # & %")
+    data_dir = Path("data ? # & %")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-review-workflow",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--source-name",
+            "Community | Tool Export",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Imported manual signal review workflow." in result.output
+    assert "Execution mode: print_only" in result.output
+    assert "Commands were not executed." in result.output
+    assert "Order | Step | Suggested Effect | Purpose | Command" in result.output
+    assert "refresh_stored_matches | updates_local_matches" in result.output
+    assert "Source name: Community / Tool Export" in result.output
+    assert "--data-dir" in result.output
+    assert "'data ? # & %'" in result.output
+    assert "--source-name 'Community | Tool Export'" in result.output
+
+
+def _fail_imported_review_workflow_builder(*args, **kwargs):
+    raise AssertionError("build_imported_review_workflow should not be called")
+
+
+def _fail_imported_review_workflow_call(name: str):
+    def fail(*args, **kwargs):
+        raise AssertionError(f"{name} should not be called")
+
+    return fail
+
+
+def _patch_imported_review_workflow_no_data_access(monkeypatch) -> None:
+    for name in (
+        "query_imported_signals",
+        "query_imported_signals_summary",
+        "query_imported_entity_deltas",
+        "match_stored_items",
+        "default_database_path",
+        "load_source_config",
+        "load_entity_config",
+        "load_scoring_config",
+        "create_sqlite_engine",
+        "initialize_schema",
+    ):
+        monkeypatch.setattr(cli_module, name, _fail_imported_review_workflow_call(name))
+    monkeypatch.setattr(
+        cli_module.subprocess,
+        "run",
+        _fail_imported_review_workflow_call("subprocess.run"),
+    )
+
+
+def test_imported_review_workflow_command_rejects_invalid_format_without_builder(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "build_imported_review_workflow",
+        _fail_imported_review_workflow_builder,
+        raising=False,
+    )
+    _patch_imported_review_workflow_no_data_access(monkeypatch)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-review-workflow",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "xml",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--format" in result.output
+    assert "build_imported_review_workflow should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_review_workflow_command_rejects_invalid_as_of_without_builder(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "build_imported_review_workflow",
+        _fail_imported_review_workflow_builder,
+        raising=False,
+    )
+    _patch_imported_review_workflow_no_data_access(monkeypatch)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-review-workflow",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not build imported review workflow: invalid --as-of" in result.output
+    assert "build_imported_review_workflow should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_review_workflow_command_rejects_invalid_numbers_without_builder(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "build_imported_review_workflow",
+        _fail_imported_review_workflow_builder,
+        raising=False,
+    )
+    _patch_imported_review_workflow_no_data_access(monkeypatch)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-review-workflow",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--lookback-days",
+            "0",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--lookback-days" in result.output
+    assert "build_imported_review_workflow should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_review_workflow_command_creates_no_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    monkeypatch.chdir(tmp_path)
+    _patch_imported_review_workflow_no_data_access(monkeypatch)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-review-workflow",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 0
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_imported_review_workflow_command_does_not_access_data_or_execute(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _patch_imported_review_workflow_no_data_access(monkeypatch)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-review-workflow",
+            "--config-dir",
+            str(tmp_path / "config"),
+            "--data-dir",
+            str(tmp_path / "data"),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "should not be called" not in result.output
+    assert "Traceback" not in result.output
+
+
 def test_imported_entity_deltas_command_help_lists_options() -> None:
     result = CliRunner().invoke(
         app,

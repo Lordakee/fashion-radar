@@ -37,6 +37,10 @@ from fashion_radar.imported_entity_deltas import (
     query_imported_entity_deltas,
     render_imported_entity_deltas_table,
 )
+from fashion_radar.imported_review_workflow import (
+    build_imported_review_workflow,
+    render_imported_review_workflow_table,
+)
 from fashion_radar.imported_signals import (
     query_imported_signals,
     query_imported_signals_summary,
@@ -121,6 +125,7 @@ ManualSignalInputFormat = Literal["csv", "json"]
 CommunitySignalLintOutputFormat = Literal["table", "json"]
 ImportSignalsDirOutputFormat = Literal["table", "json"]
 ImportedEntityDeltasOutputFormat = Literal["table", "json"]
+ImportedReviewWorkflowOutputFormat = Literal["table", "json"]
 ImportedSignalsOutputFormat = Literal["table", "json"]
 ImportedSignalsSummaryOutputFormat = Literal["table", "json"]
 EntityPackLintOutputFormat = Literal["table", "json"]
@@ -162,6 +167,16 @@ IMPORTED_ENTITY_DELTAS_AS_OF_OPTION = typer.Option(
     help="UTC comparison timestamp, for example 2026-06-13T12:00:00Z.",
 )
 IMPORTED_ENTITY_DELTAS_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+IMPORTED_REVIEW_WORKFLOW_AS_OF_OPTION = typer.Option(
+    ...,
+    "--as-of",
+    help="UTC workflow timestamp, for example 2026-06-13T12:00:00Z.",
+)
+IMPORTED_REVIEW_WORKFLOW_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
@@ -769,6 +784,49 @@ def trends_command(
         engine.dispose()
 
     _print_trend_output(comparison, output_format=output_format)
+
+
+@app.command(name="imported-review-workflow")
+def imported_review_workflow_command(
+    config_dir: Path = CONFIG_DIR_OPTION,
+    data_dir: Path = DATA_DIR_OPTION,
+    as_of: str = IMPORTED_REVIEW_WORKFLOW_AS_OF_OPTION,
+    source_name: str | None = typer.Option(None, help="Exact stored source name filter."),
+    lookback_days: int = typer.Option(7, min=1, help="Imported row review window in days."),
+    current_days: int = typer.Option(7, min=1, help="Entity delta current window in days."),
+    baseline_days: int = typer.Option(7, min=1, help="Entity delta baseline window in days."),
+    output_format: ImportedReviewWorkflowOutputFormat = IMPORTED_REVIEW_WORKFLOW_FORMAT_OPTION,
+) -> None:
+    """Print a post-import review command checklist without executing commands."""
+    try:
+        try:
+            as_of_value = parse_datetime_utc(as_of)
+        except (TypeError, ValueError) as exc:
+            typer.echo(
+                f"Could not build imported review workflow: invalid --as-of: {exc}",
+                err=True,
+            )
+            raise typer.Exit(1) from exc
+        workflow = build_imported_review_workflow(
+            config_dir=config_dir,
+            data_dir=data_dir,
+            as_of=as_of_value,
+            source_name=source_name,
+            lookback_days=lookback_days,
+            current_days=current_days,
+            baseline_days=baseline_days,
+        )
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        typer.echo(f"Could not build imported review workflow: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(workflow.model_dump_json(indent=2))
+        return
+    for line in render_imported_review_workflow_table(workflow):
+        typer.echo(line)
 
 
 @app.command(name="imported-entity-deltas")

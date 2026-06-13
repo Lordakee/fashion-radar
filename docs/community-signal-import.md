@@ -147,6 +147,8 @@ applies.
 Run the normal local review workflow after importing:
 
 ```bash
+uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
 uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
@@ -156,6 +158,11 @@ uv run fashion-radar report --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
+
+`imported-review-workflow` prints a copyable sequence for existing local review
+commands after import. It does not execute those commands, open SQLite, read
+configs, import rows, run matching, score signals, generate reports, or create
+artifacts.
 
 `imported-signals-summary` reads the same retained local rows and groups counts
 by stored `source_name`.

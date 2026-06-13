@@ -61,6 +61,7 @@ Recommended order:
 uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export" --strict
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --dry-run
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export"
+uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
 uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --unmatched-only
@@ -74,6 +75,8 @@ Use `import-signals-dir --dry-run` next when you want the broader manual
 importer model to validate matched local files without writing rows. Then use
 `import-signals-dir` without `--dry-run` to import the same local files only
 after the full matched set validates.
+Use `imported-review-workflow` when you want a printed, copyable local sequence
+for existing post-import review commands without executing anything.
 Use `imported-signals-summary` after import to inspect retained row counts by
 stored `source_name`. Use `imported-entity-deltas` after matching to compare
 stored matched entities across collected-at windows. Use

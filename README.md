@@ -97,6 +97,8 @@ uv run fashion-radar import-signals examples/community-signals.example.csv --for
 Inspect retained imported rows before matching or downstream review:
 
 ```bash
+uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data" --format json
 uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -106,6 +108,9 @@ uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u 
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --unmatched-only
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
 ```
+
+`imported-review-workflow` is local and does not execute commands. It prints a
+copyable review sequence for existing local commands after manual signal import.
 
 Review untracked candidate signals from configured sources and imported local
 signals:

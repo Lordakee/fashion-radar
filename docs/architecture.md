@@ -15,6 +15,7 @@ YAML config
   -> optionally dry-run matched local signal files in one directory before import
   -> optionally import user-provided local CSV/JSON signals from one file or one directory
   -> store items in SQLite
+  -> optionally print a post-import review command checklist without executing it
   -> optionally review retained manual_import rows from local SQLite
   -> optionally summarize retained manual_import rows by stored source-name label
   -> match configured entities
@@ -62,7 +63,8 @@ YAML config
   summary command uses the same existing SQLite read boundary and groups
   retained rows by stored `source_name`. The entity-deltas command uses stored
   matches on retained rows to compare aggregate entity counts across
-  collected-at windows.
+  collected-at windows. The review workflow command only prints a copyable
+  sequence for existing local commands and does not execute them.
 - **Community Signal Quality:** Local read-only diagnostics lint one community
   signal CSV/JSON file or a non-recursive batch of matched regular files in one
   local directory before dry-run/import. The linters check strict handoff fields
@@ -134,6 +136,7 @@ fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "
 fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export" --dry-run
 fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export"
 fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
+fashion-radar imported-review-workflow --data-dir ./data --config-dir ./configs --as-of 2026-06-11T12:00:00Z
 fashion-radar imported-signals-summary --data-dir ./data
 fashion-radar imported-entity-deltas --data-dir ./data --as-of 2026-06-11T12:00:00Z
 fashion-radar imported-signals --data-dir ./data --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
