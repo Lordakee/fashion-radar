@@ -2422,6 +2422,438 @@ def test_imported_candidates_command_does_not_mutate_existing_database(
     assert after_tables == before_tables
 
 
+def test_imported_candidate_evidence_command_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["imported-candidate-evidence", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "candidate phrase" in result.output.lower()
+    assert "--config-dir" in result.output
+    assert "--data-dir" in result.output
+    assert "--as-of" in result.output
+    assert "--phrase" in result.output
+    assert "--source-name" in result.output
+    assert "--limit" in result.output
+    assert "--format" in result.output
+
+
+def test_imported_candidate_evidence_command_prints_json_with_stable_keys(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir = _prepare_imported_candidate_evidence_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidate-evidence",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--phrase",
+            "Le Teckel bag",
+            "--source-name",
+            "Community Tool Export",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "database",
+        "as_of",
+        "phrase",
+        "current_window_start",
+        "baseline_window_start",
+        "current_days",
+        "baseline_days",
+        "source_type",
+        "source_name",
+        "limit",
+        "row_count",
+        "total_count",
+        "current_mentions",
+        "baseline_mentions",
+        "distinct_sources",
+        "evidence",
+    ]
+    assert payload["phrase"] == "Le Teckel bag"
+    assert payload["source_type"] == "manual_import"
+    assert payload["source_name"] == "Community Tool Export"
+    assert payload["row_count"] == 2
+    assert payload["total_count"] == 2
+    assert payload["current_mentions"] == 1
+    assert payload["baseline_mentions"] == 1
+    assert list(payload["evidence"][0]) == [
+        "id",
+        "window",
+        "source_name",
+        "title",
+        "url",
+        "published_at",
+        "collected_at",
+    ]
+    forbidden = {
+        "summary",
+        "contexts",
+        "normalized_phrase",
+        "normalized_key",
+        "normalized_url",
+        "matches",
+        "match_status",
+        "source_file",
+        "source_path",
+        "import_path",
+        "raw_comment",
+        "account_id",
+    }
+    assert forbidden.isdisjoint(payload)
+    assert forbidden.isdisjoint(payload["evidence"][0])
+
+
+def test_imported_candidate_evidence_command_prints_table(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_imported_candidate_evidence_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidate-evidence",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--phrase",
+            "Le Teckel bag",
+            "--source-name",
+            "Community Tool Export",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Imported manual candidate evidence from local SQLite." in result.output
+    assert "Le Teckel bag current mention" in result.output
+    assert "https://example.com/current" in result.output
+    assert "private review note" not in result.output
+    assert "raw_comment" not in result.output
+
+
+def _fail_imported_candidate_evidence_query(*args, **kwargs):
+    raise AssertionError("query_imported_candidate_evidence should not be called")
+
+
+def test_imported_candidate_evidence_command_requires_phrase(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidate-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--phrase" in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_candidate_evidence_command_rejects_blank_phrase_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_candidate_evidence",
+        _fail_imported_candidate_evidence_query,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidate-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--phrase",
+            "  ",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review imported candidate evidence: invalid --phrase" in result.output
+    assert "query_imported_candidate_evidence should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_candidate_evidence_command_rejects_invalid_as_of_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_candidate_evidence",
+        _fail_imported_candidate_evidence_query,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidate-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "not-a-date",
+            "--phrase",
+            "Le Teckel bag",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review imported candidate evidence: invalid --as-of" in result.output
+    assert "query_imported_candidate_evidence should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_candidate_evidence_command_rejects_invalid_format_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_candidate_evidence",
+        _fail_imported_candidate_evidence_query,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidate-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--phrase",
+            "Le Teckel bag",
+            "--format",
+            "xml",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--format" in result.output
+    assert "query_imported_candidate_evidence should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_candidate_evidence_command_rejects_negative_limit_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_candidate_evidence",
+        _fail_imported_candidate_evidence_query,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidate-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--phrase",
+            "Le Teckel bag",
+            "--limit",
+            "-1",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--limit" in result.output
+    assert "query_imported_candidate_evidence should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_candidate_evidence_command_blank_source_name_is_no_filter(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir = _prepare_imported_candidate_evidence_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidate-evidence",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--phrase",
+            "Le Teckel bag",
+            "--source-name",
+            "   ",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["source_name"] is None
+    assert payload["total_count"] == 3
+    assert payload["current_mentions"] == 2
+
+
+def test_imported_candidate_evidence_command_missing_database_is_read_only(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "missing-data"
+    reports_dir = tmp_path / "reports"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidate-evidence",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--phrase",
+            "Le Teckel bag",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["row_count"] == 0
+    assert payload["total_count"] == 0
+    assert payload["evidence"] == []
+    assert not data_dir.exists()
+    assert not reports_dir.exists()
+    assert list(tmp_path.rglob("*.sqlite")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.json")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.md")) == []
+
+
+def test_imported_candidate_evidence_command_invalid_schema_no_traceback(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+    with sqlite3.connect(data_dir / "fashion-radar.sqlite") as connection:
+        connection.execute("create table schema_metadata (version integer primary key)")
+        connection.execute(f"insert into schema_metadata (version) values ({SCHEMA_VERSION})")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidate-evidence",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--phrase",
+            "Le Teckel bag",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review imported candidate evidence" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_imported_candidate_evidence_command_does_not_mutate_existing_database(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir = _prepare_imported_candidate_evidence_cli_fixture(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    with sqlite3.connect(db_path) as connection:
+        before_items = connection.execute("select count(*) from items").fetchone()[0]
+        before_matches = connection.execute("select count(*) from item_entities").fetchone()[0]
+        before_schema_version = connection.execute(
+            "select version from schema_metadata"
+        ).fetchone()[0]
+        before_tables = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidate-evidence",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--phrase",
+            "Le Teckel bag",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    with sqlite3.connect(db_path) as connection:
+        after_items = connection.execute("select count(*) from items").fetchone()[0]
+        after_matches = connection.execute("select count(*) from item_entities").fetchone()[0]
+        after_schema_version = connection.execute("select version from schema_metadata").fetchone()[
+            0
+        ]
+        after_tables = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+    assert after_items == before_items
+    assert after_matches == before_matches
+    assert after_schema_version == before_schema_version
+    assert after_tables == before_tables
+
+
 def test_imported_signals_summary_command_help_lists_options() -> None:
     result = CliRunner().invoke(
         app,
@@ -3427,6 +3859,100 @@ candidate_discovery:
             summary="Le Teckel bag appears outside manual imports.",
         ),
         collected_at=as_of - timedelta(hours=2),
+    )
+    engine.dispose()
+    return config_dir, data_dir
+
+
+def _prepare_imported_candidate_evidence_cli_fixture(tmp_path: Path) -> tuple[Path, Path]:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text(
+        """
+version: 1
+scoring:
+  current_window_days: 7
+  baseline_window_days: 30
+candidate_discovery:
+  min_current_mentions: 1
+  review_min_current_mentions: 1
+  min_single_token_mentions: 99
+  min_single_token_distinct_sources: 99
+  max_candidates: 10
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    as_of = datetime(2026, 6, 13, 12, 0, tzinfo=UTC)
+    for source_name, url, collected_at in (
+        (
+            "Community Tool Export",
+            "https://example.com/current",
+            as_of - timedelta(hours=1),
+        ),
+        (
+            "Community Tool Export",
+            "https://example.com/baseline",
+            as_of - timedelta(days=10),
+        ),
+        (
+            "Manual Export",
+            "https://example.com/manual",
+            as_of - timedelta(hours=2),
+        ),
+    ):
+        repository.upsert_item(
+            CollectedItem(
+                source_name=source_name,
+                source_type=SourceType.MANUAL_IMPORT,
+                url=url,
+                title=(
+                    "Le Teckel bag current mention"
+                    if "current" in url or "manual" in url
+                    else "Le Teckel bag baseline mention"
+                ),
+                published_at=collected_at,
+                summary="private review note",
+            ),
+            collected_at=collected_at,
+        )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Fashionista",
+            source_type=SourceType.RSS,
+            url="https://example.com/rss",
+            title="Le Teckel bag RSS mention",
+            published_at=as_of - timedelta(hours=3),
+            summary="Le Teckel bag appears outside manual imports.",
+        ),
+        collected_at=as_of - timedelta(hours=3),
+    )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Community Tool Export",
+            source_type=SourceType.MANUAL_IMPORT,
+            url="https://example.com/future",
+            title="Le Teckel bag future mention",
+            published_at=as_of + timedelta(hours=1),
+            summary="future local note",
+        ),
+        collected_at=as_of + timedelta(hours=1),
+    )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Community Tool Export",
+            source_type=SourceType.MANUAL_IMPORT,
+            url="https://example.com/old",
+            title="Le Teckel bag old mention",
+            published_at=as_of - timedelta(days=60),
+            summary="old local note",
+        ),
+        collected_at=as_of - timedelta(days=60),
     )
     engine.dispose()
     return config_dir, data_dir

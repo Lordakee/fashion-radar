@@ -84,6 +84,8 @@ Review imported manual candidate signals only:
 ```bash
 uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --format json
+uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --phrase "Le Teckel bag"
+uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --phrase "Le Teckel bag" --source-name "Community Tool Export" --format json
 ```
 
 The command reads local config and local SQLite state. It is intended for review
@@ -93,6 +95,8 @@ rows before candidate discovery. `imported-candidates` is the local read-only
 imported-only view of observed candidate phrases from retained `manual_import`
 rows. These phrases need review and are not verified entities, demand proof, or
 platform coverage.
+`imported-candidate-evidence` is the phrase-scoped local read-only view of the
+retained `manual_import` rows behind one observed candidate phrase.
 
 ## Reports And Dashboard
 

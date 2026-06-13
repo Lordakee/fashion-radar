@@ -105,6 +105,8 @@ uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(da
 uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
 uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --format json
+uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --phrase "Le Teckel bag"
+uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --phrase "Le Teckel bag" --source-name "Community Tool Export" --format json
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --unmatched-only
@@ -117,6 +119,11 @@ copyable review sequence for existing local commands after manual signal import.
 `imported-candidates` is local and read-only. It surfaces observed candidate
 phrases from retained `manual_import` rows only. These phrases need review and
 are not verified entities, demand proof, or platform coverage.
+
+`imported-candidate-evidence` is local and read-only. It shows retained
+`manual_import` rows whose extracted candidate phrases match one requested
+phrase. Evidence rows are review aids and are not verified entities, demand
+proof, or platform coverage.
 
 Review untracked candidate signals from configured sources and imported local
 signals:
@@ -278,6 +285,12 @@ database in read-only mode and computes review-oriented candidate signals from
 retained `manual_import` rows only; it does not import rows, fetch URLs, run
 entity matching, write scores, generate reports, monitor folders, or create
 dashboard/report artifacts.
+
+`imported-candidate-evidence` is local and read-only. It opens an existing
+SQLite database in read-only mode and shows phrase-scoped retained
+`manual_import` evidence rows. It does not import rows, run entity matching,
+write scores, generate reports, monitor folders, or create dashboard/report
+artifacts.
 
 ## Reports And Storage
 

@@ -65,6 +65,7 @@ uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-di
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
 uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
+uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --phrase "Le Teckel bag" --source-name "Community Tool Export"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --unmatched-only
 uv run fashion-radar community-signal-lint ./community-signals.csv --input-format csv --source-name "Community Tool Export" --strict
 uv run fashion-radar import-signals ./community-signals.csv --format csv --source-name "Community Tool Export" --dry-run
@@ -82,6 +83,8 @@ Use `imported-signals-summary` after import to inspect retained row counts by
 stored `source_name`. Use `imported-entity-deltas` after matching to compare
 stored matched entities across collected-at windows. Use `imported-candidates`
 to review observed candidate phrases from retained `manual_import` rows only.
+Use `imported-candidate-evidence` to inspect retained local rows behind one
+requested candidate phrase.
 Use `imported-signals --unmatched-only` for row-level review of retained local
 rows without stored matches.
 

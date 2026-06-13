@@ -101,9 +101,11 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" imported-signals-summary --help
 "$tmp_env/venv/bin/fashion-radar" imported-entity-deltas --help
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --help
+"$tmp_env/venv/bin/fashion-radar" imported-candidate-evidence --help
 "$tmp_env/venv/bin/fashion-radar" imported-review-workflow --help
 "$tmp_env/venv/bin/fashion-radar" imported-signals --data-dir "$tmp_run/data" --as-of "2026-06-12T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --format json
+"$tmp_env/venv/bin/fashion-radar" imported-candidate-evidence --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --phrase "Le Teckel bag" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-review-workflow --data-dir "$tmp_run/data ? # & %" --config-dir "$tmp_run/config ? # & %" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/python" -c "from importlib import resources; text = resources.files('fashion_radar.templates').joinpath('daily_report.md').read_text(encoding='utf-8'); assert 'Fashion Radar Daily Report' in text"
 ```

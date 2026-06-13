@@ -184,6 +184,23 @@ def configured_entity_keys(
     return keys
 
 
+def candidate_key(value: str) -> str:
+    return _candidate_key(value)
+
+
+def stored_entity_candidate_keys(
+    engine: Engine,
+    *,
+    min_match_confidence: float,
+    as_of: datetime,
+) -> set[str]:
+    return _stored_entity_keys(
+        engine,
+        min_match_confidence=min_match_confidence,
+        as_of=parse_datetime_utc(as_of),
+    )
+
+
 def discover_candidates(
     engine: Engine,
     *,

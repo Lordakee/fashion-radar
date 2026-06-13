@@ -5,7 +5,11 @@ import pytest
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
 from fashion_radar.db.schema import initialize_schema
-from fashion_radar.discovery.candidates import discover_candidates
+from fashion_radar.discovery.candidates import (
+    candidate_key,
+    discover_candidates,
+    stored_entity_candidate_keys,
+)
 from fashion_radar.models.entity import EntityDefinition, EntityType
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceType
@@ -292,6 +296,65 @@ def test_discover_candidates_default_keeps_all_source_types(tmp_path) -> None:
     candidate = next(item for item in candidates if item.normalized_key == "slim sneaker")
     assert candidate.current_mentions == 2
     assert candidate.distinct_sources == 2
+
+
+def test_candidate_key_uses_candidate_discovery_normalization() -> None:
+    assert candidate_key("Le Teckel's Bag") == "le teckel bag"
+
+
+def test_stored_entity_candidate_keys_matches_existing_confidence_and_as_of_rules(
+    tmp_path,
+) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    accepted_id = _store(
+        engine,
+        title="Ghost mule current mention",
+        url="https://example.com/accepted",
+        collected_at=AS_OF - timedelta(hours=1),
+    )
+    future_id = _store(
+        engine,
+        title="Future bag current mention",
+        url="https://example.com/future",
+        collected_at=AS_OF + timedelta(days=1),
+    )
+    repository.replace_item_matches(
+        accepted_id,
+        [
+            {
+                "entity_name": "Ghost",
+                "entity_type": "product",
+                "alias": "Ghost",
+                "confidence": 0.8,
+                "reason": "accepted",
+                "context_terms": [],
+            }
+        ],
+    )
+    repository.replace_item_matches(
+        future_id,
+        [
+            {
+                "entity_name": "Future",
+                "entity_type": "product",
+                "alias": "Future",
+                "confidence": 0.9,
+                "reason": "accepted",
+                "context_terms": [],
+            }
+        ],
+    )
+
+    keys = stored_entity_candidate_keys(
+        engine,
+        min_match_confidence=0.5,
+        as_of=AS_OF,
+    )
+
+    assert "ghost" in keys
+    assert "future" not in keys
 
 
 def test_stored_entity_filter_uses_min_match_confidence(tmp_path) -> None:

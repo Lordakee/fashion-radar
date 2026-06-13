@@ -40,6 +40,9 @@ create no config, data, report, or dashboard artifacts.
 Imported candidates read existing `manual_import` rows from local SQLite,
 surface aggregate observed candidate phrases for review, and create no config,
 data, report, or dashboard artifacts.
+Imported candidate evidence reads existing `manual_import` rows from local
+SQLite for one requested candidate phrase and creates no config, data, report,
+or dashboard artifacts.
 
 Imported signal review reads retained `manual_import` rows from an existing
 local SQLite database in read-only mode. It is not a connector, source pack,
@@ -198,6 +201,9 @@ The public README must explain:
 - Imported candidate review reads retained local SQLite rows only; it is not
   a source collector, platform/community coverage check, authorization check, or
   policy review feature.
+- Imported candidate evidence reads retained local SQLite rows only for one
+  requested phrase; it is not a source collector, platform/community coverage
+  check, authorization check, or policy review feature.
 - Community signal lint validates local file structure and allowed fields only,
   including optional non-recursive directory batches; it is not source
   acquisition, platform coverage verification, authorization verification, or a

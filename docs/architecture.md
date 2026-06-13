@@ -19,6 +19,7 @@ YAML config
   -> optionally review retained manual_import rows from local SQLite
   -> optionally summarize retained manual_import rows by stored source-name label
   -> optionally review candidate phrases from retained manual_import rows
+  -> optionally inspect retained manual_import rows behind one candidate phrase
   -> match configured entities
   -> optionally compare stored manual_import entity counts across collected-at windows
   -> score current vs baseline windows
@@ -67,9 +68,11 @@ YAML config
   matches on retained rows to compare aggregate entity counts across
   collected-at windows. The imported-candidates command computes observed
   candidate phrases from retained rows only and does not expose item URLs,
-  titles, summaries, candidate contexts, or match internals. The review workflow
-  command only prints a copyable sequence for existing local commands and does
-  not execute them.
+  titles, summaries, candidate contexts, or match internals. The
+  imported-candidate-evidence command shows phrase-scoped retained rows with
+  titles and URLs, while omitting summaries, candidate contexts, and match
+  internals. The review workflow command only prints a copyable sequence for
+  existing local commands and does not execute them.
 - **Community Signal Quality:** Local read-only diagnostics lint one community
   signal CSV/JSON file or a non-recursive batch of matched regular files in one
   local directory before dry-run/import. The linters check strict handoff fields
@@ -145,6 +148,7 @@ fashion-radar imported-review-workflow --data-dir ./data --config-dir ./configs 
 fashion-radar imported-signals-summary --data-dir ./data
 fashion-radar imported-entity-deltas --data-dir ./data --as-of 2026-06-11T12:00:00Z
 fashion-radar imported-candidates --data-dir ./data --config-dir ./configs --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
+fashion-radar imported-candidate-evidence --data-dir ./data --config-dir ./configs --as-of 2026-06-11T12:00:00Z --phrase "Le Teckel bag" --source-name "Manual Export"
 fashion-radar imported-signals --data-dir ./data --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar match
 fashion-radar report --as-of 2026-06-11T12:00:00Z
@@ -201,6 +205,11 @@ without writing report files.
 The read-only `imported-candidates` command computes an imported-only aggregate
 view from retained `manual_import` rows. It surfaces observed phrases for
 review and does not create report files or dashboard artifacts.
+
+The read-only `imported-candidate-evidence` command computes a phrase-scoped
+view from retained `manual_import` rows. It helps inspect why one observed
+candidate phrase appeared and does not create report files or dashboard
+artifacts.
 
 ## Source Boundary
 

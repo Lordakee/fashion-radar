@@ -132,6 +132,8 @@ uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
 uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Manual Export" --format json
+uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --phrase "Le Teckel bag"
+uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --phrase "Le Teckel bag" --source-name "Manual Export" --format json
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Manual Export"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --unmatched-only
@@ -155,6 +157,11 @@ matched-entity review.
 `imported-candidates` is local and read-only. It surfaces observed candidate
 phrases from retained `manual_import` rows only. These phrases need review and
 are not verified entities, demand proof, or platform coverage.
+
+`imported-candidate-evidence` is local and read-only. It shows retained
+`manual_import` rows whose extracted candidate phrases match one requested
+phrase. Evidence rows are review aids and are not verified entities, demand
+proof, or platform coverage.
 
 `imported-signals` reviews retained `manual_import` rows already stored in the
 local SQLite database. It is read-only and does not import rows, run matching,
