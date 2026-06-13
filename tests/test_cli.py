@@ -2343,6 +2343,452 @@ def test_imported_signals_summary_command_does_not_mutate_existing_database(
     assert after_tables == before_tables
 
 
+def test_imported_entity_deltas_command_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["imported-entity-deltas", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "--data-dir" in result.output
+    assert "--as-of" in result.output
+    assert "--current-days" in result.output
+    assert "--baseline-days" in result.output
+    assert "--entity-type" in result.output
+    assert "--source-name" in result.output
+    assert "--format" in result.output
+    assert "Compare imported manual entity counts" in result.output
+
+
+def test_imported_entity_deltas_command_missing_database_is_read_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-deltas",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["row_count"] == 0
+    assert payload["total_count"] == 0
+    assert payload["current_matched_item_count"] == 0
+    assert payload["baseline_matched_item_count"] == 0
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_imported_entity_deltas_command_prints_json_with_stable_keys(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_imported_entity_deltas_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-deltas",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "database",
+        "as_of",
+        "current_window_start",
+        "baseline_window_start",
+        "current_days",
+        "baseline_days",
+        "entity_type",
+        "source_name",
+        "limit",
+        "row_count",
+        "total_count",
+        "current_matched_item_count",
+        "baseline_matched_item_count",
+        "entities",
+    ]
+    assert payload["row_count"] == 2
+    assert payload["total_count"] == 2
+    assert payload["current_matched_item_count"] == 2
+    assert payload["baseline_matched_item_count"] == 1
+    assert list(payload["entities"][0]) == [
+        "entity_name",
+        "entity_type",
+        "current_count",
+        "baseline_count",
+        "delta",
+        "change_label",
+        "current_source_count",
+        "baseline_source_count",
+        "source_count_delta",
+        "first_collected_at",
+        "latest_collected_at",
+    ]
+    forbidden = {
+        "id",
+        "item_id",
+        "title",
+        "url",
+        "summary",
+        "reason",
+        "context_terms",
+        "confidence",
+        "alias",
+        "source_file",
+        "source_path",
+        "import_path",
+    }
+    assert forbidden.isdisjoint(payload)
+    for entity in payload["entities"]:
+        assert forbidden.isdisjoint(entity)
+
+
+def test_imported_entity_deltas_command_prints_table_without_item_fields(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_imported_entity_deltas_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-deltas",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Imported manual entity deltas from local SQLite." in result.output
+    assert "Alaia | brand | 1 | 0 | 1 | new_in_current" in result.output
+    assert "The Row | brand | 1 | 1 | 0 | unchanged" in result.output
+    assert "The Row Margaux current" not in result.output
+    assert "https://example.com/current" not in result.output
+    for forbidden in (
+        "alias",
+        "confidence",
+        "reason",
+        "context_terms",
+        "hidden_context",
+        "margaux",
+        "flats",
+        "rss",
+        "source_file",
+        "source_path",
+        "import_path",
+    ):
+        assert forbidden not in result.output
+
+
+def _fail_imported_entity_deltas_query(*args, **kwargs):
+    raise AssertionError("query_imported_entity_deltas should not be called")
+
+
+def test_imported_entity_deltas_command_rejects_invalid_format_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_entity_deltas",
+        _fail_imported_entity_deltas_query,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-deltas",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "xml",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--format" in result.output
+    assert "query_imported_entity_deltas should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_entity_deltas_command_rejects_invalid_as_of_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_entity_deltas",
+        _fail_imported_entity_deltas_query,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-deltas",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not compare imported entity deltas: invalid --as-of" in result.output
+    assert "query_imported_entity_deltas should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_entity_deltas_command_rejects_invalid_numbers_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_entity_deltas",
+        _fail_imported_entity_deltas_query,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-deltas",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--current-days",
+            "0",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--current-days" in result.output
+    assert "query_imported_entity_deltas should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_entity_deltas_command_handles_special_character_data_dir(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_imported_entity_deltas_cli_fixture(
+        tmp_path,
+        data_dir_name="data ? # & %",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-deltas",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["row_count"] == 2
+    assert payload["database"] == str(data_dir / "fashion-radar.sqlite")
+
+
+def test_imported_entity_deltas_command_invalid_schema_no_traceback(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    with sqlite3.connect(data_dir / "fashion-radar.sqlite") as connection:
+        connection.execute("create table schema_metadata (version integer primary key)")
+        connection.execute(f"insert into schema_metadata (version) values ({SCHEMA_VERSION})")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-deltas",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not compare imported entity deltas" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_imported_entity_deltas_command_does_not_mutate_existing_database(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_imported_entity_deltas_cli_fixture(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    with sqlite3.connect(db_path) as connection:
+        before_items = connection.execute("select count(*) from items").fetchone()[0]
+        before_matches = connection.execute("select count(*) from item_entities").fetchone()[0]
+        before_schema_version = connection.execute(
+            "select version from schema_metadata"
+        ).fetchone()[0]
+        before_tables = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-deltas",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    with sqlite3.connect(db_path) as connection:
+        after_items = connection.execute("select count(*) from items").fetchone()[0]
+        after_matches = connection.execute("select count(*) from item_entities").fetchone()[0]
+        after_schema_version = connection.execute("select version from schema_metadata").fetchone()[
+            0
+        ]
+        after_tables = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+    assert after_items == before_items
+    assert after_matches == before_matches
+    assert after_schema_version == before_schema_version
+    assert after_tables == before_tables
+
+
+def _prepare_imported_entity_deltas_cli_fixture(
+    tmp_path: Path,
+    *,
+    data_dir_name: str = "data",
+) -> Path:
+    data_dir = tmp_path / data_dir_name
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    current_id = _store_imported_entity_delta_item(
+        repository,
+        source_name="Community Tool Export",
+        url="https://example.com/current",
+        title="The Row Margaux current",
+        published_at=datetime(2026, 6, 12, 8, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 12, 9, 0, tzinfo=UTC),
+    )
+    baseline_id = _store_imported_entity_delta_item(
+        repository,
+        source_name="Manual Export",
+        url="https://example.com/baseline",
+        title="The Row baseline",
+        published_at=datetime(2026, 6, 3, 8, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 3, 9, 0, tzinfo=UTC),
+    )
+    new_id = _store_imported_entity_delta_item(
+        repository,
+        source_name="Community Tool Export",
+        url="https://example.com/new",
+        title="Alaia flats",
+        published_at=datetime(2026, 6, 11, 8, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 11, 9, 0, tzinfo=UTC),
+    )
+    rss_id = _store_imported_entity_delta_item(
+        repository,
+        source_name="RSS Source",
+        source_type=SourceType.RSS,
+        url="https://example.com/rss",
+        title="RSS Alaia",
+        published_at=datetime(2026, 6, 11, 8, 0, tzinfo=UTC),
+        collected_at=datetime(2026, 6, 11, 10, 0, tzinfo=UTC),
+    )
+    repository.replace_item_matches(current_id, [_imported_entity_delta_match("The Row", "brand")])
+    repository.replace_item_matches(baseline_id, [_imported_entity_delta_match("The Row", "brand")])
+    repository.replace_item_matches(new_id, [_imported_entity_delta_match("Alaia", "brand")])
+    repository.replace_item_matches(rss_id, [_imported_entity_delta_match("Alaia", "brand")])
+    engine.dispose()
+    return data_dir
+
+
+def _store_imported_entity_delta_item(
+    repository: ItemRepository,
+    *,
+    source_name: str,
+    url: str,
+    title: str,
+    published_at: datetime,
+    collected_at: datetime,
+    source_type: SourceType = SourceType.MANUAL_IMPORT,
+) -> int:
+    return repository.upsert_item(
+        CollectedItem(
+            source_name=source_name,
+            source_type=source_type,
+            url=url,
+            title=title,
+            published_at=published_at,
+        ),
+        source_weight=1.0,
+        collected_at=collected_at,
+    )
+
+
+def _imported_entity_delta_match(entity_name: str, entity_type: str) -> dict[str, object]:
+    return {
+        "entity_name": entity_name,
+        "entity_type": entity_type,
+        "alias": entity_name,
+        "confidence": 1.0,
+        "reason": "context",
+        "context_terms": ["hidden_context"],
+    }
+
+
 def _prepare_imported_signals_cli_fixture(
     tmp_path: Path,
     *,

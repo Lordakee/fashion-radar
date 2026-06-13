@@ -33,6 +33,10 @@ from fashion_radar.entity_packs import (
     lint_entity_pack,
     render_entity_pack_lint_table,
 )
+from fashion_radar.imported_entity_deltas import (
+    query_imported_entity_deltas,
+    render_imported_entity_deltas_table,
+)
 from fashion_radar.imported_signals import (
     query_imported_signals,
     query_imported_signals_summary,
@@ -116,6 +120,7 @@ CandidateOutputFormat = Literal["table", "json"]
 ManualSignalInputFormat = Literal["csv", "json"]
 CommunitySignalLintOutputFormat = Literal["table", "json"]
 ImportSignalsDirOutputFormat = Literal["table", "json"]
+ImportedEntityDeltasOutputFormat = Literal["table", "json"]
 ImportedSignalsOutputFormat = Literal["table", "json"]
 ImportedSignalsSummaryOutputFormat = Literal["table", "json"]
 EntityPackLintOutputFormat = Literal["table", "json"]
@@ -150,6 +155,16 @@ IMPORT_SIGNALS_DIR_OUTPUT_FORMAT_OPTION = typer.Option(
     "table",
     "--output-format",
     help="Diagnostics output format.",
+)
+IMPORTED_ENTITY_DELTAS_AS_OF_OPTION = typer.Option(
+    ...,
+    "--as-of",
+    help="UTC comparison timestamp, for example 2026-06-13T12:00:00Z.",
+)
+IMPORTED_ENTITY_DELTAS_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
 )
 IMPORTED_SIGNALS_AS_OF_OPTION = typer.Option(
     ...,
@@ -754,6 +769,49 @@ def trends_command(
         engine.dispose()
 
     _print_trend_output(comparison, output_format=output_format)
+
+
+@app.command(name="imported-entity-deltas")
+def imported_entity_deltas_command(
+    data_dir: Path = DATA_DIR_OPTION,
+    as_of: str = IMPORTED_ENTITY_DELTAS_AS_OF_OPTION,
+    current_days: int = typer.Option(7, min=1, help="Current window in days."),
+    baseline_days: int = typer.Option(7, min=1, help="Baseline window in days."),
+    entity_type: str | None = typer.Option(None, help="Exact stored entity type filter."),
+    source_name: str | None = typer.Option(None, help="Exact stored source name filter."),
+    limit: int = typer.Option(50, min=0, help="Maximum entity delta rows to print."),
+    output_format: ImportedEntityDeltasOutputFormat = IMPORTED_ENTITY_DELTAS_FORMAT_OPTION,
+) -> None:
+    """Compare imported manual entity counts across local collected-at windows."""
+    try:
+        try:
+            as_of_value = parse_datetime_utc(as_of)
+        except (TypeError, ValueError) as exc:
+            typer.echo(
+                f"Could not compare imported entity deltas: invalid --as-of: {exc}",
+                err=True,
+            )
+            raise typer.Exit(1) from exc
+        result = query_imported_entity_deltas(
+            default_database_path(data_dir),
+            as_of=as_of_value,
+            current_days=current_days,
+            baseline_days=baseline_days,
+            entity_type=entity_type,
+            source_name=source_name,
+            limit=limit,
+        )
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        typer.echo(f"Could not compare imported entity deltas: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(result.model_dump_json(indent=2))
+        return
+    for line in render_imported_entity_deltas_table(result):
+        typer.echo(line)
 
 
 @app.command(name="imported-signals-summary")

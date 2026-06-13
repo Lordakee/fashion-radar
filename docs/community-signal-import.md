@@ -148,6 +148,7 @@ Run the normal local review workflow after importing:
 
 ```bash
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
+uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --unmatched-only
 uv run fashion-radar match
@@ -158,6 +159,9 @@ uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 `imported-signals-summary` reads the same retained local rows and groups counts
 by stored `source_name`.
+
+`imported-entity-deltas` reads retained local rows with stored matches and
+compares aggregate entity counts across collected-at windows.
 
 `imported-signals` reads retained imported rows from local SQLite only. It does
 not import rows, run matching/scoring, generate reports, fetch URLs, monitor

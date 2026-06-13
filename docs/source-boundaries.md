@@ -31,6 +31,9 @@ matching and writes only after every matched file validates.
 Imported signal summary reads existing `manual_import` rows from local SQLite,
 groups row counts by stored `source_name`, and creates no config, data, report,
 or dashboard artifacts.
+Imported entity deltas read stored matches on existing `manual_import` rows from
+local SQLite, compare aggregate entity counts across collected-at windows, and
+create no config, data, report, or dashboard artifacts.
 
 Imported signal review reads retained `manual_import` rows from an existing
 local SQLite database in read-only mode. It is not a connector, source pack,

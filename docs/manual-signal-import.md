@@ -127,6 +127,7 @@ After import, run the same local review commands used for collected sources:
 
 ```bash
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
+uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Manual Export"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --unmatched-only
@@ -138,6 +139,10 @@ uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 `imported-signals-summary` groups retained `manual_import` rows by stored
 `source_name` for a local count overview before row-level review.
+
+`imported-entity-deltas` compares stored matched entities on retained
+`manual_import` rows across collected-at windows for an aggregate local
+matched-entity review.
 
 `imported-signals` reviews retained `manual_import` rows already stored in the
 local SQLite database. It is read-only and does not import rows, run matching,

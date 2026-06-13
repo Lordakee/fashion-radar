@@ -60,6 +60,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Local read-only `imported-signals-summary` command for grouping retained
   `manual_import` rows by stored source-name label and item-level stored match
   presence.
+- Local read-only `imported-entity-deltas` command for comparing stored matched
+  entities on retained `manual_import` rows across collected-at windows.
 - Optional fashion entity watchlist pack for broader local matching coverage
   using the existing `entities.yaml` schema.
 - Local read-only `entity-pack-lint` command for entity YAML quality diagnostics
