@@ -13,7 +13,9 @@ import typer
 from sqlalchemy import create_engine, inspect, select
 
 from fashion_radar.community_candidates import (
+    preview_community_candidate_directory,
     preview_community_candidates,
+    render_community_candidate_directory_table,
     render_community_candidates_table,
 )
 from fashion_radar.community_signals import (
@@ -175,6 +177,11 @@ COMMUNITY_CANDIDATES_INPUT_FORMAT_OPTION = typer.Option(
     "csv",
     "--input-format",
     help="Input file format.",
+)
+COMMUNITY_CANDIDATES_DIR_PATTERN_OPTION = typer.Option(
+    "*.csv",
+    "--pattern",
+    help="Filename glob for direct child handoff files.",
 )
 COMMUNITY_SIGNAL_INPUT_FORMAT_OPTION = typer.Option(
     ...,
@@ -519,16 +526,80 @@ def community_candidates_command(
         )
         raise typer.Exit(1) from exc
     except Exception as exc:
-        message = str(exc)
-        if str(path) in message or path.name in message:
-            message = "input file could not be read or validated"
-        typer.echo(f"Could not preview community candidates: {message}", err=True)
+        typer.echo(
+            "Could not preview community candidates: input file could not be read or validated",
+            err=True,
+        )
         raise typer.Exit(1) from exc
 
     if output_format == "json":
         typer.echo(preview.model_dump_json(indent=2))
         return
     for line in render_community_candidates_table(preview):
+        typer.echo(line)
+
+
+@app.command(name="community-candidates-dir")
+def community_candidates_dir_command(
+    directory: Path,
+    config_dir: Path = CONFIG_DIR_OPTION,
+    input_format: ManualSignalInputFormat = COMMUNITY_CANDIDATES_INPUT_FORMAT_OPTION,
+    pattern: str = COMMUNITY_CANDIDATES_DIR_PATTERN_OPTION,
+    as_of: str = COMMUNITY_CANDIDATES_AS_OF_OPTION,
+    source_name: str = COMMUNITY_CANDIDATES_SOURCE_NAME_OPTION,
+    limit: int | None = typer.Option(50, min=0, help="Maximum candidates to print."),
+    output_format: CommunityCandidatesOutputFormat = COMMUNITY_CANDIDATES_FORMAT_OPTION,
+) -> None:
+    """Preview candidate phrases from local community signal files in one directory."""
+    try:
+        try:
+            as_of_value = parse_datetime_utc(as_of)
+        except (TypeError, ValueError) as exc:
+            typer.echo(
+                f"Could not preview community candidates directory: invalid --as-of: {exc}",
+                err=True,
+            )
+            raise typer.Exit(1) from exc
+        scoring_config = load_scoring_config(config_dir / "scoring.yaml")
+        entity_path = config_dir / "entities.yaml"
+        entity_config = load_entity_config(entity_path) if entity_path.exists() else None
+    except typer.Exit:
+        raise
+    except ConfigError as exc:
+        typer.echo(f"Invalid community candidate directory config: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    try:
+        preview = preview_community_candidate_directory(
+            directory,
+            input_format=input_format,
+            pattern=pattern,
+            scoring=scoring_config.scoring,
+            settings=scoring_config.candidate_discovery,
+            entity_config=entity_config,
+            as_of=as_of_value,
+            default_source_name=source_name,
+            limit=limit,
+        )
+    except ManualSignalImportError as exc:
+        typer.echo(
+            "Could not preview community candidates directory: "
+            "input directory could not be read or validated",
+            err=True,
+        )
+        raise typer.Exit(1) from exc
+    except Exception as exc:
+        typer.echo(
+            "Could not preview community candidates directory: "
+            "input directory could not be read or validated",
+            err=True,
+        )
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(preview.model_dump_json(indent=2))
+        return
+    for line in render_community_candidate_directory_table(preview):
         typer.echo(line)
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -8,7 +9,13 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from fashion_radar.discovery.candidates import configured_entity_keys, extract_candidate_phrases
-from fashion_radar.importers.manual_signals import ManualSignalFormat, load_manual_signal_rows
+from fashion_radar.importers.manual_signals import (
+    ManualSignalFormat,
+    ManualSignalImportError,
+    ManualSignalRow,
+    load_manual_signal_directory_rows,
+    load_manual_signal_rows,
+)
 from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
 from fashion_radar.utils.dates import parse_datetime_utc
 
@@ -43,6 +50,23 @@ class CommunityCandidatePreview(BaseModel):
     candidates: list[CommunityCandidateRow] = Field(default_factory=list)
 
 
+class CommunityCandidateDirectoryPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    input_format: ManualSignalFormat
+    as_of: str
+    current_window_start: str
+    baseline_window_start: str
+    current_days: int = 7
+    baseline_days: int = 30
+    source_name: str = "Community Tool Export"
+    file_count: int = 0
+    row_count: int = 0
+    candidate_count: int = 0
+    limit: int | None = 50
+    candidates: list[CommunityCandidateRow] = Field(default_factory=list)
+
+
 @dataclass(frozen=True)
 class _PreviewMention:
     normalized_key: str
@@ -64,18 +88,83 @@ def preview_community_candidates(
     default_source_name: str = "Community Tool Export",
     limit: int | None = 50,
 ) -> CommunityCandidatePreview:
-    if limit is not None and limit < 0:
-        raise ValueError("limit must be at least 0")
+    _validate_preview_limit(limit)
     as_of_value = parse_datetime_utc(as_of)
-    current_window_start = as_of_value - timedelta(days=scoring.current_window_days)
-    baseline_window_start = current_window_start - timedelta(days=scoring.baseline_window_days)
-    source_name = default_source_name.strip() or "Community Tool Export"
+    source_name = _preview_source_name(default_source_name)
     rows = load_manual_signal_rows(
         path,
         input_format=input_format,
         default_source_name=source_name,
     )
-    preview_base = {
+    return CommunityCandidatePreview(
+        **_community_candidate_preview_payload(
+            rows,
+            input_format=input_format,
+            scoring=scoring,
+            settings=settings,
+            entity_config=entity_config,
+            as_of=as_of_value,
+            source_name=source_name,
+            limit=limit,
+        )
+    )
+
+
+def preview_community_candidate_directory(
+    directory: Path,
+    *,
+    input_format: ManualSignalFormat,
+    pattern: str,
+    scoring: ScoringSettings,
+    settings: CandidateDiscoverySettings,
+    entity_config: EntityConfig | None,
+    as_of: str | datetime,
+    default_source_name: str = "Community Tool Export",
+    limit: int | None = 50,
+) -> CommunityCandidateDirectoryPreview:
+    _validate_preview_limit(limit)
+    as_of_value = parse_datetime_utc(as_of)
+    source_name = _preview_source_name(default_source_name)
+    load_result = load_manual_signal_directory_rows(
+        directory,
+        input_format=input_format,
+        pattern=pattern,
+        default_source_name=source_name,
+    )
+    if load_result.result.error_count:
+        raise ManualSignalImportError("input directory could not be read or validated")
+    payload = _community_candidate_preview_payload(
+        load_result.rows,
+        input_format=input_format,
+        scoring=scoring,
+        settings=settings,
+        entity_config=entity_config,
+        as_of=as_of_value,
+        source_name=source_name,
+        limit=limit,
+    )
+    return CommunityCandidateDirectoryPreview(
+        **payload,
+        file_count=load_result.result.file_count,
+    )
+
+
+def _community_candidate_preview_payload(
+    rows: Sequence[ManualSignalRow],
+    *,
+    input_format: ManualSignalFormat,
+    scoring: ScoringSettings,
+    settings: CandidateDiscoverySettings,
+    entity_config: EntityConfig | None,
+    as_of: str | datetime,
+    source_name: str,
+    limit: int | None,
+) -> dict[str, object]:
+    _validate_preview_limit(limit)
+    as_of_value = parse_datetime_utc(as_of)
+    current_window_start = as_of_value - timedelta(days=scoring.current_window_days)
+    baseline_window_start = current_window_start - timedelta(days=scoring.baseline_window_days)
+    preview_base: dict[str, object] = {
         "input_format": input_format,
         "as_of": as_of_value.isoformat(),
         "current_window_start": current_window_start.isoformat(),
@@ -84,10 +173,12 @@ def preview_community_candidates(
         "baseline_days": scoring.baseline_window_days,
         "source_name": source_name,
         "row_count": len(rows),
+        "candidate_count": 0,
         "limit": limit,
+        "candidates": [],
     }
     if not settings.enabled:
-        return CommunityCandidatePreview(**preview_base)
+        return preview_base
 
     known_keys = configured_entity_keys(entity_config, as_of=as_of_value)
     mentions: list[_PreviewMention] = []
@@ -124,11 +215,20 @@ def preview_community_candidates(
         current_window_start=current_window_start,
     )
     visible_candidates = candidates[:limit] if limit is not None else candidates
-    return CommunityCandidatePreview(
+    return {
         **preview_base,
-        candidate_count=len(candidates),
-        candidates=visible_candidates,
-    )
+        "candidate_count": len(candidates),
+        "candidates": visible_candidates,
+    }
+
+
+def _validate_preview_limit(limit: int | None) -> None:
+    if limit is not None and limit < 0:
+        raise ValueError("limit must be at least 0")
+
+
+def _preview_source_name(default_source_name: str) -> str:
+    return default_source_name.strip() or "Community Tool Export"
 
 
 def _score_preview_mentions(
@@ -235,6 +335,40 @@ def render_community_candidates_table(preview: CommunityCandidatePreview) -> lis
             f"{preview.current_window_start}"
         ),
         f"Source name: {_table_cell(preview.source_name)}",
+        f"Rows: {preview.row_count}",
+        f"Candidates: {len(preview.candidates)} shown, {preview.candidate_count} total",
+    ]
+    if not preview.candidates:
+        lines.append("No community candidate signals found.")
+        return lines
+    lines.append(
+        "Phrase | Type | Label | Score | Current Mentions | Baseline Mentions | "
+        "Distinct Sources | First Seen At"
+    )
+    for candidate in preview.candidates:
+        lines.append(
+            f"{_table_cell(candidate.phrase)} | {_table_cell(candidate.candidate_type)} | "
+            f"{candidate.label} | {candidate.score:.2f} | {candidate.current_mentions} | "
+            f"{candidate.baseline_mentions} | {candidate.distinct_sources} | "
+            f"{candidate.first_seen_at}"
+        )
+    return lines
+
+
+def render_community_candidate_directory_table(
+    preview: CommunityCandidateDirectoryPreview,
+) -> list[str]:
+    lines = [
+        "Community candidate preview from local handoff files.",
+        "Candidate signals are aggregate observed phrases from the supplied files only.",
+        f"Input format: {preview.input_format}",
+        f"Current window: {preview.current_window_start} < collected_at <= {preview.as_of}",
+        (
+            f"Baseline window: {preview.baseline_window_start} < collected_at <= "
+            f"{preview.current_window_start}"
+        ),
+        f"Source name: {_table_cell(preview.source_name)}",
+        f"Files: {preview.file_count}",
         f"Rows: {preview.row_count}",
         f"Candidates: {len(preview.candidates)} shown, {preview.candidate_count} total",
     ]

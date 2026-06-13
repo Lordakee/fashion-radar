@@ -6210,6 +6210,41 @@ def test_community_candidates_validation_error_has_clean_error_without_row_value
     assert "private-weight" not in result.output
 
 
+def test_community_candidates_unexpected_error_has_clean_error_without_raw_message(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir, _data_dir, path = _prepare_community_candidates_fixture(tmp_path)
+
+    def fail_preview(*args, **kwargs):
+        raise RuntimeError(
+            f"private failure in {path} with https://private.example/raw and Private Runway Note"
+        )
+
+    monkeypatch.setattr(cli_module, "preview_community_candidates", fail_preview)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-candidates",
+            str(path),
+            "--config-dir",
+            str(config_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not preview community candidates" in result.output
+    assert "input file could not be read or validated" in result.output
+    assert "Traceback" not in result.output
+    assert str(path) not in result.output
+    assert path.name not in result.output
+    assert "https://private.example/raw" not in result.output
+    assert "Private Runway Note" not in result.output
+
+
 def test_community_candidates_command_does_not_create_artifacts(tmp_path: Path) -> None:
     config_dir, data_dir, path = _prepare_community_candidates_fixture(tmp_path)
     reports_dir = tmp_path / "reports"
@@ -6236,3 +6271,539 @@ def test_community_candidates_command_does_not_create_artifacts(tmp_path: Path) 
     assert not data_dir.exists()
     assert not reports_dir.exists()
     assert not (tmp_path / "dashboard").exists()
+
+
+def _write_community_candidate_dir_csv(path: Path, rows: list[dict[str, str]]) -> None:
+    headers = [
+        "url",
+        "title",
+        "published_at",
+        "summary",
+        "source_name",
+        "collected_at",
+        "source_weight",
+    ]
+    lines = [",".join(headers)]
+    for row in rows:
+        lines.append(",".join(json.dumps(row.get(header, ""))[1:-1] for header in headers))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _prepare_community_candidates_dir_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text(
+        "version: 1\n"
+        "scoring: {}\n"
+        "candidate_discovery:\n"
+        "  review_min_current_mentions: 1\n"
+        "  review_min_distinct_sources: 1\n"
+        "  min_single_token_mentions: 1\n"
+        "  min_single_token_distinct_sources: 1\n",
+        encoding="utf-8",
+    )
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+    data_dir = tmp_path / "data"
+    directory = tmp_path / "private-community-dir"
+    directory.mkdir()
+    nested = directory / "nested-private"
+    nested.mkdir()
+    _write_community_candidate_dir_csv(
+        directory / "first.csv",
+        [
+            {
+                "url": "https://example.com/private-current",
+                "title": "Le Teckel bag mention PRIVATE_ROW_TITLE",
+                "published_at": "2026-06-13T09:00:00Z",
+                "summary": "Private raw summary",
+                "source_name": "Community A",
+                "collected_at": "2026-06-13T10:00:00Z",
+            },
+            {
+                "url": "https://example.com/private-baseline",
+                "title": "Le Teckel bag baseline PRIVATE_BASELINE_TITLE",
+                "published_at": "2026-06-01T09:00:00Z",
+                "summary": "Private baseline summary",
+                "source_name": "Community A",
+                "collected_at": "2026-06-01T10:00:00Z",
+            },
+        ],
+    )
+    _write_community_candidate_dir_csv(
+        directory / "second.csv",
+        [
+            {
+                "url": "https://example.com/private-second",
+                "title": "Le Teckel bag second PRIVATE_SECOND_TITLE",
+                "published_at": "2026-06-12T09:00:00Z",
+                "summary": "Private second summary",
+                "source_name": "Community B",
+                "collected_at": "2026-06-12T10:00:00Z",
+            }
+        ],
+    )
+    _write_community_candidate_dir_csv(
+        nested / "nested.csv",
+        [
+            {
+                "url": "https://example.com/private-nested",
+                "title": "Nested private title",
+                "published_at": "2026-06-13T09:00:00Z",
+                "summary": "Nested private summary",
+                "source_name": "Nested Source",
+                "collected_at": "2026-06-13T10:00:00Z",
+            }
+        ],
+    )
+    return config_dir, data_dir, directory
+
+
+def _community_candidates_dir_forbidden_fragments(directory: Path) -> set[str]:
+    return {
+        str(directory),
+        directory.name,
+        "first.csv",
+        "second.csv",
+        "nested.csv",
+        "https://example.com/private-current",
+        "https://example.com/private-baseline",
+        "https://example.com/private-second",
+        "https://example.com/private-nested",
+        "PRIVATE_ROW_TITLE",
+        "PRIVATE_BASELINE_TITLE",
+        "PRIVATE_SECOND_TITLE",
+        "Nested private title",
+        "Private raw summary",
+        "Private baseline summary",
+        "Private second summary",
+        "Nested private summary",
+        "le teckel bag",
+        "normalized_key",
+        "normalized_phrase",
+        "contexts",
+        "candidate_contexts",
+        "representative_items",
+        "source_file",
+        "source_path",
+        "import_path",
+        "account_id",
+        "findings",
+    }
+
+
+def test_community_candidates_dir_help_lists_command() -> None:
+    result = CliRunner().invoke(app, ["community-candidates-dir", "--help"])
+
+    assert result.exit_code == 0
+    assert "--as-of" in result.output
+    assert "--input-format" in result.output
+    assert "--pattern" in result.output
+    assert "--format" in result.output
+
+
+def test_community_candidates_dir_command_prints_json_without_paths_or_raw_values(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir, directory = _prepare_community_candidates_dir_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-candidates-dir",
+            str(directory),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--config-dir",
+            str(config_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "input_format",
+        "as_of",
+        "current_window_start",
+        "baseline_window_start",
+        "current_days",
+        "baseline_days",
+        "source_name",
+        "file_count",
+        "row_count",
+        "candidate_count",
+        "limit",
+        "candidates",
+    ]
+    assert payload["file_count"] == 2
+    assert payload["row_count"] == 3
+    assert payload["candidate_count"] >= 1
+    assert "directory" not in payload
+    assert "files" not in payload
+    assert "pattern" not in payload
+    assert any(candidate["phrase"] == "Le Teckel bag" for candidate in payload["candidates"])
+    assert list(payload["candidates"][0]) == [
+        "phrase",
+        "candidate_type",
+        "label",
+        "score",
+        "current_mentions",
+        "baseline_mentions",
+        "distinct_sources",
+        "growth_ratio",
+        "first_seen_at",
+    ]
+    serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    for fragment in _community_candidates_dir_forbidden_fragments(directory):
+        assert fragment not in serialized
+    assert not (data_dir / "fashion-radar.sqlite").exists()
+
+
+def test_community_candidates_dir_command_prints_table_without_paths_or_raw_values(
+    tmp_path: Path,
+) -> None:
+    config_dir, _data_dir, directory = _prepare_community_candidates_dir_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-candidates-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Community candidate preview from local handoff files." in result.output
+    assert "Files: 2" in result.output
+    assert "Rows: 3" in result.output
+    assert "Phrase | Type | Label | Score | Current Mentions" in result.output
+    assert "Le Teckel bag" in result.output
+    for fragment in _community_candidates_dir_forbidden_fragments(directory):
+        assert fragment not in result.output
+
+
+def test_community_candidates_dir_invalid_as_of_does_not_load_config_or_directory(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir, _data_dir, directory = _prepare_community_candidates_dir_fixture(tmp_path)
+
+    def fail_load_config(*args, **kwargs):
+        raise AssertionError("config should not be loaded")
+
+    def fail_preview(*args, **kwargs):
+        raise AssertionError("directory should not be loaded")
+
+    monkeypatch.setattr(cli_module, "load_scoring_config", fail_load_config)
+    monkeypatch.setattr(cli_module, "load_entity_config", fail_load_config)
+    monkeypatch.setattr(
+        cli_module,
+        "preview_community_candidate_directory",
+        fail_preview,
+        raising=False,
+    )
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-candidates-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "invalid --as-of" in result.output
+
+
+def test_community_candidates_dir_invalid_input_format_does_not_enter_command_body(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir, _data_dir, directory = _prepare_community_candidates_dir_fixture(tmp_path)
+
+    def fail_load_config(*args, **kwargs):
+        raise AssertionError("config should not be loaded")
+
+    def fail_preview(*args, **kwargs):
+        raise AssertionError("directory should not be loaded")
+
+    monkeypatch.setattr(cli_module, "load_scoring_config", fail_load_config)
+    monkeypatch.setattr(cli_module, "load_entity_config", fail_load_config)
+    monkeypatch.setattr(
+        cli_module,
+        "preview_community_candidate_directory",
+        fail_preview,
+        raising=False,
+    )
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-candidates-dir",
+            str(directory),
+            "--input-format",
+            "xml",
+            "--config-dir",
+            str(config_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid value" in result.output
+
+
+def test_community_candidates_dir_negative_limit_does_not_enter_command_body(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir, _data_dir, directory = _prepare_community_candidates_dir_fixture(tmp_path)
+
+    def fail_load_config(*args, **kwargs):
+        raise AssertionError("config should not be loaded")
+
+    def fail_preview(*args, **kwargs):
+        raise AssertionError("directory should not be loaded")
+
+    monkeypatch.setattr(cli_module, "load_scoring_config", fail_load_config)
+    monkeypatch.setattr(cli_module, "load_entity_config", fail_load_config)
+    monkeypatch.setattr(
+        cli_module,
+        "preview_community_candidate_directory",
+        fail_preview,
+        raising=False,
+    )
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-candidates-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--limit",
+            "-1",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid value" in result.output
+
+
+def test_community_candidates_dir_invalid_config_does_not_read_directory(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir, _data_dir, directory = _prepare_community_candidates_dir_fixture(tmp_path)
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: bad\n", encoding="utf-8")
+
+    def fail_preview(*args, **kwargs):
+        raise AssertionError("directory should not be loaded")
+
+    monkeypatch.setattr(
+        cli_module,
+        "preview_community_candidate_directory",
+        fail_preview,
+        raising=False,
+    )
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-candidates-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Invalid community candidate directory config" in result.output
+
+
+def test_community_candidates_dir_invalid_directory_has_clean_error_without_path_echo(
+    tmp_path: Path,
+) -> None:
+    config_dir, _data_dir, directory = _prepare_community_candidates_dir_fixture(tmp_path)
+    missing = directory.parent / "missing-private-directory"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-candidates-dir",
+            str(missing),
+            "--config-dir",
+            str(config_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not preview community candidates directory" in result.output
+    assert "input directory could not be read or validated" in result.output
+    assert "Traceback" not in result.output
+    assert str(missing) not in result.output
+    assert missing.name not in result.output
+
+
+def test_community_candidates_dir_no_matching_files_has_clean_error_without_path_echo(
+    tmp_path: Path,
+) -> None:
+    config_dir, _data_dir, directory = _prepare_community_candidates_dir_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-candidates-dir",
+            str(directory),
+            "--pattern",
+            "*.missing.csv",
+            "--config-dir",
+            str(config_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not preview community candidates directory" in result.output
+    assert "input directory could not be read or validated" in result.output
+    assert "No regular files matched" not in result.output
+    assert str(directory) not in result.output
+    assert directory.name not in result.output
+    assert "first.csv" not in result.output
+    assert "second.csv" not in result.output
+
+
+def test_community_candidates_dir_validation_error_has_clean_error_without_row_values(
+    tmp_path: Path,
+) -> None:
+    config_dir, _data_dir, directory = _prepare_community_candidates_dir_fixture(tmp_path)
+    for child in directory.iterdir():
+        if child.is_file():
+            child.unlink()
+    _write_community_candidate_dir_csv(
+        directory / "secret.csv",
+        [
+            {
+                "url": "https://private.example/secret",
+                "title": "Private Runway Note",
+                "published_at": "bad-date",
+                "summary": "Private summary text",
+                "source_weight": "not-a-number",
+            }
+        ],
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-candidates-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not preview community candidates directory" in result.output
+    assert "input directory could not be read or validated" in result.output
+    assert "Traceback" not in result.output
+    assert str(directory) not in result.output
+    assert directory.name not in result.output
+    assert "secret.csv" not in result.output
+    assert "https://private.example/secret" not in result.output
+    assert "Private Runway Note" not in result.output
+    assert "Private summary text" not in result.output
+    assert "bad-date" not in result.output
+    assert "not-a-number" not in result.output
+
+
+def test_community_candidates_dir_unexpected_error_has_clean_error_without_raw_message(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir, _data_dir, directory = _prepare_community_candidates_dir_fixture(tmp_path)
+
+    def fail_preview(*args, **kwargs):
+        raise RuntimeError(
+            f"private failure in {directory / 'secret.csv'} with https://private.example/raw"
+        )
+
+    monkeypatch.setattr(cli_module, "preview_community_candidate_directory", fail_preview)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-candidates-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not preview community candidates directory" in result.output
+    assert "input directory could not be read or validated" in result.output
+    assert "Traceback" not in result.output
+    assert str(directory) not in result.output
+    assert directory.name not in result.output
+    assert "secret.csv" not in result.output
+    assert "https://private.example/raw" not in result.output
+
+
+def test_community_candidates_dir_command_does_not_create_artifacts(tmp_path: Path) -> None:
+    config_dir, data_dir, directory = _prepare_community_candidates_dir_fixture(tmp_path)
+    reports_dir = tmp_path / "reports"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-candidates-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+        env={
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 0
+    assert not data_dir.exists()
+    assert not reports_dir.exists()
+    assert not (tmp_path / "dashboard").exists()
+    assert list(tmp_path.rglob("*.sqlite")) == []
+    assert list(tmp_path.rglob("*.sqlite-*")) == []
+    assert list(tmp_path.rglob("*.sqlite3")) == []
+    assert list(tmp_path.rglob("*.db")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.json")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.md")) == []
+    assert list(tmp_path.rglob("*digest*")) == []
+    assert list(tmp_path.rglob("*.eml")) == []
+    assert list(tmp_path.rglob("latest.*")) == []
+    assert list(tmp_path.rglob("report-index.json")) == []
