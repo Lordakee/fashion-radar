@@ -103,6 +103,8 @@ uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data" --format json
 uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
+uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --format json
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --unmatched-only
@@ -111,6 +113,10 @@ uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u 
 
 `imported-review-workflow` is local and does not execute commands. It prints a
 copyable review sequence for existing local commands after manual signal import.
+
+`imported-candidates` is local and read-only. It surfaces observed candidate
+phrases from retained `manual_import` rows only. These phrases need review and
+are not verified entities, demand proof, or platform coverage.
 
 Review untracked candidate signals from configured sources and imported local
 signals:
@@ -266,6 +272,12 @@ anything outside the local database.
 `imported-entity-deltas` is local and read-only. It compares stored matched
 entities on retained `manual_import` rows across collected-at windows and
 prints aggregate entity counts only.
+
+`imported-candidates` is local and read-only. It opens an existing SQLite
+database in read-only mode and computes review-oriented candidate signals from
+retained `manual_import` rows only; it does not import rows, fetch URLs, run
+entity matching, write scores, generate reports, monitor folders, or create
+dashboard/report artifacts.
 
 ## Reports And Storage
 

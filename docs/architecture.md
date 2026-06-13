@@ -18,6 +18,7 @@ YAML config
   -> optionally print a post-import review command checklist without executing it
   -> optionally review retained manual_import rows from local SQLite
   -> optionally summarize retained manual_import rows by stored source-name label
+  -> optionally review candidate phrases from retained manual_import rows
   -> match configured entities
   -> optionally compare stored manual_import entity counts across collected-at windows
   -> score current vs baseline windows
@@ -58,13 +59,17 @@ YAML config
   `--dry-run` imports only after every matched local file validates.
 - **Imported Signal Review:** Local read-only review of retained
   `manual_import` rows from existing SQLite state. It verifies schema before
-  querying and does not import rows, collect sources, fetch URLs, run matching,
-  score signals, generate reports, or create dashboard/report artifacts. The
-  summary command uses the same existing SQLite read boundary and groups
-  retained rows by stored `source_name`. The entity-deltas command uses stored
+  querying. The row-level and summary commands do not import rows, collect
+  sources, fetch URLs, run matching, score signals, generate reports, or create
+  dashboard/report artifacts. The summary command uses the same existing SQLite
+  read boundary and groups retained rows by stored `source_name`. The
+  entity-deltas command uses stored
   matches on retained rows to compare aggregate entity counts across
-  collected-at windows. The review workflow command only prints a copyable
-  sequence for existing local commands and does not execute them.
+  collected-at windows. The imported-candidates command computes observed
+  candidate phrases from retained rows only and does not expose item URLs,
+  titles, summaries, candidate contexts, or match internals. The review workflow
+  command only prints a copyable sequence for existing local commands and does
+  not execute them.
 - **Community Signal Quality:** Local read-only diagnostics lint one community
   signal CSV/JSON file or a non-recursive batch of matched regular files in one
   local directory before dry-run/import. The linters check strict handoff fields
@@ -139,6 +144,7 @@ fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Ex
 fashion-radar imported-review-workflow --data-dir ./data --config-dir ./configs --as-of 2026-06-11T12:00:00Z
 fashion-radar imported-signals-summary --data-dir ./data
 fashion-radar imported-entity-deltas --data-dir ./data --as-of 2026-06-11T12:00:00Z
+fashion-radar imported-candidates --data-dir ./data --config-dir ./configs --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar imported-signals --data-dir ./data --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar match
 fashion-radar report --as-of 2026-06-11T12:00:00Z
@@ -191,6 +197,10 @@ imported local signals that need review.
 
 The read-only `candidates` command computes the same review-oriented signals
 without writing report files.
+
+The read-only `imported-candidates` command computes an imported-only aggregate
+view from retained `manual_import` rows. It surfaces observed phrases for
+review and does not create report files or dashboard artifacts.
 
 ## Source Boundary
 

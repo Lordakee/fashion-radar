@@ -24,6 +24,7 @@ def _store(
     title: str,
     url: str,
     source_name: str = "Fashionista",
+    source_type: SourceType = SourceType.RSS,
     source_weight: float = 1.0,
     collected_at=None,
     summary: str = "",
@@ -31,7 +32,7 @@ def _store(
     return ItemRepository(engine).upsert_item(
         CollectedItem(
             source_name=source_name,
-            source_type=SourceType.RSS,
+            source_type=source_type,
             url=url,
             title=title,
             published_at=collected_at or AS_OF,
@@ -206,6 +207,91 @@ def test_excludes_configured_and_stored_entities(tmp_path) -> None:
     assert "margaux" not in keys
     assert "the row margaux bag" not in keys
     assert "margaux bag" not in keys
+
+
+def test_discover_candidates_filters_source_type_and_source_name(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    _store(
+        engine,
+        title="Le Teckel bag appears in imported row",
+        url="https://example.com/imported-a",
+        source_name="Community Tool Export",
+        source_type=SourceType.MANUAL_IMPORT,
+        collected_at=AS_OF - timedelta(hours=1),
+    )
+    _store(
+        engine,
+        title="Le Teckel bag appears in another imported row",
+        url="https://example.com/imported-b",
+        source_name="Manual Export",
+        source_type=SourceType.MANUAL_IMPORT,
+        collected_at=AS_OF - timedelta(hours=2),
+    )
+    _store(
+        engine,
+        title="Le Teckel bag appears in RSS row",
+        url="https://example.com/rss",
+        source_name="Fashionista",
+        source_type=SourceType.RSS,
+        collected_at=AS_OF - timedelta(hours=3),
+    )
+
+    candidates = discover_candidates(
+        engine,
+        scoring=ScoringSettings(),
+        settings=CandidateDiscoverySettings(
+            min_current_mentions=1,
+            review_min_current_mentions=1,
+        ),
+        entity_config=None,
+        as_of=AS_OF,
+        source_type=SourceType.MANUAL_IMPORT,
+        source_name="Community Tool Export",
+    )
+
+    candidate = next(item for item in candidates if item.normalized_key == "le teckel bag")
+    assert candidate.current_mentions == 1
+    assert candidate.distinct_sources == 1
+    assert [item.source_name for item in candidate.representative_items] == [
+        "Community Tool Export"
+    ]
+
+
+def test_discover_candidates_default_keeps_all_source_types(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    _store(
+        engine,
+        title="Slim sneaker current imported mention",
+        url="https://example.com/imported",
+        source_name="Community Tool Export",
+        source_type=SourceType.MANUAL_IMPORT,
+        collected_at=AS_OF - timedelta(hours=1),
+    )
+    _store(
+        engine,
+        title="Slim sneaker current RSS mention",
+        url="https://example.com/rss",
+        source_name="Fashionista",
+        source_type=SourceType.RSS,
+        collected_at=AS_OF - timedelta(hours=2),
+    )
+
+    candidates = discover_candidates(
+        engine,
+        scoring=ScoringSettings(),
+        settings=CandidateDiscoverySettings(
+            min_current_mentions=1,
+            review_min_current_mentions=1,
+        ),
+        entity_config=None,
+        as_of=AS_OF,
+    )
+
+    candidate = next(item for item in candidates if item.normalized_key == "slim sneaker")
+    assert candidate.current_mentions == 2
+    assert candidate.distinct_sources == 2
 
 
 def test_stored_entity_filter_uses_min_match_confidence(tmp_path) -> None:

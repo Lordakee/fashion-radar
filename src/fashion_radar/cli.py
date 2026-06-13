@@ -33,6 +33,10 @@ from fashion_radar.entity_packs import (
     lint_entity_pack,
     render_entity_pack_lint_table,
 )
+from fashion_radar.imported_candidates import (
+    query_imported_candidates,
+    render_imported_candidates_table,
+)
 from fashion_radar.imported_entity_deltas import (
     query_imported_entity_deltas,
     render_imported_entity_deltas_table,
@@ -124,6 +128,7 @@ CandidateOutputFormat = Literal["table", "json"]
 ManualSignalInputFormat = Literal["csv", "json"]
 CommunitySignalLintOutputFormat = Literal["table", "json"]
 ImportSignalsDirOutputFormat = Literal["table", "json"]
+ImportedCandidatesOutputFormat = Literal["table", "json"]
 ImportedEntityDeltasOutputFormat = Literal["table", "json"]
 ImportedReviewWorkflowOutputFormat = Literal["table", "json"]
 ImportedSignalsOutputFormat = Literal["table", "json"]
@@ -160,6 +165,16 @@ IMPORT_SIGNALS_DIR_OUTPUT_FORMAT_OPTION = typer.Option(
     "table",
     "--output-format",
     help="Diagnostics output format.",
+)
+IMPORTED_CANDIDATES_AS_OF_OPTION = typer.Option(
+    ...,
+    "--as-of",
+    help="UTC imported candidate review timestamp, for example 2026-06-13T12:00:00Z.",
+)
+IMPORTED_CANDIDATES_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
 )
 IMPORTED_ENTITY_DELTAS_AS_OF_OPTION = typer.Option(
     ...,
@@ -784,6 +799,52 @@ def trends_command(
         engine.dispose()
 
     _print_trend_output(comparison, output_format=output_format)
+
+
+@app.command(name="imported-candidates")
+def imported_candidates_command(
+    config_dir: Path = CONFIG_DIR_OPTION,
+    data_dir: Path = DATA_DIR_OPTION,
+    as_of: str = IMPORTED_CANDIDATES_AS_OF_OPTION,
+    source_name: str | None = typer.Option(None, help="Exact stored source name filter."),
+    limit: int | None = typer.Option(50, min=0, help="Maximum imported candidates to print."),
+    output_format: ImportedCandidatesOutputFormat = IMPORTED_CANDIDATES_FORMAT_OPTION,
+) -> None:
+    """Review imported manual candidate signals from local SQLite."""
+    try:
+        try:
+            as_of_value = parse_datetime_utc(as_of)
+        except (TypeError, ValueError) as exc:
+            typer.echo(f"Could not review imported candidates: invalid --as-of: {exc}", err=True)
+            raise typer.Exit(1) from exc
+        scoring_config = load_scoring_config(config_dir / "scoring.yaml")
+        entity_path = config_dir / "entities.yaml"
+        entity_config = load_entity_config(entity_path) if entity_path.exists() else None
+    except typer.Exit:
+        raise
+    except ConfigError as exc:
+        typer.echo(f"Invalid imported candidates config: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    try:
+        review = query_imported_candidates(
+            default_database_path(data_dir),
+            scoring=scoring_config.scoring,
+            settings=scoring_config.candidate_discovery,
+            entity_config=entity_config,
+            as_of=as_of_value,
+            source_name=source_name,
+            limit=limit,
+        )
+    except Exception as exc:
+        typer.echo(f"Could not review imported candidates: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(review.model_dump_json(indent=2))
+        return
+    for line in render_imported_candidates_table(review):
+        typer.echo(line)
 
 
 @app.command(name="imported-review-workflow")

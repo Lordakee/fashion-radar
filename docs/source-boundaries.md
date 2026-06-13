@@ -37,6 +37,9 @@ or dashboard artifacts.
 Imported entity deltas read stored matches on existing `manual_import` rows from
 local SQLite, compare aggregate entity counts across collected-at windows, and
 create no config, data, report, or dashboard artifacts.
+Imported candidates read existing `manual_import` rows from local SQLite,
+surface aggregate observed candidate phrases for review, and create no config,
+data, report, or dashboard artifacts.
 
 Imported signal review reads retained `manual_import` rows from an existing
 local SQLite database in read-only mode. It is not a connector, source pack,
@@ -192,6 +195,9 @@ The public README must explain:
 - Imported signal review reads retained local SQLite rows only; it is not source
   acquisition, platform/community coverage verification, authorization
   verification, or a policy workflow feature.
+- Imported candidate review reads retained local SQLite rows only; it is not
+  a source collector, platform/community coverage check, authorization check, or
+  policy review feature.
 - Community signal lint validates local file structure and allowed fields only,
   including optional non-recursive directory batches; it is not source
   acquisition, platform coverage verification, authorization verification, or a

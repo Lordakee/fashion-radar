@@ -10,6 +10,7 @@ from sqlalchemy.engine import Engine
 from fashion_radar.db.schema import item_entities, items
 from fashion_radar.extract.text import normalize_alias_key, normalize_text
 from fashion_radar.models.report import RepresentativeItem
+from fashion_radar.models.source import SourceType
 from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
 from fashion_radar.utils.dates import parse_datetime_utc
 
@@ -191,6 +192,8 @@ def discover_candidates(
     entity_config: EntityConfig | None,
     as_of: datetime,
     limit: int | None = None,
+    source_type: SourceType | str | None = None,
+    source_name: str | None = None,
 ) -> list[CandidateMetric]:
     if not settings.enabled:
         return []
@@ -209,12 +212,16 @@ def discover_candidates(
         min_match_confidence=scoring.min_match_confidence,
         as_of=as_of_utc,
     )
+    source_type_filter = source_type.value if isinstance(source_type, SourceType) else source_type
+    source_name_filter = (source_name or "").strip() or None
     mentions = _candidate_mentions(
         engine,
         known_keys=known_keys,
         settings=settings,
         baseline_start=baseline_start,
         as_of=as_of_utc,
+        source_type=source_type_filter,
+        source_name=source_name_filter,
     )
 
     by_key: dict[str, list[_CandidateMention]] = {}
@@ -289,22 +296,28 @@ def _candidate_mentions(
     settings: CandidateDiscoverySettings,
     baseline_start: datetime,
     as_of: datetime,
+    source_type: str | None = None,
+    source_name: str | None = None,
 ) -> list[_CandidateMention]:
     with engine.connect() as connection:
-        rows = list(
-            connection.execute(
-                select(
-                    items.c.id,
-                    items.c.source_name,
-                    items.c.source_weight,
-                    items.c.url,
-                    items.c.published_at,
-                    items.c.title,
-                    items.c.summary,
-                    items.c.collected_at,
-                )
-            ).mappings()
+        query = select(
+            items.c.id,
+            items.c.source_name,
+            items.c.source_weight,
+            items.c.url,
+            items.c.published_at,
+            items.c.title,
+            items.c.summary,
+            items.c.collected_at,
         )
+        conditions = []
+        if source_type is not None:
+            conditions.append(items.c.source_type == source_type)
+        if source_name is not None:
+            conditions.append(items.c.source_name == source_name)
+        if conditions:
+            query = query.where(*conditions)
+        rows = list(connection.execute(query).mappings())
 
     mentions: list[_CandidateMention] = []
     for row in rows:

@@ -91,6 +91,8 @@ uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 "$tmp_env/venv/bin/fashion-radar" dashboard --help
 tmp_run="$(mktemp -d)"
 mkdir -p "$tmp_run/exports"
+mkdir -p "$tmp_run/config"
+printf 'version: 1\nscoring: {}\ncandidate_discovery:\n  min_current_mentions: 1\n  review_min_current_mentions: 1\n' > "$tmp_run/config/scoring.yaml"
 printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00Z\n' > "$tmp_run/exports/signals.csv"
 "$tmp_env/venv/bin/fashion-radar" import-signals-dir --help
 "$tmp_env/venv/bin/fashion-radar" import-signals-dir "$tmp_run/exports" --format csv --pattern "*.csv" --dry-run
@@ -98,8 +100,10 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" imported-signals --help
 "$tmp_env/venv/bin/fashion-radar" imported-signals-summary --help
 "$tmp_env/venv/bin/fashion-radar" imported-entity-deltas --help
+"$tmp_env/venv/bin/fashion-radar" imported-candidates --help
 "$tmp_env/venv/bin/fashion-radar" imported-review-workflow --help
 "$tmp_env/venv/bin/fashion-radar" imported-signals --data-dir "$tmp_run/data" --as-of "2026-06-12T12:00:00Z" --format json
+"$tmp_env/venv/bin/fashion-radar" imported-candidates --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-review-workflow --data-dir "$tmp_run/data ? # & %" --config-dir "$tmp_run/config ? # & %" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/python" -c "from importlib import resources; text = resources.files('fashion_radar.templates').joinpath('daily_report.md').read_text(encoding='utf-8'); assert 'Fashion Radar Daily Report' in text"
 ```

@@ -79,11 +79,20 @@ Print the same review data as JSON:
 uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
 ```
 
+Review imported manual candidate signals only:
+
+```bash
+uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --format json
+```
+
 The command reads local config and local SQLite state. It is intended for review
 and should not mutate source, entity, scoring, or report files.
 After local imports, `imported-signals` can inspect retained `manual_import`
-rows before candidate discovery; candidate discovery still computes observed
-phrases from retained local items.
+rows before candidate discovery. `imported-candidates` is the local read-only
+imported-only view of observed candidate phrases from retained `manual_import`
+rows. These phrases need review and are not verified entities, demand proof, or
+platform coverage.
 
 ## Reports And Dashboard
 

@@ -2099,6 +2099,329 @@ def test_imported_signals_command_does_not_mutate_existing_database(
     assert after_matches == before_matches
 
 
+def test_imported_candidates_command_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["imported-candidates", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "imported manual candidate" in result.output.lower()
+    assert "--config-dir" in result.output
+    assert "--data-dir" in result.output
+    assert "--as-of" in result.output
+    assert "--source-name" in result.output
+    assert "--limit" in result.output
+    assert "--format" in result.output
+
+
+def test_imported_candidates_command_prints_json_with_stable_keys(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir = _prepare_imported_candidates_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--source-name",
+            "Community Tool Export",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "database",
+        "as_of",
+        "current_window_start",
+        "baseline_window_start",
+        "current_days",
+        "baseline_days",
+        "source_type",
+        "source_name",
+        "limit",
+        "candidate_count",
+        "candidates",
+    ]
+    assert payload["source_type"] == "manual_import"
+    assert payload["source_name"] == "Community Tool Export"
+    assert payload["candidate_count"] == 1
+    assert list(payload["candidates"][0]) == [
+        "phrase",
+        "candidate_type",
+        "label",
+        "score",
+        "current_mentions",
+        "baseline_mentions",
+        "distinct_sources",
+        "growth_ratio",
+        "first_seen_at",
+    ]
+    forbidden = {
+        "representative_items",
+        "source_url",
+        "title",
+        "summary",
+        "contexts",
+        "normalized_key",
+        "item_id",
+        "matches",
+        "match_status",
+    }
+    assert forbidden.isdisjoint(payload["candidates"][0])
+    assert payload["candidates"][0]["phrase"] == "Le Teckel bag"
+    assert payload["candidates"][0]["current_mentions"] == 1
+
+
+def test_imported_candidates_command_prints_table_without_item_fields(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir = _prepare_imported_candidates_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--source-name",
+            "Community Tool Export",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Imported manual candidate signals from local SQLite." in result.output
+    assert "Le Teckel bag" in result.output
+    assert "https://example.com/imported-a" not in result.output
+    assert "Le Teckel bag current mention" not in result.output
+    assert "private review note" not in result.output
+
+
+def _fail_imported_candidates_query(*args, **kwargs):
+    raise AssertionError("query_imported_candidates should not be called")
+
+
+def test_imported_candidates_command_rejects_invalid_as_of_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_candidates",
+        _fail_imported_candidates_query,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidates",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review imported candidates: invalid --as-of" in result.output
+    assert "query_imported_candidates should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_candidates_command_rejects_invalid_format_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_candidates",
+        _fail_imported_candidates_query,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidates",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "xml",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--format" in result.output
+    assert "query_imported_candidates should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_candidates_command_rejects_negative_limit_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_candidates",
+        _fail_imported_candidates_query,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidates",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--limit",
+            "-1",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--limit" in result.output
+    assert "query_imported_candidates should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_candidates_command_missing_database_is_read_only(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "missing-data"
+    reports_dir = tmp_path / "reports"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["candidate_count"] == 0
+    assert payload["candidates"] == []
+    assert not data_dir.exists()
+    assert not reports_dir.exists()
+    assert list(tmp_path.rglob("*.sqlite")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.json")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.md")) == []
+
+
+def test_imported_candidates_command_invalid_schema_no_traceback(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+    with sqlite3.connect(data_dir / "fashion-radar.sqlite") as connection:
+        connection.execute("create table schema_metadata (version integer primary key)")
+        connection.execute(f"insert into schema_metadata (version) values ({SCHEMA_VERSION})")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review imported candidates" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_imported_candidates_command_does_not_mutate_existing_database(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir = _prepare_imported_candidates_cli_fixture(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    with sqlite3.connect(db_path) as connection:
+        before_items = connection.execute("select count(*) from items").fetchone()[0]
+        before_matches = connection.execute("select count(*) from item_entities").fetchone()[0]
+        before_schema_version = connection.execute(
+            "select version from schema_metadata"
+        ).fetchone()[0]
+        before_tables = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    with sqlite3.connect(db_path) as connection:
+        after_items = connection.execute("select count(*) from items").fetchone()[0]
+        after_matches = connection.execute("select count(*) from item_entities").fetchone()[0]
+        after_schema_version = connection.execute("select version from schema_metadata").fetchone()[
+            0
+        ]
+        after_tables = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+    assert after_items == before_items
+    assert after_matches == before_matches
+    assert after_schema_version == before_schema_version
+    assert after_tables == before_tables
+
+
 def test_imported_signals_summary_command_help_lists_options() -> None:
     result = CliRunner().invoke(
         app,
@@ -3052,6 +3375,61 @@ def _prepare_imported_entity_deltas_cli_fixture(
     repository.replace_item_matches(rss_id, [_imported_entity_delta_match("Alaia", "brand")])
     engine.dispose()
     return data_dir
+
+
+def _prepare_imported_candidates_cli_fixture(tmp_path: Path) -> tuple[Path, Path]:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text(
+        """
+version: 1
+scoring:
+  current_window_days: 7
+  baseline_window_days: 30
+candidate_discovery:
+  min_current_mentions: 1
+  review_min_current_mentions: 1
+  min_single_token_mentions: 99
+  min_single_token_distinct_sources: 99
+  max_candidates: 10
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    as_of = datetime(2026, 6, 13, 12, 0, tzinfo=UTC)
+    for source_name, url in (
+        ("Community Tool Export", "https://example.com/imported-a"),
+        ("Manual Export", "https://example.com/imported-b"),
+    ):
+        repository.upsert_item(
+            CollectedItem(
+                source_name=source_name,
+                source_type=SourceType.MANUAL_IMPORT,
+                url=url,
+                title="Le Teckel bag current mention",
+                published_at=as_of - timedelta(hours=1),
+                summary="private review note",
+            ),
+            collected_at=as_of - timedelta(hours=1),
+        )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Fashionista",
+            source_type=SourceType.RSS,
+            url="https://example.com/rss",
+            title="Le Teckel bag RSS mention",
+            published_at=as_of - timedelta(hours=2),
+            summary="Le Teckel bag appears outside manual imports.",
+        ),
+        collected_at=as_of - timedelta(hours=2),
+    )
+    engine.dispose()
+    return config_dir, data_dir
 
 
 def _store_imported_entity_delta_item(

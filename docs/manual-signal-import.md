@@ -130,6 +130,8 @@ uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-di
 uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
 uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Manual Export" --format json
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Manual Export"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --unmatched-only
@@ -149,6 +151,10 @@ rows, run matching, score signals, generate reports, or create artifacts.
 `imported-entity-deltas` compares stored matched entities on retained
 `manual_import` rows across collected-at windows for an aggregate local
 matched-entity review.
+
+`imported-candidates` is local and read-only. It surfaces observed candidate
+phrases from retained `manual_import` rows only. These phrases need review and
+are not verified entities, demand proof, or platform coverage.
 
 `imported-signals` reviews retained `manual_import` rows already stored in the
 local SQLite database. It is read-only and does not import rows, run matching,
