@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import OperationalError
 
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import (
@@ -14,6 +15,7 @@ from fashion_radar.db.repositories import (
 from fashion_radar.db.schema import SCHEMA_VERSION, SchemaVersionError, initialize_schema
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceDefinition, SourceType
+from fashion_radar.trends import create_readonly_sqlite_engine
 
 
 def _item(url: str, title: str = "The Row Margaux handbag") -> CollectedItem:
@@ -47,6 +49,32 @@ def test_create_sqlite_engine_handles_uri_special_characters(tmp_path) -> None:
             row[2] for row in connection.execute(text("pragma database_list")) if row[1] == "main"
         ][0]
     assert database_path == str(path)
+
+
+def test_create_readonly_sqlite_engine_handles_uri_special_characters_and_rejects_writes(
+    tmp_path,
+) -> None:
+    path = tmp_path / "data ? # & %" / "fashion.db"
+    write_engine = create_sqlite_engine(path)
+    initialize_schema(write_engine)
+    write_engine.dispose()
+
+    read_engine = create_readonly_sqlite_engine(path)
+    try:
+        with read_engine.connect() as connection:
+            database_path = [
+                row[2]
+                for row in connection.execute(text("pragma database_list"))
+                if row[1] == "main"
+            ][0]
+            version = connection.execute(text("select version from schema_metadata")).scalar_one()
+            with pytest.raises(OperationalError, match="readonly|read-only|attempt to write"):
+                connection.execute(text("create table should_fail (id integer)"))
+
+        assert database_path == str(path)
+        assert version == SCHEMA_VERSION
+    finally:
+        read_engine.dispose()
 
 
 def _create_v1_schema_with_item(engine) -> None:

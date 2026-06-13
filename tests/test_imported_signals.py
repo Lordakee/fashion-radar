@@ -552,10 +552,11 @@ def test_render_imported_signals_table_empty() -> None:
         "Imported manual signals from local SQLite.",
         "Window: 2026-06-05T12:00:00+00:00 < collected_at <= 2026-06-12T12:00:00+00:00",
         "Rows: 0 shown, 0 total",
-        "Matches: 0 matched, 0 unmatched",
+        "Matched rows: 0 matched, 0 unmatched",
         "Sources: none",
         "No imported manual signals found.",
     ]
+    assert all(not line.startswith("Matches:") for line in render_imported_signals_table(review))
 
 
 def test_render_imported_signals_table_populated_sanitizes_cells() -> None:
@@ -609,7 +610,7 @@ def test_render_imported_signals_table_populated_sanitizes_cells() -> None:
         "Imported manual signals from local SQLite.",
         "Window: 2026-06-05T12:00:00+00:00 < collected_at <= 2026-06-12T12:00:00+00:00",
         "Rows: 2 shown, 2 total",
-        "Matches: 1 matched, 1 unmatched",
+        "Matched rows: 1 matched, 1 unmatched",
         "Sources: Community / Tool Export=1, Manual Import=1",
         "ID | Collected At | Match | Source | Weight | Title | URL",
         "3 | 2026-06-12T12:00:00+00:00 | matched:The / Row | "
@@ -617,6 +618,7 @@ def test_render_imported_signals_table_populated_sanitizes_cells() -> None:
         "https://example.com/margaux/row",
         "2 | 2026-06-12T11:00:00+00:00 | unmatched | Manual Import | 1.00 | Le Teckel bag rises | https://example.com/le-teckel",
     ]
+    assert all(not line.startswith("Matches:") for line in render_imported_signals_table(review))
 
 
 def _store_item(

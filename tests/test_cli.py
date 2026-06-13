@@ -1731,6 +1731,91 @@ def test_imported_signals_command_invalid_as_of_skips_query_when_database_exists
     assert "Traceback" not in result.output
 
 
+def _fail_imported_signals_query(*args, **kwargs):
+    raise AssertionError("query_imported_signals should not be called")
+
+
+def test_imported_signals_command_rejects_zero_lookback_days_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(cli_module, "query_imported_signals", _fail_imported_signals_query)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--lookback-days",
+            "0",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--lookback-days" in result.output
+    assert "query_imported_signals should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_signals_command_rejects_negative_limit_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(cli_module, "query_imported_signals", _fail_imported_signals_query)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--limit",
+            "-1",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--limit" in result.output
+    assert "query_imported_signals should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_signals_command_rejects_invalid_format_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(cli_module, "query_imported_signals", _fail_imported_signals_query)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--format",
+            "xml",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--format" in result.output
+    assert "query_imported_signals should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
 def test_imported_signals_command_missing_database_is_read_only(
     tmp_path: Path,
     monkeypatch,
@@ -1792,7 +1877,8 @@ def test_imported_signals_command_prints_table(tmp_path: Path) -> None:
         "Window: 2026-06-11T12:00:00+00:00 < collected_at <= 2026-06-12T12:00:00+00:00"
     ) in result.output
     assert "Rows: 2 shown, 2 total" in result.output
-    assert "Matches: 1 matched, 1 unmatched" in result.output
+    assert "Matched rows: 1 matched, 1 unmatched" in result.output
+    assert "Matches: 1 matched, 1 unmatched" not in result.output
     assert "Sources: Community Tool Export=2" in result.output
     assert "Unmatched local item" in result.output
     assert "Margaux interest" in result.output
@@ -1930,6 +2016,36 @@ def test_imported_signals_command_unmatched_only(tmp_path: Path) -> None:
     assert payload["items"][0]["matches"] == []
 
 
+def test_imported_signals_command_handles_special_character_data_dir(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_imported_signals_cli_fixture(
+        tmp_path,
+        data_dir_name="data ? # & %",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--lookback-days",
+            "1",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["total_count"] == 2
+    assert payload["row_count"] == 2
+    assert payload["database"] == str(data_dir / "fashion-radar.sqlite")
+
+
 def test_imported_signals_command_invalid_schema_no_traceback(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     data_dir.mkdir()
@@ -1983,8 +2099,12 @@ def test_imported_signals_command_does_not_mutate_existing_database(
     assert after_matches == before_matches
 
 
-def _prepare_imported_signals_cli_fixture(tmp_path: Path) -> Path:
-    data_dir = tmp_path / "data"
+def _prepare_imported_signals_cli_fixture(
+    tmp_path: Path,
+    *,
+    data_dir_name: str = "data",
+) -> Path:
+    data_dir = tmp_path / data_dir_name
     engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
     initialize_schema(engine)
     repository = ItemRepository(engine)

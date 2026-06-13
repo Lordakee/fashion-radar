@@ -63,6 +63,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and documentation for matcher-context, product parent-brand, tag, and default
   weight/confidence review.
 
+### Changed
+
+- Clarified `imported-signals` table output by labeling stored match presence
+  as matched rows, and added CLI/read-only SQLite regressions.
+
 ### Not Included In 0.1.0
 
 - No default Google News RSS connector.

@@ -146,7 +146,7 @@ def render_imported_signals_table(review: ImportedSignalsReview) -> list[str]:
         "Imported manual signals from local SQLite.",
         f"Window: {review.window_start} < collected_at <= {review.as_of}",
         f"Rows: {review.row_count} shown, {review.total_count} total",
-        f"Matches: {review.matched_count} matched, {review.unmatched_count} unmatched",
+        f"Matched rows: {review.matched_count} matched, {review.unmatched_count} unmatched",
         f"Sources: {_format_counts(review.source_name_counts)}",
     ]
     if not review.items:
