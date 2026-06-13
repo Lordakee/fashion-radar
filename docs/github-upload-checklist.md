@@ -14,8 +14,8 @@ Run:
 git status --short --untracked-files=all
 git status --ignored --short
 git diff --check
-uv lock --check
-uv sync --locked --dev --check
+UV_NO_CONFIG=1 uv lock --check
+UV_NO_CONFIG=1 uv sync --locked --dev --check
 uv run ruff check .
 uv run ruff format --check .
 uv run pytest
@@ -29,6 +29,14 @@ UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv sync --frozen --dev
 
 Do not stage `uv.lock` if mirror-backed local operations changed it. Regenerate
 the lockfile only against the default PyPI registry before publishing.
+
+If a user-level uv config sets a mirror as the default index, keep release
+lockfile checks isolated from that config:
+
+```bash
+UV_NO_CONFIG=1 uv lock --check
+UV_NO_CONFIG=1 uv sync --locked --dev --check
+```
 
 Check the public lockfile has no mirror URLs:
 
