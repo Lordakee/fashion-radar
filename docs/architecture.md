@@ -89,7 +89,9 @@ YAML config
   and import-readiness but do not import rows, open SQLite, collect sources,
   fetch URLs, run matching/scoring, or create config/data/report directories.
 - **Storage:** SQLite tables store collected items, source health, collector
-  runs, entity matches, and stable entity first/last seen timestamps.
+  runs, entity matches, and stable entity first/last seen timestamps. The
+  explicit `migrate-db` command initializes or upgrades the local SQLite schema
+  for a configured data directory.
 - **Matching:** Deterministic alias matching with context gates for common or
   broad aliases.
 - **Scoring:** Local heat metrics over configured time windows, based on
@@ -146,6 +148,7 @@ Optional local digest artifacts are:
 ```bash
 fashion-radar init
 fashion-radar doctor
+fashion-radar migrate-db --data-dir ./data
 fashion-radar source-pack-lint ./configs/sources.yaml
 fashion-radar entity-pack-lint ./configs/entities.yaml
 fashion-radar collect
@@ -176,6 +179,11 @@ fashion-radar run --as-of 2026-06-11T12:00:00Z
 ```
 
 There are no parallel database writers in the MVP workflow.
+
+`doctor` reports database schema status read-only. `migrate-db` is local schema
+maintenance only: it initializes or upgrades SQLite state and does not collect,
+import, match, score, report, monitor, watch, schedule, or touch external
+platforms.
 
 `community-candidates-dir` is an in-memory pre-import preview over matched
 regular files directly under one local directory. It sits before manual

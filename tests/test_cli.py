@@ -12,7 +12,13 @@ import fashion_radar.cli as cli_module
 from fashion_radar.cli import app
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
-from fashion_radar.db.schema import SCHEMA_VERSION, initialize_schema, item_entities, items
+from fashion_radar.db.schema import (
+    SCHEMA_VERSION,
+    initialize_schema,
+    item_entities,
+    items,
+    schema_metadata,
+)
 from fashion_radar.digests import DigestOptions, DigestResult
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceType
@@ -25,6 +31,13 @@ def test_cli_help() -> None:
     assert result.exit_code == 0
     assert "Fashion Radar" in result.output
     assert "trends" in result.output
+
+
+def test_cli_help_lists_migrate_db() -> None:
+    result = CliRunner().invoke(app, ["--help"], env={"COLUMNS": "120"})
+
+    assert result.exit_code == 0
+    assert "migrate-db" in result.output
 
 
 def test_dashboard_command_help_lists_config_dir() -> None:
@@ -2078,6 +2091,31 @@ def test_imported_signals_command_invalid_schema_no_traceback(tmp_path: Path) ->
     assert "Traceback" not in result.output
 
 
+def test_imported_signals_command_reports_future_schema_before_missing_table_validation(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+    _create_future_metadata_only_database(data_dir / "fashion-radar.sqlite")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-01-15T00:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert f"Unsupported database schema version 999; expected {SCHEMA_VERSION}" in result.output
+    assert "This database may require a newer Fashion Radar version." in result.output
+    assert "missing tables" not in result.output
+    assert "migrate-db" not in result.output
+    assert "Traceback" not in result.output
+
+
 def test_imported_signals_command_does_not_mutate_existing_database(
     tmp_path: Path,
 ) -> None:
@@ -3064,6 +3102,29 @@ def test_imported_signals_summary_command_invalid_schema_no_traceback(
 
     assert result.exit_code == 1
     assert "Could not summarize imported signals" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_imported_signals_summary_command_reports_future_schema_before_missing_table_validation(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+    _create_future_metadata_only_database(data_dir / "fashion-radar.sqlite")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-signals-summary",
+            "--data-dir",
+            str(data_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert f"Unsupported database schema version 999; expected {SCHEMA_VERSION}" in result.output
+    assert "This database may require a newer Fashion Radar version." in result.output
+    assert "missing tables" not in result.output
+    assert "migrate-db" not in result.output
     assert "Traceback" not in result.output
 
 
@@ -4295,6 +4356,86 @@ def _prepare_imported_signals_cli_fixture(
     return data_dir
 
 
+def _create_v4_database(path: Path) -> None:
+    engine = create_sqlite_engine(path)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("create table schema_metadata (version integer primary key)")
+        connection.exec_driver_sql("insert into schema_metadata (version) values (4)")
+        connection.exec_driver_sql(
+            """
+            create table items (
+                id integer primary key,
+                source_name varchar(255) not null,
+                source_type varchar(64) not null,
+                url text not null,
+                normalized_url text not null,
+                title text not null,
+                published_at varchar(64) not null,
+                source_weight float not null default 1.0,
+                collected_at varchar(64) not null,
+                summary text,
+                content_hash varchar(64) not null,
+                constraint uq_items_normalized_url unique (normalized_url)
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            """
+            create table item_entities (
+                id integer primary key,
+                item_id integer not null,
+                entity_name varchar(255) not null,
+                entity_type varchar(64) not null,
+                alias varchar(255) not null,
+                confidence float not null,
+                reason varchar(64) not null,
+                context_terms text not null default '[]'
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            """
+            create table entity_first_seen (
+                id integer primary key,
+                entity_name varchar(255) not null,
+                entity_type varchar(64) not null,
+                first_seen_at varchar(64) not null,
+                last_seen_at varchar(64) not null,
+                constraint uq_entity_first_seen_entity unique (entity_name, entity_type)
+            )
+            """
+        )
+    engine.dispose()
+
+
+def _create_future_metadata_only_database(path: Path) -> None:
+    engine = create_sqlite_engine(path)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("create table schema_metadata (version integer primary key)")
+        connection.exec_driver_sql("insert into schema_metadata (version) values (999)")
+    engine.dispose()
+
+
+def _init_cli_dirs(tmp_path: Path) -> tuple[Path, Path, Path]:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    result = CliRunner().invoke(
+        app,
+        [
+            "init",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+    assert result.exit_code == 0
+    return config_dir, data_dir, reports_dir
+
+
 def test_init_writes_example_configs(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     data_dir = tmp_path / "data"
@@ -4342,6 +4483,105 @@ def test_init_reads_default_directories_from_environment(tmp_path: Path) -> None
     assert reports_dir.exists()
 
 
+def test_migrate_db_command_initializes_missing_database(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "migrate-db",
+            "--data-dir",
+            str(data_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Database path:" in result.output
+    assert f"Database schema: v{SCHEMA_VERSION} (current)" in result.output
+    assert (data_dir / "fashion-radar.sqlite").exists()
+
+
+def test_migrate_db_command_upgrades_v4_database(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    db_path = data_dir / "fashion-radar.sqlite"
+    _create_v4_database(db_path)
+
+    result = CliRunner().invoke(app, ["migrate-db", "--data-dir", str(data_dir)])
+
+    assert result.exit_code == 0
+    assert f"Database schema: v{SCHEMA_VERSION} (current)" in result.output
+    with create_sqlite_engine(db_path).connect() as connection:
+        version = connection.execute(select(schema_metadata.c.version)).scalar_one()
+    assert version == SCHEMA_VERSION
+
+
+def test_migrate_db_rejects_future_schema_without_traceback(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    db_path = data_dir / "fashion-radar.sqlite"
+    engine = create_sqlite_engine(db_path)
+    initialize_schema(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("update schema_metadata set version = 999")
+    engine.dispose()
+
+    result = CliRunner().invoke(app, ["migrate-db", "--data-dir", str(data_dir)])
+
+    assert result.exit_code == 1
+    assert "Could not migrate database schema" in result.output
+    assert "Unsupported database schema version 999" in result.output
+    assert "This database may require a newer Fashion Radar version." in result.output
+    assert "migrate-db --data-dir" not in result.output
+    assert "Traceback" not in result.output
+
+
+def test_migrate_db_does_not_run_collection_or_review_workflows(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    forbidden = [
+        "_package_digest_or_exit",
+        "collect_configured_sources",
+        "dashboard",
+        "discover_candidates",
+        "match_stored_items",
+        "package_daily_digest",
+        "write_daily_report_files",
+        "load_source_config",
+        "load_entity_config",
+        "load_scoring_config",
+        "load_manual_signal_rows",
+        "load_manual_signal_directory_rows",
+        "store_manual_signal_rows",
+        "build_trend_comparison",
+        "query_imported_candidate_evidence",
+        "query_imported_candidates",
+        "query_imported_entity_deltas",
+        "query_imported_signals",
+        "query_imported_signals_summary",
+    ]
+
+    def fail(name: str):
+        def inner(*_args, **_kwargs):
+            raise AssertionError(f"{name} should not be called")
+
+        return inner
+
+    for name in forbidden:
+        monkeypatch.setattr(cli_module, name, fail(name))
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "migrate-db",
+            "--data-dir",
+            str(tmp_path / "data"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert f"Database schema: v{SCHEMA_VERSION} (current)" in result.output
+
+
 def test_doctor_requires_initialized_config(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     data_dir = tmp_path / "data"
@@ -4366,6 +4606,424 @@ def test_doctor_requires_initialized_config(tmp_path: Path) -> None:
     assert result.exit_code == 1
     assert "Configuration directory" in result.output
     assert "Missing required config" in result.output
+
+
+def test_doctor_reports_current_database_schema(tmp_path: Path) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    initialize_schema(engine)
+    engine.dispose()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert f"Database schema: v{SCHEMA_VERSION} (current)" in result.output
+
+
+def test_doctor_reports_missing_database_without_creating_it(tmp_path: Path) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Database schema: not initialized" in result.output
+    assert not db_path.exists()
+
+
+def test_doctor_reports_old_database_schema_with_migration_hint(tmp_path: Path) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    _create_v4_database(data_dir / "fashion-radar.sqlite")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Database schema: v4 (upgrade available" in result.output
+    assert "fashion-radar migrate-db --data-dir" in result.output
+
+
+def test_doctor_reports_future_database_schema_without_migrate_hint(tmp_path: Path) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    initialize_schema(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("update schema_metadata set version = 999")
+    engine.dispose()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert f"Database schema: v999 (unsupported; expected v{SCHEMA_VERSION})" in result.output
+    assert "This database may require a newer Fashion Radar version." in result.output
+    assert "migrate-db" not in result.output
+    assert "Traceback" not in result.output
+
+
+def test_doctor_reports_future_schema_before_missing_table_validation(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    _create_future_metadata_only_database(data_dir / "fashion-radar.sqlite")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert f"Database schema: v999 (unsupported; expected v{SCHEMA_VERSION})" in result.output
+    assert "missing tables" not in result.output
+    assert "migrate-db" not in result.output
+    assert "Traceback" not in result.output
+
+
+def test_doctor_rejects_current_version_database_missing_required_tables(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    engine = create_sqlite_engine(db_path)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("create table schema_metadata (version integer primary key)")
+        connection.exec_driver_sql(
+            f"insert into schema_metadata (version) values ({SCHEMA_VERSION})"
+        )
+    engine.dispose()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Database schema: invalid" in result.output
+    assert "missing tables" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_doctor_rejects_current_version_database_missing_required_columns(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    _create_v4_database(db_path)
+    engine = create_sqlite_engine(db_path)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            """
+            create table collector_runs (
+                id integer primary key,
+                source_name varchar(255) not null,
+                source_type varchar(64) not null,
+                status varchar(32) not null,
+                started_at varchar(64) not null,
+                finished_at varchar(64),
+                items_seen integer not null default 0,
+                items_stored integer not null default 0,
+                error_message text,
+                error_type varchar(128)
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            """
+            create table source_health (
+                id integer primary key,
+                source_name varchar(255) not null,
+                source_type varchar(64) not null,
+                consecutive_failures integer not null default 0,
+                last_success_at varchar(64),
+                last_failure_at varchar(64),
+                unhealthy_until varchar(64),
+                last_error_message text,
+                constraint uq_source_health_source unique (source_name, source_type)
+            )
+            """
+        )
+        connection.exec_driver_sql(f"update schema_metadata set version = {SCHEMA_VERSION}")
+    engine.dispose()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Database schema: invalid" in result.output
+    assert "missing columns" in result.output
+    assert "platform" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_doctor_reports_existing_sqlite_without_schema_metadata_with_migrate_hint(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    engine = create_sqlite_engine(db_path)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("create table unrelated (id integer primary key)")
+    engine.dispose()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Database schema: invalid" in result.output
+    assert "missing schema_metadata table" in result.output
+    assert "fashion-radar migrate-db --data-dir" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_doctor_reports_schema_metadata_without_version_without_migrate_hint(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    engine = create_sqlite_engine(db_path)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("create table schema_metadata (id integer primary key)")
+    engine.dispose()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Database schema: invalid" in result.output
+    assert "schema_metadata.version is missing" in result.output
+    assert "migrate-db" not in result.output
+    assert "Traceback" not in result.output
+
+
+def test_doctor_reports_empty_schema_metadata_version_with_migrate_hint(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    engine = create_sqlite_engine(db_path)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("create table schema_metadata (version integer primary key)")
+    engine.dispose()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Database schema: invalid" in result.output
+    assert "schema_metadata.version is empty" in result.output
+    assert "fashion-radar migrate-db --data-dir" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_doctor_rejects_unreadable_database_without_traceback(tmp_path: Path) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    (data_dir / "fashion-radar.sqlite").write_text("not sqlite", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Database schema: invalid" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_doctor_rejects_non_integer_database_schema_version(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    engine = create_sqlite_engine(db_path)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("create table schema_metadata (version text)")
+        connection.exec_driver_sql("insert into schema_metadata (version) values ('latest')")
+    engine.dispose()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Database schema: invalid" in result.output
+    assert "schema_metadata.version is not an integer" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_doctor_rejects_duplicate_database_schema_versions(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    engine = create_sqlite_engine(db_path)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("create table schema_metadata (version integer)")
+        connection.exec_driver_sql("insert into schema_metadata (version) values (5)")
+        connection.exec_driver_sql("insert into schema_metadata (version) values (5)")
+    engine.dispose()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Database schema: invalid" in result.output
+    assert "schema_metadata.version has multiple rows" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_doctor_rejects_decimal_database_schema_version(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    engine = create_sqlite_engine(db_path)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("create table schema_metadata (version real)")
+        connection.exec_driver_sql("insert into schema_metadata (version) values (5.7)")
+    engine.dispose()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Database schema: invalid" in result.output
+    assert "schema_metadata.version is not an integer" in result.output
+    assert "Traceback" not in result.output
 
 
 def test_schedule_example_prints_cron_snippet(tmp_path: Path) -> None:
@@ -5167,12 +5825,44 @@ def test_trends_command_rejects_incompatible_database_without_schema_mutation(
 
     assert result.exit_code == 1
     assert "schema" in result.output.lower()
+    assert "fashion-radar migrate-db --data-dir" in result.output
     with sqlite3.connect(db_path) as connection:
         table_names = {
             row[0]
             for row in connection.execute("select name from sqlite_master where type = 'table'")
         }
     assert table_names == set()
+
+
+def test_trends_command_reports_future_schema_before_missing_table_validation(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    _create_future_metadata_only_database(data_dir / "fashion-radar.sqlite")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trends",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-01-15T00:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert f"Unsupported database schema version 999; expected {SCHEMA_VERSION}" in result.output
+    assert "This database may require a newer Fashion Radar version." in result.output
+    assert "missing tables" not in result.output
+    assert "migrate-db" not in result.output
+    assert "Traceback" not in result.output
 
 
 def test_trends_command_prints_json(tmp_path: Path) -> None:
@@ -5699,12 +6389,45 @@ def test_candidates_command_rejects_incompatible_database_without_schema_mutatio
 
     assert result.exit_code == 1
     assert "schema" in result.output.lower()
+    assert "fashion-radar migrate-db --data-dir" in result.output
     with sqlite3.connect(db_path) as connection:
         table_names = {
             row[0]
             for row in connection.execute("select name from sqlite_master where type = 'table'")
         }
     assert table_names == set()
+
+
+def test_candidates_command_reports_future_schema_before_missing_table_validation(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+    _create_future_metadata_only_database(data_dir / "fashion-radar.sqlite")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-01-15T00:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert f"Unsupported database schema version 999; expected {SCHEMA_VERSION}" in result.output
+    assert "This database may require a newer Fashion Radar version." in result.output
+    assert "missing tables" not in result.output
+    assert "migrate-db" not in result.output
+    assert "Traceback" not in result.output
 
 
 def test_match_command_stores_entity_matches(tmp_path: Path) -> None:

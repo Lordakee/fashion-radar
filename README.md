@@ -77,6 +77,16 @@ uv run fashion-radar init
 uv run fashion-radar doctor
 ```
 
+Initialize or upgrade the local SQLite schema explicitly:
+
+```bash
+uv run fashion-radar migrate-db --data-dir "$PWD/data"
+```
+
+`doctor` reports database schema status read-only. `migrate-db` only performs
+local schema initialization or upgrades; it does not collect, import, match,
+score, report, monitor, watch, schedule, or touch external platforms.
+
 Run the daily workflow step by step:
 
 ```bash
@@ -346,7 +356,9 @@ artifacts.
 ## Reports And Storage
 
 The local database defaults to `fashion-radar.sqlite` under the configured data
-directory. Reports are written as:
+directory. Use `uv run fashion-radar migrate-db --data-dir "$PWD/data"` when
+you want to initialize or upgrade that local SQLite schema explicitly. Reports
+are written as:
 
 ```text
 fashion-radar-YYYY-MM-DD.md

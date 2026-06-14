@@ -82,6 +82,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Local read-only `entity-pack-lint` command for entity YAML quality diagnostics
   and documentation for matcher-context, product parent-brand, tag, and default
   weight/confidence review.
+- Stage 38 local schema maintenance documentation for explicit `migrate-db`
+  SQLite initialization/upgrades and read-only `doctor` schema status.
 
 ### Changed
 

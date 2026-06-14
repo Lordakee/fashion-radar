@@ -8,8 +8,19 @@ from urllib.parse import quote
 
 from sqlalchemy import create_engine, inspect, select
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import MultipleResultsFound
 
-from fashion_radar.db.schema import SCHEMA_VERSION, schema_metadata
+from fashion_radar.db.schema import (
+    SCHEMA_VERSION,
+    entity_first_seen,
+    item_entities,
+    items,
+    schema_metadata,
+)
+from fashion_radar.db.schema_messages import (
+    missing_schema_message,
+    unsupported_schema_message,
+)
 from fashion_radar.discovery.candidates import CandidateMetric, discover_candidates
 from fashion_radar.extract.text import normalize_alias_key
 from fashion_radar.models.trend import TrendComparison, TrendDelta, TrendSignalKind, TrendStatus
@@ -89,16 +100,65 @@ def create_readonly_sqlite_engine(db_path: Path) -> Engine:
 
 
 def verify_readonly_trend_schema(engine: Engine) -> None:
-    table_names = set(inspect(engine).get_table_names())
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    version = _read_schema_version_if_available(engine, inspector, table_names)
+    if version is not None and version != SCHEMA_VERSION:
+        raise RuntimeError(unsupported_schema_message(version))
+
     required = {"schema_metadata", "items", "item_entities", "entity_first_seen"}
     missing = sorted(required - table_names)
     if missing:
-        raise RuntimeError(f"Database schema is missing required tables: {', '.join(missing)}")
-    with engine.connect() as connection:
-        version = connection.execute(select(schema_metadata.c.version)).scalar_one_or_none()
-    if version != SCHEMA_VERSION:
         raise RuntimeError(
-            f"Unsupported database schema version {version}; expected {SCHEMA_VERSION}"
+            missing_schema_message(
+                f"Database schema is missing required tables: {', '.join(missing)}"
+            )
+        )
+    for table in (schema_metadata, items, item_entities, entity_first_seen):
+        _verify_columns(inspector, table.name, {column.name for column in table.columns})
+    if version is None:
+        raise RuntimeError(missing_schema_message("schema_metadata.version is empty"))
+
+
+def _read_schema_version_if_available(
+    engine: Engine,
+    inspector,
+    table_names: set[str],
+) -> int | None:
+    if "schema_metadata" not in table_names:
+        return None
+    metadata_columns = {column["name"] for column in inspector.get_columns("schema_metadata")}
+    if "version" not in metadata_columns:
+        raise RuntimeError(
+            "Database schema table schema_metadata is missing required columns: version"
+        )
+    try:
+        with engine.connect() as connection:
+            raw_version = connection.execute(select(schema_metadata.c.version)).scalar_one_or_none()
+    except MultipleResultsFound as exc:
+        raise RuntimeError("schema_metadata.version has multiple rows") from exc
+    if raw_version is None:
+        return None
+    version = _parse_schema_version_value(raw_version)
+    if version is None:
+        raise RuntimeError("schema_metadata.version is not an integer")
+    return version
+
+
+def _parse_schema_version_value(value: object) -> int | None:
+    if type(value) is int:
+        return value
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value)
+    return None
+
+
+def _verify_columns(inspector, table_name: str, required_columns: set[str]) -> None:
+    columns = {column["name"] for column in inspector.get_columns(table_name)}
+    missing = sorted(required_columns - columns)
+    if missing:
+        raise RuntimeError(
+            f"Database schema table {table_name} is missing required columns: {', '.join(missing)}"
         )
 
 

@@ -3,6 +3,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
+import fashion_radar.cli as cli_module
 from fashion_radar.cli import app
 from fashion_radar.settings import ConfigError, load_entity_config, load_source_config
 
@@ -135,6 +136,52 @@ def test_doctor_reports_malformed_yaml_without_traceback(tmp_path: Path) -> None
     assert "Invalid sources config" in result.output
     assert "Invalid YAML" in result.output
     assert "Traceback" not in result.output
+
+
+def test_doctor_reports_missing_database_without_initializing_sqlite(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    init_result = CliRunner().invoke(
+        app,
+        [
+            "init",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+    assert init_result.exit_code == 0
+
+    def fail(*_args, **_kwargs):
+        raise AssertionError("doctor should not initialize or migrate SQLite")
+
+    monkeypatch.setattr(cli_module, "create_sqlite_engine", fail)
+    monkeypatch.setattr(cli_module, "initialize_schema", fail)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Database schema: not initialized" in result.output
+    assert "Traceback" not in result.output
+    assert not (data_dir / "fashion-radar.sqlite").exists()
 
 
 def test_source_config_rejects_unknown_fields(tmp_path: Path) -> None:
