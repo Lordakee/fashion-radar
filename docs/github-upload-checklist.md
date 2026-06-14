@@ -171,6 +171,12 @@ Before upload:
 
 1. Run full verification.
 2. Sync and check CodeGraph if it is being used.
-3. Ask Claude Code for final docs/code review.
+3. Run a final local opencode code and documentation review with GLM 5.2.
 4. Fix all Critical and Important findings.
 5. Let the user choose or create the GitHub remote and push.
+
+Use this command form:
+
+```bash
+opencode run -m zhipuai-coding-plan/glm-5.2 "review prompt..."
+```

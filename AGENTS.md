@@ -8,16 +8,21 @@ paywall bypass, or fragile full social-platform scraping.
 
 - Follow the staged review workflow in `docs/REVIEW_PROTOCOL.md`.
 - Before starting a new stage, submit the objective, architecture, tech stack,
-  implementation method, and plan to Claude Code for review.
+  implementation method, and plan to local opencode with GLM 5.2 for review.
 - After completing a development node, run fresh verification and request
-  Claude Code review of the new code before moving to the next stage.
+  local opencode review of the new code before moving to the next stage.
 - Fix critical and important review findings before continuing.
 
 ## Agent Runtime Settings
 
 - When spawning Codex subagents for this project, set the subagent reasoning
   effort to `xhigh`.
-- When invoking Claude Code for plan or code review, pass `--effort max`.
+- When invoking local opencode for plan or code review, use the GLM 5.2 model
+  ID:
+
+  ```bash
+  opencode run -m zhipuai-coding-plan/glm-5.2 "review prompt..."
+  ```
 
 ## Dependencies And Mirrors
 
