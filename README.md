@@ -17,6 +17,8 @@ on the sources you configure and local signals you import.
 - Collects public RSS/Atom, RSSHub-compatible, and GDELT Doc API signals.
 - Imports local user-provided CSV/JSON signal files that you are authorized to
   process.
+- Preserves optional imported `platform` labels as local provenance in SQLite
+  and imported-row review output only.
 - Lints local community signal CSV/JSON files against the handoff contract
   before import, without fetching URLs or importing rows.
 - Prints a local community directory handoff checklist without reading the
@@ -42,6 +44,9 @@ source access, access-control bypasses, private data collection, or hidden
 platform workarounds. Google News is not part of the default source set.
 Manual signal import is a local input path, not a platform connector or source
 acquisition guide.
+Stored imported `platform` labels are local provenance metadata only; they are
+not scraping, crawling, social connectors, source acquisition, platform
+coverage, or demand proof.
 
 Future non-core connectors, if ever added, must be explicit opt-ins with clear
 risk labels. They are not required for the core workflow.
@@ -310,15 +315,17 @@ configs, or generate entity files.
 
 `imported-signals` is local and read-only. It opens an existing SQLite database
 in read-only mode and returns retained rows where `source_type` is
-`manual_import`; it does not import rows, fetch URLs, run matching/scoring,
-generate reports, monitor folders, or create dashboard/report artifacts.
+`manual_import`, including stored `platform` labels when present; it does not
+import rows, fetch URLs, run matching/scoring, generate reports, monitor
+folders, infer platform coverage, or create dashboard/report artifacts.
 
 `imported-signals-summary` is local and read-only. It opens an existing SQLite
 database in read-only mode and groups retained `manual_import` rows by stored
-`source_name`, showing row counts and item-level stored match presence without
-exposing row titles, URLs, summaries, import file paths, or match details.
-`source_name` is a stored local provenance label, not a statement about
-anything outside the local database.
+`source_name` and local `platform` provenance labels where present, showing row
+counts and item-level stored match presence without exposing row titles, URLs,
+summaries, import file paths, or match details. `source_name` and `platform` are
+stored local provenance labels, not statements about anything outside the local
+database.
 
 `imported-entity-deltas` is local and read-only. It compares stored matched
 entities on retained `manual_import` rows across collected-at windows and

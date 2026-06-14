@@ -29,6 +29,7 @@ class ImportedSignalItem(BaseModel):
 
     id: int
     source_name: str
+    platform: str | None = None
     url: str
     title: str
     published_at: str
@@ -54,6 +55,7 @@ class ImportedSignalsReview(BaseModel):
     matched_count: int = 0
     unmatched_count: int = 0
     source_name_counts: dict[str, int] = Field(default_factory=dict)
+    platform_counts: dict[str, int] = Field(default_factory=dict)
     latest_collected_at: str | None = None
     items: list[ImportedSignalItem] = Field(default_factory=list)
 
@@ -62,6 +64,7 @@ class ImportedSignalSourceSummaryRow(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     source_name: str
+    platform_counts: dict[str, int] = Field(default_factory=dict)
     row_count: int
     matched_count: int = 0
     unmatched_count: int = 0
@@ -74,6 +77,7 @@ class ImportedSignalsSourceSummary(BaseModel):
 
     database: str
     source_type: Literal["manual_import"] = "manual_import"
+    platform_counts: dict[str, int] = Field(default_factory=dict)
     source_count: int = 0
     row_count: int = 0
     matched_count: int = 0
@@ -94,6 +98,7 @@ REQUIRED_ITEMS_COLUMNS = {
     "collected_at",
     "source_weight",
     "summary",
+    "platform",
 }
 REQUIRED_ITEM_ENTITIES_COLUMNS = {
     "id",
@@ -186,16 +191,18 @@ def render_imported_signals_table(review: ImportedSignalsReview) -> list[str]:
         f"Rows: {review.row_count} shown, {review.total_count} total",
         f"Matched rows: {review.matched_count} matched, {review.unmatched_count} unmatched",
         f"Sources: {_format_counts(review.source_name_counts)}",
+        f"Platforms: {_format_counts(review.platform_counts)}",
     ]
     if not review.items:
         lines.append("No imported manual signals found.")
         return lines
 
-    lines.append("ID | Collected At | Match | Source | Weight | Title | URL")
+    lines.append("ID | Collected At | Match | Source | Platform | Weight | Title | URL")
     for item in review.items:
         lines.append(
             f"{item.id} | {item.collected_at} | {_format_match_cell(item)} | "
-            f"{_table_cell(item.source_name)} | {item.source_weight:.2f} | "
+            f"{_table_cell(item.source_name)} | {_table_cell(item.platform or '')} | "
+            f"{item.source_weight:.2f} | "
             f"{_table_cell(item.title)} | {_table_cell(item.url)}"
         )
     return lines
@@ -209,17 +216,20 @@ def render_imported_signals_summary_table(
         (f"Rows: {summary.row_count} retained manual rows across {summary.source_count} sources"),
         f"Matched rows: {summary.matched_count} matched, {summary.unmatched_count} unmatched",
         _format_collected_at_range(summary.first_collected_at, summary.latest_collected_at),
+        f"Platforms: {_format_counts(summary.platform_counts)}",
     ]
     if not summary.sources:
         lines.append("No imported manual signal sources found.")
         return lines
 
     lines.append(
-        "Source | Rows | Matched Rows | Unmatched Rows | First Collected At | Latest Collected At"
+        "Source | Platforms | Rows | Matched Rows | Unmatched Rows | "
+        "First Collected At | Latest Collected At"
     )
     for source in summary.sources:
         lines.append(
-            f"{_table_cell(source.source_name)} | {source.row_count} | "
+            f"{_table_cell(source.source_name)} | {_format_counts(source.platform_counts)} | "
+            f"{source.row_count} | "
             f"{source.matched_count} | {source.unmatched_count} | "
             f"{source.first_collected_at or ''} | {source.latest_collected_at or ''}"
         )
@@ -275,6 +285,12 @@ def _query_imported_signals(
             .group_by(items.c.source_name)
             .order_by(items.c.source_name)
         ).all()
+        platform_rows = connection.execute(
+            select(items.c.platform, func.count())
+            .where(*conditions, items.c.platform.is_not(None), items.c.platform != "")
+            .group_by(items.c.platform)
+            .order_by(items.c.platform)
+        ).all()
         latest_collected_at = connection.execute(
             select(func.max(items.c.collected_at)).select_from(items).where(*conditions)
         ).scalar_one_or_none()
@@ -291,6 +307,7 @@ def _query_imported_signals(
         matched_count=matched_count,
         unmatched_count=total_count - matched_count,
         source_name_counts={str(name): int(count) for name, count in source_rows},
+        platform_counts={str(platform): int(count) for platform, count in platform_rows},
         latest_collected_at=(
             parse_datetime_utc(latest_collected_at).isoformat()
             if latest_collected_at is not None
@@ -325,8 +342,25 @@ def _query_imported_signals_summary(
             .where(*conditions, match_exists)
             .group_by(items.c.source_name)
         ).all()
+        platform_rows = connection.execute(
+            select(items.c.platform, func.count())
+            .where(*conditions, items.c.platform.is_not(None), items.c.platform != "")
+            .group_by(items.c.platform)
+            .order_by(items.c.platform)
+        ).all()
+        source_platform_rows = connection.execute(
+            select(items.c.source_name, items.c.platform, func.count())
+            .where(*conditions, items.c.platform.is_not(None), items.c.platform != "")
+            .group_by(items.c.source_name, items.c.platform)
+            .order_by(items.c.source_name, items.c.platform)
+        ).all()
 
     matched_by_source = {str(name): int(count) for name, count in matched_rows}
+    platform_counts = {str(platform): int(count) for platform, count in platform_rows}
+    platform_counts_by_source: dict[str, dict[str, int]] = defaultdict(dict)
+    for source_name, platform, count in source_platform_rows:
+        platform_counts_by_source[str(source_name)][str(platform)] = int(count)
+
     sources: list[ImportedSignalSourceSummaryRow] = []
     for name, count, first_collected_at, latest_collected_at in source_rows:
         source_name = str(name)
@@ -335,6 +369,7 @@ def _query_imported_signals_summary(
         sources.append(
             ImportedSignalSourceSummaryRow(
                 source_name=source_name,
+                platform_counts=platform_counts_by_source.get(source_name, {}),
                 row_count=row_count,
                 matched_count=matched_count,
                 unmatched_count=row_count - matched_count,
@@ -349,6 +384,7 @@ def _query_imported_signals_summary(
     latest_values = [source.latest_collected_at for source in sources if source.latest_collected_at]
     return ImportedSignalsSourceSummary(
         **summary_base,
+        platform_counts=platform_counts,
         source_count=len(sources),
         row_count=row_count,
         matched_count=matched_count,
@@ -401,6 +437,7 @@ def _build_review_items(
             ImportedSignalItem(
                 id=item_id,
                 source_name=str(row["source_name"]),
+                platform=row["platform"],
                 url=str(row["url"]),
                 title=str(row["title"]),
                 published_at=parse_datetime_utc(row["published_at"]).isoformat(),

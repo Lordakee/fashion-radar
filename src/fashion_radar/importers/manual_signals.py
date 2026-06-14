@@ -434,6 +434,7 @@ def store_manual_signal_rows(
             ),
             source_weight=row.source_weight,
             collected_at=row.collected_at or imported_at_utc,
+            platform=row.platform,
         )
     after_count = repository.count_items()
     return ManualSignalImportResult(

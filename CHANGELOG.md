@@ -11,7 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Python package foundation with Typer CLI.
 - YAML source, entity, and scoring configuration.
 - RSS/Atom, RSSHub-compatible, and GDELT collector support.
-- SQLite persistence with schema versioning and migrations through schema v4.
+- SQLite persistence with schema versioning and migrations through schema v5.
 - Deterministic entity matching with context gates for broad/common aliases.
 - Transparent heat scoring with current/baseline windows, source weights,
   source diversity, growth, high-weight source bonuses, labels, and stable
@@ -94,6 +94,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Stabilized GitHub Actions CLI help tests by disabling Typer forced terminal
   rendering in the pytest step.
 - Added concrete GitHub security and conduct reporting paths for public launch.
+- Preserved optional `platform` provenance from manual/community imports in
+  local SQLite and imported-signal review outputs. These labels remain local
+  metadata and do not add scraping, crawling, social connectors, source
+  acquisition, platform coverage, or demand proof.
 
 ### Not Included In 0.1.0
 

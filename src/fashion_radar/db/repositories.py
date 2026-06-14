@@ -32,8 +32,10 @@ class ItemRepository:
         *,
         source_weight: float = 1.0,
         collected_at: datetime | None = None,
+        platform: str | None = None,
     ) -> int:
         normalized = normalize_url(item.url)
+        normalized_platform = _normalize_optional_text(platform)
         values = {
             "source_name": item.source_name,
             "source_type": item.source_type.value,
@@ -43,6 +45,7 @@ class ItemRepository:
             "published_at": item.published_at.isoformat(),
             "source_weight": float(source_weight),
             "summary": item.summary,
+            "platform": normalized_platform,
             "content_hash": content_hash(
                 title=item.title,
                 published_at=item.published_at,
@@ -424,6 +427,13 @@ def _entity_type_value(value: Any) -> str:
 
 def _source_type_value(value: SourceType | str) -> str:
     return value.value if hasattr(value, "value") else str(value)
+
+
+def _normalize_optional_text(value: object | None) -> str | None:
+    if value is None:
+        return None
+    normalized = " ".join(str(value).split())
+    return normalized or None
 
 
 def _utc_now_if_none(value: datetime | None) -> datetime:

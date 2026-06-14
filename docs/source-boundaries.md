@@ -32,8 +32,9 @@ Imported review workflow prints a copyable local command sequence after manual
 signal import. It does not execute those commands, open SQLite, read configs,
 create artifacts, fetch URLs, or collect sources.
 Imported signal summary reads existing `manual_import` rows from local SQLite,
-groups row counts by stored `source_name`, and creates no config, data, report,
-or dashboard artifacts.
+groups row counts by stored `source_name` and local `platform` provenance
+labels where present, and creates no config, data, report, or dashboard
+artifacts.
 Imported entity deltas read stored matches on existing `manual_import` rows from
 local SQLite, compare aggregate entity counts across collected-at windows, and
 create no config, data, report, or dashboard artifacts.
@@ -45,9 +46,11 @@ SQLite for one requested candidate phrase and creates no config, data, report,
 or dashboard artifacts.
 
 Imported signal review reads retained `manual_import` rows from an existing
-local SQLite database in read-only mode. It is not a connector, source pack,
-platform collector, remote community ingestion workflow, source-acquisition
-guide, authorization verifier, policy workflow, or platform coverage check.
+local SQLite database in read-only mode. It may display stored `platform` labels
+from retained `manual_import` rows as local provenance metadata only. It is not
+a connector, source pack, platform collector, remote community ingestion
+workflow, source-acquisition guide, authorization verifier, policy workflow,
+demand proof, or platform coverage check.
 
 Community signal import is the same local input pattern with repository
 examples and a JSON schema for tools that produce sanitized local rows. It is
@@ -144,7 +147,9 @@ The project should not include:
 
 Default storage should be conservative:
 
-- Store source URLs, titles, publication timestamps, source names, short summaries, entity matches, tags, counts, and scores.
+- Store source URLs, titles, publication timestamps, source names, optional local
+  `platform` provenance labels for imported rows, short summaries, entity
+  matches, tags, counts, and scores.
 - Avoid storing full article text by default.
 - Avoid storing original images or videos.
 - Avoid storing user comments as redistributable assets.
@@ -187,6 +192,8 @@ Preferred wording:
 - "Observed phrase needs review"
 - "Local observed trend delta"
 - "Signal changed within this configured local source set"
+- "Imported row platform provenance label"
+- "Stored local provenance label, not platform coverage"
 
 Avoid wording that implies complete market truth:
 
@@ -232,6 +239,10 @@ The public README must explain:
 - Imported signal review reads retained local SQLite rows only; it is not source
   acquisition, platform/community coverage verification, authorization
   verification, or a policy workflow feature.
+- Imported `platform` labels are preserved only as local SQLite/review-output
+  provenance; they are not scraping, crawling, social connectors, source
+  acquisition, platform/community coverage verification, demand proof,
+  authorization verification, or policy workflow features.
 - Imported candidate review reads retained local SQLite rows only; it is not
   a source collector, platform/community coverage check, authorization check, or
   policy review feature.

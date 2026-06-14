@@ -40,8 +40,10 @@ dry-run/import.
 
 - `summary`: short sanitized note for local review.
 - `source_name`: display name for the external tool or local file.
-- `platform`: short provenance label. It is not stored as platform coverage and
-  does not imply complete visibility.
+- `platform`: short local provenance label. When present, it is preserved on
+  retained `manual_import` rows in SQLite and may appear in imported review
+  output. It is not platform coverage, source acquisition, demand proof, or a
+  claim of complete platform/community visibility.
 - `source_weight`: local score weight in `(0, 5]`.
 - `collected_at`: timestamp for when the external tool produced the row.
 
@@ -192,6 +194,9 @@ uv run fashion-radar import-signals ./community-signals.json --format json --sou
 Imported rows use the existing manual-import storage path. If a row's normalized
 URL already exists in the local database, the existing item upsert behavior
 applies.
+Accepted `platform` values follow the same manual-import storage path as local
+provenance metadata only; they do not create connectors, acquire sources, prove
+demand, or establish platform/community coverage.
 
 ## Review After Import
 
@@ -220,7 +225,8 @@ configs, import rows, run matching, score signals, generate reports, or create
 artifacts.
 
 `imported-signals-summary` reads the same retained local rows and groups counts
-by stored `source_name`.
+by stored `source_name`. Stored `platform` values, when present, are local
+provenance labels for review output only.
 
 `imported-entity-deltas` reads retained local rows with stored matches and
 compares aggregate entity counts across collected-at windows.
@@ -232,9 +238,10 @@ phrases need review before any entity config change.
 `imported-candidate-evidence` reads retained local rows and shows the local
 evidence rows behind one requested candidate phrase. It is local and read-only.
 
-`imported-signals` reads retained imported rows from local SQLite only. It does
-not import rows, run matching/scoring, generate reports, fetch URLs, monitor
-directories, or infer platform/community coverage.
+`imported-signals` reads retained imported rows from local SQLite only and may
+show stored `platform` provenance labels from imported rows. It does not import
+rows, run matching/scoring, generate reports, fetch URLs, monitor directories,
+acquire source files, or infer platform/community coverage.
 
 Results remain local observed signals from configured sources and imported
 local files. They do not prove demand outside the configured source set.

@@ -55,6 +55,7 @@ def test_query_imported_signals_filters_window_and_manual_rows(tmp_path: Path) -
         collected_at=datetime(2026, 6, 12, 9, 0, tzinfo=UTC),
         source_weight=1.4,
         summary="Short local note",
+        platform="xiaohongshu",
     )
     engine.dispose()
 
@@ -74,8 +75,10 @@ def test_query_imported_signals_filters_window_and_manual_rows(tmp_path: Path) -
     assert review.matched_count == 0
     assert review.unmatched_count == 1
     assert review.source_name_counts == {"Manual Import": 1}
+    assert review.platform_counts == {"xiaohongshu": 1}
     assert review.latest_collected_at == "2026-06-12T09:00:00+00:00"
     assert review.items[0].title == "In-window manual item"
+    assert review.items[0].platform == "xiaohongshu"
     assert review.items[0].source_weight == 1.4
     assert review.items[0].summary == "Short local note"
     assert review.items[0].match_status == "unmatched"
@@ -170,6 +173,7 @@ def test_query_imported_signals_source_filter_and_limit_zero(tmp_path: Path) -> 
             title=f"Community item {index}",
             published_at=datetime(2026, 6, 12, 8 + index, 0, tzinfo=UTC),
             collected_at=datetime(2026, 6, 12, 9 + index, 0, tzinfo=UTC),
+            platform="instagram",
         )
     _store_item(
         repository,
@@ -194,6 +198,7 @@ def test_query_imported_signals_source_filter_and_limit_zero(tmp_path: Path) -> 
     assert review.total_count == 2
     assert review.row_count == 0
     assert review.source_name_counts == {"Community Tool Export": 2}
+    assert review.platform_counts == {"instagram": 2}
     assert review.items == []
 
 
@@ -316,6 +321,7 @@ def test_query_imported_signals_reads_match_status_and_unmatched_only(
         title="Margaux interest",
         published_at=datetime(2026, 6, 12, 8, 0, tzinfo=UTC),
         collected_at=datetime(2026, 6, 12, 9, 0, tzinfo=UTC),
+        platform="instagram",
     )
     _store_item(
         repository,
@@ -324,6 +330,7 @@ def test_query_imported_signals_reads_match_status_and_unmatched_only(
         title="Unmatched item",
         published_at=datetime(2026, 6, 12, 8, 30, tzinfo=UTC),
         collected_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+        platform="tiktok",
     )
     repository.replace_item_matches(
         matched_id,
@@ -363,7 +370,9 @@ def test_query_imported_signals_reads_match_status_and_unmatched_only(
     assert full_review.total_count == 2
     assert full_review.matched_count == 1
     assert full_review.unmatched_count == 1
+    assert full_review.platform_counts == {"instagram": 1, "tiktok": 1}
     matched = next(item for item in full_review.items if item.id == matched_id)
+    assert matched.platform == "instagram"
     assert matched.match_status == "matched"
     assert [match.model_dump() for match in matched.matches] == [
         {
@@ -382,6 +391,7 @@ def test_query_imported_signals_reads_match_status_and_unmatched_only(
     assert unmatched_review.total_count == 1
     assert unmatched_review.matched_count == 0
     assert unmatched_review.unmatched_count == 1
+    assert unmatched_review.platform_counts == {"tiktok": 1}
     assert unmatched_review.items[0].match_status == "unmatched"
 
 
@@ -444,6 +454,7 @@ def test_verify_imported_signals_schema_rejects_missing_item_entities(
                 source_weight real not null,
                 collected_at text not null,
                 summary text,
+                platform text,
                 content_hash text not null
             )
             """
@@ -471,7 +482,8 @@ def test_verify_imported_signals_schema_rejects_missing_schema_metadata_version(
                 published_at text not null,
                 collected_at text not null,
                 source_weight real not null,
-                summary text
+                summary text,
+                platform text
             )
             """
         )
@@ -509,10 +521,13 @@ def test_verify_imported_signals_schema_rejects_missing_required_item_columns(
                 source_name text not null,
                 source_type text not null,
                 url text not null,
+                normalized_url text not null,
                 title text not null,
                 published_at text not null,
+                collected_at text not null,
                 source_weight real not null,
-                summary text
+                summary text,
+                content_hash text not null
             )
             """
         )
@@ -529,7 +544,7 @@ def test_verify_imported_signals_schema_rejects_missing_required_item_columns(
             """
         )
 
-    with pytest.raises(RuntimeError, match="items.*collected_at"):
+    with pytest.raises(RuntimeError, match="items.*platform"):
         verify_imported_signals_schema(engine)
 
 
@@ -558,6 +573,7 @@ def test_render_imported_signals_table_empty() -> None:
         "Rows: 0 shown, 0 total",
         "Matched rows: 0 matched, 0 unmatched",
         "Sources: none",
+        "Platforms: none",
         "No imported manual signals found.",
     ]
     assert all(not line.startswith("Matches:") for line in render_imported_signals_table(review))
@@ -574,11 +590,13 @@ def test_render_imported_signals_table_populated_sanitizes_cells() -> None:
         matched_count=1,
         unmatched_count=1,
         source_name_counts={"Community | Tool\nExport": 1, "Manual Import": 1},
+        platform_counts={"instagram|\nstories": 1, "x": 1},
         latest_collected_at="2026-06-12T12:00:00+00:00",
         items=[
             ImportedSignalItem(
                 id=3,
                 source_name="Community | Tool\nExport",
+                platform="instagram|\nstories",
                 url="https://example.com/margaux|row",
                 title="Margaux |\ninterest",
                 published_at="2026-06-12T09:00:00+00:00",
@@ -598,6 +616,7 @@ def test_render_imported_signals_table_populated_sanitizes_cells() -> None:
             ImportedSignalItem(
                 id=2,
                 source_name="Manual Import",
+                platform="x",
                 url="https://example.com/le-teckel",
                 title="Le Teckel bag rises",
                 published_at="2026-06-12T08:00:00+00:00",
@@ -616,11 +635,13 @@ def test_render_imported_signals_table_populated_sanitizes_cells() -> None:
         "Rows: 2 shown, 2 total",
         "Matched rows: 1 matched, 1 unmatched",
         "Sources: Community / Tool Export=1, Manual Import=1",
-        "ID | Collected At | Match | Source | Weight | Title | URL",
+        "Platforms: instagram/ stories=1, x=1",
+        "ID | Collected At | Match | Source | Platform | Weight | Title | URL",
         "3 | 2026-06-12T12:00:00+00:00 | matched:The / Row | "
-        "Community / Tool Export | 1.40 | Margaux / interest | "
+        "Community / Tool Export | instagram/ stories | 1.40 | Margaux / interest | "
         "https://example.com/margaux/row",
-        "2 | 2026-06-12T11:00:00+00:00 | unmatched | Manual Import | 1.00 | Le Teckel bag rises | https://example.com/le-teckel",
+        "2 | 2026-06-12T11:00:00+00:00 | unmatched | Manual Import | "
+        "x | 1.00 | Le Teckel bag rises | https://example.com/le-teckel",
     ]
     assert all(not line.startswith("Matches:") for line in render_imported_signals_table(review))
 
@@ -658,6 +679,7 @@ def test_query_imported_signals_summary_groups_manual_rows_and_match_presence(
         title="Margaux interest",
         published_at=datetime(2026, 6, 12, 8, 0, tzinfo=UTC),
         collected_at=datetime(2026, 6, 12, 9, 0, tzinfo=UTC),
+        platform="instagram",
     )
     _store_item(
         repository,
@@ -666,6 +688,7 @@ def test_query_imported_signals_summary_groups_manual_rows_and_match_presence(
         title="Unmatched item",
         published_at=datetime(2026, 6, 12, 8, 30, tzinfo=UTC),
         collected_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+        platform="tiktok",
     )
     _store_item(
         repository,
@@ -710,6 +733,7 @@ def test_query_imported_signals_summary_groups_manual_rows_and_match_presence(
     summary = query_imported_signals_summary(db_path)
 
     assert summary.source_count == 2
+    assert summary.platform_counts == {"instagram": 1, "tiktok": 1}
     assert summary.row_count == 3
     assert summary.matched_count == 1
     assert summary.unmatched_count == 2
@@ -720,11 +744,13 @@ def test_query_imported_signals_summary_groups_manual_rows_and_match_presence(
         "Manual Import",
     ]
     assert summary.sources[0].row_count == 2
+    assert summary.sources[0].platform_counts == {"instagram": 1, "tiktok": 1}
     assert summary.sources[0].matched_count == 1
     assert summary.sources[0].unmatched_count == 1
     assert summary.sources[0].first_collected_at == "2026-06-12T09:00:00+00:00"
     assert summary.sources[0].latest_collected_at == "2026-06-12T10:00:00+00:00"
     assert summary.sources[1].row_count == 1
+    assert summary.sources[1].platform_counts == {}
     assert summary.sources[1].matched_count == 0
     assert summary.sources[1].unmatched_count == 1
 
@@ -771,6 +797,7 @@ def test_render_imported_signals_summary_table_empty() -> None:
         "Rows: 0 retained manual rows across 0 sources",
         "Matched rows: 0 matched, 0 unmatched",
         "Collected at: none",
+        "Platforms: none",
         "No imported manual signal sources found.",
     ]
 
@@ -782,11 +809,13 @@ def test_render_imported_signals_summary_table_populated_sanitizes_cells() -> No
         row_count=3,
         matched_count=1,
         unmatched_count=2,
+        platform_counts={"instagram|\nstories": 1, "tiktok": 1},
         first_collected_at="2026-06-10T09:00:00+00:00",
         latest_collected_at="2026-06-12T10:00:00+00:00",
         sources=[
             ImportedSignalSourceSummaryRow(
                 source_name="Community | Tool\nExport",
+                platform_counts={"instagram|\nstories": 1, "tiktok": 1},
                 row_count=2,
                 matched_count=1,
                 unmatched_count=1,
@@ -809,10 +838,12 @@ def test_render_imported_signals_summary_table_populated_sanitizes_cells() -> No
         "Rows: 3 retained manual rows across 2 sources",
         "Matched rows: 1 matched, 2 unmatched",
         "Collected at: 2026-06-10T09:00:00+00:00 first, 2026-06-12T10:00:00+00:00 latest",
-        "Source | Rows | Matched Rows | Unmatched Rows | First Collected At | Latest Collected At",
-        "Community / Tool Export | 2 | 1 | 1 | "
+        "Platforms: instagram/ stories=1, tiktok=1",
+        "Source | Platforms | Rows | Matched Rows | Unmatched Rows | "
+        "First Collected At | Latest Collected At",
+        "Community / Tool Export | instagram/ stories=1, tiktok=1 | 2 | 1 | 1 | "
         "2026-06-12T09:00:00+00:00 | 2026-06-12T10:00:00+00:00",
-        "Manual Import | 1 | 0 | 1 | 2026-06-10T09:00:00+00:00 | 2026-06-10T09:00:00+00:00",
+        "Manual Import | none | 1 | 0 | 1 | 2026-06-10T09:00:00+00:00 | 2026-06-10T09:00:00+00:00",
     ]
 
 
@@ -827,6 +858,7 @@ def _store_item(
     source_type: SourceType = SourceType.MANUAL_IMPORT,
     source_weight: float = 1.0,
     summary: str | None = None,
+    platform: str | None = None,
 ) -> int:
     return repository.upsert_item(
         CollectedItem(
@@ -839,4 +871,5 @@ def _store_item(
         ),
         source_weight=source_weight,
         collected_at=collected_at,
+        platform=platform,
     )

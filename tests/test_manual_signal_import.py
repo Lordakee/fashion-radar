@@ -39,6 +39,7 @@ def test_loads_manual_signal_csv_rows(tmp_path: Path) -> None:
     assert rows[0].title == "Le Teckel bag"
     assert rows[0].summary == "Short note"
     assert rows[0].source_name == "Manual Export"
+    assert rows[0].platform == "manual"
     assert rows[0].source_weight == 1.4
     assert rows[0].published_at == datetime(2026, 6, 12, 8, 0, tzinfo=UTC)
 
@@ -357,7 +358,7 @@ def test_store_manual_signal_rows_writes_sanitized_items(tmp_path: Path) -> None
         "https://example.com/a,Le Teckel bag,2026-06-12T08:00:00Z,Short note,"
         "Manual Export,1.4,2026-06-12T10:00:00Z,manual,@private,do not store,secret\n"
         "https://example.com/b,Mary Jane flats,2026-06-12T09:00:00Z,, , , ,"
-        "manual,@private,do not store,secret\n",
+        ",@private,do not store,secret\n",
         encoding="utf-8",
     )
     rows = load_manual_signal_rows(path, input_format="csv", default_source_name="Fallback Export")
@@ -385,7 +386,8 @@ def test_store_manual_signal_rows_writes_sanitized_items(tmp_path: Path) -> None
     assert second["source_weight"] == 1.0
     assert second["summary"] is None
     assert second["collected_at"] == "2026-06-12T12:00:00+00:00"
-    assert "platform" not in first
+    assert first["platform"] == "manual"
+    assert second["platform"] is None
     assert "author_handle" not in first
     assert "raw_comment" not in first
     assert "account_id" not in first
@@ -420,9 +422,9 @@ def test_store_manual_signal_rows_preserves_existing_normalized_url_upsert(
     )
     path = tmp_path / "signals.csv"
     path.write_text(
-        "url,title,published_at,summary,source_name,source_weight\n"
+        "url,title,published_at,summary,source_name,source_weight,platform\n"
         "https://example.com/a,Manual update,2026-06-12T08:00:00Z,"
-        "Manual summary,Manual Export,1.4\n",
+        "Manual summary,Manual Export,1.4,instagram\n",
         encoding="utf-8",
     )
     rows = load_manual_signal_rows(path, input_format="csv", default_source_name="Manual Import")
@@ -441,6 +443,7 @@ def test_store_manual_signal_rows_preserves_existing_normalized_url_upsert(
     assert item["source_type"] == "manual_import"
     assert item["source_name"] == "Manual Export"
     assert item["title"] == "Manual update"
+    assert item["platform"] == "instagram"
 
 
 def test_manual_signal_directory_load_returns_rows_and_validation_result(

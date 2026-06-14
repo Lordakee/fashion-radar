@@ -16,7 +16,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 metadata = MetaData()
 
@@ -39,6 +39,7 @@ items = Table(
     Column("source_weight", Float, nullable=False, default=1.0),
     Column("collected_at", String(64), nullable=False),
     Column("summary", Text),
+    Column("platform", String(64)),
     Column("content_hash", String(64), nullable=False),
     UniqueConstraint("normalized_url", name="uq_items_normalized_url"),
 )
@@ -115,6 +116,9 @@ def initialize_schema(engine: Engine) -> None:
         if existing_version == 3:
             _migrate_v3_to_v4(engine)
             existing_version = 4
+        if existing_version == 4:
+            _migrate_v4_to_v5(engine)
+            existing_version = 5
         if existing_version is not None and existing_version != SCHEMA_VERSION:
             raise SchemaVersionError(
                 f"Unsupported schema version {existing_version}; expected {SCHEMA_VERSION}"
@@ -159,4 +163,12 @@ def _migrate_v2_to_v3(engine: Engine) -> None:
 def _migrate_v3_to_v4(engine: Engine) -> None:
     with engine.begin() as connection:
         entity_first_seen.create(connection, checkfirst=True)
+        connection.execute(update(schema_metadata).values(version=4))
+
+
+def _migrate_v4_to_v5(engine: Engine) -> None:
+    existing_columns = {column["name"] for column in inspect(engine).get_columns("items")}
+    with engine.begin() as connection:
+        if "platform" not in existing_columns:
+            connection.exec_driver_sql("alter table items add column platform varchar(64)")
         connection.execute(update(schema_metadata).values(version=SCHEMA_VERSION))

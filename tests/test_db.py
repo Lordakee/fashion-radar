@@ -182,6 +182,36 @@ def _create_v3_schema_with_item_and_match(engine) -> None:
         )
 
 
+def _create_v4_schema_with_item_and_match(
+    engine,
+    *,
+    include_platform: bool = False,
+    platform: str | None = None,
+) -> None:
+    _create_v3_schema_with_item_and_match(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            """
+            create table entity_first_seen (
+                id integer primary key,
+                entity_name varchar(255) not null,
+                entity_type varchar(64) not null,
+                first_seen_at varchar(64) not null,
+                last_seen_at varchar(64) not null,
+                constraint uq_entity_first_seen_entity unique (entity_name, entity_type)
+            )
+            """
+        )
+        if include_platform:
+            connection.exec_driver_sql("alter table items add column platform varchar(64)")
+            if platform is not None:
+                connection.exec_driver_sql(
+                    "update items set platform = :platform where id = 1",
+                    {"platform": platform},
+                )
+        connection.exec_driver_sql("update schema_metadata set version = 4")
+
+
 def test_schema_initializes_metadata_and_tables(tmp_path) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
 
@@ -199,13 +229,14 @@ def test_schema_initializes_metadata_and_tables(tmp_path) -> None:
     with engine.connect() as connection:
         version = connection.execute(text("select version from schema_metadata")).scalar_one()
     assert version == SCHEMA_VERSION
-    columns = {column["name"] for column in inspect(engine).get_columns("items")}
-    assert {"source_weight", "collected_at"} <= columns
+    column_map = {column["name"]: column for column in inspect(engine).get_columns("items")}
+    assert {"source_weight", "collected_at", "platform"} <= set(column_map)
+    assert column_map["platform"]["nullable"] is True
     assert version == SCHEMA_VERSION
-    assert SCHEMA_VERSION == 4
+    assert SCHEMA_VERSION == 5
 
 
-def test_schema_migrates_v1_to_v4_preserving_items(tmp_path) -> None:
+def test_schema_migrates_v1_to_v5_preserving_items(tmp_path) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
     _create_v1_schema_with_item(engine)
 
@@ -220,7 +251,7 @@ def test_schema_migrates_v1_to_v4_preserving_items(tmp_path) -> None:
             connection.execute(
                 text(
                     """
-                    select title, source_weight, collected_at, published_at
+                    select title, source_weight, collected_at, published_at, platform
                     from items
                     where id = 1
                     """
@@ -229,14 +260,15 @@ def test_schema_migrates_v1_to_v4_preserving_items(tmp_path) -> None:
             .mappings()
             .one()
         )
-    assert version == 4
+    assert version == 5
     assert item_count == 1
     assert row["title"] == "The Row Margaux handbag"
     assert row["source_weight"] == 1.0
     assert row["collected_at"] == row["published_at"]
+    assert row["platform"] is None
 
 
-def test_schema_migrates_v2_to_v4_adding_source_weight_collected_at_and_first_seen(
+def test_schema_migrates_v2_to_v5_adding_source_weight_collected_at_and_first_seen(
     tmp_path,
 ) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
@@ -251,7 +283,7 @@ def test_schema_migrates_v2_to_v4_adding_source_weight_collected_at_and_first_se
             connection.execute(
                 text(
                     """
-                    select source_weight, collected_at, published_at
+                    select source_weight, collected_at, published_at, platform
                     from items
                     where id = 1
                     """
@@ -260,13 +292,14 @@ def test_schema_migrates_v2_to_v4_adding_source_weight_collected_at_and_first_se
             .mappings()
             .one()
         )
-    assert {"source_weight", "collected_at"} <= columns
-    assert version == 4
+    assert {"source_weight", "collected_at", "platform"} <= columns
+    assert version == 5
     assert row["source_weight"] == 1.0
     assert row["collected_at"] == row["published_at"]
+    assert row["platform"] is None
 
 
-def test_schema_migrates_v3_to_v4_adding_entity_first_seen_without_deleting_data(
+def test_schema_migrates_v3_to_v5_adding_entity_first_seen_and_platform_without_deleting_data(
     tmp_path,
 ) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
@@ -282,9 +315,66 @@ def test_schema_migrates_v3_to_v4_adding_entity_first_seen_without_deleting_data
     columns = {column["name"] for column in inspect(engine).get_columns("entity_first_seen")}
     assert "entity_first_seen" in table_names
     assert {"entity_name", "entity_type", "first_seen_at", "last_seen_at"} <= columns
-    assert version == 4
+    item_columns = {column["name"] for column in inspect(engine).get_columns("items")}
+    assert "platform" in item_columns
+    assert version == 5
     assert item_count == 1
     assert match_count == 1
+
+
+def test_schema_migrates_v4_to_v5_adding_platform_without_deleting_data(
+    tmp_path,
+) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    _create_v4_schema_with_item_and_match(engine)
+
+    initialize_schema(engine)
+
+    item_columns = {column["name"] for column in inspect(engine).get_columns("items")}
+    with engine.connect() as connection:
+        version = connection.execute(text("select version from schema_metadata")).scalar_one()
+        row = (
+            connection.execute(
+                text(
+                    """
+                    select title, source_weight, collected_at, platform
+                    from items
+                    where id = 1
+                    """
+                )
+            )
+            .mappings()
+            .one()
+        )
+        match_count = connection.execute(text("select count(*) from item_entities")).scalar_one()
+
+    assert "platform" in item_columns
+    assert version == 5
+    assert row["title"] == "The Row Margaux handbag"
+    assert row["source_weight"] == 1.0
+    assert row["collected_at"] == "2026-06-01T10:00:00+00:00"
+    assert row["platform"] is None
+    assert match_count == 1
+
+
+def test_schema_migrates_v4_to_v5_when_platform_column_already_exists(
+    tmp_path,
+) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    _create_v4_schema_with_item_and_match(
+        engine,
+        include_platform=True,
+        platform="xiaohongshu",
+    )
+
+    initialize_schema(engine)
+
+    with engine.connect() as connection:
+        version = connection.execute(text("select version from schema_metadata")).scalar_one()
+        platform = connection.execute(text("select platform from items where id = 1")).scalar_one()
+
+    assert version == 5
+    assert platform == "xiaohongshu"
 
 
 def test_schema_rejects_future_version(tmp_path) -> None:
@@ -340,6 +430,52 @@ def test_item_repository_stores_source_weight_and_preserves_first_collected_at(
     assert stored["title"] == "Updated title"
     assert stored["source_weight"] == 1.9
     assert stored["collected_at"] == "2026-06-11T12:00:00+00:00"
+
+
+def test_item_repository_stores_platform_and_normalizes_blank_values(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+
+    platform_id = repository.upsert_item(
+        _item("https://example.com/manual"),
+        platform="  xiaohongshu  ",
+    )
+    blank_id = repository.upsert_item(
+        _item("https://example.com/blank", "Blank platform"),
+        platform=" ",
+    )
+    omitted_id = repository.upsert_item(
+        _item("https://example.com/rss", "RSS platform"),
+    )
+
+    assert repository.get_item(platform_id)["platform"] == "xiaohongshu"
+    assert repository.get_item(blank_id)["platform"] is None
+    assert repository.get_item(omitted_id)["platform"] is None
+
+
+def test_item_repository_updates_and_clears_platform_on_upsert(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+
+    item_id = repository.upsert_item(
+        _item("https://example.com/article?utm_source=x"),
+        platform="x",
+    )
+    updated_id = repository.upsert_item(
+        _item("https://example.com/article", "Manual update"),
+        platform="  instagram  ",
+    )
+    stored_after_update = repository.get_item(item_id)
+    cleared_id = repository.upsert_item(
+        _item("https://example.com/article", "Manual update without platform"),
+    )
+
+    assert updated_id == item_id
+    assert stored_after_update["platform"] == "instagram"
+    assert cleared_id == item_id
+    assert repository.get_item(item_id)["platform"] is None
 
 
 def test_item_repository_replaces_entity_matches(tmp_path) -> None:

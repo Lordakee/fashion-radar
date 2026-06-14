@@ -27,8 +27,10 @@ Optional fields:
 - `summary`: short item summary or note.
 - `source_name`: display name for the local source. If omitted, the command's
   `--source-name` value is used.
-- `platform`: short provenance label for varied local files. It is not stored as
-  platform coverage and does not imply complete platform visibility.
+- `platform`: short local provenance label for varied imported files. When
+  present, it is preserved on retained `manual_import` rows in SQLite and may
+  appear in imported-signal review output. It is not platform coverage, source
+  acquisition, demand proof, or a claim of complete platform visibility.
 - `source_weight`: numeric source weight for local scoring.
 - `collected_at`: timestamp for when the item entered the local file.
 
@@ -50,6 +52,7 @@ JSON example:
       "published_at": "2026-06-12T09:00:00Z",
       "summary": "Local note from an authorized file",
       "source_name": "Manual Export",
+      "platform": "manual",
       "source_weight": 1.2
     }
   ]
@@ -148,7 +151,8 @@ commands. It does not execute those commands, open SQLite, read configs, import
 rows, run matching, score signals, generate reports, or create artifacts.
 
 `imported-signals-summary` groups retained `manual_import` rows by stored
-`source_name` for a local count overview before row-level review.
+`source_name` and, where shown, stored local `platform` provenance labels for a
+local count overview before row-level review.
 
 `imported-entity-deltas` compares stored matched entities on retained
 `manual_import` rows across collected-at windows for an aggregate local
@@ -164,9 +168,10 @@ phrase. Evidence rows are review aids and are not verified entities, demand
 proof, or platform coverage.
 
 `imported-signals` reviews retained `manual_import` rows already stored in the
-local SQLite database. It is read-only and does not import rows, run matching,
-score signals, generate reports, fetch URLs, monitor folders, or create
-dashboard/report artifacts.
+local SQLite database, including stored `platform` provenance labels when
+present. It is read-only and does not import rows, run matching, score signals,
+generate reports, fetch URLs, monitor folders, infer platform coverage, or
+create dashboard/report artifacts.
 
 Reports and the dashboard frame candidate signals as observed phrases from
 configured sources and imported local signals that need review.

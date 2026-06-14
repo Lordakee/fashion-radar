@@ -70,7 +70,7 @@ def test_import_signals_command_imports_csv(tmp_path: Path) -> None:
     assert item["source_type"] == "manual_import"
     assert item["source_name"] == "Manual Export"
     assert item["summary"] == "Short note"
-    assert "platform" not in item
+    assert item["platform"] == "manual"
     assert "author_handle" not in item
     assert "raw_comment" not in item
     assert "account_id" not in item
@@ -1044,7 +1044,7 @@ def test_import_signals_dir_imports_csv_directory(tmp_path: Path) -> None:
     assert first["collected_at"] == "2026-06-12T12:00:00+00:00"
     assert second["source_type"] == "manual_import"
     assert second["source_name"] == "Tool"
-    assert "platform" not in second
+    assert second["platform"] == "x"
     assert "author_handle" not in second
     assert "raw_comment" not in second
     assert "account_id" not in second
@@ -1882,6 +1882,9 @@ def test_imported_signals_command_prints_table(tmp_path: Path) -> None:
     assert "Matched rows: 1 matched, 1 unmatched" in result.output
     assert "Matches: 1 matched, 1 unmatched" not in result.output
     assert "Sources: Community Tool Export=2" in result.output
+    assert "Platforms: instagram=1, tiktok=1" in result.output
+    assert "Community Tool Export | tiktok | 1.00 | Unmatched local item" in result.output
+    assert "Community Tool Export | instagram | 1.40 | Margaux interest" in result.output
     assert "Unmatched local item" in result.output
     assert "Margaux interest" in result.output
     assert "https://example.com/margaux" in result.output
@@ -1926,6 +1929,7 @@ def test_imported_signals_command_prints_json_with_stable_keys(tmp_path: Path) -
         "matched_count",
         "unmatched_count",
         "source_name_counts",
+        "platform_counts",
         "latest_collected_at",
         "items",
     ]
@@ -1936,11 +1940,14 @@ def test_imported_signals_command_prints_json_with_stable_keys(tmp_path: Path) -
     assert payload["matched_count"] == 1
     assert payload["unmatched_count"] == 1
     assert payload["source_name_counts"] == {"Community Tool Export": 2}
+    assert payload["platform_counts"] == {"instagram": 1, "tiktok": 1}
     assert payload["latest_collected_at"] == "2026-06-12T10:00:00+00:00"
     assert payload["items"][0]["title"] == "Unmatched local item"
+    assert payload["items"][0]["platform"] == "tiktok"
     assert list(payload["items"][0]) == [
         "id",
         "source_name",
+        "platform",
         "url",
         "title",
         "published_at",
@@ -2922,8 +2929,9 @@ def test_imported_signals_summary_command_prints_table(tmp_path: Path) -> None:
     assert "Imported manual signal source summary from local SQLite." in result.output
     assert "Rows: 3 retained manual rows across 2 sources" in result.output
     assert "Matched rows: 1 matched, 2 unmatched" in result.output
-    assert "Community Tool Export | 2 | 1 | 1" in result.output
-    assert "Manual Import | 1 | 0 | 1" in result.output
+    assert "Platforms: instagram=1, manual=1, tiktok=1" in result.output
+    assert "Community Tool Export | instagram=1, tiktok=1 | 2 | 1 | 1" in result.output
+    assert "Manual Import | manual=1 | 1 | 0 | 1" in result.output
     assert "Margaux interest" not in result.output
     assert "https://example.com/margaux" not in result.output
     assert "RSS Source" not in result.output
@@ -2950,6 +2958,7 @@ def test_imported_signals_summary_command_prints_json_with_stable_keys(
     assert list(payload) == [
         "database",
         "source_type",
+        "platform_counts",
         "source_count",
         "row_count",
         "matched_count",
@@ -2959,12 +2968,14 @@ def test_imported_signals_summary_command_prints_json_with_stable_keys(
         "sources",
     ]
     assert payload["source_type"] == "manual_import"
+    assert payload["platform_counts"] == {"instagram": 1, "manual": 1, "tiktok": 1}
     assert payload["source_count"] == 2
     assert payload["row_count"] == 3
     assert payload["matched_count"] == 1
     assert payload["unmatched_count"] == 2
     assert list(payload["sources"][0]) == [
         "source_name",
+        "platform_counts",
         "row_count",
         "matched_count",
         "unmatched_count",
@@ -4233,6 +4244,7 @@ def _prepare_imported_signals_cli_fixture(
         ),
         source_weight=1.4,
         collected_at=datetime(2026, 6, 12, 9, 0, tzinfo=UTC),
+        platform="instagram",
     )
     repository.upsert_item(
         CollectedItem(
@@ -4243,6 +4255,7 @@ def _prepare_imported_signals_cli_fixture(
             published_at=datetime(2026, 6, 12, 8, 30, tzinfo=UTC),
         ),
         collected_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+        platform="tiktok",
     )
     repository.upsert_item(
         CollectedItem(
@@ -4253,6 +4266,7 @@ def _prepare_imported_signals_cli_fixture(
             published_at=datetime(2026, 6, 10, 8, 0, tzinfo=UTC),
         ),
         collected_at=datetime(2026, 6, 10, 9, 0, tzinfo=UTC),
+        platform="manual",
     )
     repository.upsert_item(
         CollectedItem(
