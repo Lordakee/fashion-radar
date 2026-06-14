@@ -25,6 +25,8 @@ jobs:
       - name: Format check
         run: uv run ruff format --check .
       - name: Tests
+        env:
+          _TYPER_FORCE_DISABLE_TERMINAL: "1"
         run: uv run pytest
       - name: Build, installed CLI smoke, and dashboard extra smoke
         run: |
