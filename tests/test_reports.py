@@ -13,6 +13,14 @@ from fashion_radar.db.repositories import (
 from fashion_radar.db.schema import initialize_schema
 from fashion_radar.models.entity import EntityDefinition, EntityType
 from fashion_radar.models.item import CollectedItem
+from fashion_radar.models.report import (
+    REPORT_SNIPPET_MAX_CHARS,
+    CandidateReport,
+    DailyReport,
+    EntityReport,
+    ReportMetadata,
+    RepresentativeItem,
+)
 from fashion_radar.models.source import SourceDefinition, SourceType
 from fashion_radar.reports import (
     build_daily_report,
@@ -22,6 +30,7 @@ from fashion_radar.reports import (
 from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
 
 AS_OF = datetime(2026, 6, 11, 12, 0, tzinfo=UTC)
+LONG_SUMMARY = "Lead text. " + ("detail " * 120) + "TAIL_MARKER"
 
 
 def _source(name: str = "Vogue Business") -> SourceDefinition:
@@ -79,6 +88,81 @@ def test_daily_report_template_is_packaged() -> None:
     assert "{entity_sections}" in template.read_text(encoding="utf-8")
 
 
+def test_representative_item_summary_is_report_safe_snippet() -> None:
+    item = RepresentativeItem(
+        source_name="Vogue Business",
+        source_url="https://example.com/signal",
+        published_at="2026-06-14T08:00:00Z",
+        title="The Row signal",
+        summary=LONG_SUMMARY,
+    )
+
+    assert item.summary is not None
+    assert len(item.summary) <= REPORT_SNIPPET_MAX_CHARS
+    assert item.summary.endswith("...")
+    assert "TAIL_MARKER" not in item.summary
+
+
+def test_rendered_reports_cap_entity_and_candidate_summaries() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF, item_count=2),
+        entities=[
+            EntityReport(
+                entity_name="The Row",
+                entity_type="brand",
+                label="new",
+                heat_score=4.2,
+                current_mentions=1,
+                baseline_mentions=0,
+                distinct_sources=1,
+                representative_items=[
+                    RepresentativeItem(
+                        source_name="Vogue Business",
+                        source_url="https://example.com/the-row",
+                        published_at=AS_OF,
+                        title="The Row signal",
+                        summary=LONG_SUMMARY,
+                    )
+                ],
+            )
+        ],
+        candidates=[
+            CandidateReport(
+                phrase="Le Teckel bag",
+                candidate_type="bag",
+                label="new_candidate",
+                score=2.1,
+                current_mentions=1,
+                baseline_mentions=0,
+                distinct_sources=1,
+                first_seen_at=AS_OF,
+                representative_items=[
+                    RepresentativeItem(
+                        source_name="Fashionista",
+                        source_url="https://example.com/le-teckel",
+                        published_at=AS_OF,
+                        title="Le Teckel signal",
+                        summary=LONG_SUMMARY,
+                    )
+                ],
+            )
+        ],
+    )
+
+    markdown = render_markdown_report(report)
+    payload = render_json_report(report)
+    parsed = json.loads(payload)
+
+    assert "TAIL_MARKER" not in markdown
+    assert "TAIL_MARKER" not in payload
+    entity_summary = parsed["entities"][0]["representative_items"][0]["summary"]
+    candidate_summary = parsed["candidates"][0]["representative_items"][0]["summary"]
+    assert len(entity_summary) <= REPORT_SNIPPET_MAX_CHARS
+    assert len(candidate_summary) <= REPORT_SNIPPET_MAX_CHARS
+    assert entity_summary.endswith("...")
+    assert candidate_summary.endswith("...")
+
+
 def test_markdown_report_includes_entities_attribution_and_source_status(tmp_path) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
     initialize_schema(engine)
@@ -117,6 +201,7 @@ def test_markdown_report_includes_entities_attribution_and_source_status(tmp_pat
         generated_at=AS_OF,
     )
     markdown = render_markdown_report(report)
+    parsed = json.loads(render_json_report(report))
 
     assert "Fashion Radar Daily Report" in markdown
     assert "The Row" in markdown
@@ -128,6 +213,12 @@ def test_markdown_report_includes_entities_attribution_and_source_status(tmp_pat
     assert "Source Health" in markdown
     assert "timeout" in markdown
     assert "failed" in markdown
+    entity = parsed["entities"][0]
+    assert entity["weighted_mention_component"] > 0
+    assert entity["growth_component"] == 0
+    assert entity["source_diversity_component"] == 0
+    assert entity["high_weight_component"] > 0
+    assert "- Score components:" in markdown
 
 
 def test_json_report_excludes_internal_database_and_matcher_fields(tmp_path) -> None:

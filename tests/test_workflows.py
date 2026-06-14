@@ -9,12 +9,14 @@ from fashion_radar.db.schema import initialize_schema
 from fashion_radar.models.entity import EntityDefinition, EntityType
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceDefinition, SourceType
+from fashion_radar.settings import ScoringSettings
 from fashion_radar.workflows import (
     _default_collectors,
     clean_old_data,
     collect_configured_sources,
     default_database_path,
     match_stored_items,
+    write_daily_report_files,
 )
 
 
@@ -106,6 +108,48 @@ def test_match_stored_items_matches_title_and_summary_and_updates_first_seen(
     assert repository.get_entity_first_seen("The Row", "brand")["first_seen_at"] == (
         "2026-06-11T11:00:00+00:00"
     )
+
+
+def test_write_daily_report_files_caps_stored_summaries(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    engine = create_sqlite_engine(default_database_path(data_dir))
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    item_id = repository.upsert_item(
+        CollectedItem(
+            source_name="Vogue Business",
+            source_type=SourceType.RSS,
+            url="https://example.com/the-row-long",
+            title="The Row long signal",
+            published_at="2026-06-11T10:00:00Z",
+            summary="Lead text. " + ("detail " * 120) + "TAIL_MARKER",
+        ),
+        collected_at=datetime(2026, 6, 11, 11, 0, tzinfo=UTC),
+    )
+    repository.replace_item_matches(
+        item_id,
+        [
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "The Row",
+                "confidence": 1.0,
+                "reason": "accepted",
+                "context_terms": [],
+            }
+        ],
+    )
+
+    markdown_path, json_path = write_daily_report_files(
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        scoring=ScoringSettings(),
+        as_of=datetime(2026, 6, 11, 12, 0, tzinfo=UTC),
+    )
+
+    assert "TAIL_MARKER" not in markdown_path.read_text(encoding="utf-8")
+    assert "TAIL_MARKER" not in json_path.read_text(encoding="utf-8")
 
 
 def test_clean_old_data_prunes_by_collected_at(tmp_path: Path) -> None:

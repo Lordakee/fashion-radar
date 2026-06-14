@@ -35,7 +35,9 @@ from fashion_radar.db.repositories import (
     SourceHealthRepository,
 )
 from fashion_radar.db.schema import initialize_schema
+from fashion_radar.models.entity import EntityType
 from fashion_radar.models.item import CollectedItem
+from fashion_radar.models.report import REPORT_SNIPPET_MAX_CHARS, report_safe_snippet
 from fashion_radar.models.source import SourceDefinition, SourceType
 from fashion_radar.models.trend import TrendComparison, TrendDelta, TrendSignalKind, TrendStatus
 from fashion_radar.settings import CandidateDiscoverySettings, ScoringSettings
@@ -92,6 +94,11 @@ def test_dashboard_trend_caption_is_local_observed() -> None:
         "what's hot",
     ):
         assert forbidden not in combined_copy.lower()
+
+
+def test_dashboard_tab_labels_include_all_entity_mention_tabs() -> None:
+    for entity_type in EntityType:
+        assert f"{entity_type.value.title()} Mentions" in DASHBOARD_TAB_LABELS
 
 
 def test_trend_comparison_window_defaults_from_current_window_days() -> None:
@@ -189,6 +196,91 @@ def test_dashboard_queries_return_top_entities_and_source_health(tmp_path: Path)
     assert top_entities(data_dir, entity_type="brand")[0]["entity_name"] == "The Row"
     assert top_entities(data_dir, entity_type="product")[0]["entity_name"] == "Margaux"
     assert source_health_rows(data_dir)[0]["last_error_message"] == "timeout"
+
+
+def test_dashboard_recent_signals_missing_database_writes_nothing(tmp_path: Path) -> None:
+    data_dir = tmp_path / "missing-data"
+
+    assert dashboard_queries.recent_signals(data_dir) == []
+    assert not data_dir.exists()
+    assert not database_path(data_dir).exists()
+
+
+def test_dashboard_recent_signals_returns_recent_items_in_review_shape(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    engine = create_sqlite_engine(database_path(data_dir))
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    first_collected_at = datetime(2026, 6, 11, 11, 0, tzinfo=UTC)
+    second_collected_at = datetime(2026, 6, 12, 9, 0, tzinfo=UTC)
+    tied_collected_at = datetime(2026, 6, 12, 12, 0, tzinfo=UTC)
+    long_summary = "Lead text. " + ("detail " * 120) + "TAIL_MARKER"
+
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Vogue Business",
+            source_type=SourceType.RSS,
+            url="https://example.com/old",
+            title="Older signal",
+            published_at="2026-06-11T10:00:00Z",
+            summary="Older summary.",
+        ),
+        collected_at=first_collected_at,
+    )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="WWD",
+            source_type=SourceType.RSS,
+            url="https://example.com/latest",
+            title="Latest signal",
+            published_at="2026-06-12T08:30:00Z",
+            summary="Latest short summary.",
+        ),
+        collected_at=second_collected_at,
+    )
+    earlier_tie_id = repository.upsert_item(
+        CollectedItem(
+            source_name="Fashionista",
+            source_type=SourceType.RSS,
+            url="https://example.com/tie-earlier",
+            title="Tie earlier id",
+            published_at="2026-06-12T11:00:00Z",
+            summary="Earlier tied summary.",
+        ),
+        collected_at=tied_collected_at,
+    )
+    later_tie_id = repository.upsert_item(
+        CollectedItem(
+            source_name="Manual Import",
+            source_type=SourceType.MANUAL_IMPORT,
+            url="https://example.com/tie-later",
+            title="Tie later id",
+            published_at="2026-06-12T11:30:00Z",
+            summary=long_summary,
+        ),
+        collected_at=tied_collected_at,
+    )
+    assert later_tie_id > earlier_tie_id
+
+    rows = dashboard_queries.recent_signals(data_dir, limit=3)
+
+    assert [row["title"] for row in rows] == [
+        "Tie later id",
+        "Tie earlier id",
+        "Latest signal",
+    ]
+    assert list(rows[0]) == [
+        "collected_at",
+        "published_at",
+        "source_name",
+        "source_type",
+        "title",
+        "url",
+        "summary",
+    ]
+    assert rows[0]["summary"] == report_safe_snippet(long_summary)
+    assert len(rows[0]["summary"]) <= REPORT_SNIPPET_MAX_CHARS
+    assert "TAIL_MARKER" not in rows[0]["summary"]
 
 
 def test_dashboard_loads_trend_deltas_from_local_database(tmp_path: Path) -> None:

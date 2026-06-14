@@ -10,9 +10,11 @@ from fashion_radar.dashboard.queries import (
     database_path,
     latest_candidate_report,
     load_trend_comparison,
+    recent_signals,
     source_health_rows,
     top_entities,
 )
+from fashion_radar.models.entity import EntityType
 from fashion_radar.models.trend import TrendComparison
 from fashion_radar.settings import (
     ConfigError,
@@ -33,13 +35,14 @@ TREND_SIGNAL_CAPTION = (
     "this configured source set."
 )
 TREND_EMPTY_MESSAGE = "No local observed signal deltas in this comparison."
+ENTITY_MENTION_TABS = tuple(
+    (entity_type.value, f"{entity_type.value.title()} Mentions") for entity_type in EntityType
+)
 DASHBOARD_TAB_LABELS = (
     "Daily Brief",
     "Candidate Signals",
     "Trend Deltas",
-    "Brand Mentions",
-    "Product Mentions",
-    "Celebrity Mentions",
+    *(label for _entity_type, label in ENTITY_MENTION_TABS),
     "Source Health",
 )
 
@@ -146,20 +149,20 @@ def main() -> None:
     st.caption(f"Database: {db_path}")
     st.caption(f"Config: {args.config_dir}")
     st.caption(f"Reports: {args.reports_dir}")
-    (
-        daily_tab,
-        candidate_tab,
-        trend_tab,
-        brand_tab,
-        product_tab,
-        celebrity_tab,
-        health_tab,
-    ) = st.tabs(list(DASHBOARD_TAB_LABELS))
+    tabs = st.tabs(list(DASHBOARD_TAB_LABELS))
+    daily_tab, candidate_tab, trend_tab = tabs[:3]
+    entity_tabs = tabs[3:-1]
+    health_tab = tabs[-1]
 
     with daily_tab:
         st.metric("Items", summary["item_count"])
         st.metric("Entity matches", summary["match_count"])
         st.caption(f"Latest collected at: {summary['latest_collected_at'] or 'n/a'}")
+        rows = recent_signals(args.data_dir)
+        if rows:
+            st.dataframe(rows, use_container_width=True)
+        else:
+            st.info("No recent local signals yet.")
 
     with candidate_tab:
         st.caption(CANDIDATE_SIGNAL_CAPTION)
@@ -175,17 +178,16 @@ def main() -> None:
     with trend_tab:
         render_trend_deltas(st, config_dir=args.config_dir, data_dir=args.data_dir)
 
-    with brand_tab:
-        st.dataframe(top_entities(args.data_dir, entity_type="brand"), use_container_width=True)
-
-    with product_tab:
-        st.dataframe(top_entities(args.data_dir, entity_type="product"), use_container_width=True)
-
-    with celebrity_tab:
-        st.dataframe(
-            top_entities(args.data_dir, entity_type="celebrity"),
-            use_container_width=True,
-        )
+    for entity_tab, (entity_type, _label) in zip(
+        entity_tabs,
+        ENTITY_MENTION_TABS,
+        strict=True,
+    ):
+        with entity_tab:
+            st.dataframe(
+                top_entities(args.data_dir, entity_type=entity_type),
+                use_container_width=True,
+            )
 
     with health_tab:
         st.dataframe(source_health_rows(args.data_dir), use_container_width=True)

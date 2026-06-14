@@ -106,6 +106,10 @@ def _entity_report(
         baseline_mentions=metric.baseline_mentions,
         distinct_sources=metric.distinct_sources,
         growth_ratio=metric.growth_ratio,
+        weighted_mention_component=metric.weighted_mention_component,
+        growth_component=metric.growth_component,
+        source_diversity_component=metric.source_diversity_component,
+        high_weight_component=metric.high_weight_component,
         representative_items=_representative_items(
             engine,
             entity_name=metric.entity_name,
@@ -241,6 +245,13 @@ def _render_entity_sections(entities: list[EntityReport]) -> str:
                     f"### {entity.entity_name} ({entity.label})",
                     f"- Type: {entity.entity_type}",
                     f"- Heat score: {entity.heat_score:.2f}",
+                    (
+                        "- Score components: "
+                        f"mentions {entity.weighted_mention_component:.2f}; "
+                        f"growth {entity.growth_component:.2f}; "
+                        f"sources {entity.source_diversity_component:.2f}; "
+                        f"high-weight {entity.high_weight_component:.2f}"
+                    ),
                     f"- Mentions: {entity.current_mentions} current, "
                     f"{entity.baseline_mentions} baseline",
                     f"- Distinct sources: {entity.distinct_sources}",

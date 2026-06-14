@@ -31,6 +31,8 @@ uv run fashion-radar dashboard --config-dir "$PWD/configs" --data-dir "$PWD/data
 - Does not run entity matching.
 - Does not generate reports.
 - Does not make network requests on import or refresh.
+- Shows recent local signals in Daily Brief from retained SQLite rows, capped to
+  report-safe snippets.
 - Reads candidate signals from the latest report JSON when that file is
   available.
 - Computes the Trend Deltas tab from existing local SQLite state and local
@@ -41,8 +43,9 @@ uv run fashion-radar dashboard --config-dir "$PWD/configs" --data-dir "$PWD/data
   trend tables.
 - Invalid or missing trend config shows a concise dashboard warning without
   creating the data directory or database.
-- Reflects imported local signals only after those rows have been matched and a
-  new report has been generated.
+- Daily Brief can show retained imported local rows as recent signals after
+  import. Candidate Signals still require a newly generated report, and entity
+  mention tabs require matching before imported rows appear as entity mentions.
 - `imported-signals` can inspect retained imported rows from local SQLite before
   matching or report/dashboard review; it does not add a dashboard tab.
 
@@ -61,13 +64,23 @@ Dashboard tabs are read-only operational summaries:
 - Candidate Signals
 - Trend Deltas
 - Brand Mentions
-- Product Mentions
+- Designer Mentions
 - Celebrity Mentions
+- Product Mentions
+- Category Mentions
+- Trend Mentions
 - Source Health
 
-The brand/product/celebrity tabs rank mention counts from the local database.
-They are not the full heat-score ranking. Use the generated daily report for
-heat score, growth ratio, labels, and score components.
+Daily Brief shows local item and entity-match counts, the latest collection
+timestamp, and recent local signals from SQLite. If the local database has not
+been initialized or has no retained items, the tab shows an empty-state message
+without creating the data directory or database.
+
+The entity mention tabs are generated for every configured entity type
+(`brand`, `designer`, `celebrity`, `product`, `category`, and `trend`) and rank
+mention counts from the local database. They are not the full heat-score
+ranking. Use the generated daily report for heat score, growth ratio, labels,
+representative items, and score components.
 
 The Candidate Signals tab reads the latest generated report JSON. Candidate
 signals are observed phrases from configured sources and imported local signals

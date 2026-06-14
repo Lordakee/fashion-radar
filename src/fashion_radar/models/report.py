@@ -6,6 +6,19 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from fashion_radar.utils.dates import parse_datetime_utc
 
+REPORT_SNIPPET_MAX_CHARS = 500
+
+
+def report_safe_snippet(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = " ".join(value.split())
+    if not normalized:
+        return None
+    if len(normalized) <= REPORT_SNIPPET_MAX_CHARS:
+        return normalized
+    return normalized[: REPORT_SNIPPET_MAX_CHARS - 3].rstrip() + "..."
+
 
 class ReportMetadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -34,6 +47,11 @@ class RepresentativeItem(BaseModel):
     def normalize_published_at(cls, value: str | datetime) -> datetime:
         return parse_datetime_utc(value)
 
+    @field_validator("summary", mode="before")
+    @classmethod
+    def normalize_summary(cls, value: str | None) -> str | None:
+        return report_safe_snippet(value)
+
 
 class EntityReport(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -46,6 +64,10 @@ class EntityReport(BaseModel):
     baseline_mentions: int
     distinct_sources: int
     growth_ratio: float | None = None
+    weighted_mention_component: float = 0.0
+    growth_component: float = 0.0
+    source_diversity_component: float = 0.0
+    high_weight_component: float = 0.0
     representative_items: list[RepresentativeItem] = Field(default_factory=list)
 
 

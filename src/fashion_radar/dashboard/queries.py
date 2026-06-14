@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.schema import item_entities, items, source_health
+from fashion_radar.models.report import report_safe_snippet
 from fashion_radar.models.trend import TrendComparison
 from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
 from fashion_radar.trends import (
@@ -93,6 +94,43 @@ def dashboard_summary(data_dir: Path) -> dict[str, Any]:
         "match_count": int(match_count),
         "latest_collected_at": latest_collected_at,
     }
+
+
+def recent_signals(data_dir: Path, limit: int = 20) -> list[dict[str, Any]]:
+    db_path = database_path(data_dir)
+    if not db_path.exists():
+        return []
+    engine = create_sqlite_engine(db_path)
+    statement = (
+        select(
+            items.c.collected_at,
+            items.c.published_at,
+            items.c.source_name,
+            items.c.source_type,
+            items.c.title,
+            items.c.url,
+            items.c.summary,
+        )
+        .order_by(items.c.collected_at.desc(), items.c.id.desc())
+        .limit(limit)
+    )
+    try:
+        with engine.connect() as connection:
+            rows = connection.execute(statement).mappings()
+            return [
+                {
+                    "collected_at": row["collected_at"],
+                    "published_at": row["published_at"],
+                    "source_name": row["source_name"],
+                    "source_type": row["source_type"],
+                    "title": row["title"],
+                    "url": row["url"],
+                    "summary": report_safe_snippet(row["summary"]),
+                }
+                for row in rows
+            ]
+    finally:
+        engine.dispose()
 
 
 def top_entities(
