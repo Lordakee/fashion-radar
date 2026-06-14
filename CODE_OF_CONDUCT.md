@@ -30,5 +30,8 @@ blocking from project spaces.
 Sensitive security reports should follow [SECURITY.md](SECURITY.md), not public
 issue threads.
 
-Before public launch, maintainers should configure an explicit conduct contact
-or moderation path for the GitHub repository.
+For conduct or moderation concerns, use the **Conduct or moderation contact**
+issue template. Do not include secrets, private security details, private source
+exports, local databases, generated reports, or doxxing material in public
+issues. For highly sensitive matters, open a minimal moderation-contact issue
+and wait for maintainer instructions.

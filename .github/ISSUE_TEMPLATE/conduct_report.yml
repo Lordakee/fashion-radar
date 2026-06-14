@@ -1,0 +1,46 @@
+name: Conduct or moderation contact
+description: Ask maintainers for moderation help without posting sensitive details.
+title: "[Conduct]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include secrets, cookies, session files, browser profiles, private source exports, local databases, generated reports, private security details, or doxxing material.
+        If this is a sensitive security issue, use GitHub private vulnerability reporting from the Security tab instead.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the moderation concern without sensitive details.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - issue or discussion
+        - pull request
+        - documentation
+        - project boundary pressure
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: requested_action
+    attributes:
+      label: Requested maintainer action
+      description: What do you need maintainers to review or moderate?
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Safety checks
+      options:
+        - label: I did not include secrets, cookies, session files, browser profiles, private source exports, local databases, generated reports, private security details, or doxxing material.
+          required: true
+        - label: This is not a request for social scraping, login-cookie use, proxy/account pools, CAPTCHA bypass, or paywall bypass.
+          required: true
+        - label: If this is a sensitive security issue, I will use GitHub private vulnerability reporting instead of this public issue.
+          required: true

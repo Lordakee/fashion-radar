@@ -9,10 +9,12 @@ Do not report sensitive issues in public issues if they include secrets,
 cookies, session files, browser profiles, private source lists, private URLs,
 local SQLite databases, generated reports, or exploit details.
 
-Before public launch, maintainers should enable GitHub private vulnerability
-reporting or publish a dedicated security contact. Until then, open a minimal
-public issue that says a private security contact is needed, without sensitive
-details.
+Use GitHub private vulnerability reporting from this repository's **Security**
+tab for sensitive security reports. Do not include sensitive details in public
+issues.
+
+If the Security tab is unavailable, open a minimal public issue that says a
+private security contact is needed, without sensitive details.
 
 ## Scope
 

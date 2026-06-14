@@ -93,6 +93,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   fresh locked environment install instead of before `.venv` exists.
 - Stabilized GitHub Actions CLI help tests by disabling Typer forced terminal
   rendering in the pytest step.
+- Added concrete GitHub security and conduct reporting paths for public launch.
 
 ### Not Included In 0.1.0
 
