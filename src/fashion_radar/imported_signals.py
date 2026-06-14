@@ -6,17 +6,13 @@ from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, inspect, select
+from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import MultipleResultsFound
 
-from fashion_radar.db.schema import SCHEMA_VERSION, item_entities, items, schema_metadata
-from fashion_radar.db.schema_messages import (
-    missing_schema_message,
-    unsupported_schema_message,
-)
+from fashion_radar.db.engine import create_readonly_sqlite_engine
+from fashion_radar.db.schema import item_entities, items
+from fashion_radar.db.schema_inspection import verify_readonly_schema
 from fashion_radar.models.source import SourceType
-from fashion_radar.trends import create_readonly_sqlite_engine
 from fashion_radar.utils.dates import parse_datetime_utc
 
 
@@ -171,59 +167,15 @@ def query_imported_signals_summary(db_path: Path) -> ImportedSignalsSourceSummar
 
 
 def verify_imported_signals_schema(engine: Engine) -> None:
-    inspector = inspect(engine)
-    table_names = set(inspector.get_table_names())
-    version = _read_schema_version_if_available(engine, inspector, table_names)
-    if version is not None and version != SCHEMA_VERSION:
-        raise RuntimeError(unsupported_schema_message(version))
-
-    required = {"schema_metadata", "items", "item_entities"}
-    missing = sorted(required - table_names)
-    if missing:
-        raise RuntimeError(
-            missing_schema_message(
-                f"Database schema is missing required tables: {', '.join(missing)}"
-            )
-        )
-
-    _verify_columns(inspector, "schema_metadata", REQUIRED_SCHEMA_METADATA_COLUMNS)
-    _verify_columns(inspector, "items", REQUIRED_ITEMS_COLUMNS)
-    _verify_columns(inspector, "item_entities", REQUIRED_ITEM_ENTITIES_COLUMNS)
-    if version is None:
-        raise RuntimeError(missing_schema_message("schema_metadata.version is empty"))
-
-
-def _read_schema_version_if_available(
-    engine: Engine,
-    inspector: Any,
-    table_names: set[str],
-) -> int | None:
-    if "schema_metadata" not in table_names:
-        return None
-    metadata_columns = {column["name"] for column in inspector.get_columns("schema_metadata")}
-    if "version" not in metadata_columns:
-        raise RuntimeError(
-            "Database schema table schema_metadata is missing required columns: version"
-        )
-    try:
-        with engine.connect() as connection:
-            raw_version = connection.execute(select(schema_metadata.c.version)).scalar_one_or_none()
-    except MultipleResultsFound as exc:
-        raise RuntimeError("schema_metadata.version has multiple rows") from exc
-    if raw_version is None:
-        return None
-    version = _parse_schema_version_value(raw_version)
-    if version is None:
-        raise RuntimeError("schema_metadata.version is not an integer")
-    return version
-
-
-def _parse_schema_version_value(value: object) -> int | None:
-    if type(value) is int:
-        return value
-    if isinstance(value, str) and value.strip().isdigit():
-        return int(value)
-    return None
+    verify_readonly_schema(
+        engine,
+        required_tables=("schema_metadata", "items", "item_entities"),
+        required_columns_by_table=(
+            ("schema_metadata", REQUIRED_SCHEMA_METADATA_COLUMNS),
+            ("items", REQUIRED_ITEMS_COLUMNS),
+            ("item_entities", REQUIRED_ITEM_ENTITIES_COLUMNS),
+        ),
+    )
 
 
 def render_imported_signals_table(review: ImportedSignalsReview) -> list[str]:
@@ -491,15 +443,6 @@ def _build_review_items(
             )
         )
     return review_items
-
-
-def _verify_columns(inspector: Any, table_name: str, required_columns: set[str]) -> None:
-    columns = {column["name"] for column in inspector.get_columns(table_name)}
-    missing = sorted(required_columns - columns)
-    if missing:
-        raise RuntimeError(
-            f"Database schema table {table_name} is missing required columns: {', '.join(missing)}"
-        )
 
 
 def _format_counts(counts: dict[str, int]) -> str:

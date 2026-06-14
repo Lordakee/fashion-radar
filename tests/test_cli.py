@@ -4631,6 +4631,38 @@ def test_doctor_reports_current_database_schema(tmp_path: Path) -> None:
     assert f"Database schema: v{SCHEMA_VERSION} (current)" in result.output
 
 
+def test_doctor_accepts_signed_current_database_schema_string(tmp_path: Path) -> None:
+    config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    engine = create_sqlite_engine(db_path)
+    initialize_schema(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "delete from schema_metadata",
+        )
+        connection.exec_driver_sql(
+            "insert into schema_metadata (version) values (?)",
+            (f"+{SCHEMA_VERSION}",),
+        )
+    engine.dispose()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "doctor",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert f"Database schema: v{SCHEMA_VERSION} (current)" in result.output
+
+
 def test_doctor_reports_missing_database_without_creating_it(tmp_path: Path) -> None:
     config_dir, data_dir, reports_dir = _init_cli_dirs(tmp_path)
     db_path = data_dir / "fashion-radar.sqlite"
@@ -5453,6 +5485,39 @@ def test_candidates_command_prints_json(tmp_path: Path) -> None:
     assert payload[0]["phrase"] == "Le Teckel bag"
     assert (config_dir / "scoring.yaml").read_bytes() == scoring_before
     assert (config_dir / "entities.yaml").read_bytes() == entities_before
+
+
+def test_candidates_command_accepts_signed_current_database_schema_string(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir = _prepare_candidate_cli_fixture(tmp_path)
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    with engine.begin() as connection:
+        connection.exec_driver_sql("delete from schema_metadata")
+        connection.exec_driver_sql(
+            "insert into schema_metadata (version) values (?)",
+            (f"+{SCHEMA_VERSION}",),
+        )
+    engine.dispose()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "candidates",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-11T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload[0]["phrase"] == "Le Teckel bag"
 
 
 def test_candidates_command_prints_table(tmp_path: Path) -> None:

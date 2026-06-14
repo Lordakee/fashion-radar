@@ -5,15 +5,12 @@ import json
 import re
 import subprocess
 import sys
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from importlib import resources
 from pathlib import Path
 from typing import Literal
 
 import typer
-from sqlalchemy import inspect, select
-from sqlalchemy.exc import MultipleResultsFound, SQLAlchemyError
 
 from fashion_radar.community_candidates import (
     preview_community_candidate_directory,
@@ -37,10 +34,15 @@ from fashion_radar.db.schema import (
     SCHEMA_VERSION,
     SchemaVersionError,
     initialize_schema,
-    schema_metadata,
 )
 from fashion_radar.db.schema import (
     metadata as db_metadata,
+)
+from fashion_radar.db.schema_inspection import (
+    DatabaseSchemaStatus,
+    inspect_database_schema_status,
+    parse_signed_schema_version_value,
+    verify_readonly_schema,
 )
 from fashion_radar.db.schema_messages import (
     FUTURE_SCHEMA_HINT,
@@ -371,97 +373,14 @@ def init(
     typer.echo(f"Reports directory: {reports_dir}")
 
 
-@dataclass(frozen=True)
-class _DatabaseSchemaStatus:
-    state: Literal["missing", "current", "old", "future", "invalid"]
-    version: int | None = None
-    detail: str | None = None
-    missing_schema: bool = False
+def _database_required_columns_by_table() -> tuple[tuple[str, set[str]], ...]:
+    return tuple(
+        (table_name, {column.name for column in table.columns})
+        for table_name, table in sorted(db_metadata.tables.items())
+    )
 
 
-def _inspect_database_schema_status(db_path: Path) -> _DatabaseSchemaStatus:
-    if not db_path.exists():
-        return _DatabaseSchemaStatus(state="missing")
-
-    engine = create_readonly_sqlite_engine(db_path)
-    try:
-        inspector = inspect(engine)
-        table_names = set(inspector.get_table_names())
-        if "schema_metadata" not in table_names:
-            return _DatabaseSchemaStatus(
-                state="invalid",
-                detail="missing schema_metadata table",
-                missing_schema=True,
-            )
-
-        metadata_columns = {column["name"] for column in inspector.get_columns("schema_metadata")}
-        if "version" not in metadata_columns:
-            return _DatabaseSchemaStatus(
-                state="invalid",
-                detail="schema_metadata.version is missing",
-            )
-
-        try:
-            with engine.connect() as connection:
-                raw_version = connection.execute(
-                    select(schema_metadata.c.version)
-                ).scalar_one_or_none()
-        except MultipleResultsFound:
-            return _DatabaseSchemaStatus(
-                state="invalid",
-                detail="schema_metadata.version has multiple rows",
-            )
-        if raw_version is None:
-            return _DatabaseSchemaStatus(
-                state="invalid",
-                detail="schema_metadata.version is empty",
-                missing_schema=True,
-            )
-        version = _parse_schema_version_value(raw_version)
-        if version is None:
-            return _DatabaseSchemaStatus(
-                state="invalid",
-                detail="schema_metadata.version is not an integer",
-            )
-
-        if version < SCHEMA_VERSION:
-            return _DatabaseSchemaStatus(state="old", version=version)
-        if version > SCHEMA_VERSION:
-            return _DatabaseSchemaStatus(state="future", version=version)
-
-        missing_tables = sorted(set(db_metadata.tables) - table_names)
-        if missing_tables:
-            return _DatabaseSchemaStatus(
-                state="invalid",
-                version=version,
-                detail=f"missing tables: {', '.join(missing_tables)}",
-            )
-        for table_name, table in sorted(db_metadata.tables.items()):
-            actual_columns = {column["name"] for column in inspector.get_columns(table_name)}
-            expected_columns = {column.name for column in table.columns}
-            missing_columns = sorted(expected_columns - actual_columns)
-            if missing_columns:
-                return _DatabaseSchemaStatus(
-                    state="invalid",
-                    version=version,
-                    detail=(f"table {table_name} missing columns: {', '.join(missing_columns)}"),
-                )
-        return _DatabaseSchemaStatus(state="current", version=version)
-    except SQLAlchemyError as exc:
-        return _DatabaseSchemaStatus(state="invalid", detail=str(exc))
-    finally:
-        engine.dispose()
-
-
-def _parse_schema_version_value(value: object) -> int | None:
-    if type(value) is int:
-        return value
-    if isinstance(value, str) and re.fullmatch(r"[+-]?[0-9]+", value.strip()):
-        return int(value)
-    return None
-
-
-def _format_database_schema_status(status: _DatabaseSchemaStatus) -> str:
+def _format_database_schema_status(status: DatabaseSchemaStatus) -> str:
     if status.state == "missing":
         return "Database schema: not initialized"
     if status.state == "current":
@@ -494,7 +413,11 @@ def migrate_db(data_dir: Path = DATA_DIR_OPTION) -> None:
     try:
         engine = create_sqlite_engine(db_path)
         initialize_schema(engine)
-        status = _inspect_database_schema_status(db_path)
+        status = inspect_database_schema_status(
+            db_path,
+            required_columns_by_table=_database_required_columns_by_table(),
+            version_parser=parse_signed_schema_version_value,
+        )
     except SchemaVersionError as exc:
         message = str(exc)
         version = _parse_schema_version_from_error(message)
@@ -551,7 +474,11 @@ def doctor(
             typer.echo(f"Invalid {label} config: {exc}", err=True)
             raise typer.Exit(1) from exc
 
-    status = _inspect_database_schema_status(default_database_path(data_dir))
+    status = inspect_database_schema_status(
+        default_database_path(data_dir),
+        required_columns_by_table=_database_required_columns_by_table(),
+        version_parser=parse_signed_schema_version_value,
+    )
     typer.echo(_format_database_schema_status(status))
     if status.state in {"old", "future", "invalid"}:
         raise typer.Exit(1)
@@ -1666,67 +1593,18 @@ def _print_digest_result(result: DigestResult) -> None:
 
 
 def _verify_candidate_database_schema(engine) -> None:
-    inspector = inspect(engine)
-    table_names = set(inspector.get_table_names())
-    version = _read_candidate_schema_version_if_available(engine, inspector, table_names)
-    if version is not None and version != SCHEMA_VERSION:
-        raise RuntimeError(unsupported_schema_message(version))
-
-    required = {"schema_metadata", "items", "item_entities"}
-    missing = sorted(required - table_names)
-    if missing:
-        raise RuntimeError(
-            missing_schema_message(
-                f"Database schema is missing required tables: {', '.join(missing)}"
+    verify_readonly_schema(
+        engine,
+        required_tables=("schema_metadata", "items", "item_entities"),
+        required_columns_by_table=tuple(
+            (
+                table_name,
+                {column.name for column in db_metadata.tables[table_name].columns},
             )
-        )
-    for table_name in ("schema_metadata", "items", "item_entities"):
-        table = db_metadata.tables[table_name]
-        _verify_candidate_columns(
-            inspector,
-            table_name,
-            {column.name for column in table.columns},
-        )
-    if version is None:
-        raise RuntimeError(missing_schema_message("schema_metadata.version is empty"))
-
-
-def _read_candidate_schema_version_if_available(
-    engine,
-    inspector,
-    table_names: set[str],
-) -> int | None:
-    if "schema_metadata" not in table_names:
-        return None
-    metadata_columns = {column["name"] for column in inspector.get_columns("schema_metadata")}
-    if "version" not in metadata_columns:
-        raise RuntimeError(
-            "Database schema table schema_metadata is missing required columns: version"
-        )
-    try:
-        with engine.connect() as connection:
-            raw_version = connection.execute(select(schema_metadata.c.version)).scalar_one_or_none()
-    except MultipleResultsFound as exc:
-        raise RuntimeError("schema_metadata.version has multiple rows") from exc
-    if raw_version is None:
-        return None
-    version = _parse_schema_version_value(raw_version)
-    if version is None:
-        raise RuntimeError("schema_metadata.version is not an integer")
-    return version
-
-
-def _verify_candidate_columns(
-    inspector,
-    table_name: str,
-    required_columns: set[str],
-) -> None:
-    columns = {column["name"] for column in inspector.get_columns(table_name)}
-    missing = sorted(required_columns - columns)
-    if missing:
-        raise RuntimeError(
-            f"Database schema table {table_name} is missing required columns: {', '.join(missing)}"
-        )
+            for table_name in ("schema_metadata", "items", "item_entities")
+        ),
+        version_parser=parse_signed_schema_version_value,
+    )
 
 
 def _print_candidate_output(
