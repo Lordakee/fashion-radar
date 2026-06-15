@@ -197,5 +197,7 @@ Before upload:
 Use this command form:
 
 ```bash
-claude --effort max --permission-mode plan --no-session-persistence -p "review prompt..."
+claude --effort max --permission-mode plan --no-session-persistence \
+  --tools Read,Grep,Glob,LS,Bash \
+  -p "review prompt..."
 ```
