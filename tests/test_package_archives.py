@@ -302,6 +302,221 @@ def test_rejects_sdist_without_packaged_template_config(tmp_path: Path) -> None:
     ) in result.stderr
 
 
+def test_rejects_sdist_with_env_local(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(build_dir, files=SDIST_FILES + [".env.local"])
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert "sdist archive contains forbidden release member: .env.local" in result.stderr
+
+
+def test_rejects_sdist_with_local_sqlite_database(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(build_dir, files=SDIST_FILES + ["data/fashion-radar.sqlite"])
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "sdist archive contains forbidden release member: data/fashion-radar.sqlite"
+        in result.stderr
+    )
+
+
+def test_rejects_sdist_with_database_sidecar_outside_local_state_dirs(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    forbidden_paths = ["runtime.sqlite-backup", "cache.db-bak"]
+    write_sdist(build_dir, files=SDIST_FILES + forbidden_paths)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    for forbidden_path in forbidden_paths:
+        assert f"sdist archive contains forbidden release member: {forbidden_path}" in result.stderr
+
+
+def test_rejects_wheel_with_database_sidecar(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(
+        build_dir,
+        files=WHEEL_FILES | {"fashion_radar/runtime.sqlite-backup": ""},
+    )
+    write_sdist(build_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "wheel archive contains forbidden release member: fashion_radar/runtime.sqlite-backup"
+    ) in result.stderr
+
+
+def test_rejects_sdist_with_generated_report(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(build_dir, files=SDIST_FILES + ["reports/latest.json"])
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert "sdist archive contains forbidden release member: reports/latest.json" in result.stderr
+
+
+def test_rejects_sdist_with_generated_source_config(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(build_dir, files=SDIST_FILES + ["configs/sources.yaml"])
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert "sdist archive contains forbidden release member: configs/sources.yaml" in result.stderr
+
+
+def test_rejects_sdist_with_codegraph_database(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(build_dir, files=SDIST_FILES + [".codegraph/codegraph.db"])
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "sdist archive contains forbidden release member: .codegraph/codegraph.db" in result.stderr
+    )
+
+
+def test_rejects_sdist_with_cookie_session_and_private_export_files(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    forbidden_paths = ["cookies.txt", "session.json", "private-source-export.csv"]
+    write_sdist(build_dir, files=SDIST_FILES + forbidden_paths)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    for forbidden_path in forbidden_paths:
+        assert f"sdist archive contains forbidden release member: {forbidden_path}" in result.stderr
+
+
+def test_rejects_sdist_with_wildcard_cookie_session_and_private_export_files(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    forbidden_paths = [
+        "cookies-chrome.txt",
+        "cookies-prod.json",
+        "session-prod.json",
+        "private-export.csv",
+        "xhs-private-export-2026.csv",
+    ]
+    write_sdist(build_dir, files=SDIST_FILES + forbidden_paths)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    for forbidden_path in forbidden_paths:
+        assert f"sdist archive contains forbidden release member: {forbidden_path}" in result.stderr
+
+
+def test_rejects_wheel_with_wildcard_cookie_session_or_private_export_file(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(
+        build_dir,
+        files=WHEEL_FILES
+        | {
+            "fashion_radar/cookies-chrome.txt": "",
+            "fashion_radar/session-prod.json": "",
+            "fashion_radar/private-export.csv": "",
+        },
+    )
+    write_sdist(build_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "wheel archive contains forbidden release member: fashion_radar/cookies-chrome.txt"
+    ) in result.stderr
+    assert (
+        "wheel archive contains forbidden release member: fashion_radar/session-prod.json"
+    ) in result.stderr
+    assert (
+        "wheel archive contains forbidden release member: fashion_radar/private-export.csv"
+    ) in result.stderr
+
+
+def test_rejects_wheel_with_bytecode_cache(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(
+        build_dir,
+        files=WHEEL_FILES | {"fashion_radar/__pycache__/cli.cpython-311.pyc": ""},
+    )
+    write_sdist(build_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "wheel archive contains forbidden release member: "
+        "fashion_radar/__pycache__/cli.cpython-311.pyc"
+    ) in result.stderr
+
+
+def test_sdist_allows_release_member_allowlist(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(
+        build_dir,
+        files=SDIST_FILES
+        + [".env.example", ".codegraph/.gitignore", "data/README.md", "reports/README.md"],
+    )
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 0
+    assert result.stdout == "Package archives contain required files.\n"
+    assert result.stderr == ""
+
+
+def test_rejects_sdist_with_local_credential_config_files(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    forbidden_paths = [".pypirc", "pip.conf", "pip.ini", "uv.toml", ".netrc", ".npmrc"]
+    write_sdist(build_dir, files=SDIST_FILES + forbidden_paths)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    for forbidden_path in forbidden_paths:
+        assert f"sdist archive contains forbidden release member: {forbidden_path}" in result.stderr
+
+
 def test_rejects_wheel_metadata_without_project_name(tmp_path: Path) -> None:
     build_dir = tmp_path / "dist"
     build_dir.mkdir()

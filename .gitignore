@@ -12,6 +12,14 @@ src/**/__pycache__/
 .coverage
 htmlcov/
 .env
+.env.*
+!.env.example
+.pypirc
+pip.conf
+pip.ini
+uv.toml
+.netrc
+.npmrc
 .DS_Store
 data/*.db
 data/*.db-*
@@ -30,6 +38,8 @@ data/cache/
 configs/sources.yaml
 configs/entities.yaml
 configs/scoring.yaml
+configs/**/*.local.yaml
+configs/**/private*.yaml
 # Generated reports and local digest artifacts are ignored. These patterns also
 # cover Stage 11 latest.md, latest.json, and report-index.json helper files.
 reports/*.md
@@ -40,5 +50,17 @@ reports/**/*.md
 reports/**/*.json
 reports/**/*.eml
 reports/**/*.txt
+cookies*.txt
+cookies*.json
+session*.json
+storage-state*.json
+browser-profiles/
+exports/
+private-exports/
+*private-export*.csv
+data/private*/
+data/export*.jsonl
+*.pem
+*.key
 !data/README.md
 !reports/README.md

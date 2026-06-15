@@ -151,15 +151,34 @@ def test_upload_checklist_help_loop_matches_public_commands() -> None:
 def test_package_archive_smoke_command_is_documented_and_in_ci() -> None:
     checklist = _read(UPLOAD_CHECKLIST)
     ci_workflow = _read(CI_WORKFLOW)
+    hygiene_command = "UV_NO_CONFIG=1 uv run python scripts/check_release_hygiene.py --repo-root ."
     build_command = 'UV_NO_CONFIG=1 uv build --out-dir "$tmp_build"'
     archive_command = 'UV_NO_CONFIG=1 uv run python scripts/check_package_archives.py "$tmp_build"'
     module_help_command = '"$tmp_env/venv/bin/python" -m fashion_radar --help'
 
     for text in (checklist, ci_workflow):
+        assert hygiene_command in text
         assert build_command in text
         assert archive_command in text
         assert module_help_command in text
+        assert "scripts/check_release_hygiene.py" in text
         assert "scripts/check_package_archives.py" in text
+
+
+def test_upload_checklist_documents_release_hygiene_excludes() -> None:
+    text = _read(UPLOAD_CHECKLIST)
+
+    for term in (
+        ".env.local",
+        "cookies",
+        "account/session files",
+        "private source exports",
+        ".codegraph",
+        "generated runtime configs",
+        "local SQLite databases",
+        "local credential config",
+    ):
+        assert term in text
 
 
 def test_readme_links_current_cli_reference_not_historical_release_gate() -> None:

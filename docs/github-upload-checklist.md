@@ -90,6 +90,7 @@ Stage 41 docs freshness check:
 Do not commit or upload:
 
 - `.venv/`
+- `.env.local` or other `.env.*` local environment files
 - `.pytest_cache/`
 - `.ruff_cache/`
 - `build/`
@@ -97,6 +98,8 @@ Do not commit or upload:
 - local SQLite databases or sidecars such as `*.sqlite`, `*.sqlite-wal`,
   `*.sqlite-shm`, `*.db`, `*.db-wal`, and `*.db-shm`
 - generated reports under `reports/`
+- generated runtime configs such as `configs/sources.yaml`,
+  `configs/entities.yaml`, and `configs/scoring.yaml`
 - `.codegraph` database, WAL/SHM, sockets, logs, or PID files
 - cookies
 - secrets
@@ -104,10 +107,17 @@ Do not commit or upload:
 - browser profiles
 - account/session files
 - private source exports
+- local credential config files such as `.pypirc`, `pip.conf`, `pip.ini`,
+  `uv.toml`, `.netrc`, and `.npmrc`
+- key material such as `*.pem` and `*.key`
 - user-specific local config containing sensitive paths or credentials
 
 `.codegraph/.gitignore` intentionally keeps CodeGraph runtime files out of git
 while allowing the ignore rule itself to be tracked.
+
+The release hygiene script checks tracked files and unignored untracked files.
+Ignored local artifacts are kept out of normal git publication by `.gitignore`
+rather than reported on every run.
 
 ## Tooling Files
 
@@ -123,6 +133,12 @@ absolute paths:
 project config uses `"--path", "."`.
 
 ## Package Smoke
+
+Run the release hygiene gate before building archives:
+
+```bash
+UV_NO_CONFIG=1 uv run python scripts/check_release_hygiene.py --repo-root .
+```
 
 Use `/tmp` for build artifacts:
 

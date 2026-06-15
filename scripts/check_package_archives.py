@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import tarfile
 import zipfile
@@ -60,6 +61,56 @@ SDIST_REQUIRED_PATHS = [
     "src/fashion_radar/templates/configs/entities.example.yaml",
     "src/fashion_radar/templates/configs/scoring.example.yaml",
 ]
+
+FORBIDDEN_RELEASE_MEMBER_ALLOWLIST = {
+    ".env.example",
+    ".codegraph/.gitignore",
+    "data/README.md",
+    "reports/README.md",
+}
+
+FORBIDDEN_RELEASE_GENERATED_CONFIGS = {
+    "configs/sources.yaml",
+    "configs/entities.yaml",
+    "configs/scoring.yaml",
+}
+
+FORBIDDEN_RELEASE_EXACT_NAMES = {
+    ".netrc",
+    ".npmrc",
+    ".pypirc",
+    "cookies.json",
+    "cookies.txt",
+    "pip.conf",
+    "pip.ini",
+    "session.json",
+    "storage-state.json",
+    "uv.toml",
+}
+
+FORBIDDEN_RELEASE_EXACT_DIR_NAMES = {
+    ".cache",
+    ".mypy_cache",
+    ".nox",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "browser-profiles",
+    "build",
+    "dist",
+    "exports",
+    "private-exports",
+    "__pycache__",
+}
+
+FORBIDDEN_RELEASE_SUFFIXES = (
+    ".key",
+    ".pem",
+    ".pyc",
+    ".pyd",
+    ".pyo",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -122,12 +173,13 @@ def select_single_archive(
 def validate_wheel(wheel_path: Path) -> list[str]:
     try:
         with zipfile.ZipFile(wheel_path) as archive:
-            paths = set(archive.namelist())
+            paths = clean_archive_paths(archive.namelist())
             errors = missing_required_paths(
                 paths,
                 exact_paths=WHEEL_REQUIRED_PATHS,
                 archive_label="wheel archive",
             )
+            errors.extend(forbidden_release_member_errors(paths, "wheel archive"))
             dist_info_dir, dist_info_errors = select_wheel_dist_info_dir(paths)
             errors.extend(dist_info_errors)
             if dist_info_dir is not None:
@@ -196,11 +248,18 @@ def validate_sdist(sdist_path: Path) -> list[str]:
     except tarfile.TarError as exc:
         return [f"could not read sdist archive {sdist_path.name}: {exc}"]
 
-    return missing_required_paths(
+    errors = missing_required_paths(
         paths,
         exact_paths=SDIST_REQUIRED_PATHS,
         archive_label="sdist archive",
     )
+    errors.extend(forbidden_release_member_errors(paths, "sdist archive"))
+    return errors
+
+
+def clean_archive_paths(paths: Iterable[object]) -> set[str]:
+    cleaned_paths = [clean_archive_path(path) for path in paths]
+    return {path for path in cleaned_paths if path}
 
 
 def normalize_sdist_paths(paths: Iterable[str]) -> set[str]:
@@ -231,6 +290,61 @@ def clean_archive_path(path: object) -> str:
     if normalized == ".":
         return ""
     return normalized
+
+
+def forbidden_release_member_errors(paths: set[str], archive_label: str) -> list[str]:
+    return [
+        f"{archive_label} contains forbidden release member: {path}"
+        for path in sorted(paths)
+        if is_forbidden_release_member(path)
+    ]
+
+
+def is_forbidden_release_member(path: str) -> bool:
+    path = clean_archive_path(path)
+    if not path or path in FORBIDDEN_RELEASE_MEMBER_ALLOWLIST:
+        return False
+
+    lower_path = path.lower()
+    lower_parts = lower_path.split("/")
+    lower_name = lower_parts[-1]
+
+    if any(part == ".env" or part.startswith(".env.") for part in lower_parts):
+        return True
+
+    if any(part.endswith(".egg-info") for part in lower_parts):
+        return True
+
+    if any(part in FORBIDDEN_RELEASE_EXACT_DIR_NAMES for part in lower_parts):
+        return True
+
+    if lower_name in FORBIDDEN_RELEASE_EXACT_NAMES:
+        return True
+
+    if is_forbidden_local_secret_name(lower_name):
+        return True
+
+    if lower_path in FORBIDDEN_RELEASE_GENERATED_CONFIGS:
+        return True
+
+    if lower_parts[0] in {".codegraph", "data", "reports"}:
+        return True
+
+    return lower_name.endswith(FORBIDDEN_RELEASE_SUFFIXES) or is_database_or_sidecar(lower_name)
+
+
+def is_forbidden_local_secret_name(filename: str) -> bool:
+    return (
+        re.match(r"cookies.*\.(?:txt|json)$", filename) is not None
+        or re.match(r"session.*\.json$", filename) is not None
+        or re.match(r"storage-state.*\.json$", filename) is not None
+        or re.match(r".*private-export.*\.csv$", filename) is not None
+        or re.match(r".*private-source-export.*\.csv$", filename) is not None
+    )
+
+
+def is_database_or_sidecar(filename: str) -> bool:
+    return re.search(r"\.(?:sqlite3?|db)(?:-.+)?$", filename) is not None
 
 
 def missing_required_paths(
