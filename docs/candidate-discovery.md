@@ -70,13 +70,13 @@ signals and need review.
 Print candidate signals as a table:
 
 ```bash
-uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 Print the same review data as JSON:
 
 ```bash
-uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
+uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
 ```
 
 Review imported manual candidate signals only:

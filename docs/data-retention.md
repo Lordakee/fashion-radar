@@ -14,8 +14,8 @@ project `data/` directory.
 Use `clean-old-data` to prune old collected items:
 
 ```bash
-fashion-radar clean-old-data --as-of 2026-06-11T12:00:00Z --retention-days 30 --dry-run
-fashion-radar clean-old-data --as-of 2026-06-11T12:00:00Z --retention-days 30
+fashion-radar clean-old-data --data-dir ./data --as-of 2026-06-11T12:00:00Z --retention-days 30 --dry-run
+fashion-radar clean-old-data --data-dir ./data --as-of 2026-06-11T12:00:00Z --retention-days 30
 ```
 
 The cutoff is:

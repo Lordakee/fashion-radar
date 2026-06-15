@@ -74,7 +74,7 @@ tool should meet the stricter community handoff contract before dry-run/import.
 Use `--dry-run` to validate the local file before writing rows:
 
 ```bash
-uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export" --dry-run
+uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export" --data-dir "$PWD/data" --dry-run
 ```
 
 A dry run is intended to check parsing and validation. It does not import rows
@@ -86,8 +86,8 @@ Use `import-signals-dir --dry-run` to validate matched files directly under one
 local directory through the same importer model:
 
 ```bash
-uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export" --dry-run
-uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Manual Export" --dry-run --output-format json
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export" --data-dir "$PWD/data" --dry-run
+uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Manual Export" --data-dir "$PWD/data" --dry-run --output-format json
 ```
 
 Directory matching is non-recursive. It validates regular files directly under
@@ -102,7 +102,7 @@ require reading the local database.
 After a successful dry run, omit `--dry-run` to import the same local directory:
 
 ```bash
-uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export" --data-dir "$PWD/data"
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export" --imported-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --data-dir "$PWD/data"
 uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Manual Export" --imported-at "2026-06-12T12:00:00Z" --data-dir "$PWD/data"
 ```
 
@@ -117,13 +117,13 @@ command preflight and no rows are written.
 Import a CSV file:
 
 ```bash
-uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
+uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export" --data-dir "$PWD/data"
 ```
 
 Import a JSON file:
 
 ```bash
-uv run fashion-radar import-signals ./signals.json --format json --source-name "Manual Export"
+uv run fashion-radar import-signals ./signals.json --format json --source-name "Manual Export" --imported-at "2026-06-12T12:00:00Z" --data-dir "$PWD/data"
 ```
 
 After import, run the same local review commands used for collected sources:
@@ -140,11 +140,16 @@ uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Manual Export"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --unmatched-only
-uv run fashion-radar match
-uv run fashion-radar report --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
+uv run fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
+
+Retained-row review commands can be narrowed with `--source-name`,
+`--lookback-days`, `--current-days`, `--baseline-days`, `--entity-type`, and
+`--limit` where supported. Use `--format json` when you need machine-readable
+output.
 
 `imported-review-workflow` prints a copyable sequence for existing local review
 commands. It does not execute those commands, open SQLite, read configs, import

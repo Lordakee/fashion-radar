@@ -149,33 +149,33 @@ Optional local digest artifacts are:
 fashion-radar init
 fashion-radar doctor
 fashion-radar migrate-db --data-dir ./data
-fashion-radar source-pack-lint ./configs/sources.yaml
+fashion-radar source-pack-lint ./configs/sources.yaml --strict
 fashion-radar entity-pack-lint ./configs/entities.yaml
-fashion-radar collect
+fashion-radar collect --config-dir ./configs --data-dir ./data
 fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --data-dir ./data --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar community-signal-lint ./signals.csv --input-format csv --source-name "Manual Export"
 fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Manual Export"
 fashion-radar community-candidates-dir ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
-fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export" --dry-run
-fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export"
-fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
+fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export" --data-dir ./data --dry-run
+fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Manual Export" --imported-at 2026-06-11T12:00:00Z --data-dir ./data
+fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export" --data-dir ./data
 fashion-radar imported-review-workflow --data-dir ./data --config-dir ./configs --as-of 2026-06-11T12:00:00Z
 fashion-radar imported-signals-summary --data-dir ./data
 fashion-radar imported-entity-deltas --data-dir ./data --as-of 2026-06-11T12:00:00Z
 fashion-radar imported-candidates --data-dir ./data --config-dir ./configs --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar imported-candidate-evidence --data-dir ./data --config-dir ./configs --as-of 2026-06-11T12:00:00Z --phrase "Le Teckel bag" --source-name "Manual Export"
 fashion-radar imported-signals --data-dir ./data --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
-fashion-radar match
-fashion-radar report --as-of 2026-06-11T12:00:00Z
-fashion-radar report --as-of 2026-06-11T12:00:00Z --digest-latest copy --digest-index
-fashion-radar candidates --as-of 2026-06-11T12:00:00Z
-fashion-radar trends --as-of 2026-06-11T12:00:00Z --config-dir ./configs
+fashion-radar match --config-dir ./configs --data-dir ./data
+fashion-radar report --config-dir ./configs --data-dir ./data --reports-dir ./reports --as-of 2026-06-11T12:00:00Z
+fashion-radar report --config-dir ./configs --data-dir ./data --reports-dir ./reports --as-of 2026-06-11T12:00:00Z --digest-latest copy --digest-index
+fashion-radar candidates --config-dir ./configs --data-dir ./data --as-of 2026-06-11T12:00:00Z
+fashion-radar trends --config-dir ./configs --data-dir ./data --as-of 2026-06-11T12:00:00Z
 ```
 
 `run` executes `collect -> match -> report` serially in one local process:
 
 ```bash
-fashion-radar run --as-of 2026-06-11T12:00:00Z
+fashion-radar run --config-dir ./configs --data-dir ./data --reports-dir ./reports --as-of 2026-06-11T12:00:00Z
 ```
 
 There are no parallel database writers in the MVP workflow.

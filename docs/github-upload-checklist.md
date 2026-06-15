@@ -46,6 +46,8 @@ Check the public lockfile has no mirror URLs:
 rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock
 ```
 
+Historical boundary checks:
+
 Stage 27B docs check:
 
 - [ ] `community-candidates` docs describe one-file local pre-import preview,
@@ -75,6 +77,13 @@ Stage 30 docs check:
       generation, or entity file generation; and intentional printing of
       supplied directory/config/data paths inside copyable local commands,
       unlike aggregate candidate preview output.
+
+Stage 41 docs freshness check:
+
+- [ ] README links `docs/cli-reference.md`.
+- [ ] Import/review examples that use `$PWD/data` pass `--data-dir "$PWD/data"`
+      consistently.
+- [ ] Installed-wheel help smoke covers every current public command.
 
 ## Exclude
 
@@ -130,8 +139,17 @@ tmp_env="$(mktemp -d)"
 uv venv "$tmp_env/venv"
 uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 "$tmp_env/venv/bin/fashion-radar" --help
-"$tmp_env/venv/bin/fashion-radar" trends --help
-"$tmp_env/venv/bin/fashion-radar" dashboard --help
+for cmd in \
+  init migrate-db doctor source-pack-lint entity-pack-lint \
+  community-signal-lint community-signal-lint-dir \
+  community-candidates community-candidates-dir community-handoff-workflow \
+  import-signals import-signals-dir imported-signals imported-signals-summary \
+  imported-entity-deltas imported-candidates imported-candidate-evidence \
+  imported-review-workflow collect match report candidates trends \
+  schedule-example dashboard clean-old-data run
+do
+  "$tmp_env/venv/bin/fashion-radar" "$cmd" --help
+done
 tmp_run="$(mktemp -d)"
 mkdir -p "$tmp_run/exports"
 mkdir -p "$tmp_run/config"
@@ -171,12 +189,13 @@ Before upload:
 
 1. Run full verification.
 2. Sync and check CodeGraph if it is being used.
-3. Run a final local opencode code and documentation review with GLM 5.2.
+3. Run a final local Claude Code code and documentation review with
+   `--effort max`.
 4. Fix all Critical and Important findings.
 5. Let the user choose or create the GitHub remote and push.
 
 Use this command form:
 
 ```bash
-opencode run -m zhipuai-coding-plan/glm-5.2 "review prompt..."
+claude --effort max --permission-mode plan --no-session-persistence -p "review prompt..."
 ```

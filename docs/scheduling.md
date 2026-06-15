@@ -4,7 +4,7 @@ Fashion Radar does not run a background daemon. Use your operating system or
 GitHub Actions to run the existing serial command:
 
 ```bash
-fashion-radar run --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+fashion-radar run --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 `run` executes `collect -> match -> report` in one local process. The generated
@@ -21,6 +21,9 @@ helper files for daily review:
 
 ```bash
 fashion-radar run \
+  --config-dir "$PWD/configs" \
+  --data-dir "$PWD/data" \
+  --reports-dir "$PWD/reports" \
   --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --digest-latest copy \
   --digest-index \
@@ -38,9 +41,9 @@ you review yourself.
 Use `schedule-example` to print snippets. It does not install anything:
 
 ```bash
-uv run fashion-radar schedule-example --mode cron --project-dir "$PWD"
-uv run fashion-radar schedule-example --mode systemd --project-dir "$PWD"
-uv run fashion-radar schedule-example --mode github-actions --project-dir "$PWD"
+uv run fashion-radar schedule-example --mode cron --project-dir "$PWD" --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports"
+uv run fashion-radar schedule-example --mode systemd --project-dir "$PWD" --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports"
+uv run fashion-radar schedule-example --mode github-actions --project-dir "$PWD" --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports"
 ```
 
 You can pass explicit paths:
@@ -74,7 +77,7 @@ If you copy snippets manually, keep those escapes intact:
 Print a cron example:
 
 ```bash
-uv run fashion-radar schedule-example --mode cron --project-dir "$PWD" --time 08:00
+uv run fashion-radar schedule-example --mode cron --project-dir "$PWD" --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --time 08:00
 ```
 
 Review the output, then install it manually with:
@@ -102,7 +105,7 @@ long term.
 Print service and timer examples:
 
 ```bash
-uv run fashion-radar schedule-example --mode systemd --project-dir "$PWD" --time 08:00
+uv run fashion-radar schedule-example --mode systemd --project-dir "$PWD" --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --time 08:00
 ```
 
 Review the output, then place files manually:
@@ -133,7 +136,7 @@ login shell environment for that user. If your profile does not add `uv` to
 Print a workflow example:
 
 ```bash
-uv run fashion-radar schedule-example --mode github-actions --time 08:00
+uv run fashion-radar schedule-example --mode github-actions --project-dir "$PWD" --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --time 08:00
 ```
 
 GitHub Actions scheduled workflows run in UTC. Generated reports are ephemeral
@@ -149,7 +152,7 @@ The checkout must contain real `sources.yaml`, `entities.yaml`, and
 Run retention cleanup separately and start with a dry run:
 
 ```bash
-uv run fashion-radar clean-old-data --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --retention-days 30 --dry-run
+uv run fashion-radar clean-old-data --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --retention-days 30 --dry-run
 ```
 
 See [data-retention.md](data-retention.md).

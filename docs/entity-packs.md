@@ -38,21 +38,23 @@ codes, matcher-rule notes, and limits.
 Copy the pack into the config directory you want to use:
 
 ```bash
-cp configs/entity-packs/fashion-watchlist.example.yaml configs/entities.yaml
-uv run fashion-radar doctor --config-dir "$PWD/configs"
+mkdir -p "$PWD/configs" "$PWD/data" "$PWD/reports"
+cp configs/entity-packs/fashion-watchlist.example.yaml "$PWD/configs/entities.yaml"
+uv run fashion-radar doctor --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports"
 ```
 
-Use the same `--config-dir` in later commands so Fashion Radar reads the copied
-pack instead of a platform default user config directory.
+Use the same local config, data, and report directories in later commands so
+Fashion Radar reads and writes one workspace instead of mixing repo-local config
+with platform default user paths.
 
 After your existing configured-source or local-signal pipeline has already
 produced signals, run the normal local review commands:
 
 ```bash
-uv run fashion-radar match --config-dir "$PWD/configs"
-uv run fashion-radar report --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-uv run fashion-radar candidates --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-uv run fashion-radar trends --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
+uv run fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 The entity pack only changes local entity matching. It does not add sources,
@@ -96,6 +98,7 @@ src/fashion_radar/templates/configs/entities.example.yaml
 To return to the packaged starter in a local repo checkout:
 
 ```bash
-cp src/fashion_radar/templates/configs/entities.example.yaml configs/entities.yaml
-uv run fashion-radar doctor --config-dir "$PWD/configs"
+mkdir -p "$PWD/configs" "$PWD/data" "$PWD/reports"
+cp src/fashion_radar/templates/configs/entities.example.yaml "$PWD/configs/entities.yaml"
+uv run fashion-radar doctor --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports"
 ```

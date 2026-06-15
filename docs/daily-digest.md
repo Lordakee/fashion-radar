@@ -15,6 +15,9 @@ Write stable latest-report copies and an index:
 
 ```bash
 uv run fashion-radar report \
+  --config-dir "$PWD/configs" \
+  --data-dir "$PWD/data" \
+  --reports-dir "$PWD/reports" \
   --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --digest-latest copy \
   --digest-index
@@ -24,6 +27,9 @@ Do the same at the end of the serial daily workflow:
 
 ```bash
 uv run fashion-radar run \
+  --config-dir "$PWD/configs" \
+  --data-dir "$PWD/data" \
+  --reports-dir "$PWD/reports" \
   --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --digest-latest copy \
   --digest-index \
@@ -34,6 +40,9 @@ Create relative symlinks instead of copies when your filesystem supports them:
 
 ```bash
 uv run fashion-radar report \
+  --config-dir "$PWD/configs" \
+  --data-dir "$PWD/data" \
+  --reports-dir "$PWD/reports" \
   --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --digest-latest symlink
 ```
@@ -42,6 +51,9 @@ Write a local `.eml` file for manual review:
 
 ```bash
 uv run fashion-radar report \
+  --config-dir "$PWD/configs" \
+  --data-dir "$PWD/data" \
+  --reports-dir "$PWD/reports" \
   --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --digest-eml
 ```
@@ -91,6 +103,9 @@ to the `fashion-radar run` line:
 
 ```bash
 fashion-radar run \
+  --config-dir "$PWD/configs" \
+  --data-dir "$PWD/data" \
+  --reports-dir "$PWD/reports" \
   --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --digest-latest copy \
   --digest-index \

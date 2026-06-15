@@ -12,13 +12,13 @@ social-platform coverage.
 Compare the current local snapshot with the default baseline:
 
 ```bash
-uv run fashion-radar trends --as-of 2026-06-12T00:00:00Z --config-dir ./configs
+uv run fashion-radar trends --as-of 2026-06-12T00:00:00Z --config-dir ./configs --data-dir ./data
 ```
 
 Compare against an explicit baseline and print JSON:
 
 ```bash
-uv run fashion-radar trends --as-of 2026-06-12T00:00:00Z --baseline-as-of 2026-06-05T00:00:00Z --format json --limit 30 --include-dropped --config-dir ./configs
+uv run fashion-radar trends --as-of 2026-06-12T00:00:00Z --baseline-as-of 2026-06-05T00:00:00Z --format json --limit 30 --include-dropped --config-dir ./configs --data-dir ./data
 ```
 
 If `--baseline-as-of` is omitted, it defaults to:
@@ -58,10 +58,10 @@ observed signals for review, not market-wide rankings.
 Manual imports participate only after they are imported and matched:
 
 ```bash
-uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
+uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export" --data-dir "$PWD/data"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Manual Export"
-uv run fashion-radar match
-uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
+uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 Imported rows remain local user-provided signals. They do not add platform

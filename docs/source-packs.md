@@ -33,6 +33,7 @@ Before copying or editing a pack, run the local linter:
 
 ```bash
 uv run fashion-radar source-pack-lint configs/source-packs/fashion-public.example.yaml
+uv run fashion-radar source-pack-lint configs/source-packs/fashion-public.example.yaml --strict
 ```
 
 JSON output is available for scripts and CI:
@@ -69,14 +70,15 @@ severity meanings, and tag/weight tuning guidance.
 Copy the pack into your config directory as `sources.yaml`:
 
 ```bash
-cp configs/source-packs/fashion-public.example.yaml configs/sources.yaml
-uv run fashion-radar doctor
+mkdir -p "$PWD/configs" "$PWD/data" "$PWD/reports"
+cp configs/source-packs/fashion-public.example.yaml "$PWD/configs/sources.yaml"
+uv run fashion-radar doctor --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports"
 ```
 
 Then run:
 
 ```bash
-uv run fashion-radar run --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar run --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 ## Source Availability

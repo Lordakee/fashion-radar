@@ -90,15 +90,15 @@ score, report, monitor, watch, schedule, or touch external platforms.
 Run the daily workflow step by step:
 
 ```bash
-uv run fashion-radar collect
-uv run fashion-radar match
-uv run fashion-radar report --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar collect --config-dir "$PWD/configs" --data-dir "$PWD/data"
+uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
+uv run fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 Optionally import local user-provided signals before matching:
 
 ```bash
-uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export"
+uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Manual Export" --data-dir "$PWD/data"
 ```
 
 External community tools can target the local community signal contract:
@@ -111,9 +111,9 @@ uv run fashion-radar community-candidates ./community-signals.csv --input-format
 uv run fashion-radar community-candidates-dir ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
 uv run fashion-radar community-candidates-dir ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
 uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export"
-uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --dry-run
-uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export"
-uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --dry-run
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --imported-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --data-dir "$PWD/data"
+uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
 ```
 
 Inspect retained imported rows before matching or downstream review:
@@ -179,13 +179,13 @@ Review untracked candidate signals from configured sources and imported local
 signals:
 
 ```bash
-uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 Compare local observed trend deltas without writing to the database:
 
 ```bash
-uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --config-dir "$PWD/configs"
+uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 Trend deltas are read-only local comparisons. They do not prove demand outside
@@ -194,13 +194,13 @@ your configured source set.
 Or run the workflow serially:
 
 ```bash
-uv run fashion-radar run --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar run --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 Package local digest artifacts after a report or serial run:
 
 ```bash
-uv run fashion-radar run --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --digest-latest copy --digest-index --digest-summary
+uv run fashion-radar run --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --digest-latest copy --digest-index --digest-summary
 ```
 
 Digest artifacts are local files only. Fashion Radar does not send email,
@@ -229,7 +229,7 @@ The dashboard is optional:
 
 ```bash
 uv sync --locked --dev --extra dashboard
-uv run fashion-radar dashboard --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports"
+uv run fashion-radar dashboard --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --host 127.0.0.1 --port 8501
 ```
 
 Mirror install:
@@ -277,7 +277,7 @@ See [docs/entity-packs.md](docs/entity-packs.md).
 Check a source pack before copying or editing it:
 
 ```bash
-uv run fashion-radar source-pack-lint configs/source-packs/fashion-public.example.yaml
+uv run fashion-radar source-pack-lint configs/source-packs/fashion-public.example.yaml --strict
 ```
 
 Check an entity pack before copying or editing it:
@@ -298,8 +298,8 @@ run or import:
 ```bash
 uv run fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
 uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export"
-uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --dry-run
-uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export"
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --imported-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --data-dir "$PWD/data"
 ```
 
 The linters are local and read-only. They do not collect sources, fetch live
@@ -383,8 +383,8 @@ See [docs/daily-digest.md](docs/daily-digest.md).
 Use cleanup when you want to prune old collected items:
 
 ```bash
-uv run fashion-radar clean-old-data --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --retention-days 30 --dry-run
-uv run fashion-radar clean-old-data --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --retention-days 30
+uv run fashion-radar clean-old-data --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --retention-days 30 --dry-run
+uv run fashion-radar clean-old-data --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --retention-days 30
 ```
 
 See [docs/data-retention.md](docs/data-retention.md).
@@ -392,6 +392,7 @@ See [docs/data-retention.md](docs/data-retention.md).
 ## Documentation
 
 - [docs/architecture.md](docs/architecture.md)
+- [docs/cli-reference.md](docs/cli-reference.md)
 - [docs/source-boundaries.md](docs/source-boundaries.md)
 - [docs/dependency-mirrors.md](docs/dependency-mirrors.md)
 - [docs/scoring.md](docs/scoring.md)
@@ -409,7 +410,6 @@ See [docs/data-retention.md](docs/data-retention.md).
 - [docs/source-packs.md](docs/source-packs.md)
 - [docs/source-pack-quality.md](docs/source-pack-quality.md)
 - [docs/github-upload-checklist.md](docs/github-upload-checklist.md)
-- [docs/release-gate-stage31.md](docs/release-gate-stage31.md)
 - [docs/REVIEW_PROTOCOL.md](docs/REVIEW_PROTOCOL.md)
 
 ## Development

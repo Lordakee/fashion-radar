@@ -123,14 +123,14 @@ Then validate the same local directory through the importer model without
 writing rows:
 
 ```bash
-uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --dry-run
-uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Community Tool Export" --dry-run --output-format json
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
+uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run --output-format json
 ```
 
 After the importer-model dry run succeeds, import the same local directory:
 
 ```bash
-uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --data-dir "$PWD/data"
+uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --imported-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --data-dir "$PWD/data"
 uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Community Tool Export" --imported-at "2026-06-12T12:00:00Z" --data-dir "$PWD/data"
 ```
 
@@ -164,14 +164,14 @@ See [community-signal-quality.md](community-signal-quality.md).
 Validate the repository examples without writing rows:
 
 ```bash
-uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --dry-run
-uv run fashion-radar import-signals examples/community-signals.example.json --format json --source-name "Community Tool Export" --dry-run
+uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
+uv run fashion-radar import-signals examples/community-signals.example.json --format json --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
 ```
 
 Validate a local file produced by another tool:
 
 ```bash
-uv run fashion-radar import-signals ./community-signals.csv --format csv --source-name "Community Tool Export" --dry-run
+uv run fashion-radar import-signals ./community-signals.csv --format csv --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
 ```
 
 Dry-run validation uses the same parser/import model as the write path. It does
@@ -182,13 +182,13 @@ not create the local SQLite database or import rows.
 After a dry run succeeds, import the local file:
 
 ```bash
-uv run fashion-radar import-signals ./community-signals.csv --format csv --source-name "Community Tool Export"
+uv run fashion-radar import-signals ./community-signals.csv --format csv --source-name "Community Tool Export" --data-dir "$PWD/data"
 ```
 
 JSON imports use the same command with `--format json`:
 
 ```bash
-uv run fashion-radar import-signals ./community-signals.json --format json --source-name "Community Tool Export"
+uv run fashion-radar import-signals ./community-signals.json --format json --source-name "Community Tool Export" --imported-at "2026-06-12T12:00:00Z" --data-dir "$PWD/data"
 ```
 
 Imported rows use the existing manual-import storage path. If a row's normalized
@@ -213,11 +213,16 @@ uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config
 uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --phrase "Le Teckel bag" --source-name "Community Tool Export" --format json
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --unmatched-only
-uv run fashion-radar match
-uv run fashion-radar report --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-uv run fashion-radar candidates --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-uv run fashion-radar trends --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
+uv run fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
+
+Retained-row review commands can be narrowed with `--source-name`,
+`--lookback-days`, `--current-days`, `--baseline-days`, `--entity-type`, and
+`--limit` where supported. Use `--format json` when you need machine-readable
+output.
 
 `imported-review-workflow` prints a copyable sequence for existing local review
 commands after import. It does not execute those commands, open SQLite, read

@@ -19,7 +19,7 @@ Run:
 
 ```bash
 uv run fashion-radar dashboard
-uv run fashion-radar dashboard --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports"
+uv run fashion-radar dashboard --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --host 127.0.0.1 --port 8501
 ```
 
 ## Behavior
