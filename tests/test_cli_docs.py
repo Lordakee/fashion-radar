@@ -8,6 +8,7 @@ import typer.main
 from typer.testing import CliRunner
 
 from fashion_radar.cli import app
+from fashion_radar.community_signal_profile import build_community_signal_profile
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI_REFERENCE = ROOT / "docs" / "cli-reference.md"
@@ -512,6 +513,39 @@ def test_community_import_docs_keep_deterministic_review_commands_fixed() -> Non
     for command in _fashion_radar_commands(community_doc):
         if any(marker in command for marker in deterministic_markers):
             assert "$(date -u" not in command
+
+
+def test_community_signal_import_doc_keeps_profile_recommended_command_order() -> None:
+    text = _read(ROOT / "docs" / "community-signal-import.md")
+    flow_section = text.split("## Producer Profile", 1)[1].split("## Boundary", 1)[0]
+    normalized_flow = " ".join(flow_section.split())
+    assert (
+        "The JSON profile's `recommended_commands` list is the exact producer-facing sequence."
+    ) in normalized_flow
+    assert (
+        "preserve the same lint, preview, dry-run import, import, and review order."
+    ) in normalized_flow
+
+    profile_command_names = []
+    for command in build_community_signal_profile().recommended_commands:
+        match = FASHION_RADAR_COMMAND_RE.search(command)
+        assert match is not None
+        profile_command_names.append(match.group("name"))
+    documented_names = []
+    for block in _bash_blocks(flow_section):
+        for command in _shell_commands(block):
+            match = FASHION_RADAR_COMMAND_RE.search(command)
+            if match is not None and match.group("name") in profile_command_names:
+                documented_names.append(match.group("name"))
+
+    position = 0
+    for expected in profile_command_names:
+        while position < len(documented_names) and documented_names[position] != expected:
+            position += 1
+        assert position < len(documented_names), (
+            f"{expected!r} from profile recommended_commands is missing or out of order"
+        )
+        position += 1
 
 
 def test_readme_quickstart_setup_commands_use_repo_local_paths() -> None:

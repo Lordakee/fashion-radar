@@ -2,7 +2,10 @@ import json
 from pathlib import Path
 from textwrap import dedent
 
+import pytest
+
 from fashion_radar.community_signals import (
+    PROHIBITED_COMMUNITY_SIGNAL_FIELDS,
     CommunitySignalFindingSeverity,
     lint_community_signal_directory,
     lint_community_signal_file,
@@ -74,6 +77,59 @@ def test_unknown_and_prohibited_csv_fields_are_errors(tmp_path: Path) -> None:
     ]
 
 
+def _valid_community_signal_row() -> dict[str, str]:
+    return {
+        "url": "https://example.com/a",
+        "title": "Signal",
+        "published_at": "2026-06-12T08:00:00Z",
+        "summary": "Sanitized note",
+        "source_name": "Community Tool Export",
+        "platform": "community",
+        "source_weight": "1.0",
+        "collected_at": "2026-06-12T08:30:00Z",
+    }
+
+
+@pytest.mark.parametrize("field", sorted(PROHIBITED_COMMUNITY_SIGNAL_FIELDS))
+@pytest.mark.parametrize(
+    ("case_name", "input_format", "expected_row"),
+    [
+        ("csv", "csv", 2),
+        ("json_array", "json", 1),
+        ("json_items", "json", 1),
+    ],
+)
+def test_all_prohibited_fields_are_lint_errors_for_supported_raw_rows(
+    tmp_path: Path,
+    field: str,
+    case_name: str,
+    input_format: str,
+    expected_row: int,
+) -> None:
+    base = _valid_community_signal_row()
+    if case_name == "csv":
+        path = tmp_path / f"{field}.csv"
+        path.write_text(
+            ",".join([*base, field]) + "\n" + ",".join([*base.values(), "redacted"]) + "\n",
+            encoding="utf-8",
+        )
+    else:
+        path = tmp_path / f"{field}.json"
+        row = {**base, field: "redacted"}
+        payload = [row] if case_name == "json_array" else {"items": [row]}
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = lint_community_signal_file(path, input_format=input_format)
+
+    prohibited = findings_by_code(result, "prohibited_field")
+    assert result.error_count == 1
+    assert result.warning_count == 0
+    assert result.valid_row_count == 1
+    assert [(finding.row, finding.field, finding.severity) for finding in prohibited] == [
+        (expected_row, field, CommunitySignalFindingSeverity.ERROR)
+    ]
+
+
 def test_invalid_row_is_error_using_import_validation(tmp_path: Path) -> None:
     path = write_text(
         tmp_path / "signals.json",
@@ -140,6 +196,34 @@ def test_json_object_with_extra_top_level_key_is_invalid_file_error(
     assert finding.severity == CommunitySignalFindingSeverity.ERROR
 
 
+@pytest.mark.parametrize("field", sorted(PROHIBITED_COMMUNITY_SIGNAL_FIELDS))
+def test_json_top_level_prohibited_keys_are_invalid_file_not_raw_field_findings(
+    tmp_path: Path,
+    field: str,
+) -> None:
+    path = tmp_path / "signals.json"
+    path.write_text(
+        json.dumps(
+            {
+                "items": [
+                    {
+                        "url": "https://example.com/a",
+                        "title": "Signal",
+                        "published_at": "2026-06-12T08:00:00Z",
+                    }
+                ],
+                field: "redacted",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = lint_community_signal_file(path, input_format="json")
+
+    assert [finding.code for finding in result.findings] == ["invalid_file"]
+    assert findings_by_code(result, "prohibited_field") == []
+
+
 def test_csv_extra_cells_are_specific_errors(tmp_path: Path) -> None:
     path = write_text(
         tmp_path / "signals.csv",
@@ -156,6 +240,25 @@ def test_csv_extra_cells_are_specific_errors(tmp_path: Path) -> None:
     assert finding.row == 2
     assert finding.field == "row"
     assert "more cells than headers" in finding.message
+
+
+@pytest.mark.parametrize("extra_cell", sorted(PROHIBITED_COMMUNITY_SIGNAL_FIELDS))
+def test_csv_extra_cell_values_are_not_treated_as_raw_field_names(
+    tmp_path: Path,
+    extra_cell: str,
+) -> None:
+    path = write_text(
+        tmp_path / "signals.csv",
+        f"""
+        url,title,published_at,summary,source_name,platform,source_weight,collected_at
+        https://example.com/a,Signal,2026-06-12T08:00:00Z,Note,Tool,community,1.0,2026-06-12T08:30:00Z,{extra_cell}
+        """,
+    )
+
+    result = lint_community_signal_file(path, input_format="csv")
+
+    assert [finding.code for finding in result.findings] == ["csv_extra_cells"]
+    assert findings_by_code(result, "prohibited_field") == []
 
 
 def test_source_name_fallback_matches_manual_importer(tmp_path: Path) -> None:

@@ -8172,6 +8172,44 @@ def test_community_candidates_dir_invalid_input_format_does_not_enter_command_bo
     assert "Invalid value" in result.output
 
 
+def test_community_candidates_dir_invalid_output_format_does_not_enter_command_body(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir, _data_dir, directory = _prepare_community_candidates_dir_fixture(tmp_path)
+
+    def fail_load_config(*args, **kwargs):
+        raise AssertionError("config should not be loaded")
+
+    def fail_preview(*args, **kwargs):
+        raise AssertionError("directory should not be loaded")
+
+    monkeypatch.setattr(cli_module, "load_scoring_config", fail_load_config)
+    monkeypatch.setattr(cli_module, "load_entity_config", fail_load_config)
+    monkeypatch.setattr(
+        cli_module,
+        "preview_community_candidate_directory",
+        fail_preview,
+        raising=False,
+    )
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-candidates-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "xml",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid value" in result.output
+
+
 def test_community_candidates_dir_negative_limit_does_not_enter_command_body(
     tmp_path: Path,
     monkeypatch,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import shlex
 from pathlib import Path
 
 import pytest
@@ -91,6 +92,41 @@ def test_profile_has_stable_json_key_order() -> None:
         "recommended_commands",
         "boundaries",
     ]
+
+
+def test_profile_recommended_commands_keep_directory_handoff_sequence() -> None:
+    commands = build_community_signal_profile().recommended_commands
+    parsed = [shlex.split(command) for command in commands]
+
+    def flag_value(parts: list[str], flag: str) -> str:
+        return parts[parts.index(flag) + 1]
+
+    assert [parts[:2] for parts in parsed] == [
+        ["fashion-radar", "community-signal-lint-dir"],
+        ["fashion-radar", "community-candidates-dir"],
+        ["fashion-radar", "import-signals-dir"],
+        ["fashion-radar", "import-signals-dir"],
+        ["fashion-radar", "imported-review-workflow"],
+    ]
+    assert all("./exports" in parts for parts in parsed[:4])
+    assert "--strict" in parsed[0]
+    assert "--config-dir" not in parsed[0]
+    assert "--data-dir" not in parsed[0]
+    assert "--config-dir" in parsed[1]
+    assert flag_value(parsed[1], "--config-dir") == "$PWD/configs"
+    assert flag_value(parsed[1], "--as-of") == "$AS_OF"
+    assert "--data-dir" not in parsed[1]
+    assert "--dry-run" in parsed[2]
+    assert "--imported-at" not in parsed[2]
+    assert flag_value(parsed[2], "--data-dir") == "$PWD/data"
+    assert "--dry-run" not in parsed[3]
+    assert flag_value(parsed[3], "--imported-at") == "$AS_OF"
+    assert flag_value(parsed[3], "--data-dir") == "$PWD/data"
+    assert flag_value(parsed[4], "--as-of") == "$AS_OF"
+    assert flag_value(parsed[4], "--config-dir") == "$PWD/configs"
+    assert flag_value(parsed[4], "--data-dir") == "$PWD/data"
+    source_name_values = [flag_value(parts, "--source-name") for parts in parsed]
+    assert source_name_values == ["Community Tool Export"] * 5
 
 
 def test_profile_model_rejects_extra_fields_and_missing_required_fields() -> None:

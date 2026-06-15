@@ -52,6 +52,11 @@ automate browsers, call platform APIs, monitor communities, rank sources,
 verify platform coverage, perform source acquisition, or provide a
 compliance-review workflow.
 
+The JSON profile's `recommended_commands` list is the exact producer-facing
+sequence. Prose examples in this guide may add `uv run` and temporary paths for
+source-checkout smoke tests, but they should preserve the same lint, preview,
+dry-run import, import, and review order.
+
 ## Directory Manifest
 
 External user-controlled tools that write a directory of community handoff
