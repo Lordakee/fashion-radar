@@ -85,6 +85,10 @@ validates deterministic sample output content, not only command execution.
   direct-child community files. Requires `--as-of`; supports `--config-dir`,
   `--input-format`, `--pattern`, `--source-name`, `--limit`, and
   `--format table|json`.
+- `community-handoff-manifest` DIRECTORY: print a local producer manifest for a
+  community handoff directory without reading it. Requires `--as-of`; supports
+  `--config-dir`, `--data-dir`, `--input-format`, `--pattern`, `--source-name`,
+  and `--format table|json`.
 - `community-handoff-workflow` DIRECTORY: print a local handoff checklist
   without executing commands. Requires `--as-of`; supports `--config-dir`,
   `--data-dir`, `--input-format`, `--pattern`, `--source-name`, and

@@ -3753,6 +3753,333 @@ def test_community_handoff_workflow_does_not_read_directory_or_run_side_effects(
     assert result.exit_code == 0
 
 
+def test_community_handoff_manifest_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["community-handoff-manifest", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "--input-format" in result.output
+    assert "--pattern" in result.output
+    assert "--config-dir" in result.output
+    assert "--data-dir" in result.output
+    assert "--as-of" in result.output
+    assert "--source-name" in result.output
+    assert "--format" in result.output
+    assert "Print a local community handoff producer manifest" in result.output
+
+
+def test_community_handoff_manifest_command_prints_json_with_stable_keys(
+    tmp_path: Path,
+) -> None:
+    directory = tmp_path / "missing exports"
+    config_dir = tmp_path / "config dir"
+    data_dir = tmp_path / "data dir"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-manifest",
+            str(directory),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--source-name",
+            "Community Tool Export",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "contract_version",
+        "execution_mode",
+        "directory",
+        "input_format",
+        "pattern",
+        "as_of",
+        "config_dir",
+        "data_dir",
+        "source_name",
+        "producer_profile_command",
+        "producer_contract_version",
+        "supported_input_formats",
+        "suggested_filename",
+        "matched_file_rule",
+        "manifest_storage_note",
+        "schema_path",
+        "example_paths",
+        "csv_header",
+        "required_fields",
+        "optional_fields",
+        "prohibited_fields",
+        "json_envelopes",
+        "field_notes",
+        "field_rules",
+        "unsupported_capabilities",
+        "workflow",
+        "boundaries",
+    ]
+    assert payload["contract_version"] == "community-handoff-manifest/v1"
+    assert payload["execution_mode"] == "print_only"
+    assert payload["directory"] == str(directory)
+    assert payload["input_format"] == "csv"
+    assert payload["pattern"] == "*.csv"
+    assert payload["as_of"] == "2026-06-13T12:00:00+00:00"
+    assert payload["config_dir"] == str(config_dir)
+    assert payload["data_dir"] == str(data_dir)
+    assert payload["source_name"] == "Community Tool Export"
+    assert (
+        payload["producer_profile_command"]
+        == "fashion-radar community-signal-profile --format json"
+    )
+    assert payload["producer_contract_version"] == "community-signals/v1"
+    assert payload["supported_input_formats"] == ["csv", "json"]
+    assert payload["suggested_filename"] == "community-signals.csv"
+    assert 'using --pattern "*.json"' in payload["manifest_storage_note"]
+    assert "author_handle" in payload["prohibited_fields"]
+    assert payload["schema_path"] == "schemas/community-signals.schema.json"
+    assert payload["example_paths"] == [
+        "examples/community-signals.example.csv",
+        "examples/community-signals.example.json",
+    ]
+    assert payload["csv_header"] == [
+        "url",
+        "title",
+        "published_at",
+        "summary",
+        "source_name",
+        "platform",
+        "source_weight",
+        "collected_at",
+    ]
+    assert payload["required_fields"] == ["url", "title", "published_at"]
+    assert payload["optional_fields"] == [
+        "summary",
+        "source_name",
+        "platform",
+        "source_weight",
+        "collected_at",
+    ]
+    assert payload["json_envelopes"] == ["top_level_array", "object_with_items_only"]
+    assert payload["field_notes"]["url"] == (
+        "Source URL or stable reference URL for the observed item."
+    )
+    assert payload["field_rules"]["source_weight"] == {
+        "exclusive_minimum": 0,
+        "maximum": 5,
+        "default": 1.0,
+    }
+    assert payload["unsupported_capabilities"][0] == "scraping"
+    assert list(payload["workflow"]) == [
+        "directory",
+        "input_format",
+        "pattern",
+        "as_of",
+        "config_dir",
+        "data_dir",
+        "source_name",
+        "execution_mode",
+        "step_count",
+        "steps",
+    ]
+    assert list(payload["workflow"]["steps"][0]) == [
+        "order",
+        "name",
+        "purpose",
+        "command",
+        "suggested_effect",
+    ]
+    assert payload["workflow"]["step_count"] == 5
+    assert payload["workflow"]["steps"][0]["name"] == "lint_handoff_directory"
+    assert not directory.exists()
+    assert not config_dir.exists()
+    assert not data_dir.exists()
+
+
+def test_community_handoff_manifest_blank_source_name_uses_profile_default(
+    tmp_path: Path,
+) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-manifest",
+            str(tmp_path / "exports"),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--config-dir",
+            str(tmp_path / "configs"),
+            "--data-dir",
+            str(tmp_path / "data"),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--source-name",
+            " ",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["source_name"] == "Community Tool Export"
+    assert payload["workflow"]["source_name"] == "Community Tool Export"
+
+
+def test_community_handoff_manifest_command_prints_table_without_artifacts(
+    tmp_path: Path,
+) -> None:
+    directory = tmp_path / "missing exports"
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-manifest",
+            str(directory),
+            "--input-format",
+            "json",
+            "--pattern",
+            "*.json",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Community handoff manifest." in result.output
+    assert "Workflow commands were not executed." in result.output
+    assert "Suggested filename: community-signals.json" in result.output
+    assert "Manifest storage note:" in result.output
+    assert "community-signal-profile --format json" in result.output
+    assert "community-signal-lint-dir" in result.output
+    assert "community-candidates-dir" in result.output
+    assert "import-signals-dir" in result.output
+    assert "imported-review-workflow" in result.output
+    assert str(directory) in result.output
+    assert str(config_dir) in result.output
+    assert str(data_dir) in result.output
+    assert not directory.exists()
+    assert not config_dir.exists()
+    assert not data_dir.exists()
+
+
+def test_community_handoff_manifest_invalid_as_of_is_clean_error(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-manifest",
+            str(tmp_path / "exports"),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not build community handoff manifest: invalid --as-of" in result.output
+
+
+def test_community_handoff_manifest_does_not_read_directory_or_run_side_effects(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    directory = tmp_path / "exports"
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    guarded_paths = {directory, config_dir, data_dir}
+
+    def fail_side_effect(*args, **kwargs):
+        raise AssertionError("side effect should not run")
+
+    def is_guarded_path(path) -> bool:
+        try:
+            return Path(path) in guarded_paths
+        except TypeError:
+            return False
+
+    def guard_path_method(name: str):
+        original = getattr(Path, name)
+
+        def guarded(self: Path, *args, **kwargs):
+            if self in guarded_paths:
+                raise AssertionError(f"{name} should not inspect supplied paths")
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, name, guarded)
+
+    def guard_os_function(name: str):
+        original = getattr(os, name)
+
+        def guarded(path, *args, **kwargs):
+            if is_guarded_path(path):
+                raise AssertionError(f"os.{name} should not inspect supplied path: {path}")
+            return original(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, name, guarded)
+
+    for name in ("exists", "is_dir", "is_file", "iterdir", "glob", "rglob", "stat", "lstat"):
+        guard_path_method(name)
+    for name in ("scandir", "stat", "listdir", "walk"):
+        guard_os_function(name)
+    monkeypatch.setattr(cli_module.subprocess, "run", fail_side_effect)
+    monkeypatch.setattr(subprocess, "Popen", fail_side_effect)
+    monkeypatch.setattr(sqlite3, "connect", fail_side_effect)
+    monkeypatch.setattr(cli_module, "create_sqlite_engine", fail_side_effect)
+    monkeypatch.setattr(cli_module, "initialize_schema", fail_side_effect)
+    monkeypatch.setattr(cli_module, "load_manual_signal_rows", fail_side_effect)
+    monkeypatch.setattr(cli_module, "load_manual_signal_directory_rows", fail_side_effect)
+    monkeypatch.setattr(cli_module, "lint_community_signal_file", fail_side_effect)
+    monkeypatch.setattr(cli_module, "lint_community_signal_directory", fail_side_effect)
+    monkeypatch.setattr(cli_module, "store_manual_signal_rows", fail_side_effect)
+    monkeypatch.setattr(cli_module, "collect_configured_sources", fail_side_effect)
+    monkeypatch.setattr(cli_module, "write_daily_report_files", fail_side_effect)
+    monkeypatch.setattr(cli_module, "package_daily_digest", fail_side_effect)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-manifest",
+            str(directory),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+
+
 def _fail_imported_review_workflow_builder(*args, **kwargs):
     raise AssertionError("build_imported_review_workflow should not be called")
 

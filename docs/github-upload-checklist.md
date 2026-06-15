@@ -88,6 +88,20 @@ Stage 41 docs freshness check:
       for user-controlled tools, not source acquisition, platform monitoring,
       or compliance review.
 
+Stage 52 docs check:
+
+- [ ] `community-handoff-manifest` docs describe a local print-only producer
+      manifest for one directory, including directory, pattern, suggested
+      filename, producer profile/schema/example pointers, storage note, and
+      workflow commands; no command execution, directory reads, file
+      validation, row import, SQLite open/write, URL fetching, login, platform
+      APIs, monitoring, scheduling, source/platform connectors, demand proof,
+      platform coverage verification, source ranking, report writing,
+      dashboard updates, config generation, or entity file generation.
+- [ ] Saved manifest guidance says to keep the manifest outside the matched
+      export directory or use a filename excluded by the handoff pattern,
+      especially for JSON export directories using `--pattern "*.json"`.
+
 ## Exclude
 
 Do not commit or upload:
@@ -185,7 +199,8 @@ for cmd in \
   init migrate-db doctor source-pack-lint entity-pack-lint \
   community-signal-profile \
   community-signal-lint community-signal-lint-dir \
-  community-candidates community-candidates-dir community-handoff-workflow \
+  community-candidates community-candidates-dir \
+  community-handoff-manifest community-handoff-workflow \
   import-signals import-signals-dir imported-signals imported-signals-summary \
   imported-entity-deltas imported-candidates imported-candidate-evidence \
   imported-review-workflow collect match report candidates trends \
@@ -207,11 +222,13 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --help
 "$tmp_env/venv/bin/fashion-radar" imported-candidate-evidence --help
 "$tmp_env/venv/bin/fashion-radar" imported-review-workflow --help
+"$tmp_env/venv/bin/fashion-radar" community-handoff-manifest --help
 "$tmp_env/venv/bin/fashion-radar" community-handoff-workflow --help
 "$tmp_env/venv/bin/fashion-radar" imported-signals --data-dir "$tmp_run/data" --as-of "2026-06-12T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidate-evidence --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --phrase "Le Teckel bag" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-review-workflow --data-dir "$tmp_run/data ? # & %" --config-dir "$tmp_run/config ? # & %" --as-of "2026-06-13T12:00:00Z" --format json
+"$tmp_env/venv/bin/fashion-radar" community-handoff-manifest "$tmp_run/missing ? # & %" --input-format csv --pattern "*.csv" --config-dir "$tmp_run/config ? # & %" --data-dir "$tmp_run/data ? # & %" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" community-handoff-workflow "$tmp_run/missing ? # & %" --input-format csv --pattern "*.csv" --config-dir "$tmp_run/config ? # & %" --data-dir "$tmp_run/data ? # & %" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/python" -c "from importlib import resources; text = resources.files('fashion_radar.templates').joinpath('daily_report.md').read_text(encoding='utf-8'); assert 'Fashion Radar Daily Report' in text"
 ```

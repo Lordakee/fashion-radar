@@ -18,6 +18,10 @@ from fashion_radar.community_candidates import (
     render_community_candidate_directory_table,
     render_community_candidates_table,
 )
+from fashion_radar.community_handoff_manifest import (
+    build_community_handoff_manifest,
+    render_community_handoff_manifest_table,
+)
 from fashion_radar.community_handoff_workflow import (
     build_community_handoff_workflow,
     render_community_handoff_workflow_table,
@@ -165,6 +169,7 @@ RETENTION_DAYS_OPTION = typer.Option(30, min=1, help="Retention window in days."
 CandidateOutputFormat = Literal["table", "json"]
 ManualSignalInputFormat = Literal["csv", "json"]
 CommunityCandidatesOutputFormat = Literal["table", "json"]
+CommunityHandoffManifestOutputFormat = Literal["table", "json"]
 CommunityHandoffWorkflowOutputFormat = Literal["table", "json"]
 CommunitySignalLintOutputFormat = Literal["table", "json"]
 CommunitySignalProfileOutputFormat = Literal["table", "json"]
@@ -777,6 +782,51 @@ def community_handoff_workflow_command(
         typer.echo(workflow.model_dump_json(indent=2))
         return
     for line in render_community_handoff_workflow_table(workflow):
+        typer.echo(line)
+
+
+@app.command(name="community-handoff-manifest")
+def community_handoff_manifest_command(
+    directory: str,
+    config_dir: str = CONFIG_DIR_OPTION,
+    data_dir: str = DATA_DIR_OPTION,
+    input_format: ManualSignalInputFormat = COMMUNITY_CANDIDATES_INPUT_FORMAT_OPTION,
+    pattern: str = COMMUNITY_CANDIDATES_DIR_PATTERN_OPTION,
+    as_of: str = COMMUNITY_HANDOFF_WORKFLOW_AS_OF_OPTION,
+    source_name: str = COMMUNITY_CANDIDATES_SOURCE_NAME_OPTION,
+    output_format: CommunityHandoffManifestOutputFormat = (
+        COMMUNITY_HANDOFF_WORKFLOW_FORMAT_OPTION
+    ),
+) -> None:
+    """Print a local community handoff producer manifest without executing commands."""
+    try:
+        try:
+            as_of_value = parse_datetime_utc(as_of)
+        except (TypeError, ValueError) as exc:
+            typer.echo(
+                f"Could not build community handoff manifest: invalid --as-of: {exc}",
+                err=True,
+            )
+            raise typer.Exit(1) from exc
+        manifest = build_community_handoff_manifest(
+            directory=Path(directory),
+            config_dir=Path(config_dir),
+            data_dir=Path(data_dir),
+            input_format=input_format,
+            pattern=pattern,
+            as_of=as_of_value,
+            source_name=source_name,
+        )
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        typer.echo(f"Could not build community handoff manifest: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(manifest.model_dump_json(indent=2))
+        return
+    for line in render_community_handoff_manifest_table(manifest):
         typer.echo(line)
 
 

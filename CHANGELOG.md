@@ -77,6 +77,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   directory community handoff sequence without reading the supplied directory or
   executing generated commands, intentionally including supplied
   directory/config/data paths inside copyable local commands.
+- Local print-only `community-handoff-manifest` command for printing a
+  directory producer manifest with handoff pattern, suggested filename,
+  producer contract fields, storage guidance, and workflow commands without
+  reading the supplied directory or executing generated commands.
 - Print-only `community-signal-profile` command and example JSON producer
   contract for external tools that generate sanitized community signal handoff
   files.

@@ -448,6 +448,55 @@ def test_community_signal_profile_docs_are_linked() -> None:
     assert "does not read handoff files or directories" in boundaries
 
 
+def test_community_handoff_manifest_docs_are_linked_and_warn_about_storage() -> None:
+    readme = _read(README)
+    cli_reference = _read(CLI_REFERENCE)
+    import_doc = _read(ROOT / "docs" / "community-signal-import.md")
+    checklist = _read(UPLOAD_CHECKLIST)
+    boundaries = _read(ROOT / "docs" / "source-boundaries.md")
+
+    for text in (readme, cli_reference, import_doc, checklist, boundaries):
+        assert "community-handoff-manifest" in text
+
+    storage_warning_terms = (
+        "Do not save this manifest as a matched handoff file",
+        'using `--pattern "*.json"`',
+        "outside the matched export directory",
+        "excluded filename/pattern",
+    )
+    for term in storage_warning_terms:
+        assert term in import_doc
+
+    assert "Directory Manifest" in import_doc
+    assert "community-handoff-manifest/v1" in import_doc
+    assert "producer_profile_command" in import_doc
+    assert "suggested_filename" in import_doc
+    manifest_section = import_doc.split("## Directory Manifest", 1)[1].split(
+        "## Required Fields", 1
+    )[0]
+    for field in (
+        "account_id",
+        "author_handle",
+        "cookie",
+        "direct_message",
+        "follower_count",
+        "full_post_body",
+        "image_url",
+        "profile_url",
+        "raw_comment",
+        "session",
+        "token",
+        "video_url",
+    ):
+        assert f'"{field}"' in manifest_section
+    for field in ("cookies", "sessions", "tokens"):
+        assert f'"{field}"' not in manifest_section
+    assert '"$tmp_env/venv/bin/fashion-radar" community-handoff-manifest --help' in checklist
+    assert (
+        '"$tmp_env/venv/bin/fashion-radar" community-handoff-manifest "$tmp_run/missing ? # & %"'
+    ) in checklist
+
+
 def test_community_import_docs_keep_deterministic_review_commands_fixed() -> None:
     text = _read(ROOT / "docs" / "community-signal-import.md")
     review_section = text.split("## Review After Import", 1)[1].split("## Boundary", 1)[0]

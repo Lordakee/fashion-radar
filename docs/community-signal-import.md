@@ -52,6 +52,87 @@ automate browsers, call platform APIs, monitor communities, rank sources,
 verify platform coverage, perform source acquisition, or provide a
 compliance-review workflow.
 
+## Directory Manifest
+
+External user-controlled tools that write a directory of community handoff
+files can print a local directory manifest before creating export files:
+
+```bash
+AS_OF="2026-06-13T12:00:00Z"
+uv run fashion-radar community-handoff-manifest ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export"
+```
+
+Print JSON when an external tool needs a stable machine-readable manifest:
+
+```bash
+AS_OF="2026-06-13T12:00:00Z"
+uv run fashion-radar community-handoff-manifest ./exports --input-format json --pattern "*.json" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
+```
+
+Example JSON fields:
+
+```json
+{
+  "contract_version": "community-handoff-manifest/v1",
+  "execution_mode": "print_only",
+  "directory": "./exports",
+  "input_format": "json",
+  "pattern": "*.json",
+  "producer_profile_command": "fashion-radar community-signal-profile --format json",
+  "producer_contract_version": "community-signals/v1",
+  "supported_input_formats": ["csv", "json"],
+  "suggested_filename": "community-signals.json",
+  "matched_file_rule": "Downstream lint, preview, and import commands treat matching regular files directly under the supplied directory as handoff files; they do not recurse into subdirectories.",
+  "manifest_storage_note": "Do not save this manifest as a matched handoff file. For example, when using --pattern \"*.json\", do not save the manifest as a .json file inside the handoff directory; save it outside the directory or use an excluded filename/pattern.",
+  "schema_path": "schemas/community-signals.schema.json",
+  "example_paths": [
+    "examples/community-signals.example.csv",
+    "examples/community-signals.example.json"
+  ],
+  "required_fields": ["url", "title", "published_at"],
+  "optional_fields": ["summary", "source_name", "platform", "source_weight", "collected_at"],
+  "prohibited_fields": [
+    "account_id",
+    "author_handle",
+    "cookie",
+    "direct_message",
+    "follower_count",
+    "full_post_body",
+    "image_url",
+    "profile_url",
+    "raw_comment",
+    "session",
+    "token",
+    "video_url"
+  ],
+  "workflow": {
+    "execution_mode": "print_only",
+    "steps": [
+      "community-signal-lint-dir",
+      "community-candidates-dir",
+      "import-signals-dir --dry-run",
+      "import-signals-dir",
+      "imported-review-workflow"
+    ]
+  }
+}
+```
+
+The manifest describes the target directory, matched file pattern, suggested
+filename (`community-signals.csv` or `community-signals.json`), producer profile
+fields and pointers, schema/example paths, field notes and rules, prohibited
+fields, unsupported capabilities, storage guidance, and workflow commands. It
+is local and print-only: it does not execute workflow commands, read the
+supplied directory, validate files, import rows, open SQLite, create artifacts,
+fetch URLs, log in, call platform APIs, monitor communities, schedule work, add
+source/platform connectors, prove demand, verify platform coverage, or rank
+sources.
+
+Do not save this manifest as a matched handoff file. If saved, keep it outside the matched export directory or use an excluded filename/pattern, especially
+for JSON export directories using `--pattern "*.json"`. Otherwise
+`community-signal-lint-dir`, `community-candidates-dir`, or
+`import-signals-dir` may treat the manifest JSON as a signal file.
+
 ## Required Fields
 
 - `url`: source URL or stable reference URL for the observed item.
@@ -106,8 +187,14 @@ Continuing from the same temporary export directory, print a copyable directory
 handoff workflow without running it:
 
 ```bash
+uv run fashion-radar community-handoff-manifest "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar community-handoff-workflow "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export"
 ```
+
+`community-handoff-manifest` prints a producer-facing manifest for the supplied
+directory, pattern, suggested filename, profile/schema/example pointers,
+storage note, and workflow command list. It does not read the directory or
+execute any workflow step.
 
 `community-handoff-workflow` prints the local sequence
 `community-signal-lint-dir`, `community-candidates-dir`,

@@ -202,6 +202,7 @@ uv run fashion-radar community-signal-profile --format json
 uv run fashion-radar community-signal-lint examples/community-signals.example.csv --input-format csv --source-name "Community Tool Export"
 uv run fashion-radar community-candidates examples/community-signals.example.csv --input-format csv --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export"
 uv run fashion-radar community-candidates examples/community-signals.example.csv --input-format csv --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
+uv run fashion-radar community-handoff-manifest "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar community-handoff-workflow "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export"
 uv run fashion-radar community-candidates-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export"
 uv run fashion-radar community-candidates-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
@@ -257,6 +258,16 @@ paths, expose matched file names, or expose row URLs, row titles, summaries,
 raw text, normalized keys, candidate contexts, raw validation findings,
 account/private fields, or representative item details. The output is not proof
 of demand, not platform coverage, and not source ranking.
+
+`community-handoff-manifest` is local and print-only. It prints a
+producer-facing manifest for a supplied directory without reading it. The
+manifest describes the directory, matched file pattern, suggested handoff
+filename, `community-signal-profile`/schema/example pointers, embedded producer
+profile fields and rules, a storage note, and the local workflow commands used
+by `community-handoff-workflow`. If an external tool saves the manifest, keep
+it outside the matched export directory or use a filename excluded by the
+handoff `--pattern`, especially for JSON export directories using
+`--pattern "*.json"`.
 
 `community-handoff-workflow` is local and print-only. It prints the ordered
 local sequence `community-signal-lint-dir`, `community-candidates-dir`,
@@ -396,6 +407,7 @@ run or import:
 
 ```bash
 AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar community-handoff-manifest ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export"
 uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export"
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
@@ -414,6 +426,12 @@ create config/data/report artifacts.
 `import-signals-dir` without `--dry-run` imports the same matched local files
 only after every matched file validates. Validation failures import nothing and
 do not create the data directory or SQLite database.
+
+`community-handoff-manifest` can print a directory producer manifest before
+workflow or directory validation. It is local and print-only; it describes the
+target directory, file pattern, suggested filename, producer contract/profile
+pointers, storage note, and workflow commands without reading the supplied
+directory or creating artifacts.
 
 `community-handoff-workflow` can print the same directory handoff order before
 you run any step. It prints copyable commands only; it does not execute them,

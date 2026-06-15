@@ -64,6 +64,17 @@ automate browsers, call platform APIs, monitor communities, rank sources,
 verify platform coverage, perform source acquisition, or provide a
 compliance-review workflow.
 
+`community-handoff-manifest` prints a local producer-facing directory manifest
+only. It does not execute commands, inspect or create the supplied directory,
+read handoff files, validate files, import rows, open or write SQLite, create
+config/data/report/dashboard artifacts, fetch URLs, log in, store cookies,
+call platform APIs, monitor communities, schedule work, add source/platform
+connectors, prove demand, verify platform coverage, rank sources, or provide a
+compliance-review workflow. It may print supplied directory/config/data paths,
+the matched file pattern, a suggested filename, profile/schema/example
+pointers, producer profile field/rule summaries, a manifest storage note, and
+workflow commands for local external producers.
+
 Community signal lint is local contract validation for one CSV/JSON file or a
 non-recursive batch of matched regular files directly under one local directory.
 It is not a connector, source pack, platform collector, remote community
@@ -260,6 +271,14 @@ The public README must explain:
   including optional non-recursive directory batches; it is not source
   acquisition, platform coverage verification, authorization verification, or a
   policy workflow feature.
+- Community handoff manifest prints a local producer manifest only; it does not
+  execute commands, inspect or create the supplied directory, read handoff
+  files, validate files, import rows, open/write SQLite, add source/platform
+  connectors, prove demand, verify platform coverage, rank sources, write
+  reports, update dashboards, generate configs, or generate entity files. The
+  README must warn that saved manifests belong outside the matched export
+  directory or behind an excluded filename/pattern, especially JSON export
+  directories using `--pattern "*.json"`.
 - Community handoff workflow prints copyable local commands only; it does not
   execute commands, read the supplied directory, validate files, import rows,
   open/write SQLite, add source/platform connectors, prove demand, verify
