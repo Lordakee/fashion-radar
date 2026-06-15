@@ -35,6 +35,7 @@ class SmokeContext:
     data_dir: Path
     reports_dir: Path
     exports_dir: Path
+    source_checkout: bool = True
 
 
 def cli_command(context: SmokeContext, *args: str) -> list[str]:
@@ -44,14 +45,44 @@ def cli_command(context: SmokeContext, *args: str) -> list[str]:
 def command_environment(
     context: SmokeContext,
     base_env: Mapping[str, str] | None = None,
+    *,
+    source_checkout: bool = True,
 ) -> dict[str, str]:
     env = dict(os.environ if base_env is None else base_env)
+    if not source_checkout:
+        remove_pythonpath_entry(env, context.repo_root / "src", relative_to=context.repo_root)
+        return env
+
     src_path = str(context.repo_root / "src")
     existing_pythonpath = env.get("PYTHONPATH")
     env["PYTHONPATH"] = (
         src_path if not existing_pythonpath else os.pathsep.join([src_path, existing_pythonpath])
     )
     return env
+
+
+def remove_pythonpath_entry(env: dict[str, str], entry: Path, *, relative_to: Path) -> None:
+    pythonpath = env.get("PYTHONPATH")
+    if not pythonpath:
+        return
+
+    target = entry.resolve()
+    kept = [
+        value
+        for value in pythonpath.split(os.pathsep)
+        if value and resolve_pythonpath_entry(value, relative_to=relative_to) != target
+    ]
+    if kept:
+        env["PYTHONPATH"] = os.pathsep.join(kept)
+    else:
+        env.pop("PYTHONPATH", None)
+
+
+def resolve_pythonpath_entry(value: str, *, relative_to: Path) -> Path:
+    path = Path(value)
+    if not path.is_absolute():
+        path = relative_to / path
+    return path.resolve()
 
 
 def validate_json_output(command_name: str, output: str) -> Any:
@@ -148,7 +179,7 @@ def run_cli(context: SmokeContext, *args: str) -> subprocess.CompletedProcess[st
     completed = subprocess.run(
         command,
         cwd=context.repo_root,
-        env=command_environment(context),
+        env=command_environment(context, source_checkout=context.source_checkout),
         text=True,
         capture_output=True,
         check=False,
@@ -445,6 +476,53 @@ def assert_workspace_artifacts(context: SmokeContext) -> None:
         raise SmokeError(f"Expected SQLite database was not created: {database_path}")
 
 
+def assert_installed_import_origin(context: SmokeContext, module_file: Path) -> None:
+    source_root = (context.repo_root / "src").resolve()
+    resolved_file = module_file.resolve()
+    if resolved_file == source_root or source_root in resolved_file.parents:
+        raise SmokeError(
+            f"Installed smoke imported fashion_radar from source checkout: {resolved_file}"
+        )
+
+
+def installed_import_origin(context: SmokeContext) -> Path:
+    command = [
+        context.python,
+        "-c",
+        (
+            "import fashion_radar, json, pathlib; "
+            "print(json.dumps({'module_file': "
+            "str(pathlib.Path(fashion_radar.__file__).resolve())}))"
+        ),
+    ]
+    completed = subprocess.run(
+        command,
+        cwd=context.repo_root,
+        env=command_environment(context, source_checkout=False),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise SmokeError(format_command_failure(command, completed))
+
+    output_lines = [line for line in completed.stdout.splitlines() if line.strip()]
+    if len(output_lines) != 1:
+        raise SmokeError("Installed smoke import-origin preflight returned no module path")
+    try:
+        payload = json.loads(output_lines[0])
+    except json.JSONDecodeError as exc:
+        raise SmokeError(
+            f"Installed smoke import-origin preflight returned invalid JSON: {exc}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise SmokeError("Installed smoke import-origin preflight returned invalid payload")
+    module_file = payload.get("module_file")
+    if not isinstance(module_file, str) or not module_file:
+        raise SmokeError("Installed smoke import-origin preflight returned no module path")
+    return Path(module_file)
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run the local first-run sample smoke flow.",
@@ -459,10 +537,24 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=sys.executable,
         help="Python executable used to run `-m fashion_radar`.",
     )
+    parser.add_argument(
+        "--installed",
+        action="store_true",
+        help=(
+            "Run against the supplied installed Python environment without "
+            "prepending repo_root/src to PYTHONPATH."
+        ),
+    )
     return parser.parse_args(argv)
 
 
-def build_context(repo_root: Path, python: str, runtime_dir: Path) -> SmokeContext:
+def build_context(
+    repo_root: Path,
+    python: str,
+    runtime_dir: Path,
+    *,
+    source_checkout: bool = True,
+) -> SmokeContext:
     return SmokeContext(
         repo_root=repo_root,
         python=python,
@@ -471,6 +563,7 @@ def build_context(repo_root: Path, python: str, runtime_dir: Path) -> SmokeConte
         data_dir=runtime_dir / "data",
         reports_dir=runtime_dir / "reports",
         exports_dir=runtime_dir / "exports",
+        source_checkout=source_checkout,
     )
 
 
@@ -480,7 +573,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         with tempfile.TemporaryDirectory(prefix="fashion-radar-first-run-") as temp_dir:
-            context = build_context(repo_root, args.python, Path(temp_dir))
+            context = build_context(
+                repo_root,
+                args.python,
+                Path(temp_dir),
+                source_checkout=not args.installed,
+            )
+            if args.installed:
+                assert_installed_import_origin(context, installed_import_origin(context))
             run_smoke(context)
     except SmokeError as exc:
         print(str(exc), file=sys.stderr)

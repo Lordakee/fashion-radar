@@ -35,6 +35,7 @@ def make_context(tmp_path: Path, *, python: str = "python-test"):
         data_dir=runtime_dir / "data",
         reports_dir=runtime_dir / "reports",
         exports_dir=runtime_dir / "exports",
+        source_checkout=True,
     )
 
 
@@ -77,6 +78,69 @@ def test_command_environment_sets_pythonpath_when_absent(
     env = smoke.command_environment(context)
 
     assert env["PYTHONPATH"] == str(tmp_path / "src")
+
+
+def test_command_environment_does_not_prepend_src_in_installed_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = make_context(tmp_path)
+    monkeypatch.setenv("PYTHONPATH", "/already/here")
+
+    env = smoke.command_environment(context, source_checkout=False)
+
+    assert env["PYTHONPATH"] == "/already/here"
+
+
+def test_command_environment_leaves_pythonpath_absent_in_installed_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = make_context(tmp_path)
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+
+    env = smoke.command_environment(context, source_checkout=False)
+
+    assert "PYTHONPATH" not in env
+
+
+def test_command_environment_removes_repo_src_from_installed_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = make_context(tmp_path)
+    repo_src = str(tmp_path / "src")
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join(["/before", repo_src, "/after"]))
+
+    env = smoke.command_environment(context, source_checkout=False)
+
+    assert env["PYTHONPATH"] == os.pathsep.join(["/before", "/after"])
+
+
+def test_command_environment_removes_pythonpath_when_only_repo_src_in_installed_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = make_context(tmp_path)
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path / "src"))
+
+    env = smoke.command_environment(context, source_checkout=False)
+
+    assert "PYTHONPATH" not in env
+
+
+def test_command_environment_removes_relative_repo_src_in_installed_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = tmp_path / "repo"
+    context = make_context(repo_root)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join(["/before", "src", "/after"]))
+
+    env = smoke.command_environment(context, source_checkout=False)
+
+    assert env["PYTHONPATH"] == os.pathsep.join(["/before", "/after"])
 
 
 def test_validate_json_output_rejects_invalid_json() -> None:
@@ -183,6 +247,273 @@ def test_workspace_artifact_assertion_requires_temp_dirs_and_sqlite(tmp_path: Pa
     (context.data_dir / "fashion-radar.sqlite").write_text("sqlite", encoding="utf-8")
 
     smoke.assert_workspace_artifacts(context)
+
+
+def test_parse_args_defaults_to_source_checkout() -> None:
+    args = smoke.parse_args(["--repo-root", ".", "--python", "python-test"])
+
+    assert args.repo_root == "."
+    assert args.python == "python-test"
+    assert args.installed is False
+
+
+def test_parse_args_accepts_installed_mode() -> None:
+    args = smoke.parse_args(["--repo-root", ".", "--python", "python-test", "--installed"])
+
+    assert args.installed is True
+
+
+def test_build_context_records_source_checkout_mode(tmp_path: Path) -> None:
+    source_context = smoke.build_context(tmp_path, "python-test", tmp_path / "source")
+    installed_context = smoke.build_context(
+        tmp_path,
+        "python-test",
+        tmp_path / "installed",
+        source_checkout=False,
+    )
+
+    assert source_context.source_checkout is True
+    assert installed_context.source_checkout is False
+
+
+def test_assert_installed_import_origin_rejects_repo_src_path(tmp_path: Path) -> None:
+    context = smoke.build_context(
+        tmp_path,
+        sys.executable,
+        tmp_path / "runtime",
+        source_checkout=False,
+    )
+    source_file = tmp_path / "src" / "fashion_radar" / "__init__.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("", encoding="utf-8")
+
+    with pytest.raises(smoke.SmokeError, match="source checkout"):
+        smoke.assert_installed_import_origin(context, source_file)
+
+
+def test_assert_installed_import_origin_allows_non_source_path(tmp_path: Path) -> None:
+    context = smoke.build_context(
+        tmp_path,
+        sys.executable,
+        tmp_path / "runtime",
+        source_checkout=False,
+    )
+    installed_file = tmp_path / "venv" / "site-packages" / "fashion_radar" / "__init__.py"
+    installed_file.parent.mkdir(parents=True)
+    installed_file.write_text("", encoding="utf-8")
+
+    smoke.assert_installed_import_origin(context, installed_file)
+
+
+def test_installed_import_origin_rejects_empty_stdout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = smoke.build_context(
+        tmp_path,
+        sys.executable,
+        tmp_path / "runtime",
+        source_checkout=False,
+    )
+
+    def fake_run(command, *, cwd, env, text, capture_output, check):
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    with pytest.raises(smoke.SmokeError, match="no module path"):
+        smoke.installed_import_origin(context)
+
+
+def test_installed_import_origin_rejects_extra_stdout_lines(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = smoke.build_context(
+        tmp_path,
+        sys.executable,
+        tmp_path / "runtime",
+        source_checkout=False,
+    )
+    source_file = tmp_path / "src" / "fashion_radar" / "__init__.py"
+
+    def fake_run(command, *, cwd, env, text, capture_output, check):
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=f'noise\n{{"module_file": "{source_file}"}}\n',
+            stderr="",
+        )
+
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    with pytest.raises(smoke.SmokeError, match="no module path"):
+        smoke.installed_import_origin(context)
+
+
+def test_installed_import_origin_rejects_invalid_json(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = smoke.build_context(
+        tmp_path,
+        sys.executable,
+        tmp_path / "runtime",
+        source_checkout=False,
+    )
+
+    def fake_run(command, *, cwd, env, text, capture_output, check):
+        return subprocess.CompletedProcess(command, 0, stdout="not-json\n", stderr="")
+
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    with pytest.raises(smoke.SmokeError, match="invalid JSON"):
+        smoke.installed_import_origin(context)
+
+
+def test_installed_import_origin_rejects_command_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = smoke.build_context(
+        tmp_path,
+        sys.executable,
+        tmp_path / "runtime",
+        source_checkout=False,
+    )
+
+    def fake_run(command, *, cwd, env, text, capture_output, check):
+        return subprocess.CompletedProcess(command, 1, stdout="", stderr="boom")
+
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    with pytest.raises(smoke.SmokeError, match="Command failed"):
+        smoke.installed_import_origin(context)
+
+
+def test_installed_import_origin_returns_module_file_from_json(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = smoke.build_context(
+        tmp_path,
+        sys.executable,
+        tmp_path / "runtime",
+        source_checkout=False,
+    )
+    installed_file = tmp_path / "venv" / "site-packages" / "fashion_radar" / "__init__.py"
+
+    def fake_run(command, *, cwd, env, text, capture_output, check):
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=f'{{"module_file": "{installed_file}"}}\n',
+            stderr="",
+        )
+
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    assert smoke.installed_import_origin(context) == installed_file
+
+
+def test_installed_import_origin_uses_scrubbed_installed_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = smoke.build_context(
+        tmp_path,
+        sys.executable,
+        tmp_path / "runtime",
+        source_checkout=False,
+    )
+    installed_file = tmp_path / "venv" / "site-packages" / "fashion_radar" / "__init__.py"
+    captured_env: dict[str, str] = {}
+    monkeypatch.setenv(
+        "PYTHONPATH",
+        os.pathsep.join(["/already/here", str(tmp_path / "src")]),
+    )
+
+    def fake_run(command, *, cwd, env, text, capture_output, check):
+        captured_env.update(env)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=f'{{"module_file": "{installed_file}"}}\n',
+            stderr="",
+        )
+
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    assert smoke.installed_import_origin(context) == installed_file
+    assert captured_env["PYTHONPATH"] == "/already/here"
+
+
+def test_run_cli_uses_context_source_checkout_flag(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = smoke.build_context(
+        tmp_path,
+        sys.executable,
+        tmp_path / "runtime",
+        source_checkout=False,
+    )
+    captured_env: dict[str, str] = {}
+
+    def fake_run(command, *, cwd, env, text, capture_output, check):
+        captured_env.clear()
+        captured_env.update(env)
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+    monkeypatch.setenv(
+        "PYTHONPATH",
+        os.pathsep.join(["/already/here", str(tmp_path / "src")]),
+    )
+
+    smoke.run_cli(context, "--help")
+
+    assert captured_env["PYTHONPATH"] == "/already/here"
+
+
+def test_main_installed_preflights_before_running_smoke(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, bool]] = []
+    module_file = tmp_path / "venv" / "site-packages" / "fashion_radar" / "__init__.py"
+
+    def fake_installed_import_origin(context):
+        calls.append(("origin", context.source_checkout))
+        return module_file
+
+    def fake_assert_installed_import_origin(context, origin):
+        assert origin == module_file
+        calls.append(("assert", context.source_checkout))
+
+    def fake_run_smoke(context):
+        calls.append(("smoke", context.source_checkout))
+
+    monkeypatch.setattr(smoke, "installed_import_origin", fake_installed_import_origin)
+    monkeypatch.setattr(
+        smoke,
+        "assert_installed_import_origin",
+        fake_assert_installed_import_origin,
+    )
+    monkeypatch.setattr(smoke, "run_smoke", fake_run_smoke)
+
+    result = smoke.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--python",
+            sys.executable,
+            "--installed",
+        ]
+    )
+
+    assert result == 0
+    assert calls == [("origin", False), ("assert", False), ("smoke", False)]
 
 
 def test_run_first_run_flow_uses_deterministic_local_command_sequence(

@@ -113,12 +113,26 @@ test -s reports/fashion-radar-2026-06-13.json
 
 ### Automated First-Run Smoke
 
-The automated local sample smoke runs the same path in temporary config, data,
+In a source checkout, the automated local sample smoke uses temporary config, data,
 report, and export directories, then verifies generated report artifacts there.
 It should not create files under repo `data/` or `reports/`:
 
 ```bash
 UV_NO_CONFIG=1 uv run python scripts/check_first_run_smoke.py --repo-root .
+```
+
+Source checkout mode prepends the checkout `src/` directory so it exercises the
+working tree. The installed wheel smoke builds and installs the local wheel,
+then runs the same sample path with the wheel Python environment and
+`--installed`:
+
+```bash
+tmp_build="$(mktemp -d)"
+UV_NO_CONFIG=1 uv build --out-dir "$tmp_build"
+tmp_env="$(mktemp -d)"
+uv venv "$tmp_env/venv"
+uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
+"$tmp_env/venv/bin/python" scripts/check_first_run_smoke.py --repo-root . --python "$tmp_env/venv/bin/python" --installed
 ```
 
 This path does not run live collection, scraping, platform automation,

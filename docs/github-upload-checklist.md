@@ -158,12 +158,17 @@ UV_NO_CONFIG=1 uv run python scripts/check_package_archives.py "$tmp_build"
 
 Installed-wheel smoke:
 
+The installed-wheel first-run smoke uses the built wheel Python environment,
+does not prepend the checkout `src/` directory to `PYTHONPATH`, and fails if it
+imports `fashion_radar` from the source tree.
+
 ```bash
 tmp_env="$(mktemp -d)"
 uv venv "$tmp_env/venv"
 uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 "$tmp_env/venv/bin/fashion-radar" --help
 "$tmp_env/venv/bin/python" -m fashion_radar --help
+"$tmp_env/venv/bin/python" scripts/check_first_run_smoke.py --repo-root . --python "$tmp_env/venv/bin/python" --installed
 for cmd in \
   init migrate-db doctor source-pack-lint entity-pack-lint \
   community-signal-lint community-signal-lint-dir \

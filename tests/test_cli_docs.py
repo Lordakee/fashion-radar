@@ -169,11 +169,18 @@ def test_first_run_smoke_command_is_documented_and_in_ci() -> None:
     checklist = _read(UPLOAD_CHECKLIST)
     ci_workflow = _read(CI_WORKFLOW)
     readme = _read(README)
-    command = "UV_NO_CONFIG=1 uv run python scripts/check_first_run_smoke.py --repo-root ."
+    source_command = "UV_NO_CONFIG=1 uv run python scripts/check_first_run_smoke.py --repo-root ."
+    installed_command = (
+        '"$tmp_env/venv/bin/python" scripts/check_first_run_smoke.py --repo-root . '
+        '--python "$tmp_env/venv/bin/python" --installed'
+    )
 
     for text in (checklist, ci_workflow, readme):
-        assert command in text
+        assert source_command in text
         assert "scripts/check_first_run_smoke.py" in text
+
+    for text in (checklist, ci_workflow, readme):
+        assert installed_command in text
 
 
 def test_upload_checklist_documents_release_hygiene_excludes() -> None:
@@ -221,6 +228,9 @@ def test_readme_documents_manual_sample_flow_and_automated_smoke_boundary() -> N
         "reports/fashion-radar-2026-06-13.md",
         "reports/fashion-radar-2026-06-13.json",
         "Automated First-Run Smoke",
+        "source checkout",
+        "installed wheel",
+        "--installed",
         "temporary config, data,",
         "report, and export directories",
         "should not create files under repo `data/` or `reports/`",
