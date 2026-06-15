@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import re
+import shlex
 from pathlib import Path
 
 import typer.main
+from typer.testing import CliRunner
 
 from fashion_radar.cli import app
 
@@ -101,6 +103,35 @@ def _fashion_radar_commands(path: Path) -> list[str]:
     return commands
 
 
+def _readme_quickstart_commands() -> list[str]:
+    text = _read(README)
+    assert "## Quickstart" in text
+    quickstart = text.split("## Quickstart", 1)[1].split("\n## ", 1)[0]
+    return [command for block in _bash_blocks(quickstart) for command in _shell_commands(block)]
+
+
+def _quickstart_fashion_radar_commands(names: set[str]) -> list[str]:
+    commands: list[str] = []
+    for command in _readme_quickstart_commands():
+        match = FASHION_RADAR_COMMAND_RE.search(command)
+        if match is not None and match.group("name") in names:
+            commands.append(command)
+    return commands
+
+
+def _quickstart_cli_args(command: str, tmp_path: Path) -> list[str]:
+    match = FASHION_RADAR_COMMAND_RE.search(command)
+    assert match is not None
+    command_name = match.group("name")
+    assert '--data-dir "$PWD/data"' in command
+    if command_name in {"init", "doctor"}:
+        assert '--config-dir "$PWD/configs"' in command
+        assert '--reports-dir "$PWD/reports"' in command
+    parts = [part.replace("$PWD", str(tmp_path)) for part in shlex.split(command)]
+    assert parts[:3] == ["uv", "run", "fashion-radar"]
+    return parts[3:]
+
+
 def test_cli_reference_lists_every_public_command() -> None:
     text = _read(CLI_REFERENCE)
 
@@ -121,6 +152,48 @@ def test_readme_links_current_cli_reference_not_historical_release_gate() -> Non
 
     assert "[docs/cli-reference.md](docs/cli-reference.md)" in text
     assert "docs/release-gate-stage31.md" not in text
+
+
+def test_readme_quickstart_setup_commands_use_repo_local_paths() -> None:
+    setup_commands = _quickstart_fashion_radar_commands({"init", "migrate-db", "doctor"})
+
+    command_names = [
+        FASHION_RADAR_COMMAND_RE.search(command).group("name") for command in setup_commands
+    ]
+    assert command_names == ["init", "migrate-db", "doctor"]
+    for command in setup_commands:
+        match = FASHION_RADAR_COMMAND_RE.search(command)
+        assert match is not None
+        command_name = match.group("name")
+        assert '--data-dir "$PWD/data"' in command
+        if command_name in {"init", "doctor"}:
+            assert '--config-dir "$PWD/configs"' in command
+            assert '--reports-dir "$PWD/reports"' in command
+
+
+def test_readme_quickstart_setup_commands_smoke(tmp_path: Path) -> None:
+    setup_commands = _quickstart_fashion_radar_commands({"init", "migrate-db", "doctor"})
+    runner = CliRunner()
+
+    for command in setup_commands:
+        result = runner.invoke(app, _quickstart_cli_args(command, tmp_path))
+        assert result.exit_code == 0, result.output
+
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    doctor_args = _quickstart_cli_args(setup_commands[-1], tmp_path)
+    doctor_result = runner.invoke(app, doctor_args)
+    assert doctor_result.exit_code == 0, doctor_result.output
+    assert f"Configuration directory: {config_dir}" in doctor_result.output
+    assert f"Data directory: {data_dir}" in doctor_result.output
+    assert f"Reports directory: {reports_dir}" in doctor_result.output
+    assert (config_dir / "sources.yaml").exists()
+    assert (config_dir / "entities.yaml").exists()
+    assert (config_dir / "scoring.yaml").exists()
+    assert (data_dir / "fashion-radar.sqlite").exists()
+    assert reports_dir.exists()
+    assert not any(reports_dir.iterdir())
 
 
 def test_repo_local_operational_examples_keep_path_flags_together() -> None:

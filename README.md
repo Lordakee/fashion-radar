@@ -70,17 +70,13 @@ Do not regenerate or commit `uv.lock` from a mirror-backed lock operation. The
 public lockfile should remain usable from the default PyPI registry. See
 [docs/dependency-mirrors.md](docs/dependency-mirrors.md).
 
-Create starter config, data, and report directories:
+Create starter config, initialize the repo-local SQLite schema, and check the
+same repo-local workspace:
 
 ```bash
-uv run fashion-radar init
-uv run fashion-radar doctor
-```
-
-Initialize or upgrade the local SQLite schema explicitly:
-
-```bash
+uv run fashion-radar init --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports"
 uv run fashion-radar migrate-db --data-dir "$PWD/data"
+uv run fashion-radar doctor --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports"
 ```
 
 `doctor` reports database schema status read-only. `migrate-db` only performs
