@@ -30,9 +30,9 @@ fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --report
   `--data-dir`.
 - `doctor`: check local paths and required config files; supports
   `--config-dir`, `--data-dir`, and `--reports-dir`.
-- `source-pack-lint PATH`: lint one source pack without collecting sources;
+- `source-pack-lint` PATH: lint one source pack without collecting sources;
   supports `--format table|json` and `--strict`.
-- `entity-pack-lint PATH`: lint one entity pack without matching or collecting;
+- `entity-pack-lint` PATH: lint one entity pack without matching or collecting;
   supports `--format table|json` and `--strict`.
 - `collect`: collect configured public sources into local SQLite; supports
   `--config-dir`, `--data-dir`, and `--now`.
@@ -49,27 +49,27 @@ fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --report
 
 ## Local Import And Community Handoff
 
-- `import-signals PATH`: import one local CSV or JSON signal file. The
+- `import-signals` PATH: import one local CSV or JSON signal file. The
   `--format csv|json` flag selects the input format. Supports `--data-dir`,
   `--source-name`, `--imported-at`, and `--dry-run`.
-- `import-signals-dir DIRECTORY`: validate or import direct-child files from
+- `import-signals-dir` DIRECTORY: validate or import direct-child files from
   one local directory. Requires `--format csv|json` and `--pattern`. Supports
   `--data-dir`, `--imported-at`, `--dry-run`, `--output-format table|json`, and
   `--source-name`.
-- `community-signal-lint PATH`: lint one community signal handoff file. Requires
+- `community-signal-lint` PATH: lint one community signal handoff file. Requires
   `--input-format csv|json`; supports `--format table|json`, `--source-name`,
   and `--strict`.
-- `community-signal-lint-dir DIRECTORY`: lint matching direct-child handoff
+- `community-signal-lint-dir` DIRECTORY: lint matching direct-child handoff
   files. Requires `--input-format csv|json` and `--pattern`; supports
   `--format table|json`, `--source-name`, and `--strict`.
-- `community-candidates PATH`: preview candidate phrases from one community
+- `community-candidates` PATH: preview candidate phrases from one community
   signal file. Requires `--as-of`; supports `--config-dir`, `--input-format`,
   `--source-name`, `--limit`, and `--format table|json`.
-- `community-candidates-dir DIRECTORY`: preview candidate phrases from matching
+- `community-candidates-dir` DIRECTORY: preview candidate phrases from matching
   direct-child community files. Requires `--as-of`; supports `--config-dir`,
   `--input-format`, `--pattern`, `--source-name`, `--limit`, and
   `--format table|json`.
-- `community-handoff-workflow DIRECTORY`: print a local handoff checklist
+- `community-handoff-workflow` DIRECTORY: print a local handoff checklist
   without executing commands. Requires `--as-of`; supports `--config-dir`,
   `--data-dir`, `--input-format`, `--pattern`, `--source-name`, and
   `--format table|json`.
