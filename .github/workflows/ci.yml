@@ -24,6 +24,8 @@ jobs:
           UV_NO_CONFIG=1 uv sync --locked --dev --check
       - name: Release hygiene
         run: UV_NO_CONFIG=1 uv run python scripts/check_release_hygiene.py --repo-root .
+      - name: First-run sample smoke
+        run: UV_NO_CONFIG=1 uv run python scripts/check_first_run_smoke.py --repo-root .
       - name: Lint
         run: uv run ruff check .
       - name: Format check

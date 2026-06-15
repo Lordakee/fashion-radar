@@ -67,17 +67,24 @@ Check a local file produced by another tool:
 uv run fashion-radar community-signal-lint ./community-signals.csv --input-format csv --source-name "Community Tool Export" --strict
 ```
 
-Check a local directory of files produced by another tool:
+Check a local directory of files produced by another tool. For a deterministic
+repository sample, create a temporary export directory from the checked-in CSV
+first:
 
 ```bash
-uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export" --strict
-uv run fashion-radar community-signal-lint-dir ./exports --input-format json --pattern "*.json" --source-name "Community Tool Export" --strict
+AS_OF="2026-06-13T12:00:00Z"
+tmp_run="$(mktemp -d)"
+mkdir -p "$tmp_run/exports"
+cp examples/community-signals.example.csv "$tmp_run/exports/community-signals.csv"
+uv run fashion-radar community-signal-lint-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --source-name "Community Tool Export" --strict
+uv run fashion-radar community-candidates-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 ```
 
-Print a copyable directory handoff workflow without running it:
+Continuing from the same temporary export directory, print a copyable directory
+handoff workflow without running it:
 
 ```bash
-uv run fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
+uv run fashion-radar community-handoff-workflow "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export"
 ```
 
 `community-handoff-workflow` prints the local sequence
@@ -91,11 +98,18 @@ rank sources, write reports, update dashboards, generate configs, or generate
 entity files. It intentionally prints the supplied directory/config/data paths
 inside copyable local commands, unlike aggregate candidate preview output.
 
-Preview aggregate candidate phrases from one local handoff file before import:
+Preview aggregate candidate phrases from the checked-in sample before import:
 
 ```bash
-uv run fashion-radar community-candidates ./community-signals.csv --input-format csv --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
-uv run fashion-radar community-candidates ./community-signals.json --input-format json --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
+AS_OF="2026-06-13T12:00:00Z"
+uv run fashion-radar community-candidates examples/community-signals.example.csv --input-format csv --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export"
+```
+
+For your own local JSON handoff file, use your current review timestamp:
+
+```bash
+AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar community-candidates ./community-signals.json --input-format json --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
 ```
 
 `community-candidates` reads one local handoff file and local config, then
@@ -104,11 +118,18 @@ import rows, open SQLite, recurse directories, fetch URLs, or expose the
 supplied input file path, row URLs, row titles, summaries, raw text, normalized
 keys, candidate contexts, or representative item details.
 
-Preview aggregate candidate phrases from a local directory batch before import:
+Continuing from the deterministic temporary export directory, preview aggregate
+candidate phrases from a local directory batch before import:
 
 ```bash
-uv run fashion-radar community-candidates-dir ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
-uv run fashion-radar community-candidates-dir ./exports --input-format json --pattern "*.json" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
+uv run fashion-radar community-candidates-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export"
+```
+
+For your own JSON export directory, use a timestamp for the local review run:
+
+```bash
+AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar community-candidates-dir ./exports --input-format json --pattern "*.json" --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
 ```
 
 `community-candidates-dir` reads matched regular files directly under one local
@@ -119,19 +140,32 @@ names, or expose row URLs, row titles, summaries, raw text, normalized keys,
 candidate contexts, raw validation findings, account/private fields, or
 representative item details.
 
-Then validate the same local directory through the importer model without
-writing rows:
+Then validate the same deterministic temporary export directory through the
+importer model without writing rows:
 
 ```bash
-uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
+uv run fashion-radar import-signals-dir "$tmp_run/exports" --format csv --pattern "*.csv" --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
+```
+
+For your own JSON export directory, dry-run through the same importer model:
+
+```bash
 uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run --output-format json
 ```
 
-After the importer-model dry run succeeds, import the same local directory:
+After the importer-model dry run succeeds, import the same deterministic
+temporary export directory:
 
 ```bash
-uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --imported-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --data-dir "$PWD/data"
-uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Community Tool Export" --imported-at "2026-06-12T12:00:00Z" --data-dir "$PWD/data"
+uv run fashion-radar import-signals-dir "$tmp_run/exports" --format csv --pattern "*.csv" --source-name "Community Tool Export" --imported-at "$AS_OF" --data-dir "$PWD/data"
+```
+
+For your own JSON export directory, pass the timestamp you want stored on the
+imported rows:
+
+```bash
+IMPORTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar import-signals-dir ./exports --format json --pattern "*.json" --source-name "Community Tool Export" --imported-at "$IMPORTED_AT" --data-dir "$PWD/data"
 ```
 
 The linters validate allowed columns/fields, excluded raw/private fields,
@@ -179,9 +213,11 @@ not create the local SQLite database or import rows.
 
 ## Import
 
-After a dry run succeeds, import the local file:
+After a dry run succeeds, import the checked-in sample or a local file:
 
 ```bash
+AS_OF="2026-06-13T12:00:00Z"
+uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --imported-at "$AS_OF" --data-dir "$PWD/data"
 uv run fashion-radar import-signals ./community-signals.csv --format csv --source-name "Community Tool Export" --data-dir "$PWD/data"
 ```
 
@@ -203,20 +239,22 @@ demand, or establish platform/community coverage.
 Run the normal local review workflow after importing:
 
 ```bash
-uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
+AS_OF="2026-06-13T12:00:00Z"
+uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF"
+uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
-uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --format json
-uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --phrase "Le Teckel bag"
-uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --phrase "Le Teckel bag" --source-name "Community Tool Export" --format json
-uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
-uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --unmatched-only
+uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$AS_OF"
+uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF"
+uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
+uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF" --phrase "Le Teckel bag"
+uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF" --phrase "Le Teckel bag" --source-name "Community Tool Export" --format json
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export"
+uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export" --unmatched-only
 uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
-uv run fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$AS_OF"
+uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF"
+uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF"
 ```
 
 Retained-row review commands can be narrowed with `--source-name`,

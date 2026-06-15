@@ -165,6 +165,17 @@ def test_package_archive_smoke_command_is_documented_and_in_ci() -> None:
         assert "scripts/check_package_archives.py" in text
 
 
+def test_first_run_smoke_command_is_documented_and_in_ci() -> None:
+    checklist = _read(UPLOAD_CHECKLIST)
+    ci_workflow = _read(CI_WORKFLOW)
+    readme = _read(README)
+    command = "UV_NO_CONFIG=1 uv run python scripts/check_first_run_smoke.py --repo-root ."
+
+    for text in (checklist, ci_workflow, readme):
+        assert command in text
+        assert "scripts/check_first_run_smoke.py" in text
+
+
 def test_upload_checklist_documents_release_hygiene_excludes() -> None:
     text = _read(UPLOAD_CHECKLIST)
 
@@ -195,6 +206,56 @@ def test_readme_distinguishes_source_checkout_from_package_smoke() -> None:
     assert "local wheel" in text
     assert "does not publish to PyPI" in text
     assert "[docs/github-upload-checklist.md](docs/github-upload-checklist.md)" in text
+
+
+def test_readme_documents_manual_sample_flow_and_automated_smoke_boundary() -> None:
+    text = _read(README)
+
+    for term in (
+        "Manual Repo-Local Sample Flow",
+        "manual flow writes to the repo-local `data/` and `reports/` directories",
+        'AS_OF="2026-06-13T12:00:00Z"',
+        "examples/community-signals.example.csv",
+        "community-candidates examples/community-signals.example.csv",
+        "import-signals examples/community-signals.example.csv",
+        "reports/fashion-radar-2026-06-13.md",
+        "reports/fashion-radar-2026-06-13.json",
+        "Automated First-Run Smoke",
+        "temporary config, data,",
+        "report, and export directories",
+        "should not create files under repo `data/` or `reports/`",
+        "does not run live collection",
+    ):
+        assert term in text
+
+
+def test_community_import_docs_promote_checked_in_example_import() -> None:
+    text = _read(ROOT / "docs" / "community-signal-import.md")
+
+    assert 'AS_OF="2026-06-13T12:00:00Z"' in text
+    assert "import-signals examples/community-signals.example.csv" in text
+    assert "community-candidates examples/community-signals.example.csv" in text
+    assert 'tmp_run="$(mktemp -d)"' in text
+    assert (
+        'cp examples/community-signals.example.csv "$tmp_run/exports/community-signals.csv"' in text
+    )
+
+
+def test_community_import_docs_keep_deterministic_review_commands_fixed() -> None:
+    text = _read(ROOT / "docs" / "community-signal-import.md")
+    review_section = text.split("## Review After Import", 1)[1].split("## Boundary", 1)[0]
+
+    assert 'AS_OF="2026-06-13T12:00:00Z"' in review_section
+    assert "$(date -u" not in review_section
+
+    deterministic_markers = (
+        "examples/community-signals.example.csv",
+        '"$tmp_run/exports"',
+    )
+    community_doc = ROOT / "docs" / "community-signal-import.md"
+    for command in _fashion_radar_commands(community_doc):
+        if any(marker in command for marker in deterministic_markers):
+            assert "$(date -u" not in command
 
 
 def test_readme_quickstart_setup_commands_use_repo_local_paths() -> None:

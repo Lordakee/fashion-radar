@@ -140,6 +140,14 @@ Run the release hygiene gate before building archives:
 UV_NO_CONFIG=1 uv run python scripts/check_release_hygiene.py --repo-root .
 ```
 
+Run the deterministic first-run sample smoke. It uses checked-in community
+signal examples and temporary config/data/report directories; it does not run
+live collection or launch the dashboard server:
+
+```bash
+UV_NO_CONFIG=1 uv run python scripts/check_first_run_smoke.py --repo-root .
+```
+
 Use `/tmp` for build artifacts:
 
 ```bash

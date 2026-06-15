@@ -54,6 +54,7 @@ SDIST_REQUIRED_PATHS = [
     "examples/community-signals.example.csv",
     "examples/community-signals.example.json",
     "schemas/community-signals.schema.json",
+    "scripts/check_first_run_smoke.py",
     "src/fashion_radar/cli.py",
     "src/fashion_radar/__main__.py",
     "src/fashion_radar/templates/daily_report.md",
