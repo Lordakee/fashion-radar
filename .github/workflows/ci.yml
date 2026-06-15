@@ -31,29 +31,14 @@ jobs:
       - name: Build, installed CLI smoke, and dashboard extra smoke
         run: |
           tmp_build="$(mktemp -d)"
-          uv build --out-dir "$tmp_build"
-          uv run python - "$tmp_build"/*.whl <<'PY'
-          import sys
-          import zipfile
-
-          expected = {
-              "fashion_radar/templates/daily_report.md",
-              "fashion_radar/templates/configs/sources.example.yaml",
-              "fashion_radar/templates/configs/entities.example.yaml",
-              "fashion_radar/templates/configs/scoring.example.yaml",
-          }
-          with zipfile.ZipFile(sys.argv[1]) as wheel:
-              names = set(wheel.namelist())
-          missing = sorted(expected - names)
-          if missing:
-              raise SystemExit("Missing wheel template files: " + ", ".join(missing))
-          print("Wheel template files present:", ", ".join(sorted(expected)))
-          PY
+          UV_NO_CONFIG=1 uv build --out-dir "$tmp_build"
+          UV_NO_CONFIG=1 uv run python scripts/check_package_archives.py "$tmp_build"
           tmp_env="$(mktemp -d)"
           uv venv "$tmp_env/venv"
           uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
           tmp_run="$(mktemp -d)"
           "$tmp_env/venv/bin/fashion-radar" --help
+          "$tmp_env/venv/bin/python" -m fashion_radar --help
           "$tmp_env/venv/bin/fashion-radar" init --config-dir "$tmp_run/config" --data-dir "$tmp_run/data" --reports-dir "$tmp_run/reports"
           "$tmp_env/venv/bin/fashion-radar" doctor --config-dir "$tmp_run/config" --data-dir "$tmp_run/data" --reports-dir "$tmp_run/reports"
           "$tmp_env/venv/bin/python" -c "from importlib import resources; text = resources.files('fashion_radar.templates').joinpath('daily_report.md').read_text(encoding='utf-8'); assert 'Fashion Radar Daily Report' in text"

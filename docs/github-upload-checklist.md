@@ -128,8 +128,8 @@ Use `/tmp` for build artifacts:
 
 ```bash
 tmp_build="$(mktemp -d)"
-uv build --out-dir "$tmp_build"
-uv run python -m zipfile -l "$tmp_build"/*.whl | rg 'fashion_radar/templates/(daily_report.md|configs/(sources|entities|scoring)\.example\.yaml)'
+UV_NO_CONFIG=1 uv build --out-dir "$tmp_build"
+UV_NO_CONFIG=1 uv run python scripts/check_package_archives.py "$tmp_build"
 ```
 
 Installed-wheel smoke:
@@ -139,6 +139,7 @@ tmp_env="$(mktemp -d)"
 uv venv "$tmp_env/venv"
 uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 "$tmp_env/venv/bin/fashion-radar" --help
+"$tmp_env/venv/bin/python" -m fashion_radar --help
 for cmd in \
   init migrate-db doctor source-pack-lint entity-pack-lint \
   community-signal-lint community-signal-lint-dir \

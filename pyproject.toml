@@ -10,6 +10,28 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Fashion Radar contributors" }]
+keywords = [
+  "fashion",
+  "trend-analysis",
+  "local-first",
+  "rss",
+  "gdelt",
+  "community-signals",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+  "Topic :: Office/Business :: News/Diary",
+  "Topic :: Text Processing :: Indexing",
+]
 dependencies = [
   "feedparser>=6.0.11",
   "httpx>=0.28.1",
@@ -22,6 +44,14 @@ dependencies = [
   "tenacity>=9.0.0",
   "typer>=0.15.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Lordakee/fashion-radar"
+Repository = "https://github.com/Lordakee/fashion-radar"
+Documentation = "https://github.com/Lordakee/fashion-radar/tree/main/docs"
+Issues = "https://github.com/Lordakee/fashion-radar/issues"
+Changelog = "https://github.com/Lordakee/fashion-radar/blob/main/CHANGELOG.md"
+Security = "https://github.com/Lordakee/fashion-radar/blob/main/SECURITY.md"
 
 [project.optional-dependencies]
 article = [

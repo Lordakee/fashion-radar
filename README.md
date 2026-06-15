@@ -53,7 +53,7 @@ risk labels. They are not required for the core workflow.
 
 ## Quickstart
 
-Install dependencies with uv:
+For a source checkout, install dependencies with uv:
 
 ```bash
 uv sync --locked --dev
@@ -69,6 +69,10 @@ UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv sync --frozen --dev
 Do not regenerate or commit `uv.lock` from a mirror-backed lock operation. The
 public lockfile should remain usable from the default PyPI registry. See
 [docs/dependency-mirrors.md](docs/dependency-mirrors.md).
+
+Package readiness is checked separately before upload by building and smoking a
+local wheel from this checkout; that check does not publish to PyPI. See
+[docs/github-upload-checklist.md](docs/github-upload-checklist.md).
 
 Create starter config, initialize the repo-local SQLite schema, and check the
 same repo-local workspace:

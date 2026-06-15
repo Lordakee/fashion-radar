@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CLI_REFERENCE = ROOT / "docs" / "cli-reference.md"
 UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
 README = ROOT / "README.md"
+CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 
 PATH_CONSISTENCY_DOCS = [
     ROOT / "README.md",
@@ -147,11 +148,34 @@ def test_upload_checklist_help_loop_matches_public_commands() -> None:
     assert _upload_checklist_help_loop_commands() == _public_cli_commands()
 
 
+def test_package_archive_smoke_command_is_documented_and_in_ci() -> None:
+    checklist = _read(UPLOAD_CHECKLIST)
+    ci_workflow = _read(CI_WORKFLOW)
+    build_command = 'UV_NO_CONFIG=1 uv build --out-dir "$tmp_build"'
+    archive_command = 'UV_NO_CONFIG=1 uv run python scripts/check_package_archives.py "$tmp_build"'
+    module_help_command = '"$tmp_env/venv/bin/python" -m fashion_radar --help'
+
+    for text in (checklist, ci_workflow):
+        assert build_command in text
+        assert archive_command in text
+        assert module_help_command in text
+        assert "scripts/check_package_archives.py" in text
+
+
 def test_readme_links_current_cli_reference_not_historical_release_gate() -> None:
     text = _read(README)
 
     assert "[docs/cli-reference.md](docs/cli-reference.md)" in text
     assert "docs/release-gate-stage31.md" not in text
+
+
+def test_readme_distinguishes_source_checkout_from_package_smoke() -> None:
+    text = _read(README)
+
+    assert "source checkout" in text
+    assert "local wheel" in text
+    assert "does not publish to PyPI" in text
+    assert "[docs/github-upload-checklist.md](docs/github-upload-checklist.md)" in text
 
 
 def test_readme_quickstart_setup_commands_use_repo_local_paths() -> None:
