@@ -25,13 +25,22 @@ def test_community_signal_csv_example_loads_through_manual_importer() -> None:
     )
 
     assert len(rows) == 2
-    assert rows[0].url == "https://example.com/community/east-west-tote"
-    assert rows[0].title == "East-west tote interest"
+    assert rows[0].url == "https://example.com/community/the-row-margaux-tote"
+    assert rows[0].title == "The Row Margaux tote interest"
+    assert rows[0].summary == "Sanitized local note about The Row Margaux handbag and tote demand"
     assert rows[0].source_name == "Community Tool Export"
     assert rows[0].platform == "community"
     assert rows[0].source_weight == 1.3
-    assert rows[1].title == "Soft ballet flats mention"
-    assert rows[1].summary is not None
+    assert rows[0].collected_at is not None
+    assert rows[0].collected_at.isoformat() == "2026-06-12T08:30:00+00:00"
+    assert rows[1].url == "https://example.com/community/ballet-flats-footwear"
+    assert rows[1].title == "Ballet flats footwear mention"
+    assert rows[1].summary == "Short sanitized note about ballet flats shoes and footwear styling"
+    assert rows[1].source_name == "Community Tool Export"
+    assert rows[1].platform == "community"
+    assert rows[1].source_weight == 1.1
+    assert rows[1].collected_at is not None
+    assert rows[1].collected_at.isoformat() == "2026-06-12T09:20:00+00:00"
 
 
 def test_community_signal_json_example_loads_through_manual_importer() -> None:

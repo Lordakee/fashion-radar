@@ -174,6 +174,7 @@ def _quickstart_cli_args(command: str, tmp_path: Path) -> list[str]:
 
 def test_cli_reference_lists_every_public_command() -> None:
     text = _read(CLI_REFERENCE)
+    normalized = _normalized_doc_text(CLI_REFERENCE)
 
     for command in _public_cli_commands():
         assert f"`{command}`" in text
@@ -181,6 +182,8 @@ def test_cli_reference_lists_every_public_command() -> None:
     assert "FASHION_RADAR_CONFIG_DIR" in text
     assert "FASHION_RADAR_DATA_DIR" in text
     assert "FASHION_RADAR_REPORTS_DIR" in text
+    assert "deterministic sample-output gate" in text
+    assert "validates deterministic sample output content" in normalized
 
 
 def test_upload_checklist_help_loop_matches_public_commands() -> None:
@@ -267,6 +270,11 @@ def test_readme_distinguishes_source_checkout_from_package_smoke() -> None:
 
 def test_readme_documents_manual_sample_flow_and_automated_smoke_boundary() -> None:
     text = _read(README)
+    normalized = _normalized_doc_text(README)
+    manual_flow = text.split("### Manual Repo-Local Sample Flow", 1)[1].split(
+        "### Automated First-Run Smoke",
+        1,
+    )[0]
 
     for term in (
         "Manual Repo-Local Sample Flow",
@@ -288,10 +296,33 @@ def test_readme_documents_manual_sample_flow_and_automated_smoke_boundary() -> N
     ):
         assert term in text
 
+    assert (
+        "deterministic sample is expected to produce matched report and trend signals "
+        "for `The Row`, `The Row Margaux`, and `Ballet Flats`"
+    ) in normalized
+    for term in (
+        "validates that sample rows import as community signals",
+        "match the starter entities `The Row`, `The Row Margaux`, and `Ballet Flats`",
+        "appear in the dated report",
+        "produce matching entity trend deltas",
+        "keep untracked candidates empty under starter config",
+    ):
+        assert term in normalized
+    assert manual_flow.index("uv run fashion-radar match --config-dir") < manual_flow.index(
+        "uv run fashion-radar imported-signals-summary"
+    )
+    assert manual_flow.index("uv run fashion-radar match --config-dir") < manual_flow.index(
+        "uv run fashion-radar imported-signals --data-dir"
+    )
+
 
 def test_first_run_guide_documents_paths_outputs_dashboard_reset_and_boundaries() -> None:
     text = _read(FIRST_RUN_DOC)
     normalized = _normalized_doc_text(FIRST_RUN_DOC)
+    manual_flow = text.split("## Manual Repo-Local Sample Flow", 1)[1].split(
+        "## Inspect The Sample In The Dashboard",
+        1,
+    )[0]
 
     for term in (
         "Choose Your First Run",
@@ -339,6 +370,24 @@ def test_first_run_guide_documents_paths_outputs_dashboard_reset_and_boundaries(
         "does not run `collect`, `run`, or `dashboard`",
     ):
         assert term in normalized
+    assert (
+        "deterministic sample is expected to produce matched report and trend signals "
+        "for `The Row`, `The Row Margaux`, and `Ballet Flats`"
+    ) in normalized
+    for term in (
+        "validates that sample rows import as community signals",
+        "match the starter entities `The Row`, `The Row Margaux`, and `Ballet Flats`",
+        "appear in the dated report",
+        "produce matching entity trend deltas",
+        "keep untracked candidates empty under starter config",
+    ):
+        assert term in normalized
+    assert manual_flow.index("uv run fashion-radar match --config-dir") < manual_flow.index(
+        "uv run fashion-radar imported-signals-summary"
+    )
+    assert manual_flow.index("uv run fashion-radar match --config-dir") < manual_flow.index(
+        "uv run fashion-radar imported-signals --data-dir"
+    )
 
 
 def test_upload_checklist_documents_first_run_smoke_boundary() -> None:
@@ -365,6 +414,10 @@ def test_upload_checklist_documents_first_run_smoke_boundary() -> None:
         "external services",
     ):
         assert term in text
+    assert (
+        "The smoke also validates sample rows, matched starter entities, report content, "
+        "trend deltas, empty untracked candidates, and directory handoff dry-run counts."
+    ) in normalized
 
 
 def test_community_import_docs_promote_checked_in_example_import() -> None:

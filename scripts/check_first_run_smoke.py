@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import os
@@ -20,6 +21,32 @@ SOURCE_NAME = "Community Tool Export"
 EXAMPLE_CSV = Path("examples/community-signals.example.csv")
 DIR_EXPORT_CSV = "community-signals.csv"
 DIR_PATTERN = "*.csv"
+EXPECTED_SAMPLE_ROWS = (
+    {
+        "url": "https://example.com/community/the-row-margaux-tote",
+        "title": "The Row Margaux tote interest",
+        "published_at": "2026-06-12T08:00:00Z",
+        "summary": "Sanitized local note about The Row Margaux handbag and tote demand",
+        "source_name": SOURCE_NAME,
+        "platform": "community",
+        "source_weight": "1.3",
+        "collected_at": "2026-06-12T08:30:00Z",
+    },
+    {
+        "url": "https://example.com/community/ballet-flats-footwear",
+        "title": "Ballet flats footwear mention",
+        "published_at": "2026-06-12T09:00:00Z",
+        "summary": "Short sanitized note about ballet flats shoes and footwear styling",
+        "source_name": SOURCE_NAME,
+        "platform": "community",
+        "source_weight": "1.1",
+        "collected_at": "2026-06-12T09:20:00Z",
+    },
+)
+EXPECTED_SAMPLE_TITLES = tuple(row["title"] for row in EXPECTED_SAMPLE_ROWS)
+EXPECTED_SAMPLE_ENTITIES = ("The Row", "The Row Margaux", "Ballet Flats")
+EXPECTED_PLATFORM_COUNTS = {"community": 2}
+EXPECTED_SOURCE_COUNTS = {SOURCE_NAME: 2}
 
 
 class SmokeError(Exception):
@@ -92,34 +119,214 @@ def validate_json_output(command_name: str, output: str) -> Any:
         raise SmokeError(f"{command_name} output is not valid JSON: {exc}") from exc
 
 
-def validate_imported_summary(command_name: str, payload: Any) -> None:
-    row_count = imported_summary_row_count(payload)
-    if row_count <= 0:
-        raise SmokeError(f"{command_name} must report at least one imported row")
+def assert_equal(label: str, actual: Any, expected: Any) -> None:
+    if actual != expected:
+        raise SmokeError(f"{label} expected {expected!r}, got {actual!r}")
 
 
-def imported_summary_row_count(payload: Any) -> int:
+def validate_sample_csv(path: Path) -> None:
+    with path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+
+    assert_equal("sample CSV row count", len(rows), len(EXPECTED_SAMPLE_ROWS))
+    for index, expected in enumerate(EXPECTED_SAMPLE_ROWS):
+        row = rows[index]
+        for key, expected_value in expected.items():
+            assert_equal(
+                f"sample CSV row {index + 1} {key}",
+                row.get(key),
+                expected_value,
+            )
+
+
+def validate_community_candidates(
+    command_name: str,
+    payload: Any,
+    *,
+    directory: bool = False,
+) -> None:
     if not isinstance(payload, dict):
-        return 0
+        raise SmokeError(f"{command_name} output must be a JSON object")
+    assert_equal(f"{command_name} input_format", payload.get("input_format"), "csv")
+    assert_equal(f"{command_name} source_name", payload.get("source_name"), SOURCE_NAME)
+    assert_equal(f"{command_name} row_count", payload.get("row_count"), 2)
+    assert_equal(f"{command_name} candidate_count", payload.get("candidate_count"), 0)
+    assert_equal(f"{command_name} candidates", payload.get("candidates"), [])
+    assert_equal(f"{command_name} as_of", payload.get("as_of"), "2026-06-13T12:00:00+00:00")
+    if directory:
+        assert_equal(f"{command_name} file_count", payload.get("file_count"), 1)
 
-    top_level_row_count = payload.get("row_count")
-    if isinstance(top_level_row_count, int) and not isinstance(top_level_row_count, bool):
-        return top_level_row_count
 
+def assert_output_contains(command_name: str, output: str, expected_lines: Sequence[str]) -> None:
+    output_lines = {line.strip() for line in output.splitlines() if line.strip()}
+    for expected in expected_lines:
+        if expected not in output_lines:
+            raise SmokeError(f"{command_name} output missing expected text: {expected}")
+
+
+def validate_import_signals_dry_run(output: str) -> None:
+    assert_output_contains(
+        "import-signals --dry-run",
+        output,
+        ("Validated 2 manual signal rows", "Dry run: no rows imported"),
+    )
+
+
+def validate_import_signals_import(output: str) -> None:
+    assert_output_contains(
+        "import-signals",
+        output,
+        ("Validated 2 manual signal rows", "Imported 2 manual signal rows", "Items added: 2"),
+    )
+
+
+def validate_import_signals_dir_dry_run(output: str) -> None:
+    output_lines = {line.strip() for line in output.splitlines() if line.strip()}
+    assert_output_contains(
+        "import-signals-dir --dry-run",
+        output,
+        (
+            "Files: 1 total, 1 valid",
+            "Rows: 2 import-ready",
+            "Sources: Community Tool Export=2",
+            "Platforms: community=2",
+            "Errors: 0",
+            "No manual signal directory dry-run errors.",
+        ),
+    )
+    expected_file_suffix = f"{DIR_EXPORT_CSV}: 2 rows, 0 errors"
+    if not any(line.endswith(expected_file_suffix) for line in output_lines):
+        raise SmokeError(
+            f"import-signals-dir --dry-run output missing expected text: {expected_file_suffix}"
+        )
+
+
+def validate_imported_summary(command_name: str, payload: Any) -> None:
+    if not isinstance(payload, dict):
+        raise SmokeError(f"{command_name} output must be a JSON object")
+
+    assert_equal(f"{command_name} row_count", payload.get("row_count"), 2)
+    assert_equal(f"{command_name} source_count", payload.get("source_count"), 1)
+    assert_equal(f"{command_name} matched_count", payload.get("matched_count"), 2)
+    assert_equal(f"{command_name} unmatched_count", payload.get("unmatched_count"), 0)
+    assert_equal(
+        f"{command_name} platform_counts",
+        payload.get("platform_counts"),
+        EXPECTED_PLATFORM_COUNTS,
+    )
     sources = payload.get("sources")
-    if not isinstance(sources, list):
-        return 0
+    if not isinstance(sources, list) or len(sources) != 1:
+        raise SmokeError(f"{command_name} must report exactly one source")
+    source = sources[0]
+    if not isinstance(source, dict):
+        raise SmokeError(f"{command_name} source summary must be a JSON object")
+    assert_equal(f"{command_name} source name", source.get("source_name"), SOURCE_NAME)
+    assert_equal(f"{command_name} source row_count", source.get("row_count"), 2)
+    assert_equal(f"{command_name} source matched_count", source.get("matched_count"), 2)
 
-    total = 0
-    found_count = False
-    for source in sources:
-        if not isinstance(source, dict):
+
+def validate_imported_signals(command_name: str, payload: Any) -> None:
+    if not isinstance(payload, dict):
+        raise SmokeError(f"{command_name} output must be a JSON object")
+    assert_equal(f"{command_name} row_count", payload.get("row_count"), 2)
+    assert_equal(f"{command_name} total_count", payload.get("total_count"), 2)
+    assert_equal(f"{command_name} matched_count", payload.get("matched_count"), 2)
+    assert_equal(f"{command_name} unmatched_count", payload.get("unmatched_count"), 0)
+    assert_equal(
+        f"{command_name} source_name_counts",
+        payload.get("source_name_counts"),
+        EXPECTED_SOURCE_COUNTS,
+    )
+    assert_equal(
+        f"{command_name} platform_counts",
+        payload.get("platform_counts"),
+        EXPECTED_PLATFORM_COUNTS,
+    )
+    items = payload.get("items")
+    if not isinstance(items, list) or len(items) != 2:
+        raise SmokeError(f"{command_name} must contain exactly two sample items")
+
+    titles = [item.get("title") for item in items if isinstance(item, dict)]
+    assert_equal(
+        f"{command_name} item titles",
+        titles,
+        ["Ballet flats footwear mention", "The Row Margaux tote interest"],
+    )
+
+    matches_by_title: dict[str, set[str]] = {}
+    for item in items:
+        if not isinstance(item, dict):
             continue
-        source_row_count = source.get("row_count")
-        if isinstance(source_row_count, int) and not isinstance(source_row_count, bool):
-            total += source_row_count
-            found_count = True
-    return total if found_count else 0
+        if item.get("match_status") != "matched":
+            raise SmokeError(f"{command_name} item must be marked matched: {item.get('title')}")
+        matches = item.get("matches")
+        if not isinstance(matches, list):
+            matches = []
+        matches_by_title[str(item.get("title"))] = {
+            str(match.get("entity_name"))
+            for match in matches
+            if isinstance(match, dict) and match.get("entity_name") is not None
+        }
+
+    for title in EXPECTED_SAMPLE_TITLES:
+        if title not in matches_by_title:
+            raise SmokeError(f"{command_name} missing sample title: {title}")
+    if "Ballet Flats" not in matches_by_title["Ballet flats footwear mention"]:
+        raise SmokeError(f"{command_name} missing Ballet Flats match")
+    row_matches = matches_by_title["The Row Margaux tote interest"]
+    for expected_entity in ("The Row", "The Row Margaux"):
+        if expected_entity not in row_matches:
+            raise SmokeError(f"{command_name} missing {expected_entity} match")
+
+
+def validate_report_outputs(json_payload: Any, markdown_text: str) -> None:
+    if not isinstance(json_payload, dict):
+        raise SmokeError("report JSON output must be a JSON object")
+    metadata = json_payload.get("metadata")
+    if not isinstance(metadata, dict):
+        raise SmokeError("report JSON missing metadata")
+    assert_equal("report metadata item_count", metadata.get("item_count"), 3)
+    entities = json_payload.get("entities")
+    if not isinstance(entities, list):
+        raise SmokeError("report JSON entities must be a list")
+    entity_names = [entity.get("entity_name") for entity in entities if isinstance(entity, dict)]
+    assert_equal("report entity names", entity_names, list(EXPECTED_SAMPLE_ENTITIES))
+    for expected in EXPECTED_SAMPLE_ENTITIES:
+        if f"### {expected} (new)" not in markdown_text:
+            raise SmokeError(f"report Markdown missing sample entity section: {expected}")
+    if "No entity signals in this window." in markdown_text:
+        raise SmokeError("report Markdown should not contain the empty entity signal message")
+
+
+def validate_candidates(command_name: str, payload: Any, report_payload: Any) -> None:
+    assert_equal(f"{command_name} candidates", payload, [])
+    if isinstance(report_payload, dict):
+        assert_equal("report candidates", report_payload.get("candidates"), payload)
+
+
+def validate_trends(command_name: str, payload: Any) -> None:
+    if not isinstance(payload, dict):
+        raise SmokeError(f"{command_name} output must be a JSON object")
+    assert_equal(f"{command_name} as_of", payload.get("as_of"), "2026-06-13T12:00:00Z")
+    deltas = payload.get("deltas")
+    if not isinstance(deltas, list):
+        raise SmokeError(f"{command_name} deltas must be a list")
+    expected_types = {
+        "The Row": "brand",
+        "The Row Margaux": "product",
+        "Ballet Flats": "category",
+    }
+    deltas_by_name = {str(delta.get("name")): delta for delta in deltas if isinstance(delta, dict)}
+    assert_equal(
+        f"{command_name} entity delta names",
+        list(deltas_by_name),
+        list(EXPECTED_SAMPLE_ENTITIES),
+    )
+    for name, signal_type in expected_types.items():
+        delta = deltas_by_name[name]
+        assert_equal(f"{command_name} {name} signal_kind", delta.get("signal_kind"), "entity")
+        assert_equal(f"{command_name} {name} signal_type", delta.get("signal_type"), signal_type)
+        assert_equal(f"{command_name} {name} status", delta.get("status"), "new")
 
 
 def report_paths(context: SmokeContext) -> tuple[Path, Path]:
@@ -244,6 +451,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
     example_csv = context.repo_root / EXAMPLE_CSV
     if not example_csv.is_file():
         raise SmokeError(f"Missing example CSV: {example_csv}")
+    validate_sample_csv(example_csv)
 
     run_cli(
         context,
@@ -276,7 +484,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
         "--source-name",
         SOURCE_NAME,
     )
-    validate_json_output(
+    community_candidates = validate_json_output(
         "community-candidates",
         run_cli(
             context,
@@ -294,30 +502,43 @@ def run_first_run_flow(context: SmokeContext) -> None:
             "json",
         ).stdout,
     )
-    run_cli(
-        context,
-        "import-signals",
-        str(example_csv),
-        "--data-dir",
-        str(context.data_dir),
-        "--format",
-        "csv",
-        "--source-name",
-        SOURCE_NAME,
-        "--dry-run",
+    validate_community_candidates("community-candidates", community_candidates)
+    validate_import_signals_dry_run(
+        run_cli(
+            context,
+            "import-signals",
+            str(example_csv),
+            "--data-dir",
+            str(context.data_dir),
+            "--format",
+            "csv",
+            "--source-name",
+            SOURCE_NAME,
+            "--dry-run",
+        ).stdout
+    )
+    validate_import_signals_import(
+        run_cli(
+            context,
+            "import-signals",
+            str(example_csv),
+            "--data-dir",
+            str(context.data_dir),
+            "--format",
+            "csv",
+            "--source-name",
+            SOURCE_NAME,
+            "--imported-at",
+            AS_OF,
+        ).stdout
     )
     run_cli(
         context,
-        "import-signals",
-        str(example_csv),
+        "match",
+        "--config-dir",
+        str(context.config_dir),
         "--data-dir",
         str(context.data_dir),
-        "--format",
-        "csv",
-        "--source-name",
-        SOURCE_NAME,
-        "--imported-at",
-        AS_OF,
     )
     imported_summary = validate_json_output(
         "imported-signals-summary",
@@ -331,7 +552,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
         ).stdout,
     )
     validate_imported_summary("imported-signals-summary", imported_summary)
-    validate_json_output(
+    imported_signals = validate_json_output(
         "imported-signals",
         run_cli(
             context,
@@ -346,14 +567,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
             "json",
         ).stdout,
     )
-    run_cli(
-        context,
-        "match",
-        "--config-dir",
-        str(context.config_dir),
-        "--data-dir",
-        str(context.data_dir),
-    )
+    validate_imported_signals("imported-signals", imported_signals)
     run_cli(
         context,
         "report",
@@ -369,8 +583,9 @@ def run_first_run_flow(context: SmokeContext) -> None:
     markdown_path, json_path = report_paths(context)
     assert_non_empty_file(markdown_path)
     assert_non_empty_file(json_path)
-    validate_json_output("report JSON", json_path.read_text(encoding="utf-8"))
-    validate_json_output(
+    report_payload = validate_json_output("report JSON", json_path.read_text(encoding="utf-8"))
+    validate_report_outputs(report_payload, markdown_path.read_text(encoding="utf-8"))
+    candidates_payload = validate_json_output(
         "candidates",
         run_cli(
             context,
@@ -385,7 +600,8 @@ def run_first_run_flow(context: SmokeContext) -> None:
             "json",
         ).stdout,
     )
-    validate_json_output(
+    validate_candidates("candidates", candidates_payload, report_payload)
+    trends_payload = validate_json_output(
         "trends",
         run_cli(
             context,
@@ -400,6 +616,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
             "json",
         ).stdout,
     )
+    validate_trends("trends", trends_payload)
 
     prepare_directory_export(context)
     run_cli(
@@ -430,7 +647,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
         "--source-name",
         SOURCE_NAME,
     )
-    validate_json_output(
+    community_candidates_dir = validate_json_output(
         "community-candidates-dir",
         run_cli(
             context,
@@ -450,19 +667,26 @@ def run_first_run_flow(context: SmokeContext) -> None:
             "json",
         ).stdout,
     )
-    run_cli(
-        context,
-        "import-signals-dir",
-        str(context.exports_dir),
-        "--data-dir",
-        str(context.data_dir),
-        "--format",
-        "csv",
-        "--pattern",
-        DIR_PATTERN,
-        "--source-name",
-        SOURCE_NAME,
-        "--dry-run",
+    validate_community_candidates(
+        "community-candidates-dir",
+        community_candidates_dir,
+        directory=True,
+    )
+    validate_import_signals_dir_dry_run(
+        run_cli(
+            context,
+            "import-signals-dir",
+            str(context.exports_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--format",
+            "csv",
+            "--pattern",
+            DIR_PATTERN,
+            "--source-name",
+            SOURCE_NAME,
+            "--dry-run",
+        ).stdout
     )
 
 

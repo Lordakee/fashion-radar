@@ -157,6 +157,8 @@ report, and export directories only. They do not run `collect`, `run`,
 automation, account login, cookies/sessions, source/platform connectors,
 platform automation, or external services. A successful source-checkout or
 installed-wheel first-run smoke prints `First-run sample smoke passed.`.
+The smoke also validates sample rows, matched starter entities, report content,
+trend deltas, empty untracked candidates, and directory handoff dry-run counts.
 
 Use `/tmp` for build artifacts:
 

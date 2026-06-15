@@ -32,7 +32,8 @@ the report command writes `reports/fashion-radar-2026-06-13.md` and
 `scripts/check_first_run_smoke.py` is a source-checkout and release-package
 smoke helper used by README, CI, and the upload checklist. It is not a normal
 public `fashion-radar` CLI command; run it with Python when you need the
-deterministic first-run smoke.
+deterministic first-run smoke. It is the deterministic sample-output gate: it
+validates deterministic sample output content, not only command execution.
 
 ## Setup And Operations
 

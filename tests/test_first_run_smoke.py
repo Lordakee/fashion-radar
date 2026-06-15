@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import subprocess
 import sys
@@ -23,6 +24,241 @@ def load_smoke_module():
 
 
 smoke = load_smoke_module()
+
+SAMPLE_CSV_TEXT = (
+    "url,title,published_at,summary,source_name,platform,source_weight,collected_at\n"
+    "https://example.com/community/the-row-margaux-tote,"
+    "The Row Margaux tote interest,"
+    "2026-06-12T08:00:00Z,"
+    "Sanitized local note about The Row Margaux handbag and tote demand,"
+    "Community Tool Export,community,1.3,2026-06-12T08:30:00Z\n"
+    "https://example.com/community/ballet-flats-footwear,"
+    "Ballet flats footwear mention,"
+    "2026-06-12T09:00:00Z,"
+    "Short sanitized note about ballet flats shoes and footwear styling,"
+    "Community Tool Export,community,1.1,2026-06-12T09:20:00Z\n"
+)
+
+
+def community_candidates_payload(*, directory: bool = False) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "input_format": "csv",
+        "as_of": "2026-06-13T12:00:00+00:00",
+        "current_window_start": "2026-06-06T12:00:00+00:00",
+        "baseline_window_start": "2026-05-07T12:00:00+00:00",
+        "current_days": 7,
+        "baseline_days": 30,
+        "source_name": "Community Tool Export",
+        "row_count": 2,
+        "candidate_count": 0,
+        "limit": 50,
+        "candidates": [],
+    }
+    if directory:
+        payload["file_count"] = 1
+    return payload
+
+
+def imported_summary_payload() -> dict[str, object]:
+    return {
+        "database": "/tmp/fashion-radar.sqlite",
+        "source_type": "manual_import",
+        "platform_counts": {"community": 2},
+        "source_count": 1,
+        "row_count": 2,
+        "matched_count": 2,
+        "unmatched_count": 0,
+        "first_collected_at": "2026-06-12T08:30:00+00:00",
+        "latest_collected_at": "2026-06-12T09:20:00+00:00",
+        "sources": [
+            {
+                "source_name": "Community Tool Export",
+                "platform_counts": {"community": 2},
+                "row_count": 2,
+                "matched_count": 2,
+                "unmatched_count": 0,
+                "first_collected_at": "2026-06-12T08:30:00+00:00",
+                "latest_collected_at": "2026-06-12T09:20:00+00:00",
+            }
+        ],
+    }
+
+
+def imported_signals_payload() -> dict[str, object]:
+    return {
+        "database": "/tmp/fashion-radar.sqlite",
+        "as_of": "2026-06-13T12:00:00+00:00",
+        "window_start": "2026-06-06T12:00:00+00:00",
+        "lookback_days": 7,
+        "source_name": "Community Tool Export",
+        "unmatched_only": False,
+        "limit": 50,
+        "row_count": 2,
+        "total_count": 2,
+        "matched_count": 2,
+        "unmatched_count": 0,
+        "source_name_counts": {"Community Tool Export": 2},
+        "platform_counts": {"community": 2},
+        "latest_collected_at": "2026-06-12T09:20:00+00:00",
+        "items": [
+            {
+                "id": 2,
+                "source_name": "Community Tool Export",
+                "platform": "community",
+                "url": "https://example.com/community/ballet-flats-footwear",
+                "title": "Ballet flats footwear mention",
+                "published_at": "2026-06-12T09:00:00+00:00",
+                "collected_at": "2026-06-12T09:20:00+00:00",
+                "source_weight": 1.1,
+                "summary": "Short sanitized note about ballet flats shoes and footwear styling",
+                "match_status": "matched",
+                "matches": [
+                    {
+                        "entity_name": "Ballet Flats",
+                        "entity_type": "category",
+                        "alias": "ballet flats",
+                        "confidence": 1.0,
+                    }
+                ],
+            },
+            {
+                "id": 1,
+                "source_name": "Community Tool Export",
+                "platform": "community",
+                "url": "https://example.com/community/the-row-margaux-tote",
+                "title": "The Row Margaux tote interest",
+                "published_at": "2026-06-12T08:00:00+00:00",
+                "collected_at": "2026-06-12T08:30:00+00:00",
+                "source_weight": 1.3,
+                "summary": "Sanitized local note about The Row Margaux handbag and tote demand",
+                "match_status": "matched",
+                "matches": [
+                    {
+                        "entity_name": "The Row",
+                        "entity_type": "brand",
+                        "alias": "The Row",
+                        "confidence": 1.0,
+                    },
+                    {
+                        "entity_name": "The Row Margaux",
+                        "entity_type": "product",
+                        "alias": "The Row Margaux",
+                        "confidence": 1.0,
+                    },
+                ],
+            },
+        ],
+    }
+
+
+def report_payload() -> dict[str, object]:
+    return {
+        "metadata": {
+            "generated_at": "2026-06-13T12:00:00Z",
+            "report_date": "2026-06-13T12:00:00Z",
+            "item_count": 3,
+        },
+        "entities": [
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "label": "new",
+                "heat_score": 1.8,
+                "current_mentions": 1,
+                "baseline_mentions": 0,
+                "distinct_sources": 1,
+                "growth_ratio": None,
+                "weighted_mention_component": 1.3,
+                "growth_component": 0.0,
+                "source_diversity_component": 0.0,
+                "high_weight_component": 0.5,
+                "representative_items": [],
+            },
+            {
+                "entity_name": "The Row Margaux",
+                "entity_type": "product",
+                "label": "new",
+                "heat_score": 1.8,
+                "current_mentions": 1,
+                "baseline_mentions": 0,
+                "distinct_sources": 1,
+                "growth_ratio": None,
+                "weighted_mention_component": 1.3,
+                "growth_component": 0.0,
+                "source_diversity_component": 0.0,
+                "high_weight_component": 0.5,
+                "representative_items": [],
+            },
+            {
+                "entity_name": "Ballet Flats",
+                "entity_type": "category",
+                "label": "new",
+                "heat_score": 1.1,
+                "current_mentions": 1,
+                "baseline_mentions": 0,
+                "distinct_sources": 1,
+                "growth_ratio": None,
+                "weighted_mention_component": 1.1,
+                "growth_component": 0.0,
+                "source_diversity_component": 0.0,
+                "high_weight_component": 0.0,
+                "representative_items": [],
+            },
+        ],
+        "candidates": [],
+        "source_health": [],
+        "recent_runs": [],
+    }
+
+
+def report_markdown() -> str:
+    return "\n".join(
+        [
+            "# Fashion Radar Daily Report",
+            "Window ending: 2026-06-13T12:00:00+00:00",
+            "Current-window mentions: 3",
+            "## Top Signals",
+            "### The Row (new)",
+            "### The Row Margaux (new)",
+            "### Ballet Flats (new)",
+            "## Untracked Candidate Signals",
+            "No untracked candidate signals in this window.",
+            "## Source Health",
+            "No source health issues recorded.",
+            "## Recent Collector Runs",
+            "No recent collector runs recorded.",
+        ]
+    )
+
+
+def trends_payload() -> dict[str, object]:
+    return {
+        "as_of": "2026-06-13T12:00:00Z",
+        "baseline_as_of": "2026-06-06T12:00:00Z",
+        "deltas": [
+            {
+                "signal_kind": "entity",
+                "comparison_key": "entity:brand:the row",
+                "name": "The Row",
+                "signal_type": "brand",
+                "status": "new",
+            },
+            {
+                "signal_kind": "entity",
+                "comparison_key": "entity:product:the row margaux",
+                "name": "The Row Margaux",
+                "signal_type": "product",
+                "status": "new",
+            },
+            {
+                "signal_kind": "entity",
+                "comparison_key": "entity:category:ballet flats",
+                "name": "Ballet Flats",
+                "signal_type": "category",
+                "status": "new",
+            },
+        ],
+    }
 
 
 def make_context(tmp_path: Path, *, python: str = "python-test"):
@@ -148,21 +384,151 @@ def test_validate_json_output_rejects_invalid_json() -> None:
         smoke.validate_json_output("community-candidates", "not json")
 
 
-def test_validate_imported_summary_requires_at_least_one_imported_row() -> None:
-    smoke.validate_imported_summary(
-        "imported-signals-summary",
-        {"row_count": 1, "sources": []},
+def test_validate_sample_csv_requires_expected_rows(tmp_path: Path) -> None:
+    sample = tmp_path / "community.csv"
+    sample.write_text(SAMPLE_CSV_TEXT, encoding="utf-8")
+
+    smoke.validate_sample_csv(sample)
+
+    sample.write_text(
+        "url,title,published_at\nhttps://example.com/a,Wrong,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
     )
-    smoke.validate_imported_summary(
-        "imported-signals-summary",
-        {"sources": [{"source_name": "Community Tool Export", "row_count": 2}]},
+    with pytest.raises(smoke.SmokeError, match="sample CSV row count"):
+        smoke.validate_sample_csv(sample)
+
+
+def test_validate_community_candidates_requires_sample_window_and_rows() -> None:
+    smoke.validate_community_candidates("community-candidates", community_candidates_payload())
+    smoke.validate_community_candidates(
+        "community-candidates-dir",
+        community_candidates_payload(directory=True),
+        directory=True,
     )
 
-    with pytest.raises(smoke.SmokeError, match="at least one imported row"):
-        smoke.validate_imported_summary("imported-signals-summary", {"row_count": 0})
+    wrong_source = community_candidates_payload()
+    wrong_source["source_name"] = "Other"
+    with pytest.raises(smoke.SmokeError, match="source_name"):
+        smoke.validate_community_candidates("community-candidates", wrong_source)
 
-    with pytest.raises(smoke.SmokeError, match="at least one imported row"):
-        smoke.validate_imported_summary("imported-signals-summary", {"sources": []})
+    missing_file_count = community_candidates_payload()
+    with pytest.raises(smoke.SmokeError, match="file_count"):
+        smoke.validate_community_candidates(
+            "community-candidates-dir",
+            missing_file_count,
+            directory=True,
+        )
+
+
+def test_validate_import_outputs_require_two_validated_and_imported_rows() -> None:
+    smoke.validate_import_signals_dry_run(
+        "Validated 2 manual signal rows\nDry run: no rows imported\n"
+    )
+    smoke.validate_import_signals_import(
+        "Validated 2 manual signal rows\nImported 2 manual signal rows\nItems added: 2\n"
+    )
+    smoke.validate_import_signals_dir_dry_run(
+        "Files: 1 total, 1 valid\n"
+        "Rows: 2 import-ready\n"
+        "Sources: Community Tool Export=2\n"
+        "Platforms: community=2\n"
+        "Errors: 0\n"
+        "- /tmp/export/community-signals.csv: 2 rows, 0 errors\n"
+        "No manual signal directory dry-run errors.\n"
+    )
+
+    with pytest.raises(smoke.SmokeError, match="Dry run"):
+        smoke.validate_import_signals_dry_run("Validated 2 manual signal rows\n")
+
+    with pytest.raises(smoke.SmokeError, match="Items added"):
+        smoke.validate_import_signals_import(
+            "Validated 2 manual signal rows\nImported 2 manual signal rows\n"
+        )
+
+    with pytest.raises(smoke.SmokeError, match="Rows: 2 import-ready"):
+        smoke.validate_import_signals_dir_dry_run("Files: 1 total, 1 valid\n")
+
+    with pytest.raises(smoke.SmokeError, match="Items added: 2"):
+        smoke.validate_import_signals_import(
+            "Validated 2 manual signal rows\nImported 2 manual signal rows\nItems added: 20\n"
+        )
+
+
+def test_validate_imported_summary_requires_sample_source_platform_counts() -> None:
+    smoke.validate_imported_summary("imported-signals-summary", imported_summary_payload())
+
+    unmatched = imported_summary_payload()
+    unmatched["matched_count"] = 0
+    with pytest.raises(smoke.SmokeError, match="matched_count"):
+        smoke.validate_imported_summary("imported-signals-summary", unmatched)
+
+    wrong_platform = imported_summary_payload()
+    wrong_platform["platform_counts"] = {"other": 2}
+    with pytest.raises(smoke.SmokeError, match="platform_counts"):
+        smoke.validate_imported_summary("imported-signals-summary", wrong_platform)
+
+
+def test_validate_imported_signals_requires_expected_sample_items() -> None:
+    smoke.validate_imported_signals("imported-signals", imported_signals_payload())
+
+    missing_item = imported_signals_payload()
+    missing_item["items"] = missing_item["items"][:1]  # type: ignore[index]
+    with pytest.raises(smoke.SmokeError, match="exactly two sample items"):
+        smoke.validate_imported_signals("imported-signals", missing_item)
+
+    missing_match = imported_signals_payload()
+    items = missing_match["items"]
+    assert isinstance(items, list)
+    items[0]["matches"] = []  # type: ignore[index]
+    with pytest.raises(smoke.SmokeError, match="Ballet Flats"):
+        smoke.validate_imported_signals("imported-signals", missing_match)
+
+    wrong_status = imported_signals_payload()
+    items = wrong_status["items"]
+    assert isinstance(items, list)
+    items[0]["match_status"] = "unmatched"  # type: ignore[index]
+    with pytest.raises(smoke.SmokeError, match="marked matched"):
+        smoke.validate_imported_signals("imported-signals", wrong_status)
+
+
+def test_validate_report_requires_expected_first_run_entity_sections() -> None:
+    smoke.validate_report_outputs(report_payload(), report_markdown())
+
+    empty_report = report_payload()
+    empty_report["metadata"] = {
+        "generated_at": "2026-06-13T12:00:00Z",
+        "report_date": "2026-06-13T12:00:00Z",
+        "item_count": 0,
+    }
+    empty_report["entities"] = []
+    with pytest.raises(smoke.SmokeError, match="item_count"):
+        smoke.validate_report_outputs(empty_report, report_markdown())
+
+    with pytest.raises(smoke.SmokeError, match="empty entity signal"):
+        smoke.validate_report_outputs(
+            report_payload(),
+            report_markdown() + "\nNo entity signals in this window.\n",
+        )
+
+
+def test_validate_candidates_and_trends_pin_expected_first_run_state() -> None:
+    smoke.validate_candidates("candidates", [], report_payload())
+    smoke.validate_trends("trends", trends_payload())
+
+    with pytest.raises(smoke.SmokeError, match="candidates"):
+        smoke.validate_candidates("candidates", [{"phrase": "unexpected"}], report_payload())
+
+    missing_delta = trends_payload()
+    missing_delta["deltas"] = [{"signal_kind": "entity", "name": "The Row"}]
+    with pytest.raises(smoke.SmokeError, match="entity delta names"):
+        smoke.validate_trends("trends", missing_delta)
+
+    wrong_kind = trends_payload()
+    deltas = wrong_kind["deltas"]
+    assert isinstance(deltas, list)
+    deltas[0]["signal_kind"] = "candidate"  # type: ignore[index]
+    with pytest.raises(smoke.SmokeError, match="signal_kind"):
+        smoke.validate_trends("trends", wrong_kind)
 
 
 def test_report_paths_derive_date_from_as_of(tmp_path: Path) -> None:
@@ -522,10 +888,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
 ) -> None:
     example_csv = tmp_path / "examples" / "community-signals.example.csv"
     example_csv.parent.mkdir()
-    example_csv.write_text(
-        "url,title,published_at\nhttps://example.com/a,Le Teckel bag,2026-06-12T08:00:00Z\n",
-        encoding="utf-8",
-    )
+    example_csv.write_text(SAMPLE_CSV_TEXT, encoding="utf-8")
     context = make_context(tmp_path, python=sys.executable)
     captured: list[tuple[str, ...]] = []
 
@@ -546,16 +909,49 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         if command_name == "report":
             context.reports_dir.mkdir(parents=True, exist_ok=True)
             markdown_path, json_path = smoke.report_paths(context)
-            markdown_path.write_text("# Report\n", encoding="utf-8")
-            json_path.write_text("{}", encoding="utf-8")
+            markdown_path.write_text(report_markdown(), encoding="utf-8")
+            json_path.write_text(json.dumps(report_payload()), encoding="utf-8")
+
+        if command_name == "import-signals":
+            output = (
+                "Validated 2 manual signal rows\nDry run: no rows imported\n"
+                if "--dry-run" in args
+                else (
+                    "Validated 2 manual signal rows\n"
+                    "Imported 2 manual signal rows\n"
+                    "Items added: 2\n"
+                )
+            )
+            return subprocess.CompletedProcess(
+                ["python", "-m", "fashion_radar", *args],
+                0,
+                stdout=output,
+                stderr="",
+            )
+
+        if command_name == "import-signals-dir":
+            return subprocess.CompletedProcess(
+                ["python", "-m", "fashion_radar", *args],
+                0,
+                stdout=(
+                    "Files: 1 total, 1 valid\n"
+                    "Rows: 2 import-ready\n"
+                    "Sources: Community Tool Export=2\n"
+                    "Platforms: community=2\n"
+                    "Errors: 0\n"
+                    "- /tmp/export/community-signals.csv: 2 rows, 0 errors\n"
+                    "No manual signal directory dry-run errors.\n"
+                ),
+                stderr="",
+            )
 
         stdout_by_command = {
-            "community-candidates": '{"candidates": []}',
-            "imported-signals-summary": '{"row_count": 1, "sources": []}',
-            "imported-signals": "[]",
-            "candidates": '{"candidates": []}',
-            "trends": '{"trends": []}',
-            "community-candidates-dir": '{"candidates": []}',
+            "community-candidates": json.dumps(community_candidates_payload()),
+            "imported-signals-summary": json.dumps(imported_summary_payload()),
+            "imported-signals": json.dumps(imported_signals_payload()),
+            "candidates": json.dumps([]),
+            "trends": json.dumps(trends_payload()),
+            "community-candidates-dir": json.dumps(community_candidates_payload(directory=True)),
         }
         return subprocess.CompletedProcess(
             ["python", "-m", "fashion_radar", *args],
@@ -576,9 +972,9 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         "community-candidates",
         "import-signals",
         "import-signals",
+        "match",
         "imported-signals-summary",
         "imported-signals",
-        "match",
         "report",
         "candidates",
         "trends",

@@ -118,9 +118,9 @@ uv run fashion-radar community-signal-lint examples/community-signals.example.cs
 uv run fashion-radar community-candidates examples/community-signals.example.csv --input-format csv --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
 uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --imported-at "$AS_OF" --data-dir "$PWD/data"
+uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data" --format json
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
-uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
 uv run fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$AS_OF"
 uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --format json
 uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --format json
@@ -131,8 +131,10 @@ test -s reports/fashion-radar-2026-06-13.json
 Expected repo-local artifacts include `configs/sources.yaml`,
 `configs/entities.yaml`, `configs/scoring.yaml`,
 `data/fashion-radar.sqlite`, `reports/fashion-radar-2026-06-13.md`, and
-`reports/fashion-radar-2026-06-13.json`. To inspect the generated sample
-report, run the dashboard with the same path flags and open
+`reports/fashion-radar-2026-06-13.json`. The deterministic sample is expected
+to produce matched report and trend signals for `The Row`, `The Row Margaux`,
+and `Ballet Flats`. To inspect the generated sample report, run the dashboard
+with the same path flags and open
 `http://127.0.0.1:8501`.
 
 ### Automated First-Run Smoke
@@ -162,14 +164,18 @@ uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 Both modes print `First-run sample smoke passed.` on success and create
 temporary dated reports such as `fashion-radar-2026-06-13.md` and
 `fashion-radar-2026-06-13.json` inside their temporary report directories.
+The automated smoke validates that sample rows import as community signals,
+match the starter entities `The Row`, `The Row Margaux`, and `Ballet Flats`,
+appear in the dated report, produce matching entity trend deltas, and keep
+untracked candidates empty under starter config.
 Temporary smokes do not leave dashboard-inspectable repo-local reports; use the
 manual repo-local sample flow when you want dashboard output under
 `reports/`.
 
 This path does not run live collection, scraping, platform automation,
-monitoring, scheduling, or external services. Candidate and trend JSON commands
-are execution smoke checks; their local business results depend on the checked
-example rows and current starter config.
+monitoring, scheduling, or external services. Candidate and trend JSON outputs
+are local sample content checks from the checked example rows and current
+starter config.
 
 Run the daily workflow step by step:
 

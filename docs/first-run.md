@@ -61,9 +61,9 @@ uv run fashion-radar community-signal-lint examples/community-signals.example.cs
 uv run fashion-radar community-candidates examples/community-signals.example.csv --input-format csv --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
 uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --imported-at "$AS_OF" --data-dir "$PWD/data"
+uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data" --format json
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
-uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
 uv run fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$AS_OF"
 uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --format json
 uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --format json
@@ -76,6 +76,9 @@ Expected sample artifacts are:
 - `data/fashion-radar.sqlite`
 - `reports/fashion-radar-2026-06-13.md`
 - `reports/fashion-radar-2026-06-13.json`
+
+The deterministic sample is expected to produce matched report and trend
+signals for `The Row`, `The Row Margaux`, and `Ballet Flats`.
 
 The community handoff commands are also available for local directory-based
 handoffs: `community-handoff-workflow`, `community-signal-lint-dir`,
@@ -130,6 +133,10 @@ uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 Both automated smoke paths verify temporary dated reports, should not create
 files under repo `data/` or `reports/`, and print
 `First-run sample smoke passed.` on success.
+The automated smoke validates that sample rows import as community signals,
+match the starter entities `The Row`, `The Row Margaux`, and `Ballet Flats`,
+appear in the dated report, produce matching entity trend deltas, and keep
+untracked candidates empty under starter config.
 
 ## Reset The Repo-Local Sample
 
@@ -167,5 +174,5 @@ run `collect`, `run`, or `dashboard`, and it should not create files under repo
 The sample does not perform browser automation, account login, cookies/sessions,
 source/platform connectors, scraping, platform automation, monitoring,
 scheduling, or external services. Candidate and trend outputs are local sample
-checks from the checked-in example; they are not proof of demand, not platform
-coverage, and not source ranking.
+content checks from the checked-in example; they are not proof of demand, not
+platform coverage, and not source ranking.

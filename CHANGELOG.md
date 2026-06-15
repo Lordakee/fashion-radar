@@ -90,6 +90,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Strengthened first-run sample smoke so the checked-in community sample must
+  import, match starter entities, appear in reports, produce entity trend
+  deltas, and keep untracked candidates empty under starter config.
 - Clarified `imported-signals` table output by labeling stored match presence
   as matched rows, and added CLI/read-only SQLite regressions.
 - Aligned CI, contribution docs, PR/issue templates, and upload smoke commands
