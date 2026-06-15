@@ -148,6 +148,13 @@ live collection or launch the dashboard server:
 UV_NO_CONFIG=1 uv run python scripts/check_first_run_smoke.py --repo-root .
 ```
 
+Both first-run smokes use checked-in sample files and temporary config, data,
+report, and export directories only. They do not run `collect`, `run`,
+`dashboard`, scheduler/monitoring commands, scraping/crawling, browser
+automation, account login, cookies/sessions, source/platform connectors,
+platform automation, or external services. A successful source-checkout or
+installed-wheel first-run smoke prints `First-run sample smoke passed.`.
+
 Use `/tmp` for build artifacts:
 
 ```bash

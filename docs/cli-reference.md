@@ -14,13 +14,25 @@ Most operational commands accept path options with dynamic defaults:
 
 Without those flags or environment variables, paths resolve to
 platform-specific user directories. For repo-local experiments, pass the same
-paths through the whole sequence:
+paths through the whole sequence so every command reads and writes the same
+checkout-local config, SQLite, and report locations. The first-run onboarding
+guide in [first-run.md](first-run.md) uses this same path pattern.
 
 ```bash
+AS_OF="2026-06-13T12:00:00Z"
 fashion-radar collect --config-dir "$PWD/configs" --data-dir "$PWD/data"
 fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
-fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$AS_OF"
 ```
+
+With `--as-of "2026-06-13T12:00:00Z"` and `--reports-dir "$PWD/reports"`,
+the report command writes `reports/fashion-radar-2026-06-13.md` and
+`reports/fashion-radar-2026-06-13.json`.
+
+`scripts/check_first_run_smoke.py` is a source-checkout and release-package
+smoke helper used by README, CI, and the upload checklist. It is not a normal
+public `fashion-radar` CLI command; run it with Python when you need the
+deterministic first-run smoke.
 
 ## Setup And Operations
 

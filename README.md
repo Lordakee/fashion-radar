@@ -74,6 +74,19 @@ Package readiness is checked separately before upload by building and smoking a
 local wheel from this checkout; that check does not publish to PyPI. See
 [docs/github-upload-checklist.md](docs/github-upload-checklist.md).
 
+For first-run onboarding, see [docs/first-run.md](docs/first-run.md). Choose
+the path that matches what you need:
+
+- Source checkout smoke: verify the working tree with temporary paths.
+- Manual repo-local sample output/dashboard: create local sample configs,
+  SQLite state, and dated reports you can inspect in the dashboard.
+- Installed-wheel release smoke: build a local wheel and smoke the installed
+  package path before upload; this does not publish to PyPI.
+- Reset repo-local sample output: remove generated sample runtime files after
+  reviewing any local config edits.
+
+Run Quickstart commands from the repository root after `cd /path/to/fashion-radar`.
+
 Create starter config, initialize the repo-local SQLite schema, and check the
 same repo-local workspace:
 
@@ -92,7 +105,8 @@ score, report, monitor, watch, schedule, or touch external platforms.
 Use the checked-in community signal example when you want a deterministic
 first run that produces local output without live source collection. This
 manual flow writes to the repo-local `data/` and `reports/` directories shown
-in the commands:
+in the commands. Run the prerequisite `init`, `migrate-db`, and `doctor` block
+above first so the same repo-local paths are initialized and checked.
 
 ```bash
 AS_OF="2026-06-13T12:00:00Z"
@@ -111,6 +125,13 @@ test -s reports/fashion-radar-2026-06-13.md
 test -s reports/fashion-radar-2026-06-13.json
 ```
 
+Expected repo-local artifacts include `configs/sources.yaml`,
+`configs/entities.yaml`, `configs/scoring.yaml`,
+`data/fashion-radar.sqlite`, `reports/fashion-radar-2026-06-13.md`, and
+`reports/fashion-radar-2026-06-13.json`. To inspect the generated sample
+report, run the dashboard with the same path flags and open
+`http://127.0.0.1:8501`.
+
 ### Automated First-Run Smoke
 
 In a source checkout, the automated local sample smoke uses temporary config, data,
@@ -122,9 +143,9 @@ UV_NO_CONFIG=1 uv run python scripts/check_first_run_smoke.py --repo-root .
 ```
 
 Source checkout mode prepends the checkout `src/` directory so it exercises the
-working tree. The installed wheel smoke builds and installs the local wheel,
-then runs the same sample path with the wheel Python environment and
-`--installed`:
+working tree. Use it to check local source edits. The installed wheel smoke
+builds and installs the local wheel, then runs the same sample path with the
+wheel Python environment and `--installed`; use it to check release packaging:
 
 ```bash
 tmp_build="$(mktemp -d)"
@@ -134,6 +155,13 @@ uv venv "$tmp_env/venv"
 uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 "$tmp_env/venv/bin/python" scripts/check_first_run_smoke.py --repo-root . --python "$tmp_env/venv/bin/python" --installed
 ```
+
+Both modes print `First-run sample smoke passed.` on success and create
+temporary dated reports such as `fashion-radar-2026-06-13.md` and
+`fashion-radar-2026-06-13.json` inside their temporary report directories.
+Temporary smokes do not leave dashboard-inspectable repo-local reports; use the
+manual repo-local sample flow when you want dashboard output under
+`reports/`.
 
 This path does not run live collection, scraping, platform automation,
 monitoring, scheduling, or external services. Candidate and trend JSON commands
@@ -444,6 +472,11 @@ See [docs/daily-digest.md](docs/daily-digest.md).
 
 Use cleanup when you want to prune old collected items:
 
+To reset the deterministic repo-local sample, see
+[docs/first-run.md#reset-the-repo-local-sample](docs/first-run.md#reset-the-repo-local-sample).
+`clean-old-data` is retention pruning for old collected items and matcher rows;
+it is not a full reset of generated configs, reports, or the sample database.
+
 ```bash
 uv run fashion-radar clean-old-data --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --retention-days 30 --dry-run
 uv run fashion-radar clean-old-data --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --retention-days 30
@@ -454,6 +487,7 @@ See [docs/data-retention.md](docs/data-retention.md).
 ## Documentation
 
 - [docs/architecture.md](docs/architecture.md)
+- [docs/first-run.md](docs/first-run.md)
 - [docs/cli-reference.md](docs/cli-reference.md)
 - [docs/source-boundaries.md](docs/source-boundaries.md)
 - [docs/dependency-mirrors.md](docs/dependency-mirrors.md)

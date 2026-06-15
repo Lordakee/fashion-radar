@@ -13,10 +13,12 @@ ROOT = Path(__file__).resolve().parents[1]
 CLI_REFERENCE = ROOT / "docs" / "cli-reference.md"
 UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
 README = ROOT / "README.md"
+FIRST_RUN_DOC = ROOT / "docs" / "first-run.md"
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 
 PATH_CONSISTENCY_DOCS = [
     ROOT / "README.md",
+    ROOT / "docs" / "first-run.md",
     ROOT / "docs" / "cli-reference.md",
     ROOT / "docs" / "manual-signal-import.md",
     ROOT / "docs" / "community-signal-import.md",
@@ -57,6 +59,10 @@ def _public_cli_commands() -> list[str]:
 
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _normalized_doc_text(path: Path) -> str:
+    return " ".join(_read(path).split())
 
 
 def _upload_checklist_help_loop_commands() -> list[str]:
@@ -120,6 +126,39 @@ def _quickstart_fashion_radar_commands(names: set[str]) -> list[str]:
     return commands
 
 
+def _markdown_section(text: str, heading: str) -> str:
+    marker = f"\n{heading}\n"
+    assert marker in f"\n{text}"
+    return text.split(heading, 1)[1].split("\n## ", 1)[0]
+
+
+def _first_run_setup_commands() -> list[str]:
+    section = _markdown_section(_read(FIRST_RUN_DOC), "## Prepare A Source Checkout")
+    return [
+        command
+        for block in _bash_blocks(section)
+        for command in _shell_commands(block)
+        if (match := FASHION_RADAR_COMMAND_RE.search(command)) is not None
+        and match.group("name") in {"init", "migrate-db", "doctor"}
+    ]
+
+
+def _first_run_reset_commands() -> list[str]:
+    section = _markdown_section(_read(FIRST_RUN_DOC), "## Reset The Repo-Local Sample")
+    return [command for block in _bash_blocks(section) for command in _shell_commands(block)]
+
+
+def _first_run_dashboard_commands() -> list[str]:
+    section = _markdown_section(_read(FIRST_RUN_DOC), "## Inspect The Sample In The Dashboard")
+    return [
+        command
+        for block in _bash_blocks(section)
+        for command in _shell_commands(block)
+        if (match := FASHION_RADAR_COMMAND_RE.search(command)) is not None
+        and match.group("name") == "dashboard"
+    ]
+
+
 def _quickstart_cli_args(command: str, tmp_path: Path) -> list[str]:
     match = FASHION_RADAR_COMMAND_RE.search(command)
     assert match is not None
@@ -169,17 +208,18 @@ def test_first_run_smoke_command_is_documented_and_in_ci() -> None:
     checklist = _read(UPLOAD_CHECKLIST)
     ci_workflow = _read(CI_WORKFLOW)
     readme = _read(README)
+    first_run_doc = _read(FIRST_RUN_DOC)
     source_command = "UV_NO_CONFIG=1 uv run python scripts/check_first_run_smoke.py --repo-root ."
     installed_command = (
         '"$tmp_env/venv/bin/python" scripts/check_first_run_smoke.py --repo-root . '
         '--python "$tmp_env/venv/bin/python" --installed'
     )
 
-    for text in (checklist, ci_workflow, readme):
+    for text in (checklist, ci_workflow, readme, first_run_doc):
         assert source_command in text
         assert "scripts/check_first_run_smoke.py" in text
 
-    for text in (checklist, ci_workflow, readme):
+    for text in (checklist, ci_workflow, readme, first_run_doc):
         assert installed_command in text
 
 
@@ -204,6 +244,16 @@ def test_readme_links_current_cli_reference_not_historical_release_gate() -> Non
 
     assert "[docs/cli-reference.md](docs/cli-reference.md)" in text
     assert "docs/release-gate-stage31.md" not in text
+
+
+def test_readme_links_first_run_guide() -> None:
+    text = _read(README)
+    documentation = text.split("## Documentation", 1)[1].split("\n## ", 1)[0]
+
+    assert FIRST_RUN_DOC.exists()
+    assert "[docs/first-run.md](docs/first-run.md)" in text
+    assert "[docs/first-run.md](docs/first-run.md)" in documentation
+    assert "Reset repo-local sample output" in text
 
 
 def test_readme_distinguishes_source_checkout_from_package_smoke() -> None:
@@ -235,6 +285,84 @@ def test_readme_documents_manual_sample_flow_and_automated_smoke_boundary() -> N
         "report, and export directories",
         "should not create files under repo `data/` or `reports/`",
         "does not run live collection",
+    ):
+        assert term in text
+
+
+def test_first_run_guide_documents_paths_outputs_dashboard_reset_and_boundaries() -> None:
+    text = _read(FIRST_RUN_DOC)
+    normalized = _normalized_doc_text(FIRST_RUN_DOC)
+
+    for term in (
+        "Choose Your First Run",
+        "Run first-run commands from the repository root",
+        "Manual Repo-Local Sample Flow",
+        'AS_OF="2026-06-13T12:00:00Z"',
+        "examples/community-signals.example.csv",
+        "community-candidates examples/community-signals.example.csv",
+        "import-signals examples/community-signals.example.csv",
+        "reports/fashion-radar-2026-06-13.md",
+        "reports/fashion-radar-2026-06-13.json",
+        "data/fashion-radar.sqlite",
+        "data/fashion-radar.sqlite-wal",
+        "data/fashion-radar.sqlite-shm",
+        "configs/sources.yaml",
+        "configs/entities.yaml",
+        "configs/scoring.yaml",
+        "Automated First-Run Smoke",
+        "source checkout",
+        "installed wheel",
+        "--installed",
+        "First-run sample smoke passed.",
+        "should not create files under repo `data/` or `reports/`",
+        "browser automation",
+        "account login",
+        "cookies/sessions",
+        "source/platform connectors",
+        "external services",
+        "community-handoff-workflow",
+        "community-signal-lint-dir",
+        "community-candidates-dir",
+        "import-signals-dir",
+        "uv run fashion-radar dashboard --config-dir",
+        "http://127.0.0.1:8501",
+        "Reset The Repo-Local Sample",
+        "Before reset, confirm you are at the repository root",
+        "deletes local experiment state",
+        "keeps `data/README.md` and `reports/README.md`",
+    ):
+        assert term in text
+
+    for term in (
+        "temporary config, data, report, and export directories",
+        "does not run live collection",
+        "does not run `collect`, `run`, or `dashboard`",
+    ):
+        assert term in normalized
+
+
+def test_upload_checklist_documents_first_run_smoke_boundary() -> None:
+    text = _read(UPLOAD_CHECKLIST)
+    normalized = _normalized_doc_text(UPLOAD_CHECKLIST)
+
+    assert "First-run sample smoke passed." in text
+    for term in (
+        "Both first-run smokes use checked-in sample files and temporary config, data, "
+        "report, and export directories only.",
+        "They do not run `collect`, `run`, `dashboard`, scheduler/monitoring commands, "
+        "scraping/crawling, browser automation, account login, cookies/sessions, "
+        "source/platform connectors, platform automation, or external services.",
+    ):
+        assert term in normalized
+
+    for term in (
+        "scraping/crawling",
+        "browser automation",
+        "account login",
+        "cookies/sessions",
+        "source/platform connectors",
+        "platform automation",
+        "external services",
     ):
         assert term in text
 
@@ -308,6 +436,56 @@ def test_readme_quickstart_setup_commands_smoke(tmp_path: Path) -> None:
     assert (data_dir / "fashion-radar.sqlite").exists()
     assert reports_dir.exists()
     assert not any(reports_dir.iterdir())
+
+
+def test_first_run_guide_setup_commands_use_repo_local_paths() -> None:
+    setup_commands = _first_run_setup_commands()
+
+    command_names = [
+        FASHION_RADAR_COMMAND_RE.search(command).group("name") for command in setup_commands
+    ]
+    assert command_names == ["init", "migrate-db", "doctor"]
+    for command in setup_commands:
+        match = FASHION_RADAR_COMMAND_RE.search(command)
+        assert match is not None
+        command_name = match.group("name")
+        assert '--data-dir "$PWD/data"' in command
+        if command_name in {"init", "doctor"}:
+            assert '--config-dir "$PWD/configs"' in command
+            assert '--reports-dir "$PWD/reports"' in command
+
+
+def test_first_run_guide_dashboard_command_uses_repo_local_paths() -> None:
+    commands = _first_run_dashboard_commands()
+
+    assert commands == [
+        'uv run fashion-radar dashboard --config-dir "$PWD/configs" '
+        '--data-dir "$PWD/data" --reports-dir "$PWD/reports" '
+        "--host 127.0.0.1 --port 8501"
+    ]
+
+
+def test_first_run_guide_reset_commands_are_narrow_file_deletions() -> None:
+    assert _first_run_reset_commands() == [
+        "test -f pyproject.toml && test -d examples && { rm -f configs/sources.yaml; "
+        "rm -f configs/entities.yaml; rm -f configs/scoring.yaml; "
+        "rm -f data/fashion-radar.sqlite; rm -f data/fashion-radar.sqlite-wal; "
+        "rm -f data/fashion-radar.sqlite-shm; "
+        "rm -f reports/fashion-radar-2026-06-13.md; "
+        "rm -f reports/fashion-radar-2026-06-13.json; }",
+    ]
+
+
+def test_first_run_guide_setup_commands_smoke(tmp_path: Path) -> None:
+    runner = CliRunner()
+
+    for command in _first_run_setup_commands():
+        parts = [part.replace("$PWD", str(tmp_path)) for part in shlex.split(command)]
+        assert parts[:3] == ["uv", "run", "fashion-radar"]
+
+        result = runner.invoke(app, parts[3:])
+
+        assert result.exit_code == 0, result.output
 
 
 def test_repo_local_operational_examples_keep_path_flags_together() -> None:
