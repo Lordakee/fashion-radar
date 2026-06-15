@@ -57,6 +57,13 @@ examples and a JSON schema for tools that produce sanitized local rows. It is
 not a connector, source pack, platform collector, remote community ingestion
 workflow, or source-acquisition guide.
 
+`community-signal-profile` prints the community handoff producer contract only.
+It does not read handoff files or directories, create config/data/report
+artifacts, open SQLite, fetch URLs, search platforms, log in, store cookies,
+automate browsers, call platform APIs, monitor communities, rank sources,
+verify platform coverage, perform source acquisition, or provide a
+compliance-review workflow.
+
 Community signal lint is local contract validation for one CSV/JSON file or a
 non-recursive batch of matched regular files directly under one local directory.
 It is not a connector, source pack, platform collector, remote community

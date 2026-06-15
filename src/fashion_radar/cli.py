@@ -22,6 +22,10 @@ from fashion_radar.community_handoff_workflow import (
     build_community_handoff_workflow,
     render_community_handoff_workflow_table,
 )
+from fashion_radar.community_signal_profile import (
+    build_community_signal_profile,
+    render_community_signal_profile_table,
+)
 from fashion_radar.community_signals import (
     CommunitySignalFindingSeverity,
     lint_community_signal_directory,
@@ -163,6 +167,7 @@ ManualSignalInputFormat = Literal["csv", "json"]
 CommunityCandidatesOutputFormat = Literal["table", "json"]
 CommunityHandoffWorkflowOutputFormat = Literal["table", "json"]
 CommunitySignalLintOutputFormat = Literal["table", "json"]
+CommunitySignalProfileOutputFormat = Literal["table", "json"]
 ImportSignalsDirOutputFormat = Literal["table", "json"]
 ImportedCandidateEvidenceOutputFormat = Literal["table", "json"]
 ImportedCandidatesOutputFormat = Literal["table", "json"]
@@ -179,6 +184,11 @@ CANDIDATE_FORMAT_OPTION = typer.Option(
     help="Output format.",
 )
 COMMUNITY_SIGNAL_LINT_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+COMMUNITY_SIGNAL_PROFILE_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
@@ -530,6 +540,19 @@ def entity_pack_lint_command(
     )
     if has_errors or (strict and has_warnings):
         raise typer.Exit(1)
+
+
+@app.command(name="community-signal-profile")
+def community_signal_profile_command(
+    output_format: CommunitySignalProfileOutputFormat = (COMMUNITY_SIGNAL_PROFILE_FORMAT_OPTION),
+) -> None:
+    """Print the local community signal producer contract."""
+    profile = build_community_signal_profile()
+    if output_format == "json":
+        typer.echo(profile.model_dump_json(indent=2))
+        return
+    for line in render_community_signal_profile_table(profile):
+        typer.echo(line)
 
 
 @app.command(name="community-signal-lint")

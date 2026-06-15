@@ -11,6 +11,9 @@ config/data/report directories, collect sources, fetch URLs, search platforms,
 monitor communities, package digests, run matching/scoring, or create dashboard
 state.
 
+Run `community-signal-profile --format json` when a local external tool needs a
+machine-readable producer contract before it writes CSV/JSON handoff files.
+
 ## Commands
 
 Lint CSV:

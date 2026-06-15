@@ -50,6 +50,7 @@ SDIST_FILES = [
     "configs/entity-packs/fashion-watchlist.example.yaml",
     "examples/community-signals.example.csv",
     "examples/community-signals.example.json",
+    "examples/community-signal-profile.example.json",
     "schemas/community-signals.schema.json",
     "scripts/check_first_run_smoke.py",
     "src/fashion_radar/cli.py",
@@ -279,6 +280,25 @@ def test_rejects_sdist_without_public_readiness_doc(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "sdist archive missing required file: docs/source-boundaries.md" in result.stderr
+
+
+def test_rejects_sdist_without_community_signal_profile_example(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(
+        build_dir,
+        files=[
+            path for path in SDIST_FILES if path != "examples/community-signal-profile.example.json"
+        ],
+    )
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "sdist archive missing required file: examples/community-signal-profile.example.json"
+    ) in result.stderr
 
 
 def test_rejects_sdist_without_packaged_template_config(tmp_path: Path) -> None:

@@ -4,6 +4,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from fashion_radar.cli import app
+from fashion_radar.community_signal_profile import build_community_signal_profile
 from fashion_radar.community_signals import (
     ALLOWED_COMMUNITY_SIGNAL_FIELDS,
     lint_community_signal_file,
@@ -108,6 +109,16 @@ def test_community_signal_linter_allowed_fields_match_schema() -> None:
     allowed = set(schema["$defs"]["communitySignal"]["properties"])
 
     assert ALLOWED_COMMUNITY_SIGNAL_FIELDS == allowed
+
+
+def test_community_signal_profile_matches_schema_properties() -> None:
+    profile = build_community_signal_profile()
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    signal = schema["$defs"]["communitySignal"]
+
+    assert profile.required_fields == signal["required"]
+    assert set(profile.allowed_fields) == set(signal["properties"])
+    assert profile.csv_header == CSV_EXAMPLE.read_text(encoding="utf-8").splitlines()[0].split(",")
 
 
 def test_community_signal_linter_accepts_repository_examples() -> None:

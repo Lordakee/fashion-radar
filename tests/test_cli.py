@@ -2,6 +2,7 @@ import json
 import os
 import sqlite3
 import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -23,6 +24,8 @@ from fashion_radar.digests import DigestOptions, DigestResult
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceType
 from fashion_radar.models.trend import TrendComparison
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_cli_help() -> None:
@@ -443,6 +446,260 @@ def assert_no_community_lint_artifacts(
     assert list(tmp_path.rglob("latest.*")) == []
     assert list(tmp_path.rglob("report-index.json")) == []
     assert list(tmp_path.rglob("collection-workflow*.json")) == []
+
+
+def test_community_signal_profile_help_lists_format() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["community-signal-profile", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "--format" in result.output
+    assert "producer contract" in result.output
+    for forbidden in (
+        "--config-dir",
+        "--data-dir",
+        "--reports-dir",
+        "--pattern",
+        "--input-format",
+        "--source-name",
+        "--imported-at",
+        "--dry-run",
+    ):
+        assert forbidden not in result.output
+
+
+def test_community_signal_profile_prints_table() -> None:
+    result = CliRunner().invoke(app, ["community-signal-profile"])
+
+    assert result.exit_code == 0
+    assert "Community signal producer profile" in result.output
+    assert "Contract version: community-signals/v1" in result.output
+    assert "CSV header: url, title, published_at" in result.output
+    assert "fashion-radar community-signal-lint-dir" in result.output
+    assert "Does not create config, data, report, dashboard, or SQLite artifacts." in result.output
+
+
+def test_community_signal_profile_prints_json() -> None:
+    result = CliRunner().invoke(app, ["community-signal-profile", "--format", "json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "contract_version",
+        "execution_mode",
+        "schema_path",
+        "example_paths",
+        "supported_input_formats",
+        "csv_header",
+        "required_fields",
+        "optional_fields",
+        "allowed_fields",
+        "prohibited_fields",
+        "json_envelopes",
+        "field_notes",
+        "field_rules",
+        "unsupported_capabilities",
+        "recommended_commands",
+        "boundaries",
+    ]
+    assert payload["contract_version"] == "community-signals/v1"
+    assert payload["execution_mode"] == "print_only"
+    assert payload["schema_path"] == "schemas/community-signals.schema.json"
+    assert payload["supported_input_formats"] == ["csv", "json"]
+    assert payload["csv_header"] == payload["allowed_fields"]
+    assert payload["required_fields"] == ["url", "title", "published_at"]
+    assert payload["unsupported_capabilities"][0] == "scraping"
+
+
+def test_community_signal_profile_json_is_deterministic_across_env_and_cwd(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    first_cwd = tmp_path / "first"
+    second_cwd = tmp_path / "second"
+    first_cwd.mkdir()
+    second_cwd.mkdir()
+
+    monkeypatch.chdir(first_cwd)
+    first = CliRunner().invoke(
+        app,
+        ["community-signal-profile", "--format", "json"],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(first_cwd / "config"),
+            "FASHION_RADAR_DATA_DIR": str(first_cwd / "data"),
+            "FASHION_RADAR_REPORTS_DIR": str(first_cwd / "reports"),
+        },
+    )
+    monkeypatch.chdir(second_cwd)
+    second = CliRunner().invoke(
+        app,
+        ["community-signal-profile", "--format", "json"],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(second_cwd / "config"),
+            "FASHION_RADAR_DATA_DIR": str(second_cwd / "data"),
+            "FASHION_RADAR_REPORTS_DIR": str(second_cwd / "reports"),
+        },
+    )
+
+    assert first.exit_code == 0
+    assert second.exit_code == 0
+    assert json.loads(first.output) == json.loads(second.output)
+
+
+def test_community_signal_profile_does_not_create_project_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        ["community-signal-profile", "--format", "json"],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 0
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_community_signal_profile_does_not_run_side_effect_helpers(
+    monkeypatch,
+) -> None:
+    def fail_side_effect(*args, **kwargs):
+        raise AssertionError("side effect should not run")
+
+    for name in ("iterdir", "glob", "rglob"):
+        monkeypatch.setattr(Path, name, fail_side_effect)
+    monkeypatch.setattr(os, "scandir", fail_side_effect)
+    monkeypatch.setattr(cli_module.subprocess, "run", fail_side_effect)
+    monkeypatch.setattr(subprocess, "Popen", fail_side_effect)
+    monkeypatch.setattr(sqlite3, "connect", fail_side_effect)
+    monkeypatch.setattr(cli_module, "create_sqlite_engine", fail_side_effect)
+    monkeypatch.setattr(cli_module, "initialize_schema", fail_side_effect)
+    monkeypatch.setattr(cli_module, "load_manual_signal_rows", fail_side_effect)
+    monkeypatch.setattr(cli_module, "lint_community_signal_file", fail_side_effect)
+    monkeypatch.setattr(cli_module, "store_manual_signal_rows", fail_side_effect)
+    monkeypatch.setattr(cli_module, "collect_configured_sources", fail_side_effect)
+    monkeypatch.setattr(cli_module, "write_daily_report_files", fail_side_effect)
+    monkeypatch.setattr(cli_module, "package_daily_digest", fail_side_effect)
+
+    result = CliRunner().invoke(app, ["community-signal-profile", "--format", "json"])
+
+    assert result.exit_code == 0
+
+
+def test_community_signal_profile_real_process_does_not_create_artifacts(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "env-data"
+    reports_dir = tmp_path / "env-reports"
+    env = {
+        **os.environ,
+        "PYTHONPATH": str(ROOT / "src"),
+        "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+        "FASHION_RADAR_DATA_DIR": str(data_dir),
+        "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+    }
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "fashion_radar",
+            "community-signal-profile",
+            "--format",
+            "json",
+        ],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert json.loads(result.stdout)["contract_version"] == "community-signals/v1"
+    assert not config_dir.exists()
+    assert not data_dir.exists()
+    assert not reports_dir.exists()
+    assert list(tmp_path.rglob("*.sqlite*")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.json")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.md")) == []
+    assert list(tmp_path.rglob("*digest*")) == []
+    assert list(tmp_path.rglob("latest.*")) == []
+    assert list(tmp_path.rglob("report-index.json")) == []
+
+
+def test_community_signal_profile_invalid_format_exits_without_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "env-reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        ["community-signal-profile", "--format", "yaml"],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code != 0
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
+
+
+def test_community_signal_profile_rejects_unexpected_path_without_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir = tmp_path / "env-config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "env-reports"
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        ["community-signal-profile", "./exports"],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(config_dir),
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code != 0
+    assert_no_community_lint_artifacts(
+        tmp_path,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+    )
 
 
 def test_community_signal_lint_dir_help_lists_options() -> None:

@@ -30,6 +30,28 @@ Use `community-signal-lint` or `community-signal-lint-dir` when you want
 Fashion Radar to enforce the strict community handoff contract before
 dry-run/import.
 
+## Producer Profile
+
+External user-controlled tools can print the local producer contract before
+writing handoff files:
+
+```bash
+uv run fashion-radar community-signal-profile
+uv run fashion-radar community-signal-profile --format json
+```
+
+The profile includes the contract version, supported input formats, canonical
+CSV header, required fields, optional fields, allowed fields, excluded fields,
+accepted JSON envelope shapes, field notes, source-weight bounds, unsupported
+capabilities, and the recommended local lint/preview/dry-run/import/review
+command sequence. A checked-in example is available at
+`examples/community-signal-profile.example.json`. It prints the contract only
+and does not read handoff files or directories, create config/data/report
+directories, open SQLite, fetch URLs, search platforms, log in, store cookies,
+automate browsers, call platform APIs, monitor communities, rank sources,
+verify platform coverage, perform source acquisition, or provide a
+compliance-review workflow.
+
 ## Required Fields
 
 - `url`: source URL or stable reference URL for the observed item.

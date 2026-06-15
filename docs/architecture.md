@@ -11,6 +11,7 @@ YAML config
   -> optionally lint source-pack quality before collection
   -> optionally lint entity-pack quality before matching
   -> collect public sources
+  -> optionally print the community signal producer profile before a local tool writes files
   -> optionally print a community directory handoff checklist without executing it
   -> optionally lint one community signal CSV/JSON file or a local directory batch before import
   -> optionally dry-run matched local signal files in one directory before import
@@ -55,6 +56,9 @@ YAML config
   input path only. They are not connectors or platform collection workflows.
   Community signal import is a documented contract and example set for external
   tools that produce sanitized local files for this same importer.
+  `community-signal-profile` prints that local producer contract for
+  user-controlled tools without reading handoff files, creating artifacts,
+  acquiring sources, monitoring platforms, or performing compliance review.
   `community-candidates` is an in-memory pre-import preview over one local
   handoff file. It sits before manual import and does not write database,
   report, config, or dashboard state.

@@ -68,6 +68,9 @@ deterministic first-run smoke.
   one local directory. Requires `--format csv|json` and `--pattern`. Supports
   `--data-dir`, `--imported-at`, `--dry-run`, `--output-format table|json`, and
   `--source-name`.
+- `community-signal-profile`: print the local producer contract for external
+  user-controlled tools that write sanitized community signal CSV/JSON handoff
+  files; supports `--format table|json`.
 - `community-signal-lint` PATH: lint one community signal handoff file. Requires
   `--input-format csv|json`; supports `--format table|json`, `--source-name`,
   and `--strict`.

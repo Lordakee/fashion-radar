@@ -379,6 +379,22 @@ def test_community_import_docs_promote_checked_in_example_import() -> None:
     )
 
 
+def test_community_signal_profile_docs_are_linked() -> None:
+    readme = _read(README)
+    cli_reference = _read(CLI_REFERENCE)
+    import_doc = _read(ROOT / "docs" / "community-signal-import.md")
+    quality_doc = _read(ROOT / "docs" / "community-signal-quality.md")
+    boundaries = _read(ROOT / "docs" / "source-boundaries.md")
+
+    for text in (readme, cli_reference, import_doc, quality_doc, boundaries):
+        assert "community-signal-profile" in text
+
+    assert "examples/community-signal-profile.example.json" in import_doc
+    assert "producer contract" in import_doc
+    assert "does not read handoff files or directories" in import_doc
+    assert "does not read handoff files or directories" in boundaries
+
+
 def test_community_import_docs_keep_deterministic_review_commands_fixed() -> None:
     text = _read(ROOT / "docs" / "community-signal-import.md")
     review_section = text.split("## Review After Import", 1)[1].split("## Boundary", 1)[0]

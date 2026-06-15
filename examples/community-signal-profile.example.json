@@ -1,0 +1,106 @@
+{
+  "contract_version": "community-signals/v1",
+  "execution_mode": "print_only",
+  "schema_path": "schemas/community-signals.schema.json",
+  "example_paths": [
+    "examples/community-signals.example.csv",
+    "examples/community-signals.example.json"
+  ],
+  "supported_input_formats": [
+    "csv",
+    "json"
+  ],
+  "csv_header": [
+    "url",
+    "title",
+    "published_at",
+    "summary",
+    "source_name",
+    "platform",
+    "source_weight",
+    "collected_at"
+  ],
+  "required_fields": [
+    "url",
+    "title",
+    "published_at"
+  ],
+  "optional_fields": [
+    "summary",
+    "source_name",
+    "platform",
+    "source_weight",
+    "collected_at"
+  ],
+  "allowed_fields": [
+    "url",
+    "title",
+    "published_at",
+    "summary",
+    "source_name",
+    "platform",
+    "source_weight",
+    "collected_at"
+  ],
+  "prohibited_fields": [
+    "account_id",
+    "author_handle",
+    "cookie",
+    "direct_message",
+    "follower_count",
+    "full_post_body",
+    "image_url",
+    "profile_url",
+    "raw_comment",
+    "session",
+    "token",
+    "video_url"
+  ],
+  "json_envelopes": [
+    "top_level_array",
+    "object_with_items_only"
+  ],
+  "field_notes": {
+    "url": "Source URL or stable reference URL for the observed item.",
+    "title": "Short observed text, headline, or normalized signal phrase.",
+    "published_at": "ISO 8601-compatible publication or observation timestamp.",
+    "summary": "Short sanitized note for local review.",
+    "source_name": "Display name for the external tool or local export; import commands can supply a fallback when omitted.",
+    "platform": "Short local provenance label; not platform coverage, source acquisition, demand proof, or source ranking.",
+    "source_weight": "Local score weight accepted in the range (0, 5]; importer default is 1.0 when omitted or blank.",
+    "collected_at": "Timestamp for when the external tool produced the row; importer may use the import timestamp when omitted."
+  },
+  "field_rules": {
+    "source_weight": {
+      "exclusive_minimum": 0,
+      "maximum": 5,
+      "default": 1.0
+    }
+  },
+  "unsupported_capabilities": [
+    "scraping",
+    "browser_automation",
+    "account_login",
+    "cookies_sessions",
+    "platform_api",
+    "compliance_review",
+    "source_acquisition",
+    "media_download",
+    "watching_monitoring",
+    "scheduling"
+  ],
+  "recommended_commands": [
+    "fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern \"*.csv\" --source-name \"Community Tool Export\" --strict",
+    "fashion-radar community-candidates-dir ./exports --input-format csv --pattern \"*.csv\" --config-dir \"$PWD/configs\" --as-of \"$AS_OF\" --source-name \"Community Tool Export\"",
+    "fashion-radar import-signals-dir ./exports --format csv --pattern \"*.csv\" --source-name \"Community Tool Export\" --data-dir \"$PWD/data\" --dry-run",
+    "fashion-radar import-signals-dir ./exports --format csv --pattern \"*.csv\" --source-name \"Community Tool Export\" --imported-at \"$AS_OF\" --data-dir \"$PWD/data\"",
+    "fashion-radar imported-review-workflow --data-dir \"$PWD/data\" --config-dir \"$PWD/configs\" --as-of \"$AS_OF\" --source-name \"Community Tool Export\""
+  ],
+  "boundaries": [
+    "Prints the local handoff contract only.",
+    "Does not read handoff files or directories.",
+    "Does not create config, data, report, dashboard, or SQLite artifacts.",
+    "Does not fetch URLs, search platforms, log in, store cookies, automate browsers, call platform APIs, monitor communities, rank sources, or verify platform coverage.",
+    "Does not provide a compliance-review workflow."
+  ]
+}

@@ -84,6 +84,9 @@ Stage 41 docs freshness check:
 - [ ] Import/review examples that use `$PWD/data` pass `--data-dir "$PWD/data"`
       consistently.
 - [ ] Installed-wheel help smoke covers every current public command.
+- [ ] `community-signal-profile` remains a print-only local producer contract
+      for user-controlled tools, not source acquisition, platform monitoring,
+      or compliance review.
 
 ## Exclude
 
@@ -178,6 +181,7 @@ uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 "$tmp_env/venv/bin/python" scripts/check_first_run_smoke.py --repo-root . --python "$tmp_env/venv/bin/python" --installed
 for cmd in \
   init migrate-db doctor source-pack-lint entity-pack-lint \
+  community-signal-profile \
   community-signal-lint community-signal-lint-dir \
   community-candidates community-candidates-dir community-handoff-workflow \
   import-signals import-signals-dir imported-signals imported-signals-summary \

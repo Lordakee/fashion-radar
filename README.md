@@ -21,6 +21,9 @@ on the sources you configure and local signals you import.
   and imported-row review output only.
 - Lints local community signal CSV/JSON files against the handoff contract
   before import, without fetching URLs or importing rows.
+- Prints the community signal producer contract for user-controlled local tools
+  without reading handoff files, acquiring sources, monitoring platforms, or
+  performing compliance review.
 - Prints a local community directory handoff checklist without reading the
   supplied directory or running the generated commands.
 - Reviews retained `manual_import` rows already stored in local SQLite without
@@ -189,6 +192,7 @@ AS_OF="2026-06-13T12:00:00Z"
 tmp_run="$(mktemp -d)"
 mkdir -p "$tmp_run/exports"
 cp examples/community-signals.example.csv "$tmp_run/exports/community-signals.csv"
+uv run fashion-radar community-signal-profile --format json
 uv run fashion-radar community-signal-lint examples/community-signals.example.csv --input-format csv --source-name "Community Tool Export"
 uv run fashion-radar community-candidates examples/community-signals.example.csv --input-format csv --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export"
 uv run fashion-radar community-candidates examples/community-signals.example.csv --input-format csv --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
