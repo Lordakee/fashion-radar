@@ -96,6 +96,28 @@ def build_community_handoff_workflow(
         ),
         CommunityHandoffWorkflowStep(
             order=3,
+            name="review_handoff_readiness",
+            purpose="Review local handoff readiness before import.",
+            command=_shell_command(
+                "fashion-radar",
+                "community-handoff-check-dir",
+                directory_text,
+                "--input-format",
+                input_format,
+                "--pattern",
+                pattern,
+                "--config-dir",
+                config_text,
+                "--as-of",
+                as_of_text,
+                "--source-name",
+                source_text,
+                "--strict",
+            ),
+            suggested_effect="read_only",
+        ),
+        CommunityHandoffWorkflowStep(
+            order=4,
             name="dry_run_directory_import",
             purpose="Validate matched local files through the importer without writing rows.",
             command=_shell_command(
@@ -117,7 +139,7 @@ def build_community_handoff_workflow(
             suggested_effect="read_only",
         ),
         CommunityHandoffWorkflowStep(
-            order=4,
+            order=5,
             name="import_directory_signals",
             purpose="Import the validated local handoff rows into local SQLite.",
             command=_shell_command(
@@ -138,7 +160,7 @@ def build_community_handoff_workflow(
             suggested_effect="updates_local_imports",
         ),
         CommunityHandoffWorkflowStep(
-            order=5,
+            order=6,
             name="print_post_import_review",
             purpose="Print the local post-import review checklist.",
             command=_shell_command(

@@ -3972,7 +3972,7 @@ def test_community_handoff_workflow_command_prints_json_with_stable_keys(
     ]
     assert payload["directory"] == str(directory)
     assert payload["execution_mode"] == "print_only"
-    assert payload["step_count"] == 5
+    assert payload["step_count"] == 6
     assert list(payload["steps"][0]) == [
         "order",
         "name",
@@ -3983,11 +3983,24 @@ def test_community_handoff_workflow_command_prints_json_with_stable_keys(
     assert [step["name"] for step in payload["steps"]] == [
         "lint_handoff_directory",
         "preview_candidate_phrases",
+        "review_handoff_readiness",
         "dry_run_directory_import",
         "import_directory_signals",
         "print_post_import_review",
     ]
-    assert payload["steps"][3]["suggested_effect"] == "updates_local_imports"
+    readiness_command = payload["steps"][2]["command"]
+    for expected in (
+        "fashion-radar community-handoff-check-dir",
+        "--input-format",
+        "--pattern",
+        "--config-dir",
+        "--as-of",
+        "--source-name",
+        "--strict",
+    ):
+        assert expected in readiness_command
+    assert payload["steps"][4]["suggested_effect"] == "updates_local_imports"
+    assert payload["steps"][5]["suggested_effect"] == "print_only"
     assert not directory.exists()
     assert not config_dir.exists()
     assert not data_dir.exists()
@@ -4023,6 +4036,8 @@ def test_community_handoff_workflow_command_prints_table_without_artifacts(
     assert "Commands were not executed." in result.output
     assert "community-signal-lint-dir" in result.output
     assert "community-candidates-dir" in result.output
+    assert "review_handoff_readiness" in result.output
+    assert "community-handoff-check-dir" in result.output
     assert "import-signals-dir" in result.output
     assert "imported-review-workflow" in result.output
     assert str(directory) in result.output
@@ -4100,6 +4115,8 @@ def test_community_handoff_workflow_does_not_read_directory_or_run_side_effects(
     monkeypatch.setattr(cli_module, "create_sqlite_engine", fail_side_effect)
     monkeypatch.setattr(cli_module, "initialize_schema", fail_side_effect)
     monkeypatch.setattr(cli_module, "load_manual_signal_directory_rows", fail_side_effect)
+    monkeypatch.setattr(cli_module, "lint_community_signal_directory", fail_side_effect)
+    monkeypatch.setattr(cli_module, "check_community_handoff_directory", fail_side_effect)
     monkeypatch.setattr(cli_module, "store_manual_signal_rows", fail_side_effect)
     monkeypatch.setattr(cli_module, "collect_configured_sources", fail_side_effect)
     monkeypatch.setattr(cli_module, "write_daily_report_files", fail_side_effect)
@@ -4126,6 +4143,10 @@ def test_community_handoff_workflow_does_not_read_directory_or_run_side_effects(
     )
 
     assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["step_count"] == 6
+    assert payload["steps"][2]["name"] == "review_handoff_readiness"
+    assert "community-handoff-check-dir" in payload["steps"][2]["command"]
 
 
 def test_community_handoff_manifest_help_lists_options() -> None:
@@ -4280,8 +4301,10 @@ def test_community_handoff_manifest_command_prints_json_with_stable_keys(
         "command",
         "suggested_effect",
     ]
-    assert payload["workflow"]["step_count"] == 5
+    assert payload["workflow"]["step_count"] == 6
     assert payload["workflow"]["steps"][0]["name"] == "lint_handoff_directory"
+    assert payload["workflow"]["steps"][2]["name"] == "review_handoff_readiness"
+    assert "community-handoff-check-dir" in payload["workflow"]["steps"][2]["command"]
     assert not directory.exists()
     assert not config_dir.exists()
     assert not data_dir.exists()
@@ -4352,6 +4375,8 @@ def test_community_handoff_manifest_command_prints_table_without_artifacts(
     assert "community-signal-profile --format json" in result.output
     assert "community-signal-lint-dir" in result.output
     assert "community-candidates-dir" in result.output
+    assert "review_handoff_readiness" in result.output
+    assert "community-handoff-check-dir" in result.output
     assert "import-signals-dir" in result.output
     assert "imported-review-workflow" in result.output
     assert str(directory) in result.output
@@ -4432,6 +4457,7 @@ def test_community_handoff_manifest_does_not_read_directory_or_run_side_effects(
     monkeypatch.setattr(cli_module, "load_manual_signal_directory_rows", fail_side_effect)
     monkeypatch.setattr(cli_module, "lint_community_signal_file", fail_side_effect)
     monkeypatch.setattr(cli_module, "lint_community_signal_directory", fail_side_effect)
+    monkeypatch.setattr(cli_module, "check_community_handoff_directory", fail_side_effect)
     monkeypatch.setattr(cli_module, "store_manual_signal_rows", fail_side_effect)
     monkeypatch.setattr(cli_module, "collect_configured_sources", fail_side_effect)
     monkeypatch.setattr(cli_module, "write_daily_report_files", fail_side_effect)
@@ -4458,6 +4484,10 @@ def test_community_handoff_manifest_does_not_read_directory_or_run_side_effects(
     )
 
     assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["workflow"]["step_count"] == 6
+    assert payload["workflow"]["steps"][2]["name"] == "review_handoff_readiness"
+    assert "community-handoff-check-dir" in payload["workflow"]["steps"][2]["command"]
 
 
 def _fail_imported_review_workflow_builder(*args, **kwargs):

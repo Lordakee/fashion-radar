@@ -82,7 +82,10 @@ signals for `The Row`, `The Row Margaux`, and `Ballet Flats`.
 
 The community handoff commands are also available for local directory-based
 handoffs: `community-handoff-workflow`, `community-signal-lint-dir`,
-`community-candidates-dir`, and `import-signals-dir`.
+`community-candidates-dir`, `community-handoff-check-dir`, and
+`import-signals-dir`. The print-only workflow includes
+`review_handoff_readiness`, a `community-handoff-check-dir` local-only handoff
+readiness report before importing rows, and does not execute commands.
 
 ## Inspect The Sample In The Dashboard
 

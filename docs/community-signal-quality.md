@@ -127,7 +127,12 @@ raw text, normalized keys, candidate contexts, raw validation findings,
 account/private fields, and representative item details out of output.
 `community-handoff-workflow` is different from aggregate preview output: it
 intentionally prints supplied directory/config/data paths inside copyable local
-commands.
+commands. Its printed sequence includes `lint_handoff_directory`,
+`preview_candidate_phrases`, `review_handoff_readiness`,
+`dry_run_directory_import`, `import_directory_signals`, and
+`print_post_import_review`; `review_handoff_readiness` is the copyable
+`community-handoff-check-dir` local-only handoff readiness report
+before importing rows.
 
 `community-handoff-workflow` does not execute commands, read the supplied
 directory, validate files, import rows, open or write SQLite, fetch URLs, log in,

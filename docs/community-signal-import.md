@@ -105,7 +105,11 @@ compliance-review workflow.
 The JSON profile's `recommended_commands` list is the exact producer-facing
 sequence. Prose examples in this guide may add `uv run` and temporary paths for
 source-checkout smoke tests, but they should preserve the same lint, preview,
-dry-run import, import, and review order.
+dry-run import, import, and review order. The profile recommendations remain
+producer-facing and do not include `community-handoff-check-dir`;
+`community-handoff-workflow` adds `review_handoff_readiness` when printing the
+local operator sequence with a local-only handoff readiness report before
+importing rows.
 
 ## Directory Manifest
 
@@ -171,12 +175,44 @@ Example JSON fields:
   ],
   "workflow": {
     "execution_mode": "print_only",
+    "step_count": 6,
     "steps": [
-      "community-signal-lint-dir",
-      "community-candidates-dir",
-      "import-signals-dir --dry-run",
-      "import-signals-dir",
-      "imported-review-workflow"
+      {
+        "order": 1,
+        "name": "lint_handoff_directory",
+        "command": "fashion-radar community-signal-lint-dir ./exports --input-format json --pattern \"*.json\" --source-name \"Community Tool Export\" --strict",
+        "suggested_effect": "read_only"
+      },
+      {
+        "order": 2,
+        "name": "preview_candidate_phrases",
+        "command": "fashion-radar community-candidates-dir ./exports --input-format json --pattern \"*.json\" --config-dir ./configs --as-of 2026-06-13T12:00:00+00:00 --source-name \"Community Tool Export\"",
+        "suggested_effect": "read_only"
+      },
+      {
+        "order": 3,
+        "name": "review_handoff_readiness",
+        "command": "fashion-radar community-handoff-check-dir ./exports --input-format json --pattern \"*.json\" --config-dir ./configs --as-of 2026-06-13T12:00:00+00:00 --source-name \"Community Tool Export\" --strict",
+        "suggested_effect": "read_only"
+      },
+      {
+        "order": 4,
+        "name": "dry_run_directory_import",
+        "command": "fashion-radar import-signals-dir ./exports --format json --pattern \"*.json\" --data-dir ./data --source-name \"Community Tool Export\" --imported-at 2026-06-13T12:00:00+00:00 --dry-run",
+        "suggested_effect": "read_only"
+      },
+      {
+        "order": 5,
+        "name": "import_directory_signals",
+        "command": "fashion-radar import-signals-dir ./exports --format json --pattern \"*.json\" --data-dir ./data --source-name \"Community Tool Export\" --imported-at 2026-06-13T12:00:00+00:00",
+        "suggested_effect": "updates_local_imports"
+      },
+      {
+        "order": 6,
+        "name": "print_post_import_review",
+        "command": "fashion-radar imported-review-workflow --config-dir ./configs --data-dir ./data --as-of 2026-06-13T12:00:00+00:00 --source-name \"Community Tool Export\"",
+        "suggested_effect": "print_only"
+      }
     ]
   }
 }
@@ -186,9 +222,11 @@ The manifest describes the target directory, matched file pattern, suggested
 filename (`community-signals.csv` or `community-signals.json`), producer profile
 fields and pointers, schema/example paths, `directory_example_paths`, field
 notes and rules, prohibited fields, unsupported capabilities, storage guidance,
-and workflow commands. It is local and print-only: it does not execute workflow
-commands, read the supplied directory, validate files, import rows, open SQLite,
-create artifacts, fetch URLs, log in, call platform APIs, monitor communities,
+and workflow commands. The workflow includes `review_handoff_readiness`, which
+prints the `community-handoff-check-dir` local-only handoff readiness report
+before importing rows. It is local and print-only: it does not execute commands,
+read the supplied directory, validate files, import rows, open SQLite, create
+artifacts, fetch URLs, log in, call platform APIs, monitor communities,
 schedule work, add source/platform connectors, prove demand, verify platform
 coverage, or rank sources.
 
@@ -262,14 +300,20 @@ read the directory or execute any workflow step.
 
 `community-handoff-workflow` prints the local sequence
 `community-signal-lint-dir`, `community-candidates-dir`,
-`import-signals-dir --dry-run`, `import-signals-dir`, and
-`imported-review-workflow`. It does not execute commands, read the supplied
-directory, validate files, import rows, open or write SQLite, fetch URLs, log in,
-download media, automate browsers, scrape, monitor, watch folders, schedule
-work, add source/platform connectors, prove demand, verify platform coverage,
-rank sources, write reports, update dashboards, generate configs, or generate
-entity files. It intentionally prints the supplied directory/config/data paths
-inside copyable local commands, unlike aggregate candidate preview output.
+`community-handoff-check-dir`, `import-signals-dir --dry-run`,
+`import-signals-dir`, and `imported-review-workflow`. Its named workflow steps
+are `lint_handoff_directory`, `preview_candidate_phrases`,
+`review_handoff_readiness`, `dry_run_directory_import`,
+`import_directory_signals`, and `print_post_import_review`. The
+`review_handoff_readiness` step prints the `community-handoff-check-dir`
+local-only handoff readiness report before importing rows. It does not execute
+commands, read the supplied directory, validate files, import rows, open or
+write SQLite, fetch URLs, log in, download media, automate browsers, scrape,
+monitor, watch folders, schedule work, add source/platform connectors, prove
+demand, verify platform coverage, rank sources, write reports, update
+dashboards, generate configs, or generate entity files. It intentionally prints
+the supplied directory/config/data paths inside copyable local commands, unlike
+aggregate candidate preview output.
 
 Run one aggregate local readiness report for the same deterministic temporary
 export directory before import:
@@ -384,7 +428,10 @@ Use `community-handoff-workflow` when you want Fashion Radar to print that
 directory order without running any step. It may print supplied
 directory/config/data paths because its output is a copyable local checklist;
 that is different from `community-candidates-dir`, which suppresses paths and
-row details in aggregate preview output.
+row details in aggregate preview output. The order includes
+`review_handoff_readiness`, the `community-handoff-check-dir` local-only
+handoff readiness report before importing rows, and the workflow does not
+execute commands.
 
 See [community-signal-quality.md](community-signal-quality.md).
 
@@ -507,7 +554,9 @@ download media, automate browsers, scrape, monitor, watch folders, schedule work
 add source/platform connectors, prove demand, verify platform coverage, rank
 sources, write reports, update dashboards, generate configs, or generate entity
 files. It only prints copyable local commands and may echo supplied
-directory/config/data paths inside those commands.
+directory/config/data paths inside those commands. Its
+`review_handoff_readiness` step is the `community-handoff-check-dir`
+local-only handoff readiness report before importing rows.
 
 `community-handoff-check-dir` is a local-only handoff readiness report. It
 reads only matched local regular files and local config. It does not import

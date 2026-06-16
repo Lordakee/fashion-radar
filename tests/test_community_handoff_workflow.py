@@ -30,15 +30,18 @@ def test_build_community_handoff_workflow_returns_deterministic_steps() -> None:
     assert workflow.as_of == "2026-06-13T12:00:00+00:00"
     assert workflow.source_name == "Community Tool Export"
     assert workflow.execution_mode == "print_only"
-    assert workflow.step_count == 5
+    assert workflow.step_count == 6
+    assert [step.order for step in workflow.steps] == [1, 2, 3, 4, 5, 6]
     assert [step.name for step in workflow.steps] == [
         "lint_handoff_directory",
         "preview_candidate_phrases",
+        "review_handoff_readiness",
         "dry_run_directory_import",
         "import_directory_signals",
         "print_post_import_review",
     ]
     assert [step.suggested_effect for step in workflow.steps] == [
+        "read_only",
         "read_only",
         "read_only",
         "read_only",
@@ -55,16 +58,21 @@ def test_build_community_handoff_workflow_returns_deterministic_steps() -> None:
         "--source-name 'Community Tool Export'"
     )
     assert workflow.steps[2].command == (
-        "fashion-radar import-signals-dir exports --format csv --pattern '*.csv' "
-        "--data-dir data --source-name 'Community Tool Export' "
-        "--imported-at 2026-06-13T12:00:00+00:00 --dry-run"
+        "fashion-radar community-handoff-check-dir exports --input-format csv "
+        "--pattern '*.csv' --config-dir configs --as-of 2026-06-13T12:00:00+00:00 "
+        "--source-name 'Community Tool Export' --strict"
     )
     assert workflow.steps[3].command == (
         "fashion-radar import-signals-dir exports --format csv --pattern '*.csv' "
         "--data-dir data --source-name 'Community Tool Export' "
-        "--imported-at 2026-06-13T12:00:00+00:00"
+        "--imported-at 2026-06-13T12:00:00+00:00 --dry-run"
     )
     assert workflow.steps[4].command == (
+        "fashion-radar import-signals-dir exports --format csv --pattern '*.csv' "
+        "--data-dir data --source-name 'Community Tool Export' "
+        "--imported-at 2026-06-13T12:00:00+00:00"
+    )
+    assert workflow.steps[5].command == (
         "fashion-radar imported-review-workflow --config-dir configs --data-dir data "
         "--as-of 2026-06-13T12:00:00+00:00 --source-name 'Community Tool Export'"
     )
@@ -86,7 +94,8 @@ def test_build_community_handoff_workflow_quotes_paths_pattern_and_source_name()
     assert "--pattern '*.json'" in workflow.steps[0].command
     assert "--source-name 'Community | Tool Export'" in workflow.steps[0].command
     assert "--config-dir 'config ? # & %'" in workflow.steps[1].command
-    assert "--data-dir 'data ? # & %'" in workflow.steps[2].command
+    assert "--config-dir 'config ? # & %'" in workflow.steps[2].command
+    assert "--data-dir 'data ? # & %'" in workflow.steps[3].command
 
 
 def test_build_community_handoff_workflow_blank_source_name_uses_default() -> None:

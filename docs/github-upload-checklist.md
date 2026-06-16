@@ -68,15 +68,22 @@ Stage 30 docs check:
 
 - [ ] `community-handoff-workflow` docs describe a local print-only directory
       workflow for `community-signal-lint-dir`, `community-candidates-dir`,
-      `import-signals-dir --dry-run`, `import-signals-dir`, and
-      `imported-review-workflow`; no command execution, directory reads, file
-      validation, row import, SQLite open/write, URL fetching, login, media
-      download, browser automation, scraping, monitoring, folder watching,
-      scheduling, source/platform connectors, demand proof, platform coverage
-      verification, source ranking, report writing, dashboard updates, config
-      generation, or entity file generation; and intentional printing of
-      supplied directory/config/data paths inside copyable local commands,
-      unlike aggregate candidate preview output.
+      `community-handoff-check-dir`, `import-signals-dir --dry-run`,
+      `import-signals-dir`, and `imported-review-workflow`; named steps
+      `lint_handoff_directory`, `preview_candidate_phrases`,
+      `review_handoff_readiness`, `dry_run_directory_import`,
+      `import_directory_signals`, and `print_post_import_review`; the
+      `review_handoff_readiness` step as the `community-handoff-check-dir`
+      local-only handoff readiness report before importing rows; does not
+      execute commands, read directories, validate files, import rows, open or
+      write SQLite, fetch URLs, log in, download media, browser automation,
+      scrape/crawl, monitor/watch, schedule, add source/platform connectors,
+      perform source acquisition, prove demand, provide coverage verification,
+      rank sources, write reports, update dashboards, generate configs,
+      generate entity files, or add compliance, policy, authorization, or
+      safety-review product features; and intentional printing of supplied
+      directory/config/data paths inside copyable local commands, unlike
+      aggregate candidate preview output.
 
 Stage 41 docs freshness check:
 
@@ -290,8 +297,36 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" imported-candidate-evidence --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --phrase "Le Teckel bag" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-review-workflow --data-dir "$tmp_run/data ? # & %" --config-dir "$tmp_run/config ? # & %" --as-of "2026-06-13T12:00:00Z" --format json > "$tmp_run/imported-review-workflow.json"
 "$tmp_env/venv/bin/fashion-radar" community-handoff-manifest "$tmp_run/missing ? # & %" --input-format csv --pattern "*.csv" --config-dir "$tmp_run/config ? # & %" --data-dir "$tmp_run/data ? # & %" --as-of "2026-06-13T12:00:00Z" --format json
-"$tmp_env/venv/bin/fashion-radar" community-handoff-workflow "$tmp_run/missing ? # & %" --input-format csv --pattern "*.csv" --config-dir "$tmp_run/config ? # & %" --data-dir "$tmp_run/data ? # & %" --as-of "2026-06-13T12:00:00Z" --format json
+"$tmp_env/venv/bin/fashion-radar" community-handoff-workflow "$tmp_run/missing ? # & %" --input-format csv --pattern "*.csv" --config-dir "$tmp_run/config ? # & %" --data-dir "$tmp_run/data ? # & %" --as-of "2026-06-13T12:00:00Z" --format json > "$tmp_run/community-handoff-workflow.json"
 "$tmp_env/venv/bin/python" -c "from importlib import resources; text = resources.files('fashion_radar.templates').joinpath('daily_report.md').read_text(encoding='utf-8'); assert 'Fashion Radar Daily Report' in text"
+```
+
+Check the installed-wheel community handoff workflow JSON shape. The checklist
+expectation is `step_count == 6`, `review_handoff_readiness`, and a
+`community-handoff-check-dir` local-only handoff readiness report before
+importing rows:
+
+```bash
+"$tmp_env/venv/bin/python" - "$tmp_run/community-handoff-workflow.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+workflow_json = Path(sys.argv[1]).read_text(encoding="utf-8")
+payload = json.loads(workflow_json)
+assert payload["execution_mode"] == "print_only"
+assert payload["step_count"] == 6
+assert [step["name"] for step in payload["steps"]] == [
+    "lint_handoff_directory",
+    "preview_candidate_phrases",
+    "review_handoff_readiness",
+    "dry_run_directory_import",
+    "import_directory_signals",
+    "print_post_import_review",
+]
+assert payload["steps"][2]["name"] == "review_handoff_readiness"
+assert "community-handoff-check-dir" in payload["steps"][2]["command"]
+PY
 ```
 
 Check the installed-wheel workflow JSON shape after the command above. The

@@ -55,6 +55,14 @@ EXPECTED_IMPORTED_REVIEW_WORKFLOW_STEPS = (
     "review_unmatched_imported_rows",
     "review_local_heat_movers",
 )
+EXPECTED_COMMUNITY_HANDOFF_WORKFLOW_STEPS = (
+    "lint_handoff_directory",
+    "preview_candidate_phrases",
+    "review_handoff_readiness",
+    "dry_run_directory_import",
+    "import_directory_signals",
+    "print_post_import_review",
+)
 
 
 class SmokeError(Exception):
@@ -326,6 +334,57 @@ def validate_imported_review_workflow(command_name: str, payload: Any) -> None:
         raise SmokeError(f"{command_name} final heat command missing heat-movers")
     if "--source-name" in heat_command:
         raise SmokeError(f"{command_name} final heat command must not include --source-name")
+
+
+def validate_community_handoff_workflow(command_name: str, payload: Any) -> None:
+    if not isinstance(payload, dict):
+        raise SmokeError(f"{command_name} output must be a JSON object")
+    assert_equal(f"{command_name} execution_mode", payload.get("execution_mode"), "print_only")
+    assert_equal(f"{command_name} step_count", payload.get("step_count"), 6)
+    steps = payload.get("steps")
+    if not isinstance(steps, list):
+        raise SmokeError(f"{command_name} steps must be a list")
+    names = [step.get("name") for step in steps if isinstance(step, dict)]
+    assert_equal(
+        f"{command_name} step names",
+        names,
+        list(EXPECTED_COMMUNITY_HANDOFF_WORKFLOW_STEPS),
+    )
+
+    readiness_step = steps[2]
+    if not isinstance(readiness_step, dict):
+        raise SmokeError(f"{command_name} readiness step must be a JSON object")
+    readiness_command = str(readiness_step.get("command", ""))
+    for expected in (
+        "fashion-radar community-handoff-check-dir",
+        "--input-format",
+        "--pattern",
+        "--config-dir",
+        "--as-of",
+        "--source-name",
+        SOURCE_NAME,
+        "--strict",
+    ):
+        if expected not in readiness_command:
+            raise SmokeError(f"{command_name} readiness command missing {expected!r}")
+
+    import_step = steps[4]
+    if not isinstance(import_step, dict):
+        raise SmokeError(f"{command_name} import step must be a JSON object")
+    assert_equal(
+        f"{command_name} import step effect",
+        import_step.get("suggested_effect"),
+        "updates_local_imports",
+    )
+
+    post_review_step = steps[5]
+    if not isinstance(post_review_step, dict):
+        raise SmokeError(f"{command_name} post-review step must be a JSON object")
+    assert_equal(
+        f"{command_name} post-review step effect",
+        post_review_step.get("suggested_effect"),
+        "print_only",
+    )
 
 
 def validate_report_outputs(json_payload: Any, markdown_text: str) -> None:
@@ -686,22 +745,31 @@ def run_first_run_flow(context: SmokeContext) -> None:
     validate_trends("trends", trends_payload)
 
     prepare_directory_export(context)
-    run_cli(
-        context,
+    community_handoff_workflow = validate_json_output(
         "community-handoff-workflow",
-        str(context.exports_dir),
-        "--config-dir",
-        str(context.config_dir),
-        "--data-dir",
-        str(context.data_dir),
-        "--input-format",
-        "csv",
-        "--pattern",
-        DIR_PATTERN,
-        "--as-of",
-        AS_OF,
-        "--source-name",
-        SOURCE_NAME,
+        run_cli(
+            context,
+            "community-handoff-workflow",
+            str(context.exports_dir),
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--input-format",
+            "csv",
+            "--pattern",
+            DIR_PATTERN,
+            "--as-of",
+            AS_OF,
+            "--source-name",
+            SOURCE_NAME,
+            "--format",
+            "json",
+        ).stdout,
+    )
+    validate_community_handoff_workflow(
+        "community-handoff-workflow",
+        community_handoff_workflow,
     )
     run_cli(
         context,

@@ -112,15 +112,21 @@ workflow, or platform coverage check.
 
 `community-handoff-workflow` prints copyable local commands for
 `community-signal-lint-dir`, `community-candidates-dir`,
-`import-signals-dir --dry-run`, `import-signals-dir`, and
-`imported-review-workflow`. It does not execute commands, read the supplied
-directory, validate files, import rows, open or write SQLite, fetch URLs, log in,
-download media, automate browsers, scrape, monitor, watch folders, schedule
-work, add source/platform connectors, prove demand, verify platform coverage,
-rank sources, write reports, update dashboards, generate configs, or generate
-entity files. It may intentionally print the supplied directory/config/data
-paths inside copyable local commands; this differs from aggregate candidate
-preview output, which suppresses paths and row details.
+`community-handoff-check-dir`, `import-signals-dir --dry-run`,
+`import-signals-dir`, and `imported-review-workflow`. Its named steps are
+`lint_handoff_directory`, `preview_candidate_phrases`,
+`review_handoff_readiness`, `dry_run_directory_import`,
+`import_directory_signals`, and `print_post_import_review`. The
+`review_handoff_readiness` step is the `community-handoff-check-dir`
+local-only handoff readiness report before importing rows. It does not execute
+commands, read the supplied directory, validate files, import rows, open or
+write SQLite, fetch URLs, log in, download media, automate browsers, scrape,
+monitor, watch folders, schedule work, add source/platform connectors, prove
+demand, verify platform coverage, rank sources, write reports, update
+dashboards, generate configs, or generate entity files. It may intentionally
+print the supplied directory/config/data paths inside copyable local commands;
+this differs from aggregate candidate preview output, which suppresses paths
+and row details.
 
 `community-candidates` reads one local CSV/JSON handoff file plus local config
 and prints aggregate candidate phrases. It does not import rows, open SQLite,

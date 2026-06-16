@@ -123,10 +123,12 @@ def test_build_community_handoff_manifest_has_stable_directory_contract() -> Non
         "default": 1.0,
     }
     assert manifest.unsupported_capabilities[0] == "scraping"
-    assert manifest.workflow.step_count == 5
+    assert manifest.workflow.step_count == 6
+    assert [step.order for step in manifest.workflow.steps] == [1, 2, 3, 4, 5, 6]
     assert [step.name for step in manifest.workflow.steps] == [
         "lint_handoff_directory",
         "preview_candidate_phrases",
+        "review_handoff_readiness",
         "dry_run_directory_import",
         "import_directory_signals",
         "print_post_import_review",
@@ -151,7 +153,8 @@ def test_build_community_handoff_manifest_uses_json_filename_and_quotes_workflow
     assert "--pattern '*.json'" in manifest.workflow.steps[0].command
     assert "--source-name 'Community | Tool Export'" in manifest.workflow.steps[0].command
     assert "--config-dir 'config ? # & %'" in manifest.workflow.steps[1].command
-    assert "--data-dir 'data ? # & %'" in manifest.workflow.steps[2].command
+    assert "--config-dir 'config ? # & %'" in manifest.workflow.steps[2].command
+    assert "--data-dir 'data ? # & %'" in manifest.workflow.steps[3].command
 
 
 def test_build_community_handoff_manifest_blank_source_name_uses_workflow_default() -> None:

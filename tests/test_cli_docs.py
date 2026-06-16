@@ -914,6 +914,18 @@ def test_community_handoff_check_dir_docs_are_linked_and_bounded() -> None:
     assert "community-handoff-check-dir" in normalized_changelog
     assert "local-only handoff readiness report" in normalized_changelog
 
+    workflow_docs = (readme, import_doc, cli_reference, checklist, boundaries, architecture)
+    workflow_required_terms = (
+        "review_handoff_readiness",
+        "local-only handoff readiness report",
+        "before importing rows",
+        "does not execute commands",
+    )
+    for doc_text in workflow_docs:
+        normalized = _normalized_text(doc_text).casefold()
+        for term in workflow_required_terms:
+            assert term.casefold() in normalized
+
     profile_command_names = [
         FASHION_RADAR_COMMAND_RE.search(command).group("name")
         for command in build_community_signal_profile().recommended_commands
@@ -927,7 +939,8 @@ def test_community_handoff_check_dir_docs_are_linked_and_bounded() -> None:
             documented_step_text.append(step)
         else:
             documented_step_text.extend(str(step.get(field, "")) for field in ("name", "command"))
-    assert all("community-handoff-check-dir" not in text for text in documented_step_text)
+    assert any("review_handoff_readiness" in text for text in documented_step_text)
+    assert any("community-handoff-check-dir" in text for text in documented_step_text)
 
     generated_manifest = build_community_handoff_manifest(
         directory=Path("exports"),
@@ -941,7 +954,8 @@ def test_community_handoff_check_dir_docs_are_linked_and_bounded() -> None:
     generated_step_text = [
         text for step in generated_manifest.workflow.steps for text in (step.name, step.command)
     ]
-    assert all("community-handoff-check-dir" not in text for text in generated_step_text)
+    assert any("review_handoff_readiness" in text for text in generated_step_text)
+    assert any("community-handoff-check-dir" in text for text in generated_step_text)
 
 
 def test_community_import_docs_keep_deterministic_review_commands_fixed() -> None:

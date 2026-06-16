@@ -309,6 +309,80 @@ def imported_review_workflow_payload() -> dict[str, object]:
     }
 
 
+def community_handoff_workflow_payload() -> dict[str, object]:
+    return {
+        "directory": "/tmp/export",
+        "input_format": "csv",
+        "pattern": "*.csv",
+        "as_of": "2026-06-13T12:00:00+00:00",
+        "config_dir": "configs",
+        "data_dir": "data",
+        "source_name": "Community Tool Export",
+        "execution_mode": "print_only",
+        "step_count": 6,
+        "steps": [
+            {
+                "name": "lint_handoff_directory",
+                "command": (
+                    "fashion-radar community-signal-lint-dir /tmp/export "
+                    "--input-format csv --pattern '*.csv' "
+                    "--source-name 'Community Tool Export' --strict"
+                ),
+                "suggested_effect": "read_only",
+            },
+            {
+                "name": "preview_candidate_phrases",
+                "command": (
+                    "fashion-radar community-candidates-dir /tmp/export "
+                    "--input-format csv --pattern '*.csv' --config-dir configs "
+                    "--as-of 2026-06-13T12:00:00+00:00 "
+                    "--source-name 'Community Tool Export'"
+                ),
+                "suggested_effect": "read_only",
+            },
+            {
+                "name": "review_handoff_readiness",
+                "command": (
+                    "fashion-radar community-handoff-check-dir /tmp/export "
+                    "--input-format csv --pattern '*.csv' --config-dir configs "
+                    "--as-of 2026-06-13T12:00:00+00:00 "
+                    "--source-name 'Community Tool Export' --strict"
+                ),
+                "suggested_effect": "read_only",
+            },
+            {
+                "name": "dry_run_directory_import",
+                "command": (
+                    "fashion-radar import-signals-dir /tmp/export --format csv "
+                    "--pattern '*.csv' --data-dir data "
+                    "--source-name 'Community Tool Export' "
+                    "--imported-at 2026-06-13T12:00:00+00:00 --dry-run"
+                ),
+                "suggested_effect": "read_only",
+            },
+            {
+                "name": "import_directory_signals",
+                "command": (
+                    "fashion-radar import-signals-dir /tmp/export --format csv "
+                    "--pattern '*.csv' --data-dir data "
+                    "--source-name 'Community Tool Export' "
+                    "--imported-at 2026-06-13T12:00:00+00:00"
+                ),
+                "suggested_effect": "updates_local_imports",
+            },
+            {
+                "name": "print_post_import_review",
+                "command": (
+                    "fashion-radar imported-review-workflow --config-dir configs "
+                    "--data-dir data --as-of 2026-06-13T12:00:00+00:00 "
+                    "--source-name 'Community Tool Export'"
+                ),
+                "suggested_effect": "print_only",
+            },
+        ],
+    }
+
+
 def make_context(tmp_path: Path, *, python: str = "python-test"):
     runtime_dir = tmp_path / "runtime"
     return smoke.SmokeContext(
@@ -564,6 +638,52 @@ def test_validate_imported_review_workflow_rejects_heat_movers_not_final() -> No
 
     with pytest.raises(smoke.SmokeError, match="step names|final step"):
         smoke.validate_imported_review_workflow("imported-review-workflow", payload)
+
+
+def test_validate_community_handoff_workflow_requires_readiness_step() -> None:
+    smoke.validate_community_handoff_workflow(
+        "community-handoff-workflow",
+        community_handoff_workflow_payload(),
+    )
+
+
+def test_validate_community_handoff_workflow_rejects_missing_readiness_step() -> None:
+    payload = community_handoff_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    del steps[2]
+
+    with pytest.raises(smoke.SmokeError, match="step_count|step names"):
+        smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
+def test_validate_community_handoff_workflow_rejects_incomplete_readiness_command() -> None:
+    payload = community_handoff_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    readiness_step = steps[2]
+    assert isinstance(readiness_step, dict)
+    readiness_step["command"] = (
+        "fashion-radar community-handoff-check-dir /tmp/export "
+        "--input-format csv --pattern '*.csv' --config-dir configs "
+        "--as-of 2026-06-13T12:00:00+00:00 "
+        "--source-name 'Community Tool Export'"
+    )
+
+    with pytest.raises(smoke.SmokeError, match="--strict"):
+        smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
+def test_validate_community_handoff_workflow_requires_import_and_review_effects() -> None:
+    payload = community_handoff_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    import_step = steps[4]
+    assert isinstance(import_step, dict)
+    import_step["suggested_effect"] = "read_only"
+
+    with pytest.raises(smoke.SmokeError, match="import step effect"):
+        smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
 
 
 def test_validate_report_requires_expected_first_run_entity_sections() -> None:
@@ -1023,6 +1143,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         stdout_by_command = {
             "community-candidates": json.dumps(community_candidates_payload()),
             "imported-review-workflow": json.dumps(imported_review_workflow_payload()),
+            "community-handoff-workflow": json.dumps(community_handoff_workflow_payload()),
             "imported-signals-summary": json.dumps(imported_summary_payload()),
             "imported-signals": json.dumps(imported_signals_payload()),
             "candidates": json.dumps([]),
@@ -1124,6 +1245,8 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             assert smoke.AS_OF in command
 
     assert captured[14][1] == str(context.exports_dir)
+    assert "--format" in captured[14]
+    assert "json" in captured[14]
     assert captured[15][1] == str(context.exports_dir)
     assert captured[16][1] == str(context.exports_dir)
     assert captured[17][1] == str(context.exports_dir)

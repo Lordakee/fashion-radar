@@ -76,7 +76,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Local print-only `community-handoff-workflow` command for printing the
   directory community handoff sequence without reading the supplied directory or
   executing generated commands, intentionally including supplied
-  directory/config/data paths inside copyable local commands.
+  directory/config/data paths inside copyable local commands. Stage 61 adds the
+  `review_handoff_readiness` step for the `community-handoff-check-dir`
+  local-only handoff readiness report before importing rows; the workflow does
+  not execute commands.
 - Local print-only `community-handoff-manifest` command for printing a
   directory producer manifest with handoff pattern, suggested filename,
   producer contract fields, storage guidance, and workflow commands without

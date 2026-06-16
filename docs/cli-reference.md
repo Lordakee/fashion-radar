@@ -92,7 +92,17 @@ validates deterministic sample output content, not only command execution.
 - `community-handoff-workflow` DIRECTORY: print a local handoff checklist
   without executing commands. Requires `--as-of`; supports `--config-dir`,
   `--data-dir`, `--input-format`, `--pattern`, `--source-name`, and
-  `--format table|json`.
+  `--format table|json`. The printed steps include
+  `lint_handoff_directory`, `preview_candidate_phrases`,
+  `review_handoff_readiness`, `dry_run_directory_import`,
+  `import_directory_signals`, and `print_post_import_review`; the
+  `review_handoff_readiness` step prints the `community-handoff-check-dir`
+  local-only handoff readiness report before importing rows. The workflow does
+  not execute commands, read directories, import rows, write artifacts, or add
+  platform/source acquisition, scraping, crawling, login, scheduling,
+  monitoring, platform API, media download, connector, demand proof, ranking,
+  coverage verification, entity generation, compliance, policy, authorization,
+  or safety-review features.
 - `community-handoff-check-dir` DIRECTORY: print a local-only handoff readiness
   report for matched local regular files and local config without importing
   rows, opening SQLite, creating config/data/report/dashboard/digest artifacts,

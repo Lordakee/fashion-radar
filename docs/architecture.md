@@ -91,10 +91,16 @@ YAML config
   authorization/safety-review features.
   `community-handoff-workflow` is a print-only helper over the local directory
   handoff sequence. It prints copyable commands for `community-signal-lint-dir`,
-  `community-candidates-dir`, `import-signals-dir --dry-run`,
-  `import-signals-dir`, and `imported-review-workflow` without reading the
-  supplied directory, validating files, importing rows, opening or writing
-  SQLite, fetching URLs, or creating workflow artifacts.
+  `community-candidates-dir`, `community-handoff-check-dir`,
+  `import-signals-dir --dry-run`, `import-signals-dir`, and
+  `imported-review-workflow` as `lint_handoff_directory`,
+  `preview_candidate_phrases`, `review_handoff_readiness`,
+  `dry_run_directory_import`, `import_directory_signals`, and
+  `print_post_import_review`. The `review_handoff_readiness` step is the
+  `community-handoff-check-dir` local-only handoff readiness report before
+  importing rows. The workflow does not execute commands, read the supplied
+  directory, validate files, import rows, open or write SQLite, fetch URLs, or
+  create workflow artifacts.
   `import-signals-dir --dry-run` validates matched regular files directly under
   one local directory through the same importer model without opening SQLite,
   importing rows, or creating workflow artifacts. `import-signals-dir` without
@@ -243,9 +249,14 @@ not execute commands, read the supplied directory, validate files, import rows,
 open or write SQLite, fetch URLs, log in, download media, automate browsers,
 scrape, monitor, watch folders, schedule work, add source/platform connectors,
 prove demand, verify platform coverage, rank sources, write reports, update
-dashboards, generate configs, or generate entity files. It intentionally prints
-the supplied directory/config/data paths inside copyable local commands, unlike
-aggregate candidate preview output.
+dashboards, generate configs, or generate entity files. It prints
+`lint_handoff_directory`, `preview_candidate_phrases`,
+`review_handoff_readiness`, `dry_run_directory_import`,
+`import_directory_signals`, and `print_post_import_review`; the
+`review_handoff_readiness` step is the `community-handoff-check-dir`
+local-only handoff readiness report before importing rows. It intentionally
+prints the supplied directory/config/data paths inside copyable local commands,
+unlike aggregate candidate preview output.
 
 `community-handoff-check-dir` prints a local-only handoff readiness report for
 matched local regular files and local config. It does not import rows, uses no
