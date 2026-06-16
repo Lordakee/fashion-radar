@@ -48,6 +48,8 @@ def test_profile_contract_matches_schema_csv_header_and_constants() -> None:
     assert profile.example_paths == [
         "examples/community-signals.example.csv",
         "examples/community-signals.example.json",
+        "examples/community-tool-handoff.example.csv",
+        "examples/community-tool-handoff.example.json",
     ]
     assert profile.supported_input_formats == ["csv", "json"]
     assert profile.csv_header == _csv_header()
@@ -69,6 +71,20 @@ def test_profile_contract_matches_schema_csv_header_and_constants() -> None:
     }
     assert signal["properties"]["source_weight"]["exclusiveMinimum"] == 0
     assert signal["properties"]["source_weight"]["maximum"] == 5
+
+
+def test_profile_example_paths_exist_and_lint_cleanly() -> None:
+    profile = build_community_signal_profile()
+
+    for relative_path in profile.example_paths:
+        path = ROOT / relative_path
+        input_format = path.suffix.removeprefix(".")
+
+        assert path.exists()
+        assert input_format in profile.supported_input_formats
+        result = lint_community_signal_file(path, input_format=input_format)
+        assert result.ok is True
+        assert result.findings == []
 
 
 def test_profile_has_stable_json_key_order() -> None:

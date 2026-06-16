@@ -49,3 +49,9 @@ paywall bypass, or fragile full social-platform scraping.
 - Social-platform connectors are future experimental opt-ins, not required for
   the core daily report.
 - Reports must preserve source attribution and avoid republishing full articles.
+- Future external community tool handoff work must keep the external tool
+  handoff template limited to sanitized CSV/JSON local file handoff for
+  user-controlled external/community tools. This is not platform collection
+  and does not add connectors, scraping, browser automation, platform APIs,
+  monitoring, scheduling, source acquisition, demand proof, ranking, or
+  coverage verification.

@@ -10,9 +10,12 @@ from fashion_radar.community_signals import (
 COMMUNITY_SIGNAL_CONTRACT_VERSION = "community-signals/v1"
 COMMUNITY_SIGNAL_EXECUTION_MODE = "print_only"
 COMMUNITY_SIGNAL_SCHEMA_PATH = "schemas/community-signals.schema.json"
+# Every path here must be an importable community signal example.
 COMMUNITY_SIGNAL_EXAMPLE_PATHS = [
     "examples/community-signals.example.csv",
     "examples/community-signals.example.json",
+    "examples/community-tool-handoff.example.csv",
+    "examples/community-tool-handoff.example.json",
 ]
 COMMUNITY_SIGNAL_CSV_HEADER = [
     "url",

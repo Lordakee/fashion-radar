@@ -51,6 +51,8 @@ SDIST_FILES = [
     "examples/community-signals.example.csv",
     "examples/community-signals.example.json",
     "examples/community-signal-profile.example.json",
+    "examples/community-tool-handoff.example.csv",
+    "examples/community-tool-handoff.example.json",
     "schemas/community-signals.schema.json",
     "scripts/check_first_run_smoke.py",
     "src/fashion_radar/cli.py",
@@ -298,6 +300,48 @@ def test_rejects_sdist_without_community_signal_profile_example(tmp_path: Path) 
     assert result.returncode == 1
     assert (
         "sdist archive missing required file: examples/community-signal-profile.example.json"
+    ) in result.stderr
+
+
+def test_rejects_sdist_without_community_tool_handoff_csv_template(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(
+        build_dir,
+        files=[
+            path for path in SDIST_FILES if path != "examples/community-tool-handoff.example.csv"
+        ],
+    )
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "sdist archive missing required file: examples/community-tool-handoff.example.csv"
+    ) in result.stderr
+
+
+def test_rejects_sdist_without_community_tool_handoff_json_template(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(
+        build_dir,
+        files=[
+            path for path in SDIST_FILES if path != "examples/community-tool-handoff.example.json"
+        ],
+    )
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "sdist archive missing required file: examples/community-tool-handoff.example.json"
     ) in result.stderr
 
 

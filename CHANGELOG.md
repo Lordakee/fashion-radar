@@ -84,6 +84,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Print-only `community-signal-profile` command and example JSON producer
   contract for external tools that generate sanitized community signal handoff
   files.
+- Stage 54 external tool handoff templates documented at
+  `examples/community-tool-handoff.example.csv` and
+  `examples/community-tool-handoff.example.json` as sanitized CSV/JSON local
+  file handoff templates for user-controlled external/community tools.
 - Stage 53 community handoff guardrail tests for prohibited-field lint
   coverage, producer-profile command order, docs drift, and parser rejection.
 - Optional fashion entity watchlist pack for broader local matching coverage

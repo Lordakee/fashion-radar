@@ -508,6 +508,12 @@ def test_community_signal_profile_prints_json() -> None:
     assert payload["contract_version"] == "community-signals/v1"
     assert payload["execution_mode"] == "print_only"
     assert payload["schema_path"] == "schemas/community-signals.schema.json"
+    assert payload["example_paths"] == [
+        "examples/community-signals.example.csv",
+        "examples/community-signals.example.json",
+        "examples/community-tool-handoff.example.csv",
+        "examples/community-tool-handoff.example.json",
+    ]
     assert payload["supported_input_formats"] == ["csv", "json"]
     assert payload["csv_header"] == payload["allowed_fields"]
     assert payload["required_fields"] == ["url", "title", "published_at"]
@@ -3853,6 +3859,8 @@ def test_community_handoff_manifest_command_prints_json_with_stable_keys(
     assert payload["example_paths"] == [
         "examples/community-signals.example.csv",
         "examples/community-signals.example.json",
+        "examples/community-tool-handoff.example.csv",
+        "examples/community-tool-handoff.example.json",
     ]
     assert payload["csv_header"] == [
         "url",

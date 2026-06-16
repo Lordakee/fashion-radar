@@ -4,7 +4,9 @@
   "schema_path": "schemas/community-signals.schema.json",
   "example_paths": [
     "examples/community-signals.example.csv",
-    "examples/community-signals.example.json"
+    "examples/community-signals.example.json",
+    "examples/community-tool-handoff.example.csv",
+    "examples/community-tool-handoff.example.json"
   ],
   "supported_input_formats": [
     "csv",

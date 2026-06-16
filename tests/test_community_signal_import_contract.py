@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from fashion_radar.cli import app
@@ -14,7 +15,32 @@ from fashion_radar.importers.manual_signals import load_manual_signal_rows
 ROOT = Path(__file__).resolve().parents[1]
 CSV_EXAMPLE = ROOT / "examples" / "community-signals.example.csv"
 JSON_EXAMPLE = ROOT / "examples" / "community-signals.example.json"
+TOOL_HANDOFF_CSV_EXAMPLE = ROOT / "examples" / "community-tool-handoff.example.csv"
+TOOL_HANDOFF_JSON_EXAMPLE = ROOT / "examples" / "community-tool-handoff.example.json"
+COMMUNITY_SIGNAL_EXAMPLES = (
+    (CSV_EXAMPLE, "csv", "Community Tool Export"),
+    (JSON_EXAMPLE, "json", "Community Tool Export"),
+    (TOOL_HANDOFF_CSV_EXAMPLE, "csv", "External Community Tool"),
+    (TOOL_HANDOFF_JSON_EXAMPLE, "json", "External Community Tool"),
+)
+TOOL_HANDOFF_EXAMPLES = (
+    (TOOL_HANDOFF_CSV_EXAMPLE, "csv", "External Community Tool"),
+    (TOOL_HANDOFF_JSON_EXAMPLE, "json", "External Community Tool"),
+)
 SCHEMA_PATH = ROOT / "schemas" / "community-signals.schema.json"
+
+
+def _example_ids(examples) -> list[str]:
+    return [path.name for path, _, _ in examples]
+
+
+def _example_fields(path: Path, input_format: str) -> set[str]:
+    if input_format == "csv":
+        return set(path.read_text(encoding="utf-8").splitlines()[0].split(","))
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    items = payload if isinstance(payload, list) else payload["items"]
+    return set().union(*(item.keys() for item in items))
 
 
 def test_community_signal_csv_example_loads_through_manual_importer() -> None:
@@ -57,6 +83,47 @@ def test_community_signal_json_example_loads_through_manual_importer() -> None:
     assert rows[0].platform == "community"
     assert rows[0].source_weight == 1.4
     assert rows[1].title == "Silver sneaker signal"
+
+
+@pytest.mark.parametrize(
+    ("path", "input_format", "source_name"),
+    COMMUNITY_SIGNAL_EXAMPLES,
+    ids=_example_ids(COMMUNITY_SIGNAL_EXAMPLES),
+)
+def test_community_examples_load_through_manual_importer(
+    path: Path,
+    input_format: str,
+    source_name: str,
+) -> None:
+    rows = load_manual_signal_rows(
+        path,
+        input_format=input_format,
+        default_source_name=source_name,
+    )
+
+    assert len(rows) == 2
+    assert {row.source_name for row in rows} == {source_name}
+    assert {row.platform for row in rows} == {"community"}
+
+
+@pytest.mark.parametrize(
+    ("path", "input_format", "source_name"),
+    TOOL_HANDOFF_EXAMPLES,
+    ids=_example_ids(TOOL_HANDOFF_EXAMPLES),
+)
+def test_community_tool_handoff_examples_use_safe_demo_urls(
+    path: Path,
+    input_format: str,
+    source_name: str,
+) -> None:
+    rows = load_manual_signal_rows(
+        path,
+        input_format=input_format,
+        default_source_name=source_name,
+    )
+
+    assert all(row.url.startswith("https://example.com/") for row in rows)
+    assert {row.platform for row in rows} == {"community"}
 
 
 def test_community_signal_schema_documents_strict_public_contract() -> None:
@@ -103,14 +170,11 @@ def test_community_signal_schema_documents_strict_public_contract() -> None:
 
 
 def test_community_examples_use_same_allowed_contract_fields() -> None:
-    csv_header = CSV_EXAMPLE.read_text(encoding="utf-8").splitlines()[0].split(",")
-    payload = json.loads(JSON_EXAMPLE.read_text(encoding="utf-8"))
-    json_keys = set().union(*(item.keys() for item in payload["items"]))
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     allowed = set(schema["$defs"]["communitySignal"]["properties"])
 
-    assert set(csv_header) <= allowed
-    assert json_keys <= allowed
+    for path, input_format, _source_name in COMMUNITY_SIGNAL_EXAMPLES:
+        assert _example_fields(path, input_format) <= allowed
 
 
 def test_community_signal_linter_allowed_fields_match_schema() -> None:
@@ -131,16 +195,23 @@ def test_community_signal_profile_matches_schema_properties() -> None:
 
 
 def test_community_signal_linter_accepts_repository_examples() -> None:
-    csv_result = lint_community_signal_file(CSV_EXAMPLE, input_format="csv")
-    json_result = lint_community_signal_file(JSON_EXAMPLE, input_format="json")
+    for path, input_format, _source_name in COMMUNITY_SIGNAL_EXAMPLES:
+        result = lint_community_signal_file(path, input_format=input_format)
 
-    assert csv_result.ok is True
-    assert csv_result.findings == []
-    assert json_result.ok is True
-    assert json_result.findings == []
+        assert result.ok is True
+        assert result.findings == []
+        assert result.valid_row_count == 2
 
 
+@pytest.mark.parametrize(
+    ("path", "input_format", "source_name"),
+    COMMUNITY_SIGNAL_EXAMPLES,
+    ids=_example_ids(COMMUNITY_SIGNAL_EXAMPLES),
+)
 def test_import_signals_dry_run_validates_community_examples_without_artifacts(
+    path: Path,
+    input_format: str,
+    source_name: str,
     tmp_path: Path,
 ) -> None:
     config_dir = tmp_path / "config"
@@ -151,41 +222,24 @@ def test_import_signals_dry_run_validates_community_examples_without_artifacts(
         "FASHION_RADAR_DATA_DIR": str(data_dir),
         "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
     }
-    csv_result = CliRunner().invoke(
+    result = CliRunner().invoke(
         app,
         [
             "import-signals",
-            str(CSV_EXAMPLE),
+            str(path),
             "--format",
-            "csv",
+            input_format,
             "--data-dir",
             str(data_dir),
             "--source-name",
-            "Community Tool Export",
-            "--dry-run",
-        ],
-        env=env,
-    )
-    json_result = CliRunner().invoke(
-        app,
-        [
-            "import-signals",
-            str(JSON_EXAMPLE),
-            "--format",
-            "json",
-            "--data-dir",
-            str(data_dir),
-            "--source-name",
-            "Community Tool Export",
+            source_name,
             "--dry-run",
         ],
         env=env,
     )
 
-    assert csv_result.exit_code == 0
-    assert "Validated 2 manual signal rows" in csv_result.output
-    assert json_result.exit_code == 0
-    assert "Validated 2 manual signal rows" in json_result.output
+    assert result.exit_code == 0, result.output
+    assert "Validated 2 manual signal rows" in result.output
     assert not config_dir.exists()
     assert not data_dir.exists()
     assert not reports_dir.exists()

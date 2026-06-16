@@ -21,6 +21,8 @@ on the sources you configure and local signals you import.
   and imported-row review output only.
 - Lints local community signal CSV/JSON files against the handoff contract
   before import, without fetching URLs or importing rows.
+- Documents sanitized CSV/JSON local file handoff templates for
+  user-controlled external/community tools.
 - Prints the community signal producer contract for user-controlled local tools
   without reading handoff files, acquiring sources, monitoring platforms, or
   performing compliance review.
@@ -50,6 +52,15 @@ acquisition guide.
 Stored imported `platform` labels are local provenance metadata only; they are
 not scraping, crawling, social connectors, source acquisition, platform
 coverage, or demand proof.
+
+The external tool handoff templates are sanitized CSV/JSON local file handoff
+templates for user-controlled external/community tools:
+[examples/community-tool-handoff.example.csv](examples/community-tool-handoff.example.csv)
+and
+[examples/community-tool-handoff.example.json](examples/community-tool-handoff.example.json).
+This is not platform collection and does not add connectors, scraping, browser
+automation, platform APIs, monitoring, scheduling, source acquisition, demand
+proof, ranking, or coverage verification.
 
 Future non-core connectors, if ever added, must be explicit opt-ins with clear
 risk labels. They are not required for the core workflow.
@@ -192,6 +203,15 @@ uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Ma
 ```
 
 External community tools can target the local community signal contract:
+
+The external tool handoff template examples are sanitized CSV/JSON local file
+handoff templates for user-controlled external/community tools, not platform
+collection. Use
+[examples/community-tool-handoff.example.csv](examples/community-tool-handoff.example.csv)
+or
+[examples/community-tool-handoff.example.json](examples/community-tool-handoff.example.json)
+as local template shapes before running the same lint, preview, dry-run, import,
+and review commands below.
 
 ```bash
 AS_OF="2026-06-13T12:00:00Z"

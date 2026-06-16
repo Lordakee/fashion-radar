@@ -17,6 +17,18 @@ from fashion_radar.importers.manual_signals import load_manual_signal_rows
 ROOT = Path(__file__).resolve().parents[1]
 CSV_EXAMPLE = ROOT / "examples" / "community-signals.example.csv"
 JSON_EXAMPLE = ROOT / "examples" / "community-signals.example.json"
+TOOL_HANDOFF_CSV_EXAMPLE = ROOT / "examples" / "community-tool-handoff.example.csv"
+TOOL_HANDOFF_JSON_EXAMPLE = ROOT / "examples" / "community-tool-handoff.example.json"
+COMMUNITY_SIGNAL_EXAMPLES = (
+    (CSV_EXAMPLE, "csv", "Community Tool Export"),
+    (JSON_EXAMPLE, "json", "Community Tool Export"),
+    (TOOL_HANDOFF_CSV_EXAMPLE, "csv", "External Community Tool"),
+    (TOOL_HANDOFF_JSON_EXAMPLE, "json", "External Community Tool"),
+)
+
+
+def _example_ids() -> list[str]:
+    return [path.name for path, _, _ in COMMUNITY_SIGNAL_EXAMPLES]
 
 
 def write_text(path: Path, content: str) -> Path:
@@ -32,25 +44,25 @@ def findings_by_code(result, code: str):
     return [finding for finding in result.findings if finding.code == code]
 
 
-def test_repository_csv_example_lints_cleanly() -> None:
-    result = lint_community_signal_file(CSV_EXAMPLE, input_format="csv")
+@pytest.mark.parametrize(
+    ("path", "input_format", "source_name"),
+    COMMUNITY_SIGNAL_EXAMPLES,
+    ids=_example_ids(),
+)
+def test_repository_examples_lint_cleanly(
+    path: Path,
+    input_format: str,
+    source_name: str,
+) -> None:
+    result = lint_community_signal_file(path, input_format=input_format)
 
+    assert result.ok is True
+    assert result.findings == []
     assert result.error_count == 0
     assert result.warning_count == 0
     assert result.row_count == 2
     assert result.valid_row_count == 2
-    assert result.source_name_counts == {"Community Tool Export": 2}
-    assert result.platform_counts == {"community": 2}
-
-
-def test_repository_json_example_lints_cleanly() -> None:
-    result = lint_community_signal_file(JSON_EXAMPLE, input_format="json")
-
-    assert result.error_count == 0
-    assert result.warning_count == 0
-    assert result.row_count == 2
-    assert result.valid_row_count == 2
-    assert result.source_name_counts == {"Community Tool Export": 2}
+    assert result.source_name_counts == {source_name: 2}
     assert result.platform_counts == {"community": 2}
 
 

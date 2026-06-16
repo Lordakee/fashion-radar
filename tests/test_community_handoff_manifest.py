@@ -81,6 +81,8 @@ def test_build_community_handoff_manifest_has_stable_directory_contract() -> Non
     assert manifest.example_paths == [
         "examples/community-signals.example.csv",
         "examples/community-signals.example.json",
+        "examples/community-tool-handoff.example.csv",
+        "examples/community-tool-handoff.example.json",
     ]
     assert manifest.csv_header == [
         "url",

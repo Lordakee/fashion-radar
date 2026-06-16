@@ -16,6 +16,10 @@ UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
 README = ROOT / "README.md"
 FIRST_RUN_DOC = ROOT / "docs" / "first-run.md"
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
+COMMUNITY_TOOL_HANDOFF_TEMPLATE_PATHS = (
+    "examples/community-tool-handoff.example.csv",
+    "examples/community-tool-handoff.example.json",
+)
 
 PATH_CONSISTENCY_DOCS = [
     ROOT / "README.md",
@@ -64,6 +68,17 @@ def _read(path: Path) -> str:
 
 def _normalized_doc_text(path: Path) -> str:
     return " ".join(_read(path).split())
+
+
+def _normalized_text(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _assert_markdown_link_to_path(text: str, path: str) -> None:
+    assert re.search(
+        rf"\[[^\]]+\]\((?:\.\./)?{re.escape(path)}\)",
+        text,
+    ), f"Missing markdown link for {path}"
 
 
 def _upload_checklist_help_loop_commands() -> list[str]:
@@ -496,6 +511,63 @@ def test_community_handoff_manifest_docs_are_linked_and_warn_about_storage() -> 
     assert (
         '"$tmp_env/venv/bin/fashion-radar" community-handoff-manifest "$tmp_run/missing ? # & %"'
     ) in checklist
+
+
+def test_external_community_tool_handoff_template_docs_are_linked_and_bounded() -> None:
+    readme = _read(README)
+    import_doc = _read(ROOT / "docs" / "community-signal-import.md")
+    checklist = _read(UPLOAD_CHECKLIST)
+    boundaries = _read(ROOT / "docs" / "source-boundaries.md")
+    architecture = _read(ROOT / "docs" / "architecture.md")
+    agents = _read(ROOT / "AGENTS.md")
+    changelog = _read(ROOT / "CHANGELOG.md")
+
+    for text in (readme, import_doc, checklist):
+        for path in COMMUNITY_TOOL_HANDOFF_TEMPLATE_PATHS:
+            _assert_markdown_link_to_path(text, path)
+
+    boundary_terms = (
+        "external tool handoff template",
+        "sanitized CSV/JSON",
+        "user-controlled external/community tools",
+        "not platform collection",
+        "connectors",
+        "scraping",
+        "browser automation",
+        "platform APIs",
+        "monitoring",
+        "scheduling",
+        "source acquisition",
+        "demand proof",
+        "ranking",
+        "coverage verification",
+    )
+    for doc_text in (readme, import_doc, boundaries, architecture):
+        normalized = _normalized_text(doc_text).casefold()
+        for term in boundary_terms:
+            assert term.casefold() in normalized
+
+    normalized_agents = _normalized_text(agents).casefold()
+    assert "external community tool handoff" in normalized_agents
+    assert "sanitized CSV/JSON".casefold() in normalized_agents
+    for term in (
+        "connectors",
+        "scraping",
+        "browser automation",
+        "platform APIs",
+        "monitoring",
+        "scheduling",
+        "source acquisition",
+        "demand proof",
+        "ranking",
+        "coverage verification",
+    ):
+        assert term.casefold() in normalized_agents
+
+    normalized_changelog = _normalized_text(changelog).casefold()
+    assert "external tool handoff templates" in normalized_changelog
+    for path in COMMUNITY_TOOL_HANDOFF_TEMPLATE_PATHS:
+        assert path in normalized_changelog
 
 
 def test_community_import_docs_keep_deterministic_review_commands_fixed() -> None:

@@ -13,6 +13,8 @@ service.
 
 - `examples/community-signals.example.csv`
 - `examples/community-signals.example.json`
+- [examples/community-tool-handoff.example.csv](../examples/community-tool-handoff.example.csv)
+- [examples/community-tool-handoff.example.json](../examples/community-tool-handoff.example.json)
 - `schemas/community-signals.schema.json`
 
 The examples are importable templates. The schema documents the strict JSON
@@ -29,6 +31,19 @@ fields.
 Use `community-signal-lint` or `community-signal-lint-dir` when you want
 Fashion Radar to enforce the strict community handoff contract before
 dry-run/import.
+
+## External Tool Handoff Templates
+
+The external tool handoff templates are sanitized CSV/JSON local file handoff
+templates for user-controlled external/community tools:
+[examples/community-tool-handoff.example.csv](../examples/community-tool-handoff.example.csv)
+and
+[examples/community-tool-handoff.example.json](../examples/community-tool-handoff.example.json).
+They are example file shapes for a user-controlled external tool to write
+locally before Fashion Radar lint, preview, dry-run, import, and review steps.
+They are not platform collection and do not add connectors, scraping, browser
+automation, platform APIs, monitoring, scheduling, source acquisition, demand
+proof, ranking, or coverage verification.
 
 ## Producer Profile
 

@@ -102,6 +102,19 @@ Stage 52 docs check:
       export directory or use a filename excluded by the handoff pattern,
       especially for JSON export directories using `--pattern "*.json"`.
 
+External tool handoff template docs check:
+
+- [ ] Docs link
+      [examples/community-tool-handoff.example.csv](../examples/community-tool-handoff.example.csv)
+      and
+      [examples/community-tool-handoff.example.json](../examples/community-tool-handoff.example.json)
+      as sanitized CSV/JSON local file handoff templates for user-controlled
+      external/community tools.
+- [ ] Boundary text says the external tool handoff template is not
+      platform collection and does not add connectors, scraping, browser
+      automation, platform APIs, monitoring, scheduling, source acquisition,
+      demand proof, ranking, or coverage verification.
+
 ## Exclude
 
 Do not commit or upload:

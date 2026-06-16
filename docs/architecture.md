@@ -11,6 +11,8 @@ YAML config
   -> optionally lint source-pack quality before collection
   -> optionally lint entity-pack quality before matching
   -> collect public sources
+  -> optionally copy sanitized CSV/JSON external tool handoff template files
+     for a local external tool
   -> optionally print the community signal producer profile before a local tool writes files
   -> optionally print a community directory handoff checklist without executing it
   -> optionally lint one community signal CSV/JSON file or a local directory batch before import
@@ -56,6 +58,11 @@ YAML config
   input path only. They are not connectors or platform collection workflows.
   Community signal import is a documented contract and example set for external
   tools that produce sanitized local files for this same importer.
+  The external tool handoff templates are sanitized CSV/JSON local file
+  handoff templates for user-controlled external/community tools.
+  This is not platform collection and does not add connectors, scraping,
+  browser automation, platform APIs, monitoring, scheduling, source acquisition,
+  demand proof, ranking, or coverage verification.
   `community-signal-profile` prints that local producer contract for
   user-controlled tools without reading handoff files, creating artifacts,
   acquiring sources, monitoring platforms, or performing compliance review.

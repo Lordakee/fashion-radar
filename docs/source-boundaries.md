@@ -57,6 +57,12 @@ examples and a JSON schema for tools that produce sanitized local rows. It is
 not a connector, source pack, platform collector, remote community ingestion
 workflow, or source-acquisition guide.
 
+The external tool handoff templates are sanitized CSV/JSON local file handoff
+templates for user-controlled external/community tools.
+This is not platform collection and does not add connectors, scraping, browser
+automation, platform APIs, monitoring, scheduling, source acquisition, demand
+proof, ranking, or coverage verification.
+
 `community-signal-profile` prints the community handoff producer contract only.
 It does not read handoff files or directories, create config/data/report
 artifacts, open SQLite, fetch URLs, search platforms, log in, store cookies,
