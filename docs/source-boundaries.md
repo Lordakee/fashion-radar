@@ -63,6 +63,12 @@ This is not platform collection and does not add connectors, scraping, browser
 automation, platform APIs, monitoring, scheduling, source acquisition, demand
 proof, ranking, or coverage verification.
 
+The external community tool export directory examples are sanitized CSV/JSON
+local directory samples for user-controlled external/community tools. They are
+not platform collection and do not add connectors, scraping, browser
+automation, platform APIs, monitoring, scheduling, source acquisition, demand
+proof, ranking, or coverage verification.
+
 `community-signal-profile` prints the community handoff producer contract only.
 It does not read handoff files or directories, create config/data/report
 artifacts, open SQLite, fetch URLs, search platforms, log in, store cookies,

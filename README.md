@@ -62,6 +62,20 @@ This is not platform collection and does not add connectors, scraping, browser
 automation, platform APIs, monitoring, scheduling, source acquisition, demand
 proof, ranking, or coverage verification.
 
+The external community tool export directory examples are sanitized CSV/JSON
+local export directory examples for user-controlled external/community tools:
+[examples/community-tool-handoff-directory.example/README.md](examples/community-tool-handoff-directory.example/README.md),
+[examples/community-tool-handoff-directory.example/csv/community-tool-a.csv](examples/community-tool-handoff-directory.example/csv/community-tool-a.csv),
+[examples/community-tool-handoff-directory.example/csv/community-tool-b.csv](examples/community-tool-handoff-directory.example/csv/community-tool-b.csv),
+[examples/community-tool-handoff-directory.example/json/community-tool-a.json](examples/community-tool-handoff-directory.example/json/community-tool-a.json),
+and
+[examples/community-tool-handoff-directory.example/json/community-tool-b.json](examples/community-tool-handoff-directory.example/json/community-tool-b.json).
+The checked-in `csv/` and `json/` directories are separate non-recursive
+examples for one input format and one matched filename pattern per run. They
+are not platform collection and do not add connectors, scraping, browser
+automation, platform APIs, monitoring, scheduling, source acquisition, demand
+proof, ranking, or coverage verification.
+
 Future non-core connectors, if ever added, must be explicit opt-ins with clear
 risk labels. They are not required for the core workflow.
 

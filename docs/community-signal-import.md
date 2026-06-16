@@ -15,11 +15,18 @@ service.
 - `examples/community-signals.example.json`
 - [examples/community-tool-handoff.example.csv](../examples/community-tool-handoff.example.csv)
 - [examples/community-tool-handoff.example.json](../examples/community-tool-handoff.example.json)
+- [examples/community-tool-handoff-directory.example/README.md](../examples/community-tool-handoff-directory.example/README.md)
+- [examples/community-tool-handoff-directory.example/csv/community-tool-a.csv](../examples/community-tool-handoff-directory.example/csv/community-tool-a.csv)
+- [examples/community-tool-handoff-directory.example/csv/community-tool-b.csv](../examples/community-tool-handoff-directory.example/csv/community-tool-b.csv)
+- [examples/community-tool-handoff-directory.example/json/community-tool-a.json](../examples/community-tool-handoff-directory.example/json/community-tool-a.json)
+- [examples/community-tool-handoff-directory.example/json/community-tool-b.json](../examples/community-tool-handoff-directory.example/json/community-tool-b.json)
 - `schemas/community-signals.schema.json`
 
-The examples are importable templates. The schema documents the strict JSON
-handoff contract for tools that can validate JSON before writing a file for
-Fashion Radar.
+The single-file examples are importable templates. The directory examples show
+a local CSV/JSON export directory layout; their child CSV/JSON files are
+importable handoff samples. The schema documents the strict JSON handoff
+contract for tools that can validate JSON before writing a file for Fashion
+Radar.
 
 JSON producers can validate against `schemas/community-signals.schema.json`.
 CSV producers should emit only the same allowed columns because JSON Schema does
@@ -41,6 +48,31 @@ and
 [examples/community-tool-handoff.example.json](../examples/community-tool-handoff.example.json).
 They are example file shapes for a user-controlled external tool to write
 locally before Fashion Radar lint, preview, dry-run, import, and review steps.
+They are not platform collection and do not add connectors, scraping, browser
+automation, platform APIs, monitoring, scheduling, source acquisition, demand
+proof, ranking, or coverage verification.
+
+## External Tool Export Directory Examples
+
+The external community tool export directory examples are sanitized CSV/JSON
+local export directory examples for user-controlled external/community tools:
+[examples/community-tool-handoff-directory.example/README.md](../examples/community-tool-handoff-directory.example/README.md),
+[examples/community-tool-handoff-directory.example/csv/community-tool-a.csv](../examples/community-tool-handoff-directory.example/csv/community-tool-a.csv),
+[examples/community-tool-handoff-directory.example/csv/community-tool-b.csv](../examples/community-tool-handoff-directory.example/csv/community-tool-b.csv),
+[examples/community-tool-handoff-directory.example/json/community-tool-a.json](../examples/community-tool-handoff-directory.example/json/community-tool-a.json),
+and
+[examples/community-tool-handoff-directory.example/json/community-tool-b.json](../examples/community-tool-handoff-directory.example/json/community-tool-b.json).
+The checked-in `csv/` and `json/` directories are separate non-recursive
+examples because each directory command takes one input format and one matched
+filename pattern per run. These directory paths are documented separately from
+the producer profile `example_paths`, which remain the current importable
+single-file profile examples.
+
+```bash
+uv run fashion-radar community-signal-lint-dir examples/community-tool-handoff-directory.example/csv --input-format csv --pattern "*.csv" --source-name "External Community Tool" --strict
+uv run fashion-radar import-signals-dir examples/community-tool-handoff-directory.example/json --format json --pattern "*.json" --source-name "External Community Tool" --data-dir "$PWD/data" --dry-run --output-format json
+```
+
 They are not platform collection and do not add connectors, scraping, browser
 automation, platform APIs, monitoring, scheduling, source acquisition, demand
 proof, ranking, or coverage verification.
@@ -107,7 +139,9 @@ Example JSON fields:
   "schema_path": "schemas/community-signals.schema.json",
   "example_paths": [
     "examples/community-signals.example.csv",
-    "examples/community-signals.example.json"
+    "examples/community-signals.example.json",
+    "examples/community-tool-handoff.example.csv",
+    "examples/community-tool-handoff.example.json"
   ],
   "required_fields": ["url", "title", "published_at"],
   "optional_fields": ["summary", "source_name", "platform", "source_weight", "collected_at"],

@@ -88,6 +88,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `examples/community-tool-handoff.example.csv` and
   `examples/community-tool-handoff.example.json` as sanitized CSV/JSON local
   file handoff templates for user-controlled external/community tools.
+- Stage 55 external community tool export directory examples documented at
+  `examples/community-tool-handoff-directory.example/README.md`,
+  `examples/community-tool-handoff-directory.example/csv/community-tool-a.csv`,
+  `examples/community-tool-handoff-directory.example/csv/community-tool-b.csv`,
+  `examples/community-tool-handoff-directory.example/json/community-tool-a.json`,
+  and
+  `examples/community-tool-handoff-directory.example/json/community-tool-b.json`
+  as sanitized CSV/JSON local directory samples for user-controlled
+  external/community tools, not platform collection, connectors, scraping,
+  browser automation, platform APIs, monitoring, scheduling, source acquisition,
+  demand proof, ranking, or coverage verification.
 - Stage 53 community handoff guardrail tests for prohibited-field lint
   coverage, producer-profile command order, docs drift, and parser rejection.
 - Optional fashion entity watchlist pack for broader local matching coverage

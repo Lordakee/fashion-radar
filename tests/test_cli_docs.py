@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import shlex
 from pathlib import Path
@@ -19,6 +20,13 @@ CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 COMMUNITY_TOOL_HANDOFF_TEMPLATE_PATHS = (
     "examples/community-tool-handoff.example.csv",
     "examples/community-tool-handoff.example.json",
+)
+COMMUNITY_TOOL_HANDOFF_DIRECTORY_PATHS = (
+    "examples/community-tool-handoff-directory.example/README.md",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-a.csv",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-b.csv",
+    "examples/community-tool-handoff-directory.example/json/community-tool-a.json",
+    "examples/community-tool-handoff-directory.example/json/community-tool-b.json",
 )
 
 PATH_CONSISTENCY_DOCS = [
@@ -146,6 +154,15 @@ def _markdown_section(text: str, heading: str) -> str:
     marker = f"\n{heading}\n"
     assert marker in f"\n{text}"
     return text.split(heading, 1)[1].split("\n## ", 1)[0]
+
+
+def _first_json_payload_from_section(text: str, heading: str) -> dict[str, object]:
+    section = _markdown_section(text, heading)
+    match = re.search(r"```json\n(?P<payload>.*?)\n```", section, flags=re.DOTALL)
+    assert match is not None
+    payload = json.loads(match.group("payload"))
+    assert isinstance(payload, dict)
+    return payload
 
 
 def _first_run_setup_commands() -> list[str]:
@@ -487,9 +504,7 @@ def test_community_handoff_manifest_docs_are_linked_and_warn_about_storage() -> 
     assert "community-handoff-manifest/v1" in import_doc
     assert "producer_profile_command" in import_doc
     assert "suggested_filename" in import_doc
-    manifest_section = import_doc.split("## Directory Manifest", 1)[1].split(
-        "## Required Fields", 1
-    )[0]
+    manifest_section = _markdown_section(import_doc, "## Directory Manifest")
     for field in (
         "account_id",
         "author_handle",
@@ -511,6 +526,15 @@ def test_community_handoff_manifest_docs_are_linked_and_warn_about_storage() -> 
     assert (
         '"$tmp_env/venv/bin/fashion-radar" community-handoff-manifest "$tmp_run/missing ? # & %"'
     ) in checklist
+
+
+def test_community_handoff_manifest_docs_show_current_profile_example_paths_only() -> None:
+    import_doc = _read(ROOT / "docs" / "community-signal-import.md")
+    manifest_payload = _first_json_payload_from_section(import_doc, "## Directory Manifest")
+
+    assert manifest_payload["example_paths"] == build_community_signal_profile().example_paths
+    for path in COMMUNITY_TOOL_HANDOFF_DIRECTORY_PATHS:
+        assert path not in manifest_payload["example_paths"]
 
 
 def test_external_community_tool_handoff_template_docs_are_linked_and_bounded() -> None:
@@ -568,6 +592,45 @@ def test_external_community_tool_handoff_template_docs_are_linked_and_bounded() 
     assert "external tool handoff templates" in normalized_changelog
     for path in COMMUNITY_TOOL_HANDOFF_TEMPLATE_PATHS:
         assert path in normalized_changelog
+
+
+def test_external_community_tool_directory_example_docs_are_linked_and_bounded() -> None:
+    readme = _read(README)
+    import_doc = _read(ROOT / "docs" / "community-signal-import.md")
+    checklist = _read(UPLOAD_CHECKLIST)
+    boundaries = _read(ROOT / "docs" / "source-boundaries.md")
+    architecture = _read(ROOT / "docs" / "architecture.md")
+    agents = _read(ROOT / "AGENTS.md")
+    changelog = _read(ROOT / "CHANGELOG.md")
+
+    for text in (readme, import_doc, checklist):
+        for path in COMMUNITY_TOOL_HANDOFF_DIRECTORY_PATHS:
+            _assert_markdown_link_to_path(text, path)
+
+    boundary_terms = (
+        "external community tool export directory examples",
+        "sanitized CSV/JSON",
+        "not platform collection",
+        "connectors",
+        "scraping",
+        "browser automation",
+        "platform APIs",
+        "monitoring",
+        "scheduling",
+        "source acquisition",
+        "demand proof",
+        "ranking",
+        "coverage verification",
+    )
+    for doc_text in (readme, import_doc, boundaries, architecture, agents):
+        normalized = _normalized_text(doc_text).casefold()
+        for term in boundary_terms:
+            assert term.casefold() in normalized
+
+    normalized_changelog = _normalized_text(changelog).casefold()
+    assert "external community tool export directory examples" in normalized_changelog
+    for path in COMMUNITY_TOOL_HANDOFF_DIRECTORY_PATHS:
+        assert path.casefold() in normalized_changelog
 
 
 def test_community_import_docs_keep_deterministic_review_commands_fixed() -> None:

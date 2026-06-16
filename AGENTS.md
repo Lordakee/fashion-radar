@@ -55,3 +55,8 @@ paywall bypass, or fragile full social-platform scraping.
   and does not add connectors, scraping, browser automation, platform APIs,
   monitoring, scheduling, source acquisition, demand proof, ranking, or
   coverage verification.
+- Future external community tool export directory examples must stay sanitized
+  CSV/JSON local directory samples for user-controlled external/community
+  tools. They are not platform collection and do not add connectors, scraping,
+  browser automation, platform APIs, monitoring, scheduling, source acquisition,
+  demand proof, ranking, or coverage verification.

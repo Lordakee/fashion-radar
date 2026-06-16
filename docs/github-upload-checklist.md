@@ -115,6 +115,24 @@ External tool handoff template docs check:
       automation, platform APIs, monitoring, scheduling, source acquisition,
       demand proof, ranking, or coverage verification.
 
+External community tool export directory examples docs check:
+
+- [ ] Docs link
+      [examples/community-tool-handoff-directory.example/README.md](../examples/community-tool-handoff-directory.example/README.md),
+      [examples/community-tool-handoff-directory.example/csv/community-tool-a.csv](../examples/community-tool-handoff-directory.example/csv/community-tool-a.csv),
+      [examples/community-tool-handoff-directory.example/csv/community-tool-b.csv](../examples/community-tool-handoff-directory.example/csv/community-tool-b.csv),
+      [examples/community-tool-handoff-directory.example/json/community-tool-a.json](../examples/community-tool-handoff-directory.example/json/community-tool-a.json),
+      and
+      [examples/community-tool-handoff-directory.example/json/community-tool-b.json](../examples/community-tool-handoff-directory.example/json/community-tool-b.json)
+      as sanitized CSV/JSON local export directory examples for
+      user-controlled external/community tools.
+- [ ] Boundary text says the external community tool export directory examples
+      are not platform collection and do not add connectors, scraping, browser
+      automation, platform APIs, monitoring, scheduling, source acquisition,
+      demand proof, ranking, or coverage verification.
+- [ ] Package archive checks require the directory README plus the two CSV and
+      two JSON handoff files.
+
 ## Exclude
 
 Do not commit or upload:

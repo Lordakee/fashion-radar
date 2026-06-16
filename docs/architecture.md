@@ -13,6 +13,8 @@ YAML config
   -> collect public sources
   -> optionally copy sanitized CSV/JSON external tool handoff template files
      for a local external tool
+  -> optionally use checked-in external community tool export directory
+     examples for a local external tool
   -> optionally print the community signal producer profile before a local tool writes files
   -> optionally print a community directory handoff checklist without executing it
   -> optionally lint one community signal CSV/JSON file or a local directory batch before import
@@ -62,6 +64,11 @@ YAML config
   handoff templates for user-controlled external/community tools.
   This is not platform collection and does not add connectors, scraping,
   browser automation, platform APIs, monitoring, scheduling, source acquisition,
+  demand proof, ranking, or coverage verification.
+  The external community tool export directory examples are sanitized CSV/JSON
+  local directory samples for user-controlled external/community tools. They
+  are not platform collection and do not add connectors, scraping, browser
+  automation, platform APIs, monitoring, scheduling, source acquisition,
   demand proof, ranking, or coverage verification.
   `community-signal-profile` prints that local producer contract for
   user-controlled tools without reading handoff files, creating artifacts,

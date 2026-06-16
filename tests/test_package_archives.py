@@ -7,6 +7,8 @@ import tarfile
 import zipfile
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "check_package_archives.py"
 
@@ -53,6 +55,11 @@ SDIST_FILES = [
     "examples/community-signal-profile.example.json",
     "examples/community-tool-handoff.example.csv",
     "examples/community-tool-handoff.example.json",
+    "examples/community-tool-handoff-directory.example/README.md",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-a.csv",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-b.csv",
+    "examples/community-tool-handoff-directory.example/json/community-tool-a.json",
+    "examples/community-tool-handoff-directory.example/json/community-tool-b.json",
     "schemas/community-signals.schema.json",
     "scripts/check_first_run_smoke.py",
     "src/fashion_radar/cli.py",
@@ -343,6 +350,31 @@ def test_rejects_sdist_without_community_tool_handoff_json_template(
     assert (
         "sdist archive missing required file: examples/community-tool-handoff.example.json"
     ) in result.stderr
+
+
+@pytest.mark.parametrize(
+    "missing_path",
+    [
+        "examples/community-tool-handoff-directory.example/csv/community-tool-a.csv",
+        "examples/community-tool-handoff-directory.example/json/community-tool-a.json",
+    ],
+)
+def test_rejects_sdist_without_community_tool_handoff_directory_example(
+    tmp_path: Path,
+    missing_path: str,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(
+        build_dir,
+        files=[path for path in SDIST_FILES if path != missing_path],
+    )
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert f"sdist archive missing required file: {missing_path}" in result.stderr
 
 
 def test_rejects_sdist_without_packaged_template_config(tmp_path: Path) -> None:
