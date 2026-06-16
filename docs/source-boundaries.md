@@ -87,6 +87,14 @@ the matched file pattern, a suggested filename, profile/schema/example
 pointers, producer profile field/rule summaries, a manifest storage note, and
 workflow commands for local external producers.
 
+`community-handoff-check-dir` is a local-only handoff readiness report for
+user-controlled community signal directories. It reads only matched local
+regular files and local config. It does not import rows, uses no SQLite,
+creates no config/data/report/dashboard/digest artifacts, and has no fetch URLs/login/platform
+APIs/download media/browser automation/scrape/crawl/monitor/watch/schedule/connectors/source
+acquisition/demand proof/ranking/coverage verification/entity generation/compliance/policy/
+authorization/safety-review features.
+
 Community signal lint is local contract validation for one CSV/JSON file or a
 non-recursive batch of matched regular files directly under one local directory.
 It is not a connector, source pack, platform collector, remote community
@@ -296,6 +304,13 @@ The public README must explain:
   open/write SQLite, add source/platform connectors, prove demand, verify
   platform coverage, rank sources, write reports, update dashboards, generate
   configs, or generate entity files.
+- Community handoff check directory reports are local-only handoff readiness
+  reports. They read matched local regular files and local config, do not
+  import rows, use no SQLite, create no config/data/report/dashboard/digest
+  artifacts, and add no fetch URLs/login/platform APIs/download media/browser
+  automation/scrape/crawl/monitor/watch/schedule/connectors/source acquisition/
+  demand proof/ranking/coverage verification/entity generation/compliance/
+  policy/authorization/safety-review features.
 - Community candidate directory preview reads matched local files only and
   outputs aggregate candidate phrase metrics only; it is not source acquisition,
   platform/community coverage verification, authorization verification, or a

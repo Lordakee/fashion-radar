@@ -3540,6 +3540,341 @@ def test_imported_review_workflow_command_prints_table() -> None:
     assert "--source-name 'Community | Tool Export'" in result.output
 
 
+def _prepare_community_handoff_check_fixture(
+    tmp_path: Path,
+) -> tuple[Path, Path, Path, Path]:
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text(
+        "version: 1\n"
+        "scoring: {}\n"
+        "candidate_discovery:\n"
+        "  review_min_current_mentions: 1\n"
+        "  review_min_distinct_sources: 1\n"
+        "  min_single_token_mentions: 1\n"
+        "  min_single_token_distinct_sources: 1\n",
+        encoding="utf-8",
+    )
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    directory = tmp_path / "handoff-dir"
+    directory.mkdir()
+    header = "url,title,published_at,summary,source_name,platform,source_weight,collected_at\n"
+    (directory / "first.csv").write_text(
+        header
+        + "https://example.com/check/first,The Row check,2026-06-12T12:00:00Z,"
+        + "Synthetic row,Community Tool Export,community,1.2,2026-06-12T12:05:00Z\n",
+        encoding="utf-8",
+    )
+    (directory / "second.csv").write_text(
+        header
+        + "https://example.com/check/second,Mesh flat check,2026-06-12T13:00:00Z,"
+        + "Synthetic row,Community Tool Export,community,1.1,2026-06-12T13:05:00Z\n",
+        encoding="utf-8",
+    )
+    return config_dir, data_dir, reports_dir, directory
+
+
+def test_community_handoff_check_dir_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["community-handoff-check-dir", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "Check a local community handoff directory without importing rows." in result.output
+    for term in (
+        "--config-dir",
+        "--input-format",
+        "--pattern",
+        "--as-of",
+        "--source-name",
+        "--limit",
+        "--strict",
+        "--format",
+    ):
+        assert term in result.output
+    assert "--dry-run" not in result.output
+    assert "--output-format" not in result.output
+
+
+def test_community_handoff_check_dir_json_reports_readiness(tmp_path: Path) -> None:
+    config_dir, data_dir, reports_dir, directory = _prepare_community_handoff_check_fixture(
+        tmp_path
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-check-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--as-of",
+            "2026-06-16T00:00:00Z",
+            "--source-name",
+            "Community Tool Export",
+            "--limit",
+            "0",
+            "--format",
+            "json",
+        ],
+        env={
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["execution_mode"] == "local_read_only"
+    assert payload["ok"] is True
+    assert payload["failed_check_count"] == 0
+    assert payload["community_signal_lint"]["file_count"] == 2
+    assert payload["candidate_preview"]["limit"] == 0
+    assert payload["import_dry_run"]["valid_file_count"] == 2
+    assert not data_dir.exists()
+    assert not reports_dir.exists()
+
+
+def test_community_handoff_check_dir_strict_warning_exits_nonzero_but_prints_json(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir, reports_dir, directory = _prepare_community_handoff_check_fixture(
+        tmp_path
+    )
+    for file in directory.glob("*.csv"):
+        file.unlink()
+    (directory / "empty.csv").write_text(
+        "url,title,published_at,summary,source_name,platform,source_weight,collected_at\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-check-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--as-of",
+            "2026-06-16T00:00:00Z",
+            "--strict",
+            "--format",
+            "json",
+        ],
+        env={
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    assert payload["warning_count"] == 1
+    assert payload["ok"] is False
+    assert payload["candidate_preview"] is not None
+    assert payload["import_dry_run"]["error_count"] == 0
+
+
+def test_community_handoff_check_dir_reports_invalid_files_without_traceback(
+    tmp_path: Path,
+) -> None:
+    config_dir, _data_dir, _reports_dir, directory = _prepare_community_handoff_check_fixture(
+        tmp_path
+    )
+    for file in directory.glob("*.csv"):
+        file.unlink()
+    (directory / "bad.csv").write_text(
+        "url,title,published_at,author_handle\n"
+        "https://example.com/check/bad,Bad row,not-a-date,@raw\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-check-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--as-of",
+            "2026-06-16T00:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    assert "Traceback" not in result.output
+    payload = json.loads(result.output)
+    assert payload["community_signal_lint"]["error_count"] > 0
+    assert payload["candidate_preview"] is None
+    assert payload["import_dry_run"]["error_count"] > 0
+
+
+def test_community_handoff_check_dir_table_output_is_summary_only(
+    tmp_path: Path,
+) -> None:
+    config_dir, _data_dir, _reports_dir, directory = _prepare_community_handoff_check_fixture(
+        tmp_path
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-check-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--as-of",
+            "2026-06-16T00:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Community handoff directory check." in result.output
+    assert "Does not import rows or write SQLite." in result.output
+    assert "https://example.com/check/first" not in result.output
+
+
+def test_community_handoff_check_dir_invalid_as_of_fails_before_directory_read(
+    tmp_path: Path,
+) -> None:
+    missing_config = tmp_path / "missing-config"
+    missing_directory = tmp_path / "missing-directory"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-check-dir",
+            str(missing_directory),
+            "--config-dir",
+            str(missing_config),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "invalid --as-of" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_community_handoff_check_dir_invalid_config_fails_without_reading_directory(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("not: valid: yaml\n", encoding="utf-8")
+    directory = tmp_path / "signals"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-check-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--as-of",
+            "2026-06-16T00:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Invalid community handoff check config" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_community_handoff_check_dir_rejects_negative_limit() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-check-dir",
+            "signals",
+            "--as-of",
+            "2026-06-16T00:00:00Z",
+            "--limit",
+            "-1",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid value" in result.output
+
+
+def test_community_handoff_check_dir_does_not_write_runtime_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_dir, data_dir, reports_dir, directory = _prepare_community_handoff_check_fixture(
+        tmp_path
+    )
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("write path should not be called")
+
+    monkeypatch.setattr(cli_module, "create_sqlite_engine", forbidden)
+    monkeypatch.setattr(cli_module, "initialize_schema", forbidden)
+    monkeypatch.setattr(cli_module, "store_manual_signal_rows", forbidden)
+    monkeypatch.setattr(cli_module, "collect_configured_sources", forbidden)
+    monkeypatch.setattr(cli_module, "write_daily_report_files", forbidden)
+    monkeypatch.setattr(cli_module, "package_daily_digest", forbidden)
+    monkeypatch.setattr(cli_module.subprocess, "run", forbidden)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "community-handoff-check-dir",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--input-format",
+            "csv",
+            "--pattern",
+            "*.csv",
+            "--as-of",
+            "2026-06-16T00:00:00Z",
+            "--format",
+            "json",
+        ],
+        env={
+            "FASHION_RADAR_DATA_DIR": str(data_dir),
+            "FASHION_RADAR_REPORTS_DIR": str(reports_dir),
+        },
+    )
+
+    assert result.exit_code == 0, result.output
+    assert not data_dir.exists()
+    assert not reports_dir.exists()
+
+
 def test_community_handoff_workflow_help_lists_options() -> None:
     result = CliRunner().invoke(
         app,

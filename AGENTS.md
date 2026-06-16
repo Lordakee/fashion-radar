@@ -60,3 +60,11 @@ paywall bypass, or fragile full social-platform scraping.
   tools. They are not platform collection and do not add connectors, scraping,
   browser automation, platform APIs, monitoring, scheduling, source acquisition,
   demand proof, ranking, or coverage verification.
+- Future community handoff readiness checks must keep
+  `community-handoff-check-dir` as a local-only handoff readiness report for
+  user-controlled community signal directories. It reads only matched local
+  regular files and local config, does not import rows, uses no SQLite, creates
+  no config/data/report/dashboard/digest artifacts, and has no fetch URLs/login/platform
+  APIs/download media/browser automation/scrape/crawl/monitor/watch/schedule/connectors/source
+  acquisition/demand proof/ranking/coverage verification/entity generation/compliance/policy/
+  authorization/safety-review features.

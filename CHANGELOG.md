@@ -81,6 +81,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   directory producer manifest with handoff pattern, suggested filename,
   producer contract fields, storage guidance, and workflow commands without
   reading the supplied directory or executing generated commands.
+- Local-only handoff readiness report `community-handoff-check-dir` for
+  matched local community signal directory files and local config, without
+  importing rows, using SQLite, creating config/data/report/dashboard/digest
+  artifacts, fetching URLs, logging in, calling platform APIs, downloading
+  media, browser automation, scrape/crawl/monitor/watch/schedule/connectors,
+  source acquisition, demand proof, ranking, coverage verification, entity
+  generation, or compliance/policy/authorization/safety-review features.
 - Print-only `community-signal-profile` command and example JSON producer
   contract for external tools that generate sanitized community signal handoff
   files.

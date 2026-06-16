@@ -37,7 +37,8 @@ fields.
 
 Use `community-signal-lint` or `community-signal-lint-dir` when you want
 Fashion Radar to enforce the strict community handoff contract before
-dry-run/import.
+dry-run/import. Use `community-handoff-check-dir` when you want one local-only
+handoff readiness report before import.
 
 ## External Tool Handoff Templates
 
@@ -261,6 +262,28 @@ rank sources, write reports, update dashboards, generate configs, or generate
 entity files. It intentionally prints the supplied directory/config/data paths
 inside copyable local commands, unlike aggregate candidate preview output.
 
+Run one aggregate local readiness report for the same deterministic temporary
+export directory before import:
+
+```bash
+uv run fashion-radar community-handoff-check-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
+```
+
+For your own JSON export directory, use the same local review timestamp:
+
+```bash
+AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar community-handoff-check-dir ./exports --input-format json --pattern "*.json" --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
+```
+
+`community-handoff-check-dir` is a local-only handoff readiness report for
+user-controlled community signal directories. It reads only matched local
+regular files and local config. It does not import rows, uses no SQLite,
+creates no config/data/report/dashboard/digest artifacts, and has no fetch URLs/login/platform
+APIs/download media/browser automation/scrape/crawl/monitor/watch/schedule/connectors/source
+acquisition/demand proof/ranking/coverage verification/entity generation/compliance/policy/
+authorization/safety-review features.
+
 Preview aggregate candidate phrases from the checked-in sample before import:
 
 ```bash
@@ -471,6 +494,13 @@ add source/platform connectors, prove demand, verify platform coverage, rank
 sources, write reports, update dashboards, generate configs, or generate entity
 files. It only prints copyable local commands and may echo supplied
 directory/config/data paths inside those commands.
+
+`community-handoff-check-dir` is a local-only handoff readiness report. It
+reads only matched local regular files and local config. It does not import
+rows, uses no SQLite, creates no config/data/report/dashboard/digest artifacts,
+and has no fetch URLs/login/platform APIs/download media/browser automation/scrape/crawl/monitor/
+watch/schedule/connectors/source acquisition/demand proof/ranking/coverage verification/entity
+generation/compliance/policy/authorization/safety-review features.
 
 `community-candidates-dir` reads only matched regular files directly under the
 local directory passed to it plus local config. It does not recurse, import

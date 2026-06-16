@@ -28,6 +28,8 @@ on the sources you configure and local signals you import.
   performing compliance review.
 - Prints a local community directory handoff checklist without reading the
   supplied directory or running the generated commands.
+- Prints a local-only community directory handoff readiness report without
+  importing rows or writing SQLite.
 - Reviews retained `manual_import` rows already stored in local SQLite without
   importing, collecting, matching, scoring, or writing reports.
 - Stores conservative metadata in a local SQLite database.
@@ -238,6 +240,7 @@ uv run fashion-radar community-candidates examples/community-signals.example.csv
 uv run fashion-radar community-candidates examples/community-signals.example.csv --input-format csv --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
 uv run fashion-radar community-handoff-manifest "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar community-handoff-workflow "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export"
+uv run fashion-radar community-handoff-check-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar community-candidates-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export"
 uv run fashion-radar community-candidates-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
 uv run fashion-radar community-signal-lint-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --source-name "Community Tool Export"
@@ -315,6 +318,14 @@ dashboards, generate configs, or generate entity files. It intentionally prints
 the supplied directory/config/data paths inside copyable local commands; this
 differs from aggregate candidate preview output, which suppresses paths and row
 details.
+
+`community-handoff-check-dir` is a local-only handoff readiness report for
+user-controlled community signal directories. It reads only matched local
+regular files and local config. It does not import rows, uses no SQLite,
+creates no config/data/report/dashboard/digest artifacts, and has no fetch URLs/login/platform
+APIs/download media/browser automation/scrape/crawl/monitor/watch/schedule/connectors/source
+acquisition/demand proof/ranking/coverage verification/entity generation/compliance/policy/
+authorization/safety-review features.
 
 Review untracked candidate signals from configured sources and imported local
 signals:
@@ -443,6 +454,7 @@ run or import:
 AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar community-handoff-manifest ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export"
+uv run fashion-radar community-handoff-check-dir ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export"
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --imported-at "$AS_OF" --data-dir "$PWD/data"
@@ -474,6 +486,13 @@ fetch URLs, log in, download media, automate browsers, scrape, monitor, watch
 folders, schedule work, add source/platform connectors, prove demand, verify
 platform coverage, rank sources, write reports, update dashboards, generate
 configs, or generate entity files.
+
+`community-handoff-check-dir` can print one local-only handoff readiness report
+before import. It reads only matched local regular files and local config. It
+does not import rows, uses no SQLite, creates no config/data/report/dashboard/digest artifacts,
+and has no fetch URLs/login/platform APIs/download media/browser automation/scrape/crawl/
+monitor/watch/schedule/connectors/source acquisition/demand proof/ranking/coverage verification/
+entity generation/compliance/policy/authorization/safety-review features.
 
 `imported-signals` is local and read-only. It opens an existing SQLite database
 in read-only mode and returns retained rows where `source_type` is

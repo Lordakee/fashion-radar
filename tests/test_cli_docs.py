@@ -9,6 +9,7 @@ import typer.main
 from typer.testing import CliRunner
 
 from fashion_radar.cli import app
+from fashion_radar.community_handoff_manifest import build_community_handoff_manifest
 from fashion_radar.community_signal_profile import build_community_signal_profile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -631,6 +632,85 @@ def test_external_community_tool_directory_example_docs_are_linked_and_bounded()
     assert "external community tool export directory examples" in normalized_changelog
     for path in COMMUNITY_TOOL_HANDOFF_DIRECTORY_PATHS:
         assert path.casefold() in normalized_changelog
+
+
+def test_community_handoff_check_dir_docs_are_linked_and_bounded() -> None:
+    readme = _read(README)
+    import_doc = _read(ROOT / "docs" / "community-signal-import.md")
+    cli_reference = _read(CLI_REFERENCE)
+    checklist = _read(UPLOAD_CHECKLIST)
+    boundaries = _read(ROOT / "docs" / "source-boundaries.md")
+    architecture = _read(ROOT / "docs" / "architecture.md")
+    agents = _read(ROOT / "AGENTS.md")
+    changelog = _read(ROOT / "CHANGELOG.md")
+
+    for text in (readme, import_doc, cli_reference, checklist):
+        assert "community-handoff-check-dir" in text
+
+    boundary_terms = (
+        "local-only handoff readiness report",
+        "matched local regular files and local config",
+        "does not import rows",
+        "no SQLite",
+        "no config/data/report/dashboard/digest artifacts",
+        "fetch URLs",
+        "login",
+        "platform APIs",
+        "download media",
+        "browser automation",
+        "scrape/crawl",
+        "monitor",
+        "watch",
+        "schedule",
+        "connectors",
+        "source acquisition",
+        "demand proof",
+        "ranking",
+        "coverage verification",
+        "entity generation",
+        "compliance",
+        "policy",
+        "authorization",
+        "safety-review",
+    )
+    for doc_text in (readme, import_doc, boundaries, architecture, agents):
+        normalized = _normalized_text(doc_text).casefold()
+        assert "community-handoff-check-dir" in normalized
+        for term in boundary_terms:
+            assert term.casefold() in normalized
+
+    normalized_changelog = _normalized_text(changelog).casefold()
+    assert "community-handoff-check-dir" in normalized_changelog
+    assert "local-only handoff readiness report" in normalized_changelog
+
+    profile_command_names = [
+        FASHION_RADAR_COMMAND_RE.search(command).group("name")
+        for command in build_community_signal_profile().recommended_commands
+    ]
+    assert "community-handoff-check-dir" not in profile_command_names
+
+    manifest_payload = _first_json_payload_from_section(import_doc, "## Directory Manifest")
+    documented_step_text: list[str] = []
+    for step in manifest_payload["workflow"]["steps"]:
+        if isinstance(step, str):
+            documented_step_text.append(step)
+        else:
+            documented_step_text.extend(str(step.get(field, "")) for field in ("name", "command"))
+    assert all("community-handoff-check-dir" not in text for text in documented_step_text)
+
+    generated_manifest = build_community_handoff_manifest(
+        directory=Path("exports"),
+        config_dir=Path("configs"),
+        data_dir=Path("data"),
+        input_format="csv",
+        pattern="*.csv",
+        as_of="2026-06-13T12:00:00Z",
+        source_name="Community Tool Export",
+    )
+    generated_step_text = [
+        text for step in generated_manifest.workflow.steps for text in (step.name, step.command)
+    ]
+    assert all("community-handoff-check-dir" not in text for text in generated_step_text)
 
 
 def test_community_import_docs_keep_deterministic_review_commands_fixed() -> None:

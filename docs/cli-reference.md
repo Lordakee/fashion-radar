@@ -93,6 +93,15 @@ validates deterministic sample output content, not only command execution.
   without executing commands. Requires `--as-of`; supports `--config-dir`,
   `--data-dir`, `--input-format`, `--pattern`, `--source-name`, and
   `--format table|json`.
+- `community-handoff-check-dir` DIRECTORY: print a local-only handoff readiness
+  report for matched local regular files and local config without importing
+  rows, opening SQLite, creating config/data/report/dashboard/digest artifacts,
+  or adding fetch URLs/login/platform APIs/download media/browser automation/
+  scrape/crawl/monitor/watch/schedule/connectors/source acquisition/demand
+  proof/ranking/coverage verification/entity generation/compliance/policy/
+  authorization/safety-review features. Requires `--as-of`; supports
+  `--config-dir`, `--input-format`, `--pattern`, `--source-name`, `--limit`,
+  `--strict`, and `--format table|json`.
 
 ## Imported Signal Review
 

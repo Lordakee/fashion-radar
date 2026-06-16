@@ -17,6 +17,7 @@ YAML config
      examples for a local external tool
   -> optionally print the community signal producer profile before a local tool writes files
   -> optionally print a community directory handoff checklist without executing it
+  -> optionally run a local-only community directory handoff readiness report
   -> optionally lint one community signal CSV/JSON file or a local directory batch before import
   -> optionally dry-run matched local signal files in one directory before import
   -> optionally import user-provided local CSV/JSON signals from one file or one directory
@@ -76,6 +77,13 @@ YAML config
   `community-candidates` is an in-memory pre-import preview over one local
   handoff file. It sits before manual import and does not write database,
   report, config, or dashboard state.
+  `community-handoff-check-dir` is a local-only handoff readiness report for
+  user-controlled community signal directories. It reads only matched local
+  regular files and local config. It does not import rows, uses no SQLite,
+  creates no config/data/report/dashboard/digest artifacts, and has no fetch URLs/login/platform
+  APIs/download media/browser automation/scrape/crawl/monitor/watch/schedule/connectors/source
+  acquisition/demand proof/ranking/coverage verification/entity generation/compliance/policy/
+  authorization/safety-review features.
   `community-handoff-workflow` is a print-only helper over the local directory
   handoff sequence. It prints copyable commands for `community-signal-lint-dir`,
   `community-candidates-dir`, `import-signals-dir --dry-run`,
@@ -171,6 +179,7 @@ fashion-radar source-pack-lint ./configs/sources.yaml --strict
 fashion-radar entity-pack-lint ./configs/entities.yaml
 fashion-radar collect --config-dir ./configs --data-dir ./data
 fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --data-dir ./data --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
+fashion-radar community-handoff-check-dir ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar community-signal-lint ./signals.csv --input-format csv --source-name "Manual Export"
 fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Manual Export"
 fashion-radar community-candidates-dir ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
@@ -216,6 +225,13 @@ prove demand, verify platform coverage, rank sources, write reports, update
 dashboards, generate configs, or generate entity files. It intentionally prints
 the supplied directory/config/data paths inside copyable local commands, unlike
 aggregate candidate preview output.
+
+`community-handoff-check-dir` prints a local-only handoff readiness report for
+matched local regular files and local config. It does not import rows, uses no
+SQLite, creates no config/data/report/dashboard/digest artifacts, and has no
+fetch URLs/login/platform APIs/download media/browser automation/scrape/crawl/monitor/
+watch/schedule/connectors/source acquisition/demand proof/ranking/coverage verification/entity
+generation/compliance/policy/authorization/safety-review features.
 
 ## Source-Pack Quality Boundary
 

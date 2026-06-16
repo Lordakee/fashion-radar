@@ -102,6 +102,16 @@ Stage 52 docs check:
       export directory or use a filename excluded by the handoff pattern,
       especially for JSON export directories using `--pattern "*.json"`.
 
+Stage 56 docs check:
+
+- [ ] `community-handoff-check-dir` docs describe a local-only handoff
+      readiness report that reads matched local regular files and local config;
+      no import rows, no SQLite, no config/data/report/dashboard/digest
+      artifacts, no fetch URLs/login/platform APIs/download media/browser
+      automation/scrape/crawl/monitor/watch/schedule/connectors/source
+      acquisition/demand proof/ranking/coverage verification/entity generation/
+      compliance/policy/authorization/safety-review features.
+
 External tool handoff template docs check:
 
 - [ ] Docs link
@@ -232,6 +242,7 @@ for cmd in \
   community-signal-lint community-signal-lint-dir \
   community-candidates community-candidates-dir \
   community-handoff-manifest community-handoff-workflow \
+  community-handoff-check-dir \
   import-signals import-signals-dir imported-signals imported-signals-summary \
   imported-entity-deltas imported-candidates imported-candidate-evidence \
   imported-review-workflow collect match report candidates trends \
@@ -255,6 +266,7 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" imported-review-workflow --help
 "$tmp_env/venv/bin/fashion-radar" community-handoff-manifest --help
 "$tmp_env/venv/bin/fashion-radar" community-handoff-workflow --help
+"$tmp_env/venv/bin/fashion-radar" community-handoff-check-dir --help
 "$tmp_env/venv/bin/fashion-radar" imported-signals --data-dir "$tmp_run/data" --as-of "2026-06-12T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidate-evidence --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --phrase "Le Teckel bag" --format json

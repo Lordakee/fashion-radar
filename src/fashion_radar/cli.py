@@ -18,6 +18,10 @@ from fashion_radar.community_candidates import (
     render_community_candidate_directory_table,
     render_community_candidates_table,
 )
+from fashion_radar.community_handoff_check import (
+    check_community_handoff_directory,
+    render_community_handoff_directory_check_table,
+)
 from fashion_radar.community_handoff_manifest import (
     build_community_handoff_manifest,
     render_community_handoff_manifest_table,
@@ -169,6 +173,7 @@ RETENTION_DAYS_OPTION = typer.Option(30, min=1, help="Retention window in days."
 CandidateOutputFormat = Literal["table", "json"]
 ManualSignalInputFormat = Literal["csv", "json"]
 CommunityCandidatesOutputFormat = Literal["table", "json"]
+CommunityHandoffCheckOutputFormat = Literal["table", "json"]
 CommunityHandoffManifestOutputFormat = Literal["table", "json"]
 CommunityHandoffWorkflowOutputFormat = Literal["table", "json"]
 CommunitySignalLintOutputFormat = Literal["table", "json"]
@@ -214,6 +219,11 @@ COMMUNITY_HANDOFF_WORKFLOW_AS_OF_OPTION = typer.Option(
     help="UTC handoff workflow timestamp, for example 2026-06-13T12:00:00Z.",
 )
 COMMUNITY_HANDOFF_WORKFLOW_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+COMMUNITY_HANDOFF_CHECK_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
@@ -738,6 +748,62 @@ def community_candidates_dir_command(
         return
     for line in render_community_candidate_directory_table(preview):
         typer.echo(line)
+
+
+@app.command(name="community-handoff-check-dir")
+def community_handoff_check_dir_command(
+    directory: Path,
+    config_dir: Path = CONFIG_DIR_OPTION,
+    input_format: ManualSignalInputFormat = COMMUNITY_CANDIDATES_INPUT_FORMAT_OPTION,
+    pattern: str = COMMUNITY_CANDIDATES_DIR_PATTERN_OPTION,
+    as_of: str = COMMUNITY_HANDOFF_WORKFLOW_AS_OF_OPTION,
+    source_name: str = COMMUNITY_CANDIDATES_SOURCE_NAME_OPTION,
+    limit: int | None = typer.Option(50, min=0, help="Maximum candidates to print."),
+    strict: bool = typer.Option(False, help="Exit non-zero when warnings are present."),
+    output_format: CommunityHandoffCheckOutputFormat = COMMUNITY_HANDOFF_CHECK_FORMAT_OPTION,
+) -> None:
+    """Check a local community handoff directory without importing rows."""
+    try:
+        try:
+            as_of_value = parse_datetime_utc(as_of)
+        except (TypeError, ValueError) as exc:
+            typer.echo(
+                f"Could not check community handoff directory: invalid --as-of: {exc}",
+                err=True,
+            )
+            raise typer.Exit(1) from exc
+        scoring_config = load_scoring_config(config_dir / "scoring.yaml")
+        entity_path = config_dir / "entities.yaml"
+        entity_config = load_entity_config(entity_path) if entity_path.exists() else None
+        result = check_community_handoff_directory(
+            directory,
+            config_dir=config_dir,
+            input_format=input_format,
+            pattern=pattern,
+            as_of=as_of_value,
+            scoring=scoring_config.scoring,
+            settings=scoring_config.candidate_discovery,
+            entity_config=entity_config,
+            source_name=source_name,
+            strict=strict,
+            limit=limit,
+        )
+    except typer.Exit:
+        raise
+    except ConfigError as exc:
+        typer.echo(f"Invalid community handoff check config: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    except Exception as exc:
+        typer.echo(f"Could not check community handoff directory: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(result.model_dump_json(indent=2))
+    else:
+        for line in render_community_handoff_directory_check_table(result):
+            typer.echo(line)
+    if not result.ok:
+        raise typer.Exit(1)
 
 
 @app.command(name="community-handoff-workflow")
