@@ -123,6 +123,22 @@ def build_imported_review_workflow(
             ),
             suggested_effect="read_only",
         ),
+        ImportedReviewWorkflowStep(
+            order=5,
+            name="review_local_heat_movers",
+            purpose="Review local observed heat movement after imported rows are matched.",
+            command=_shell_command(
+                "fashion-radar",
+                "heat-movers",
+                "--config-dir",
+                config_text,
+                "--data-dir",
+                data_text,
+                "--as-of",
+                as_of_text,
+            ),
+            suggested_effect="read_only",
+        ),
     ]
     return ImportedReviewWorkflow(
         as_of=as_of_text,

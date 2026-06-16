@@ -92,6 +92,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   one configured source set, comparing configured sources and imported local
   signals where output needs review, with no demand proof and no platform
   coverage verification.
+- Stage 58 `imported-review-workflow` docs for a final read-only `heat-movers`
+  handoff over local observed heat movement from configured sources and imported
+  local signals, with no demand proof and no platform coverage verification.
 - Print-only `community-signal-profile` command and example JSON producer
   contract for external tools that generate sanitized community signal handoff
   files.

@@ -57,6 +57,12 @@ examples and a JSON schema for tools that produce sanitized local rows. It is
 not a connector, source pack, platform collector, remote community ingestion
 workflow, or source-acquisition guide.
 
+`imported-review-workflow` is print-only and now includes a read-only
+`heat-movers` command after local matching so imported rows can be reviewed as
+local observed heat movement from configured sources and imported local
+signals. That review needs review and provides no demand proof or platform
+coverage verification.
+
 The external tool handoff templates are sanitized CSV/JSON local file handoff
 templates for user-controlled external/community tools.
 This is not platform collection and does not add connectors, scraping, browser

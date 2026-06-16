@@ -270,7 +270,10 @@ uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$AS_OF" --
 ```
 
 `imported-review-workflow` is local and does not execute commands. It prints a
-copyable review sequence for existing local commands after manual signal import.
+copyable review sequence for existing local commands after manual signal
+import, ending with a read-only `heat-movers` step for local observed heat
+movement from configured sources and imported local signals. That heat review
+needs review and provides no demand proof or platform coverage verification.
 
 `imported-candidates` is local and read-only. It surfaces observed candidate
 phrases from retained `manual_import` rows only. These phrases need review and

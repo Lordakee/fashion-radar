@@ -1,5 +1,6 @@
 import json
 import os
+import shlex
 import sqlite3
 import subprocess
 import sys
@@ -3497,7 +3498,7 @@ def test_imported_review_workflow_command_prints_json_with_stable_keys(
     assert payload["data_dir"] == str(data_dir)
     assert payload["source_name"] == "Community Tool Export"
     assert payload["execution_mode"] == "print_only"
-    assert payload["step_count"] == 4
+    assert payload["step_count"] == 5
     assert list(payload["steps"][0]) == [
         "order",
         "name",
@@ -3508,6 +3509,15 @@ def test_imported_review_workflow_command_prints_json_with_stable_keys(
     assert payload["steps"][1]["suggested_effect"] == "updates_local_matches"
     assert "--source-name 'Community Tool Export'" in payload["steps"][2]["command"]
     assert "--source-name 'Community Tool Export'" in payload["steps"][3]["command"]
+    assert payload["steps"][-1]["name"] == "review_local_heat_movers"
+    assert payload["steps"][-1]["suggested_effect"] == "read_only"
+    assert payload["steps"][-1]["command"] == (
+        "fashion-radar heat-movers "
+        f"--config-dir {shlex.quote(str(config_dir))} "
+        f"--data-dir {shlex.quote(str(data_dir))} "
+        "--as-of 2026-06-13T12:00:00+00:00"
+    )
+    assert "--source-name" not in payload["steps"][-1]["command"]
 
 
 def test_imported_review_workflow_command_prints_table() -> None:
@@ -3535,6 +3545,8 @@ def test_imported_review_workflow_command_prints_table() -> None:
     assert "Commands were not executed." in result.output
     assert "Order | Step | Suggested Effect | Purpose | Command" in result.output
     assert "refresh_stored_matches | updates_local_matches" in result.output
+    assert "review_local_heat_movers" in result.output
+    assert "fashion-radar heat-movers" in result.output
     assert "Source name: Community / Tool Export" in result.output
     assert "--data-dir" in result.output
     assert "'data ? # & %'" in result.output
@@ -4616,6 +4628,7 @@ def test_imported_review_workflow_command_does_not_access_data_or_execute(
     assert result.exit_code == 0
     assert "should not be called" not in result.output
     assert "Traceback" not in result.output
+    assert "fashion-radar heat-movers" in result.output
 
 
 def test_imported_entity_deltas_command_help_lists_options() -> None:

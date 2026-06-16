@@ -126,7 +126,10 @@ These commands read existing local SQLite rows where `source_type` is
 - `imported-review-workflow`: print a post-import review checklist without
   executing commands. Requires `--as-of`; supports `--config-dir`, `--data-dir`,
   `--source-name`, `--lookback-days`, `--current-days`, `--baseline-days`, and
-  `--format`.
+  `--format`. The printed read-only sequence includes a final `heat-movers`
+  command for local observed heat movement from configured sources and imported
+  local signals; it needs review and provides no demand proof or platform
+  coverage verification.
 
 ## Trends, Dashboard, And Cleanup
 

@@ -89,6 +89,10 @@ Stage 41 docs freshness check:
       one configured source set, compare configured sources and imported local
       signals, say output needs review, and say there is no demand proof or
       no platform coverage verification.
+- [ ] Stage 58 `imported-review-workflow` docs describe the final read-only
+      `heat-movers` handoff for local observed heat movement from configured
+      sources and imported local signals, and say there is no demand proof or
+      no platform coverage verification.
 - [ ] `community-signal-profile` remains a print-only local producer contract
       for user-controlled tools, not source acquisition, platform monitoring,
       or compliance review.

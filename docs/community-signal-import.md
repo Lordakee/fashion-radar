@@ -441,6 +441,7 @@ uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
 uv run fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$AS_OF"
 uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF"
 uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF"
+uv run fashion-radar heat-movers --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF"
 ```
 
 Retained-row review commands can be narrowed with `--source-name`,
@@ -449,9 +450,12 @@ Retained-row review commands can be narrowed with `--source-name`,
 output.
 
 `imported-review-workflow` prints a copyable sequence for existing local review
-commands after import. It does not execute those commands, open SQLite, read
-configs, import rows, run matching, score signals, generate reports, or create
-artifacts.
+commands after import. It now ends with a read-only `heat-movers` command so
+imported community rows can be reviewed as local observed heat movement after
+matching. That review uses configured sources and imported local signals, needs
+review, and provides no demand proof and no platform coverage verification. The
+workflow does not execute those commands, open SQLite, read configs, import
+rows, run matching, score signals, generate reports, or create artifacts.
 
 `imported-signals-summary` reads the same retained local rows and groups counts
 by stored `source_name`. Stored `platform` values, when present, are local

@@ -120,6 +120,23 @@ HEAT_MOVERS_FORBIDDEN_POSITIVE_CLAIMS = (
     "verified demand",
     "top social trend",
 )
+IMPORTED_REVIEW_HEAT_DOCS = (
+    README,
+    ROOT / "docs" / "community-signal-import.md",
+    CLI_REFERENCE,
+    ARCHITECTURE_DOC,
+    SOURCE_BOUNDARIES_DOC,
+    UPLOAD_CHECKLIST,
+    CHANGELOG,
+)
+IMPORTED_REVIEW_HEAT_REQUIRED_PHRASES = (
+    "imported-review-workflow",
+    "heat-movers",
+    "local observed heat movement",
+    "read-only",
+    "no demand proof",
+    "no platform coverage verification",
+)
 
 FASHION_RADAR_COMMAND_RE = re.compile(
     r"(?:^|\s)"
@@ -364,6 +381,13 @@ def test_heat_movers_upload_checklist_help_loop_includes_command() -> None:
 
 def test_dashboard_docs_current_tab_order_matches_app_labels() -> None:
     assert _dashboard_current_tab_labels() == list(DASHBOARD_TAB_LABELS)
+
+
+def test_imported_review_workflow_docs_link_to_heat_movers_review() -> None:
+    for path in IMPORTED_REVIEW_HEAT_DOCS:
+        normalized = _normalized_doc_text(path).casefold()
+        for phrase in IMPORTED_REVIEW_HEAT_REQUIRED_PHRASES:
+            assert phrase in normalized, f"{path.relative_to(ROOT)} missing {phrase!r}"
 
 
 def test_package_archive_smoke_command_is_documented_and_in_ci() -> None:
