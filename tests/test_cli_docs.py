@@ -120,20 +120,24 @@ HEAT_MOVERS_FORBIDDEN_POSITIVE_CLAIMS = (
     "verified demand",
     "top social trend",
 )
-IMPORTED_REVIEW_HEAT_DOCS = (
+IMPORTED_REVIEW_WORKFLOW_DOCS = (
     README,
     ROOT / "docs" / "community-signal-import.md",
     CLI_REFERENCE,
     ARCHITECTURE_DOC,
     SOURCE_BOUNDARIES_DOC,
     UPLOAD_CHECKLIST,
+    ROOT / "docs" / "manual-signal-import.md",
+    ROOT / "docs" / "community-signal-quality.md",
     CHANGELOG,
 )
-IMPORTED_REVIEW_HEAT_REQUIRED_PHRASES = (
+IMPORTED_REVIEW_WORKFLOW_REQUIRED_PHRASES = (
     "imported-review-workflow",
-    "heat-movers",
+    "read-only imported-candidates step",
+    "candidate phrase review",
+    "final read-only heat-movers step",
     "local observed heat movement",
-    "read-only",
+    "configured sources and imported local signals",
     "no demand proof",
     "no platform coverage verification",
 )
@@ -383,11 +387,21 @@ def test_dashboard_docs_current_tab_order_matches_app_labels() -> None:
     assert _dashboard_current_tab_labels() == list(DASHBOARD_TAB_LABELS)
 
 
-def test_imported_review_workflow_docs_link_to_heat_movers_review() -> None:
-    for path in IMPORTED_REVIEW_HEAT_DOCS:
+def test_imported_review_workflow_docs_include_candidate_review_and_heat_handoff() -> None:
+    for path in IMPORTED_REVIEW_WORKFLOW_DOCS:
         normalized = _normalized_doc_text(path).casefold()
-        for phrase in IMPORTED_REVIEW_HEAT_REQUIRED_PHRASES:
+        for phrase in IMPORTED_REVIEW_WORKFLOW_REQUIRED_PHRASES:
             assert phrase in normalized, f"{path.relative_to(ROOT)} missing {phrase!r}"
+
+
+def test_upload_checklist_installed_workflow_json_check_uses_installed_python() -> None:
+    checklist = _read(UPLOAD_CHECKLIST)
+
+    assert '"$tmp_env/venv/bin/python" - "$tmp_run/imported-review-workflow.json" <<' in checklist
+    assert 'workflow_json = Path(sys.argv[1]).read_text(encoding="utf-8")' in checklist
+    assert 'assert payload["step_count"] == 6' in checklist
+    assert 'assert payload["steps"][3]["name"] == "review_imported_candidate_phrases"' in checklist
+    assert 'assert payload["steps"][-1]["name"] == "review_local_heat_movers"' in checklist
 
 
 def test_package_archive_smoke_command_is_documented_and_in_ci() -> None:

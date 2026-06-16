@@ -47,6 +47,14 @@ EXPECTED_SAMPLE_TITLES = tuple(row["title"] for row in EXPECTED_SAMPLE_ROWS)
 EXPECTED_SAMPLE_ENTITIES = ("The Row", "The Row Margaux", "Ballet Flats")
 EXPECTED_PLATFORM_COUNTS = {"community": 2}
 EXPECTED_SOURCE_COUNTS = {SOURCE_NAME: 2}
+EXPECTED_IMPORTED_REVIEW_WORKFLOW_STEPS = (
+    "summarize_imported_sources",
+    "refresh_stored_matches",
+    "compare_imported_entities",
+    "review_imported_candidate_phrases",
+    "review_unmatched_imported_rows",
+    "review_local_heat_movers",
+)
 
 
 class SmokeError(Exception):
@@ -277,6 +285,47 @@ def validate_imported_signals(command_name: str, payload: Any) -> None:
     for expected_entity in ("The Row", "The Row Margaux"):
         if expected_entity not in row_matches:
             raise SmokeError(f"{command_name} missing {expected_entity} match")
+
+
+def validate_imported_review_workflow(command_name: str, payload: Any) -> None:
+    if not isinstance(payload, dict):
+        raise SmokeError(f"{command_name} output must be a JSON object")
+    assert_equal(f"{command_name} execution_mode", payload.get("execution_mode"), "print_only")
+    assert_equal(f"{command_name} step_count", payload.get("step_count"), 6)
+    steps = payload.get("steps")
+    if not isinstance(steps, list):
+        raise SmokeError(f"{command_name} steps must be a list")
+    names = [step.get("name") for step in steps if isinstance(step, dict)]
+    assert_equal(
+        f"{command_name} step names",
+        names,
+        list(EXPECTED_IMPORTED_REVIEW_WORKFLOW_STEPS),
+    )
+
+    candidate_step = steps[3]
+    if not isinstance(candidate_step, dict):
+        raise SmokeError(f"{command_name} candidate step must be a JSON object")
+    candidate_command = str(candidate_step.get("command", ""))
+    for expected in (
+        "fashion-radar imported-candidates",
+        "--config-dir",
+        "--data-dir",
+        "--as-of",
+        "--source-name",
+        SOURCE_NAME,
+    ):
+        if expected not in candidate_command:
+            raise SmokeError(f"{command_name} candidate command missing {expected!r}")
+
+    heat_step = steps[-1]
+    if not isinstance(heat_step, dict):
+        raise SmokeError(f"{command_name} heat step must be a JSON object")
+    assert_equal(f"{command_name} final step", heat_step.get("name"), "review_local_heat_movers")
+    heat_command = str(heat_step.get("command", ""))
+    if "fashion-radar heat-movers" not in heat_command:
+        raise SmokeError(f"{command_name} final heat command missing heat-movers")
+    if "--source-name" in heat_command:
+        raise SmokeError(f"{command_name} final heat command must not include --source-name")
 
 
 def validate_report_outputs(json_payload: Any, markdown_text: str) -> None:
@@ -540,6 +589,24 @@ def run_first_run_flow(context: SmokeContext) -> None:
         "--data-dir",
         str(context.data_dir),
     )
+    imported_review_workflow = validate_json_output(
+        "imported-review-workflow",
+        run_cli(
+            context,
+            "imported-review-workflow",
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--as-of",
+            AS_OF,
+            "--source-name",
+            SOURCE_NAME,
+            "--format",
+            "json",
+        ).stdout,
+    )
+    validate_imported_review_workflow("imported-review-workflow", imported_review_workflow)
     imported_summary = validate_json_output(
         "imported-signals-summary",
         run_cli(

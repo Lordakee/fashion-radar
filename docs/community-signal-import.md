@@ -454,17 +454,18 @@ uv run fashion-radar heat-movers --config-dir "$PWD/configs" --data-dir "$PWD/da
 ```
 
 Retained-row review commands can be narrowed with `--source-name`,
-`--lookback-days`, `--current-days`, `--baseline-days`, `--entity-type`, and
-`--limit` where supported. Use `--format json` when you need machine-readable
-output.
+`--lookback-days`, and `--limit` where supported. Entity-delta review uses
+`--current-days`, `--baseline-days`, and `--entity-type` where supported. Use
+`--format json` when you need machine-readable output.
 
 `imported-review-workflow` prints a copyable sequence for existing local review
-commands after import. It now ends with a read-only `heat-movers` command so
-imported community rows can be reviewed as local observed heat movement after
-matching. That review uses configured sources and imported local signals, needs
-review, and provides no demand proof and no platform coverage verification. The
-workflow does not execute those commands, open SQLite, read configs, import
-rows, run matching, score signals, generate reports, or create artifacts.
+commands after import. The workflow includes a read-only imported-candidates
+step for candidate phrase review and still ends with the final read-only
+heat-movers step for local observed heat movement from configured sources and
+imported local signals. Those review outputs need review and provide no demand
+proof and no platform coverage verification. The workflow does not execute
+those commands, open SQLite, read configs, import rows, run matching, score
+signals, generate reports, or create artifacts.
 
 `imported-signals-summary` reads the same retained local rows and groups counts
 by stored `source_name`. Stored `platform` values, when present, are local

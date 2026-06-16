@@ -95,6 +95,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Stage 58 `imported-review-workflow` docs for a final read-only `heat-movers`
   handoff over local observed heat movement from configured sources and imported
   local signals, with no demand proof and no platform coverage verification.
+- Stage 60 `imported-review-workflow` docs for a read-only imported-candidates
+  step for candidate phrase review before the final read-only heat-movers step
+  over local observed heat movement from configured sources and imported local
+  signals, with no demand proof and no platform coverage verification.
 - Print-only `community-signal-profile` command and example JSON producer
   contract for external tools that generate sanitized community signal handoff
   files.

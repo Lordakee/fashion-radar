@@ -100,7 +100,12 @@ importer model to validate matched local files without writing rows. Then use
 `import-signals-dir` without `--dry-run` to import the same local files only
 after the full matched set validates.
 Use `imported-review-workflow` when you want a printed, copyable local sequence
-for existing post-import review commands without executing anything.
+for existing post-import review commands without executing anything. The
+workflow includes a read-only imported-candidates step for candidate phrase
+review and still ends with the final read-only heat-movers step for local
+observed heat movement from configured sources and imported local signals.
+Those review outputs need review and provide no demand proof and no platform
+coverage verification.
 Use `imported-signals-summary` after import to inspect retained row counts by
 stored `source_name`. Use `imported-entity-deltas` after matching to compare
 stored matched entities across collected-at windows. Use `imported-candidates`

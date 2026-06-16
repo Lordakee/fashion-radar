@@ -93,6 +93,11 @@ Stage 41 docs freshness check:
       `heat-movers` handoff for local observed heat movement from configured
       sources and imported local signals, and say there is no demand proof or
       no platform coverage verification.
+- [ ] Stage 60 `imported-review-workflow` docs describe the read-only
+      imported-candidates step for candidate phrase review before the final
+      read-only heat-movers step for local observed heat movement from
+      configured sources and imported local signals, and say there is no demand
+      proof and no platform coverage verification.
 - [ ] `community-signal-profile` remains a print-only local producer contract
       for user-controlled tools, not source acquisition, platform monitoring,
       or compliance review.
@@ -283,10 +288,28 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" imported-signals --data-dir "$tmp_run/data" --as-of "2026-06-12T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidate-evidence --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --phrase "Le Teckel bag" --format json
-"$tmp_env/venv/bin/fashion-radar" imported-review-workflow --data-dir "$tmp_run/data ? # & %" --config-dir "$tmp_run/config ? # & %" --as-of "2026-06-13T12:00:00Z" --format json
+"$tmp_env/venv/bin/fashion-radar" imported-review-workflow --data-dir "$tmp_run/data ? # & %" --config-dir "$tmp_run/config ? # & %" --as-of "2026-06-13T12:00:00Z" --format json > "$tmp_run/imported-review-workflow.json"
 "$tmp_env/venv/bin/fashion-radar" community-handoff-manifest "$tmp_run/missing ? # & %" --input-format csv --pattern "*.csv" --config-dir "$tmp_run/config ? # & %" --data-dir "$tmp_run/data ? # & %" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" community-handoff-workflow "$tmp_run/missing ? # & %" --input-format csv --pattern "*.csv" --config-dir "$tmp_run/config ? # & %" --data-dir "$tmp_run/data ? # & %" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/python" -c "from importlib import resources; text = resources.files('fashion_radar.templates').joinpath('daily_report.md').read_text(encoding='utf-8'); assert 'Fashion Radar Daily Report' in text"
+```
+
+Check the installed-wheel workflow JSON shape after the command above. The
+checklist expectation is `step_count == 6`,
+`review_imported_candidate_phrases`, and final `review_local_heat_movers`:
+
+```bash
+"$tmp_env/venv/bin/python" - "$tmp_run/imported-review-workflow.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+workflow_json = Path(sys.argv[1]).read_text(encoding="utf-8")
+payload = json.loads(workflow_json)
+assert payload["step_count"] == 6
+assert payload["steps"][3]["name"] == "review_imported_candidate_phrases"
+assert payload["steps"][-1]["name"] == "review_local_heat_movers"
+PY
 ```
 
 Dashboard extra smoke:

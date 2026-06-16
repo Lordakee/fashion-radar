@@ -137,10 +137,13 @@ These commands read existing local SQLite rows where `source_type` is
 - `imported-review-workflow`: print a post-import review checklist without
   executing commands. Requires `--as-of`; supports `--config-dir`, `--data-dir`,
   `--source-name`, `--lookback-days`, `--current-days`, `--baseline-days`, and
-  `--format`. The printed read-only sequence includes a final `heat-movers`
-  command for local observed heat movement from configured sources and imported
-  local signals; it needs review and provides no demand proof or platform
-  coverage verification.
+  `--format`. The printed sequence includes a read-only imported-candidates
+  step for candidate phrase review and still ends with the final read-only
+  heat-movers step for local observed heat movement from configured sources and
+  imported local signals; those review outputs need review and provide no
+  demand proof and no platform coverage verification. The `--current-days` and
+  `--baseline-days` options apply to the entity-delta review command, not to
+  candidate phrase review.
 
 ## Trends, Dashboard, And Cleanup
 

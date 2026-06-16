@@ -261,6 +261,54 @@ def trends_payload() -> dict[str, object]:
     }
 
 
+def imported_review_workflow_payload() -> dict[str, object]:
+    return {
+        "execution_mode": "print_only",
+        "step_count": 6,
+        "steps": [
+            {
+                "name": "summarize_imported_sources",
+                "command": "fashion-radar imported-signals-summary --data-dir data",
+            },
+            {
+                "name": "refresh_stored_matches",
+                "command": "fashion-radar match --config-dir configs --data-dir data",
+            },
+            {
+                "name": "compare_imported_entities",
+                "command": (
+                    "fashion-radar imported-entity-deltas --data-dir data "
+                    "--as-of 2026-06-13T12:00:00+00:00 "
+                    "--source-name 'Community Tool Export'"
+                ),
+            },
+            {
+                "name": "review_imported_candidate_phrases",
+                "command": (
+                    "fashion-radar imported-candidates --config-dir configs "
+                    "--data-dir data --as-of 2026-06-13T12:00:00+00:00 "
+                    "--source-name 'Community Tool Export'"
+                ),
+            },
+            {
+                "name": "review_unmatched_imported_rows",
+                "command": (
+                    "fashion-radar imported-signals --data-dir data "
+                    "--as-of 2026-06-13T12:00:00+00:00 --lookback-days 7 "
+                    "--unmatched-only --source-name 'Community Tool Export'"
+                ),
+            },
+            {
+                "name": "review_local_heat_movers",
+                "command": (
+                    "fashion-radar heat-movers --config-dir configs --data-dir data "
+                    "--as-of 2026-06-13T12:00:00+00:00"
+                ),
+            },
+        ],
+    }
+
+
 def make_context(tmp_path: Path, *, python: str = "python-test"):
     runtime_dir = tmp_path / "runtime"
     return smoke.SmokeContext(
@@ -489,6 +537,33 @@ def test_validate_imported_signals_requires_expected_sample_items() -> None:
     items[0]["match_status"] = "unmatched"  # type: ignore[index]
     with pytest.raises(smoke.SmokeError, match="marked matched"):
         smoke.validate_imported_signals("imported-signals", wrong_status)
+
+
+def test_validate_imported_review_workflow_requires_candidate_step() -> None:
+    smoke.validate_imported_review_workflow(
+        "imported-review-workflow",
+        imported_review_workflow_payload(),
+    )
+
+
+def test_validate_imported_review_workflow_rejects_missing_candidate_step() -> None:
+    payload = imported_review_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    del steps[3]
+
+    with pytest.raises(smoke.SmokeError, match="step"):
+        smoke.validate_imported_review_workflow("imported-review-workflow", payload)
+
+
+def test_validate_imported_review_workflow_rejects_heat_movers_not_final() -> None:
+    payload = imported_review_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    steps[-1], steps[-2] = steps[-2], steps[-1]
+
+    with pytest.raises(smoke.SmokeError, match="step names|final step"):
+        smoke.validate_imported_review_workflow("imported-review-workflow", payload)
 
 
 def test_validate_report_requires_expected_first_run_entity_sections() -> None:
@@ -947,6 +1022,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
 
         stdout_by_command = {
             "community-candidates": json.dumps(community_candidates_payload()),
+            "imported-review-workflow": json.dumps(imported_review_workflow_payload()),
             "imported-signals-summary": json.dumps(imported_summary_payload()),
             "imported-signals": json.dumps(imported_signals_payload()),
             "candidates": json.dumps([]),
@@ -973,6 +1049,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         "import-signals",
         "import-signals",
         "match",
+        "imported-review-workflow",
         "imported-signals-summary",
         "imported-signals",
         "report",
@@ -995,7 +1072,14 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
     assert captured[1] == ("migrate-db", "--data-dir", str(context.data_dir))
     for command in captured:
         assert command[0] not in {"collect", "run", "dashboard"}
-        if command[0] in {"doctor", "match", "report", "candidates", "trends"}:
+        if command[0] in {
+            "doctor",
+            "match",
+            "imported-review-workflow",
+            "report",
+            "candidates",
+            "trends",
+        }:
             assert "--config-dir" in command
             assert str(context.config_dir) in command
         if command[0] in {
@@ -1003,6 +1087,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             "migrate-db",
             "doctor",
             "import-signals",
+            "imported-review-workflow",
             "imported-signals-summary",
             "imported-signals",
             "match",
@@ -1018,6 +1103,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             "community-signal-lint",
             "community-candidates",
             "import-signals",
+            "imported-review-workflow",
             "imported-signals",
             "community-handoff-workflow",
             "community-signal-lint-dir",
@@ -1027,6 +1113,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             assert smoke.SOURCE_NAME in command
         if command[0] in {
             "community-candidates",
+            "imported-review-workflow",
             "imported-signals",
             "report",
             "candidates",
@@ -1036,10 +1123,10 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         } or (command[0] == "import-signals" and "--dry-run" not in command):
             assert smoke.AS_OF in command
 
-    assert captured[13][1] == str(context.exports_dir)
     assert captured[14][1] == str(context.exports_dir)
     assert captured[15][1] == str(context.exports_dir)
     assert captured[16][1] == str(context.exports_dir)
+    assert captured[17][1] == str(context.exports_dir)
     assert (context.exports_dir / smoke.DIR_EXPORT_CSV).read_text(encoding="utf-8") == (
         example_csv.read_text(encoding="utf-8")
     )

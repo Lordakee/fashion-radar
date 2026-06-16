@@ -112,12 +112,13 @@ YAML config
   titles, summaries, candidate contexts, or match internals. The
   imported-candidate-evidence command shows phrase-scoped retained rows with
   titles and URLs, while omitting summaries, candidate contexts, and match
-  internals. `imported-review-workflow` remains print-only and now ends with a
-  read-only `heat-movers` command for local observed heat movement from
-  configured sources and imported local signals. That heat review needs review
-  and provides no demand proof or platform coverage verification. The review
-  workflow command only prints a copyable sequence for existing local commands
-  and does not execute them.
+  internals. `imported-review-workflow` remains print-only and includes a
+  read-only imported-candidates step for candidate phrase review before the
+  final read-only heat-movers step for local observed heat movement from
+  configured sources and imported local signals. Those review outputs need
+  review and provide no demand proof and no platform coverage verification. The
+  review workflow command only prints a copyable sequence for existing local
+  commands and does not execute them.
 - **Community Signal Quality:** Local read-only diagnostics lint one community
   signal CSV/JSON file or a non-recursive batch of matched regular files in one
   local directory before dry-run/import. The linters check strict handoff fields

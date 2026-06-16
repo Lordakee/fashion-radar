@@ -107,6 +107,26 @@ def build_imported_review_workflow(
         ),
         ImportedReviewWorkflowStep(
             order=4,
+            name="review_imported_candidate_phrases",
+            purpose=(
+                "Review observed candidate phrases from retained imported rows after stored "
+                "matches are refreshed."
+            ),
+            command=_shell_command(
+                "fashion-radar",
+                "imported-candidates",
+                "--config-dir",
+                config_text,
+                "--data-dir",
+                data_text,
+                "--as-of",
+                as_of_text,
+                *source_args,
+            ),
+            suggested_effect="read_only",
+        ),
+        ImportedReviewWorkflowStep(
+            order=5,
             name="review_unmatched_imported_rows",
             purpose="Review retained imported rows without stored matches.",
             command=_shell_command(
@@ -124,7 +144,7 @@ def build_imported_review_workflow(
             suggested_effect="read_only",
         ),
         ImportedReviewWorkflowStep(
-            order=5,
+            order=6,
             name="review_local_heat_movers",
             purpose="Review local observed heat movement after imported rows are matched.",
             command=_shell_command(

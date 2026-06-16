@@ -3508,7 +3508,7 @@ def test_imported_review_workflow_command_prints_json_with_stable_keys(
     assert payload["data_dir"] == str(data_dir)
     assert payload["source_name"] == "Community Tool Export"
     assert payload["execution_mode"] == "print_only"
-    assert payload["step_count"] == 5
+    assert payload["step_count"] == 6
     assert list(payload["steps"][0]) == [
         "order",
         "name",
@@ -3518,7 +3518,16 @@ def test_imported_review_workflow_command_prints_json_with_stable_keys(
     ]
     assert payload["steps"][1]["suggested_effect"] == "updates_local_matches"
     assert "--source-name 'Community Tool Export'" in payload["steps"][2]["command"]
+    assert payload["steps"][3]["name"] == "review_imported_candidate_phrases"
+    assert payload["steps"][3]["suggested_effect"] == "read_only"
+    assert payload["steps"][3]["command"] == (
+        "fashion-radar imported-candidates "
+        f"--config-dir {shlex.quote(str(config_dir))} "
+        f"--data-dir {shlex.quote(str(data_dir))} "
+        "--as-of 2026-06-13T12:00:00+00:00 --source-name 'Community Tool Export'"
+    )
     assert "--source-name 'Community Tool Export'" in payload["steps"][3]["command"]
+    assert "--source-name 'Community Tool Export'" in payload["steps"][4]["command"]
     assert payload["steps"][-1]["name"] == "review_local_heat_movers"
     assert payload["steps"][-1]["suggested_effect"] == "read_only"
     assert payload["steps"][-1]["command"] == (
@@ -3555,6 +3564,8 @@ def test_imported_review_workflow_command_prints_table() -> None:
     assert "Commands were not executed." in result.output
     assert "Order | Step | Suggested Effect | Purpose | Command" in result.output
     assert "refresh_stored_matches | updates_local_matches" in result.output
+    assert "review_imported_candidate_phrases" in result.output
+    assert "fashion-radar imported-candidates" in result.output
     assert "review_local_heat_movers" in result.output
     assert "fashion-radar heat-movers" in result.output
     assert "Source name: Community / Tool Export" in result.output
@@ -4474,6 +4485,12 @@ def _patch_imported_review_workflow_no_data_access(monkeypatch) -> None:
         "initialize_schema",
     ):
         monkeypatch.setattr(cli_module, name, _fail_imported_review_workflow_call(name))
+    if hasattr(cli_module, "query_imported_candidates"):
+        monkeypatch.setattr(
+            cli_module,
+            "query_imported_candidates",
+            _fail_imported_review_workflow_call("query_imported_candidates"),
+        )
     monkeypatch.setattr(
         cli_module.subprocess,
         "run",
@@ -4641,6 +4658,7 @@ def test_imported_review_workflow_command_does_not_access_data_or_execute(
     assert result.exit_code == 0
     assert "should not be called" not in result.output
     assert "Traceback" not in result.output
+    assert "fashion-radar imported-candidates" in result.output
     assert "fashion-radar heat-movers" in result.output
 
 
