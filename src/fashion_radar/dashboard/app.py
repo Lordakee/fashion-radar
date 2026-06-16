@@ -14,6 +14,7 @@ from fashion_radar.dashboard.queries import (
     source_health_rows,
     top_entities,
 )
+from fashion_radar.heat_movers import HeatMoversReport, build_heat_movers
 from fashion_radar.models.entity import EntityType
 from fashion_radar.models.trend import TrendComparison
 from fashion_radar.settings import (
@@ -35,12 +36,18 @@ TREND_SIGNAL_CAPTION = (
     "this configured source set."
 )
 TREND_EMPTY_MESSAGE = "No local observed signal deltas in this comparison."
+HEAT_MOVER_CAPTION = (
+    "Local observed heat movement from configured RSS/web sources and imported manual "
+    "signals. These grouped signals need review and describe only this configured source set."
+)
+HEAT_MOVER_EMPTY_MESSAGE = "No local observed heat movers in this comparison."
 ENTITY_MENTION_TABS = tuple(
     (entity_type.value, f"{entity_type.value.title()} Mentions") for entity_type in EntityType
 )
 DASHBOARD_TAB_LABELS = (
     "Daily Brief",
     "Candidate Signals",
+    "Heat Movers",
     "Trend Deltas",
     *(label for _entity_type, label in ENTITY_MENTION_TABS),
     "Source Health",
@@ -89,6 +96,70 @@ def trend_delta_rows(comparison: TrendComparison) -> list[dict[str, Any]]:
         }
         for delta in comparison.deltas
     ]
+
+
+def heat_mover_rows(report: HeatMoversReport) -> list[dict[str, Any]]:
+    rows = []
+    for group in report.groups:
+        rows.extend(
+            {
+                "section": group.label,
+                "observed_status": row.status.value,
+                "signal_kind": row.signal_kind.value,
+                "type": row.signal_type,
+                "name": row.name,
+                "current_score": round(row.current_score, 3),
+                "score_delta": round(row.score_delta, 3),
+                "current_mentions": row.current_mentions,
+                "mention_delta": row.mention_delta,
+                "current_label": row.current_label,
+                "first_seen_at": row.first_seen_at.isoformat() if row.first_seen_at else None,
+            }
+            for row in group.rows
+        )
+    return rows
+
+
+def render_heat_movers(
+    st: Any,
+    *,
+    config_dir: Path,
+    data_dir: Path,
+    now: datetime | None = None,
+) -> None:
+    st.caption(HEAT_MOVER_CAPTION)
+    try:
+        scoring_config = load_scoring_config(config_dir / "scoring.yaml")
+        entity_path = config_dir / "entities.yaml"
+        entity_config = load_entity_config(entity_path) if entity_path.exists() else None
+        as_of, baseline_as_of = trend_comparison_window(scoring_config.scoring, now=now)
+    except (ConfigError, ValueError) as exc:
+        st.warning(f"Could not load heat mover config: {exc}")
+        return
+
+    try:
+        comparison = load_trend_comparison(
+            data_dir=data_dir,
+            scoring=scoring_config.scoring,
+            candidate_discovery=scoring_config.candidate_discovery,
+            entity_config=entity_config,
+            as_of=as_of,
+            baseline_as_of=baseline_as_of,
+            include_dropped=False,
+            limit=None,
+        )
+        report = build_heat_movers(comparison, limit_per_group=5, include_cooling=False)
+    except Exception as exc:
+        st.warning(f"Could not read heat movers: {exc}")
+        return
+
+    st.caption(f"Comparison as of: {report.as_of.isoformat()}")
+    st.caption(f"Baseline as of: {report.baseline_as_of.isoformat()}")
+    rows = heat_mover_rows(report)
+    if rows:
+        st.dataframe(rows, use_container_width=True)
+    else:
+        st.info(HEAT_MOVER_EMPTY_MESSAGE)
 
 
 def render_trend_deltas(
@@ -150,11 +221,9 @@ def main() -> None:
     st.caption(f"Config: {args.config_dir}")
     st.caption(f"Reports: {args.reports_dir}")
     tabs = st.tabs(list(DASHBOARD_TAB_LABELS))
-    daily_tab, candidate_tab, trend_tab = tabs[:3]
-    entity_tabs = tabs[3:-1]
-    health_tab = tabs[-1]
+    tab_by_label = dict(zip(DASHBOARD_TAB_LABELS, tabs, strict=True))
 
-    with daily_tab:
+    with tab_by_label["Daily Brief"]:
         st.metric("Items", summary["item_count"])
         st.metric("Entity matches", summary["match_count"])
         st.caption(f"Latest collected at: {summary['latest_collected_at'] or 'n/a'}")
@@ -164,7 +233,7 @@ def main() -> None:
         else:
             st.info("No recent local signals yet.")
 
-    with candidate_tab:
+    with tab_by_label["Candidate Signals"]:
         st.caption(CANDIDATE_SIGNAL_CAPTION)
         st.caption(f"Report date: {candidate_report['report_date'] or 'n/a'}")
         if "error" in candidate_report:
@@ -175,21 +244,20 @@ def main() -> None:
         else:
             st.info("No untracked candidate signals in the latest report.")
 
-    with trend_tab:
+    with tab_by_label["Heat Movers"]:
+        render_heat_movers(st, config_dir=args.config_dir, data_dir=args.data_dir)
+
+    with tab_by_label["Trend Deltas"]:
         render_trend_deltas(st, config_dir=args.config_dir, data_dir=args.data_dir)
 
-    for entity_tab, (entity_type, _label) in zip(
-        entity_tabs,
-        ENTITY_MENTION_TABS,
-        strict=True,
-    ):
-        with entity_tab:
+    for entity_type, label in ENTITY_MENTION_TABS:
+        with tab_by_label[label]:
             st.dataframe(
                 top_entities(args.data_dir, entity_type=entity_type),
                 use_container_width=True,
             )
 
-    with health_tab:
+    with tab_by_label["Source Health"]:
         st.dataframe(source_health_rows(args.data_dir), use_container_width=True)
 
 

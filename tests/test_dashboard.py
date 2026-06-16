@@ -35,6 +35,7 @@ from fashion_radar.db.repositories import (
     SourceHealthRepository,
 )
 from fashion_radar.db.schema import initialize_schema
+from fashion_radar.heat_movers import build_heat_movers
 from fashion_radar.models.entity import EntityType
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.report import REPORT_SNIPPET_MAX_CHARS, report_safe_snippet
@@ -96,9 +97,45 @@ def test_dashboard_trend_caption_is_local_observed() -> None:
         assert forbidden not in combined_copy.lower()
 
 
+def test_dashboard_heat_mover_caption_is_local_observed() -> None:
+    assert "Local observed heat movement" in dashboard_app.HEAT_MOVER_CAPTION
+    assert (
+        "configured RSS/web sources and imported manual signals" in dashboard_app.HEAT_MOVER_CAPTION
+    )
+    assert "describe only this configured source set" in dashboard_app.HEAT_MOVER_CAPTION
+    assert "Heat Movers" in dashboard_app.DASHBOARD_TAB_LABELS
+    assert (
+        dashboard_app.HEAT_MOVER_EMPTY_MESSAGE
+        == "No local observed heat movers in this comparison."
+    )
+    combined_copy = " ".join(
+        [
+            *dashboard_app.DASHBOARD_TAB_LABELS,
+            dashboard_app.HEAT_MOVER_CAPTION,
+            dashboard_app.HEAT_MOVER_EMPTY_MESSAGE,
+        ]
+    )
+    for forbidden in (
+        "trending overall",
+        "market trends",
+        "social trends",
+        "market-wide",
+        "platform-wide",
+        "what's hot",
+    ):
+        assert forbidden not in combined_copy.lower()
+
+
 def test_dashboard_tab_labels_include_all_entity_mention_tabs() -> None:
     for entity_type in EntityType:
         assert f"{entity_type.value.title()} Mentions" in DASHBOARD_TAB_LABELS
+
+
+def test_dashboard_tab_labels_include_heat_movers_before_trend_deltas() -> None:
+    labels = dashboard_app.DASHBOARD_TAB_LABELS
+
+    assert labels.index("Heat Movers") < labels.index("Trend Deltas")
+    assert len(labels) == len(dashboard_app.ENTITY_MENTION_TABS) + 5
 
 
 def test_trend_comparison_window_defaults_from_current_window_days() -> None:
@@ -571,6 +608,90 @@ def test_dashboard_trend_delta_rows_empty() -> None:
     assert trend_delta_rows(comparison) == []
 
 
+def test_dashboard_heat_mover_rows_are_serialized_and_review_oriented() -> None:
+    comparison = TrendComparison(
+        as_of=datetime(2026, 6, 12, tzinfo=UTC),
+        baseline_as_of=datetime(2026, 6, 5, tzinfo=UTC),
+        deltas=[
+            TrendDelta(
+                signal_kind=TrendSignalKind.ENTITY,
+                comparison_key="entity:brand:the row",
+                name="The Row",
+                signal_type="brand",
+                status=TrendStatus.NEW,
+                current_label="review",
+                current_score=5.12345,
+                baseline_score=1.0,
+                score_delta=4.12345,
+                current_mentions=5,
+                baseline_mentions=1,
+                mention_delta=4,
+                first_seen_at=datetime(2026, 6, 1, 9, 30, tzinfo=UTC),
+            ),
+            TrendDelta(
+                signal_kind=TrendSignalKind.CANDIDATE,
+                comparison_key="candidate:bag:le teckel",
+                name="Le Teckel bag",
+                signal_type="bag",
+                status=TrendStatus.RISING,
+                current_label=None,
+                current_score=2.0,
+                baseline_score=1.0,
+                score_delta=1.0,
+                current_mentions=3,
+                baseline_mentions=1,
+                mention_delta=2,
+                first_seen_at=None,
+            ),
+        ],
+    )
+    report = build_heat_movers(comparison, limit_per_group=5, include_cooling=False)
+
+    rows = dashboard_app.heat_mover_rows(report)
+
+    assert rows == [
+        {
+            "section": "New tracked entities",
+            "observed_status": "new",
+            "signal_kind": "entity",
+            "type": "brand",
+            "name": "The Row",
+            "current_score": 5.123,
+            "score_delta": 4.123,
+            "current_mentions": 5,
+            "mention_delta": 4,
+            "current_label": "review",
+            "first_seen_at": "2026-06-01T09:30:00+00:00",
+        },
+        {
+            "section": "Rising candidate phrases",
+            "observed_status": "rising",
+            "signal_kind": "candidate",
+            "type": "bag",
+            "name": "Le Teckel bag",
+            "current_score": 2.0,
+            "score_delta": 1.0,
+            "current_mentions": 3,
+            "mention_delta": 2,
+            "current_label": None,
+            "first_seen_at": None,
+        },
+    ]
+    assert list(rows[0]) == [
+        "section",
+        "observed_status",
+        "signal_kind",
+        "type",
+        "name",
+        "current_score",
+        "score_delta",
+        "current_mentions",
+        "mention_delta",
+        "current_label",
+        "first_seen_at",
+    ]
+
+
 class FakeStreamlit:
     def __init__(self) -> None:
         self.captions: list[str] = []
@@ -590,6 +711,312 @@ class FakeStreamlit:
     def dataframe(self, rows: list[dict[str, object]], use_container_width: bool) -> None:
         assert use_container_width is True
         self.dataframes.append(rows)
+
+
+def test_render_heat_movers_warns_for_missing_scoring_without_data_dir_creation(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "missing-data"
+    config_dir.mkdir()
+    fake_st = FakeStreamlit()
+
+    dashboard_app.render_heat_movers(
+        fake_st,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        now=datetime(2026, 6, 12, tzinfo=UTC),
+    )
+
+    assert fake_st.warnings
+    assert "Could not load heat mover config" in fake_st.warnings[0]
+    assert fake_st.dataframes == []
+    assert not data_dir.exists()
+
+
+def test_render_heat_movers_warns_for_invalid_entities_config(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: nope\n", encoding="utf-8")
+    fake_st = FakeStreamlit()
+
+    dashboard_app.render_heat_movers(
+        fake_st,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        now=datetime(2026, 6, 12, tzinfo=UTC),
+    )
+
+    assert fake_st.warnings
+    assert "Could not load heat mover config" in fake_st.warnings[0]
+    assert fake_st.dataframes == []
+
+
+def test_render_heat_movers_warns_for_query_errors(monkeypatch, tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    fake_st = FakeStreamlit()
+
+    def fail_query(**kwargs: object) -> TrendComparison:
+        raise RuntimeError("bad heat read")
+
+    monkeypatch.setattr(dashboard_app, "load_trend_comparison", fail_query)
+
+    dashboard_app.render_heat_movers(
+        fake_st,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        now=datetime(2026, 6, 12, tzinfo=UTC),
+    )
+
+    assert fake_st.warnings == ["Could not read heat movers: bad heat read"]
+    assert fake_st.dataframes == []
+
+
+def test_render_heat_movers_shows_empty_state(monkeypatch, tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    fake_st = FakeStreamlit()
+
+    def empty_query(**kwargs: object) -> TrendComparison:
+        return TrendComparison(
+            as_of=datetime(2026, 6, 12, tzinfo=UTC),
+            baseline_as_of=datetime(2026, 6, 5, tzinfo=UTC),
+            deltas=[],
+        )
+
+    monkeypatch.setattr(dashboard_app, "load_trend_comparison", empty_query)
+
+    dashboard_app.render_heat_movers(
+        fake_st,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        now=datetime(2026, 6, 12, tzinfo=UTC),
+    )
+
+    assert fake_st.warnings == []
+    assert dashboard_app.HEAT_MOVER_EMPTY_MESSAGE in fake_st.infos
+
+
+def test_render_heat_movers_shows_grouped_rows(monkeypatch, tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    fake_st = FakeStreamlit()
+    captured_kwargs: dict[str, object] = {}
+
+    def grouped_query(**kwargs: object) -> TrendComparison:
+        captured_kwargs.update(kwargs)
+        return TrendComparison(
+            as_of=datetime(2026, 6, 12, tzinfo=UTC),
+            baseline_as_of=datetime(2026, 6, 5, tzinfo=UTC),
+            deltas=[
+                TrendDelta(
+                    signal_kind=TrendSignalKind.ENTITY,
+                    comparison_key="entity:brand:the row",
+                    name="The Row",
+                    signal_type="brand",
+                    status=TrendStatus.NEW,
+                    current_score=3.0,
+                    score_delta=3.0,
+                    current_mentions=3,
+                    mention_delta=3,
+                ),
+                TrendDelta(
+                    signal_kind=TrendSignalKind.CANDIDATE,
+                    comparison_key="candidate:bag:le teckel",
+                    name="Le Teckel",
+                    signal_type="bag",
+                    status=TrendStatus.RISING,
+                    current_score=2.0,
+                    baseline_score=1.0,
+                    score_delta=1.0,
+                    current_mentions=2,
+                    baseline_mentions=1,
+                    mention_delta=1,
+                ),
+                TrendDelta(
+                    signal_kind=TrendSignalKind.ENTITY,
+                    comparison_key="entity:brand:cooling",
+                    name="Cooling Brand",
+                    signal_type="brand",
+                    status=TrendStatus.COOLING,
+                    current_score=1.0,
+                    baseline_score=2.0,
+                    score_delta=-1.0,
+                    current_mentions=1,
+                    baseline_mentions=2,
+                    mention_delta=-1,
+                ),
+            ],
+        )
+
+    monkeypatch.setattr(dashboard_app, "load_trend_comparison", grouped_query)
+
+    dashboard_app.render_heat_movers(
+        fake_st,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        now=datetime(2026, 6, 12, tzinfo=UTC),
+    )
+
+    assert captured_kwargs["include_dropped"] is False
+    assert captured_kwargs["limit"] is None
+    assert fake_st.warnings == []
+    assert fake_st.infos == []
+    assert fake_st.dataframes == [
+        [
+            {
+                "section": "New tracked entities",
+                "observed_status": "new",
+                "signal_kind": "entity",
+                "type": "brand",
+                "name": "The Row",
+                "current_score": 3.0,
+                "score_delta": 3.0,
+                "current_mentions": 3,
+                "mention_delta": 3,
+                "current_label": None,
+                "first_seen_at": None,
+            },
+            {
+                "section": "Rising candidate phrases",
+                "observed_status": "rising",
+                "signal_kind": "candidate",
+                "type": "bag",
+                "name": "Le Teckel",
+                "current_score": 2.0,
+                "score_delta": 1.0,
+                "current_mentions": 2,
+                "mention_delta": 1,
+                "current_label": None,
+                "first_seen_at": None,
+            },
+        ]
+    ]
+
+
+def test_dashboard_main_routes_heat_movers_and_trend_deltas_by_label(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    heat_calls: list[str | None] = []
+    trend_calls: list[str | None] = []
+
+    class FakeTab:
+        def __init__(self, owner: FakeMainStreamlit, label: str) -> None:
+            self.owner = owner
+            self.label = label
+
+        def __enter__(self) -> FakeTab:
+            self.owner.current_tab_label = self.label
+            return self
+
+        def __exit__(self, *exc_info: object) -> None:
+            self.owner.current_tab_label = None
+
+    class FakeMainStreamlit:
+        def __init__(self) -> None:
+            self.labels: list[str] = []
+            self.current_tab_label: str | None = None
+
+        def set_page_config(self, **kwargs: object) -> None:
+            pass
+
+        def title(self, message: str) -> None:
+            pass
+
+        def info(self, message: str) -> None:
+            pass
+
+        def caption(self, message: str) -> None:
+            pass
+
+        def metric(self, label: str, value: object) -> None:
+            pass
+
+        def dataframe(self, rows: list[dict[str, object]], use_container_width: bool) -> None:
+            assert use_container_width is True
+
+        def tabs(self, labels: list[str]) -> list[FakeTab]:
+            self.labels = labels
+            return [FakeTab(self, label) for label in labels]
+
+    fake_streamlit = FakeMainStreamlit()
+
+    monkeypatch.setitem(sys.modules, "streamlit", fake_streamlit)
+    monkeypatch.setattr(
+        dashboard_app,
+        "parse_args",
+        lambda: dashboard_app.argparse.Namespace(
+            config_dir=config_dir,
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+        ),
+    )
+    monkeypatch.setattr(
+        dashboard_app,
+        "dashboard_summary",
+        lambda data_dir: {
+            "database_exists": True,
+            "item_count": 0,
+            "match_count": 0,
+            "latest_collected_at": None,
+        },
+    )
+    monkeypatch.setattr(
+        dashboard_app,
+        "latest_candidate_report",
+        lambda reports_dir: {"report_date": None, "candidate_count": 0, "rows": []},
+    )
+    monkeypatch.setattr(dashboard_app, "recent_signals", lambda data_dir: [])
+    monkeypatch.setattr(
+        dashboard_app,
+        "top_entities",
+        lambda data_dir, *, entity_type: [],
+    )
+    monkeypatch.setattr(dashboard_app, "source_health_rows", lambda data_dir: [])
+
+    def fake_render_heat_movers(
+        st: FakeMainStreamlit,
+        *,
+        config_dir: Path,
+        data_dir: Path,
+    ) -> None:
+        heat_calls.append(st.current_tab_label)
+
+    def fake_render_trend_deltas(
+        st: FakeMainStreamlit,
+        *,
+        config_dir: Path,
+        data_dir: Path,
+    ) -> None:
+        trend_calls.append(st.current_tab_label)
+
+    monkeypatch.setattr(
+        dashboard_app,
+        "render_heat_movers",
+        fake_render_heat_movers,
+        raising=False,
+    )
+    monkeypatch.setattr(dashboard_app, "render_trend_deltas", fake_render_trend_deltas)
+
+    dashboard_app.main()
+
+    assert fake_streamlit.labels == list(dashboard_app.DASHBOARD_TAB_LABELS)
+    assert heat_calls == ["Heat Movers"]
+    assert trend_calls == ["Trend Deltas"]
+    assert len(dashboard_app.DASHBOARD_TAB_LABELS) == len(dashboard_app.ENTITY_MENTION_TABS) + 5
 
 
 def test_render_trend_deltas_warns_for_missing_scoring_without_data_dir_creation(

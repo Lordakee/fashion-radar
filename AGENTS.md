@@ -68,3 +68,9 @@ paywall bypass, or fragile full social-platform scraping.
   APIs/download media/browser automation/scrape/crawl/monitor/watch/schedule/connectors/source
   acquisition/demand proof/ranking/coverage verification/entity generation/compliance/policy/
   authorization/safety-review features.
+
+## Heat Movers Boundary
+
+`heat-movers` is local observed heat movement over one configured source set.
+It compares configured sources and imported local signals, and the output needs
+review. It provides no demand proof and no platform coverage verification.

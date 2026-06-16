@@ -243,6 +243,13 @@ Avoid wording that implies complete market truth:
 - "Verified demand"
 - "Top social trend"
 
+### Heat Movers
+
+The `heat-movers` command reports local observed heat movement for one
+configured source set. It compares configured sources and imported local
+signals, and the output needs review. It provides no demand proof and no
+platform coverage verification.
+
 ## Quality Boundaries
 
 Heat scores are local metrics based on configured sources and imported local

@@ -75,6 +75,11 @@ from fashion_radar.entity_packs import (
     lint_entity_pack,
     render_entity_pack_lint_table,
 )
+from fashion_radar.heat_movers import (
+    HeatMoversReport,
+    build_heat_movers,
+    render_heat_movers_table,
+)
 from fashion_radar.imported_candidate_evidence import (
     query_imported_candidate_evidence,
     render_imported_candidate_evidence_table,
@@ -188,6 +193,7 @@ ImportedSignalsSummaryOutputFormat = Literal["table", "json"]
 EntityPackLintOutputFormat = Literal["table", "json"]
 SourcePackLintOutputFormat = Literal["table", "json"]
 TrendOutputFormat = Literal["table", "json"]
+HeatMoversOutputFormat = Literal["table", "json"]
 CANDIDATE_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
@@ -339,6 +345,11 @@ SOURCE_PACK_LINT_FORMAT_OPTION = typer.Option(
     help="Output format.",
 )
 TREND_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+HEAT_MOVERS_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
@@ -1262,6 +1273,86 @@ def trends_command(
     _print_trend_output(comparison, output_format=output_format)
 
 
+@app.command(name="heat-movers")
+def heat_movers_command(
+    config_dir: Path = CONFIG_DIR_OPTION,
+    data_dir: Path = DATA_DIR_OPTION,
+    as_of: str = AS_OF_OPTION,
+    baseline_as_of: str | None = typer.Option(None, help="UTC baseline timestamp."),
+    limit: int | None = typer.Option(5, min=0, help="Maximum rows per heat mover group."),
+    output_format: HeatMoversOutputFormat = HEAT_MOVERS_FORMAT_OPTION,
+    include_cooling: bool = typer.Option(False, help="Include a cooling watchlist group."),
+) -> None:
+    """Review local observed new and rising heat movers."""
+    try:
+        try:
+            as_of_value = parse_datetime_utc(as_of)
+        except (TypeError, ValueError) as exc:
+            typer.echo(f"Could not review heat movers: invalid --as-of: {exc}", err=True)
+            raise typer.Exit(1) from exc
+        scoring_config = load_scoring_config(config_dir / "scoring.yaml")
+        try:
+            baseline_as_of_value = (
+                parse_datetime_utc(baseline_as_of)
+                if baseline_as_of is not None
+                else as_of_value - timedelta(days=scoring_config.scoring.current_window_days)
+            )
+        except (TypeError, ValueError) as exc:
+            typer.echo(
+                f"Could not review heat movers: invalid --baseline-as-of: {exc}",
+                err=True,
+            )
+            raise typer.Exit(1) from exc
+        if baseline_as_of_value >= as_of_value:
+            typer.echo(
+                "Could not review heat movers: baseline-as-of must be before as-of",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        entity_path = config_dir / "entities.yaml"
+        entity_config = load_entity_config(entity_path) if entity_path.exists() else None
+    except ConfigError as exc:
+        typer.echo(f"Invalid heat movers config: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    db_path = default_database_path(data_dir)
+    if not db_path.exists():
+        report = build_heat_movers(
+            TrendComparison(as_of=as_of_value, baseline_as_of=baseline_as_of_value, deltas=[]),
+            limit_per_group=limit,
+            include_cooling=include_cooling,
+        )
+        _print_heat_movers_output(report, output_format=output_format)
+        return
+
+    engine = create_readonly_sqlite_engine(db_path)
+    try:
+        verify_readonly_trend_schema(engine)
+        comparison = build_trend_comparison(
+            engine,
+            scoring=scoring_config.scoring,
+            candidate_discovery=scoring_config.candidate_discovery,
+            entity_config=entity_config,
+            as_of=as_of_value,
+            baseline_as_of=baseline_as_of_value,
+            include_dropped=False,
+            limit=None,
+        )
+        report = build_heat_movers(
+            comparison,
+            limit_per_group=limit,
+            include_cooling=include_cooling,
+        )
+    except Exception as exc:
+        typer.echo(f"Could not review heat movers: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    finally:
+        engine.dispose()
+
+    _print_heat_movers_output(report, output_format=output_format)
+
+
 @app.command(name="imported-candidate-evidence")
 def imported_candidate_evidence_command(
     config_dir: Path = CONFIG_DIR_OPTION,
@@ -1786,6 +1877,19 @@ def _print_trend_output(
         return
 
     for line in _trend_table_lines(comparison):
+        typer.echo(line)
+
+
+def _print_heat_movers_output(
+    report: HeatMoversReport,
+    *,
+    output_format: HeatMoversOutputFormat,
+) -> None:
+    if output_format == "json":
+        typer.echo(report.model_dump_json(indent=2))
+        return
+
+    for line in render_heat_movers_table(report):
         typer.echo(line)
 
 

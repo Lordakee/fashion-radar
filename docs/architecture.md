@@ -128,6 +128,10 @@ YAML config
 - **Trend Deltas:** Read-only comparison of entity scoring and candidate
   discovery snapshots from existing local SQLite state. It does not create
   schema migrations, persistent trend tables, or database writes.
+- **Heat Movers:** Read-only local observed heat movement review for one
+  configured source set. It compares configured sources and imported local
+  signals, and the output needs review. It provides no demand proof or platform
+  coverage verification.
 - **Reports:** Markdown and JSON daily reports rendered from packaged
   templates.
 - **Local Digest:** Optional post-report packaging that writes local
@@ -168,6 +172,13 @@ Optional local digest artifacts are:
 <reports-dir>/report-index.json
 <reports-dir>/fashion-radar-YYYY-MM-DD.eml
 ```
+
+## Heat Movers
+
+The `heat-movers` command and dashboard view are local observed heat movement
+surfaces for one configured source set. They compare configured sources and
+imported local signals, and the output needs review. They provide no demand proof
+and no platform coverage verification.
 
 ## Command Flow
 

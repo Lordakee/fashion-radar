@@ -83,7 +83,12 @@ Stage 41 docs freshness check:
 - [ ] README links `docs/cli-reference.md`.
 - [ ] Import/review examples that use `$PWD/data` pass `--data-dir "$PWD/data"`
       consistently.
-- [ ] Installed-wheel help smoke covers every current public command.
+- [ ] Installed-wheel help smoke covers every documented command, including
+      the Stage 57 `heat-movers` entry.
+- [ ] Stage 57 `heat-movers` docs describe local observed heat movement for
+      one configured source set, compare configured sources and imported local
+      signals, say output needs review, and say there is no demand proof or
+      no platform coverage verification.
 - [ ] `community-signal-profile` remains a print-only local producer contract
       for user-controlled tools, not source acquisition, platform monitoring,
       or compliance review.
@@ -245,7 +250,7 @@ for cmd in \
   community-handoff-check-dir \
   import-signals import-signals-dir imported-signals imported-signals-summary \
   imported-entity-deltas imported-candidates imported-candidate-evidence \
-  imported-review-workflow collect match report candidates trends \
+  imported-review-workflow collect match report candidates trends heat-movers \
   schedule-example dashboard clean-old-data run
 do
   "$tmp_env/venv/bin/fashion-radar" "$cmd" --help

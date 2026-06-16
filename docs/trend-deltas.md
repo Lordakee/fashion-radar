@@ -7,6 +7,17 @@ They compare configured sources and imported local signals only. They are not
 verified demand, market-wide proof, real-time monitoring, or complete
 social-platform coverage.
 
+## Heat Movers
+
+The `heat-movers` command is a local observed heat movement view for one
+configured source set. It compares configured sources and imported local
+signals, and the output needs review. It provides no demand proof and no
+platform coverage verification.
+
+```bash
+uv run fashion-radar heat-movers --as-of 2026-06-12T00:00:00Z --config-dir ./configs --data-dir ./data
+```
+
 ## CLI Usage
 
 Compare the current local snapshot with the default baseline:

@@ -11,11 +11,18 @@ from typer.testing import CliRunner
 from fashion_radar.cli import app
 from fashion_radar.community_handoff_manifest import build_community_handoff_manifest
 from fashion_radar.community_signal_profile import build_community_signal_profile
+from fashion_radar.dashboard.app import DASHBOARD_TAB_LABELS
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI_REFERENCE = ROOT / "docs" / "cli-reference.md"
 UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
 README = ROOT / "README.md"
+TREND_DELTAS_DOC = ROOT / "docs" / "trend-deltas.md"
+DASHBOARD_DOC = ROOT / "docs" / "dashboard.md"
+ARCHITECTURE_DOC = ROOT / "docs" / "architecture.md"
+SOURCE_BOUNDARIES_DOC = ROOT / "docs" / "source-boundaries.md"
+AGENTS_DOC = ROOT / "AGENTS.md"
+CHANGELOG = ROOT / "CHANGELOG.md"
 FIRST_RUN_DOC = ROOT / "docs" / "first-run.md"
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 COMMUNITY_TOOL_HANDOFF_TEMPLATE_PATHS = (
@@ -51,9 +58,68 @@ REQUIRED_FLAGS_BY_COMMAND = {
     "report": ("--config-dir", "--data-dir", "--reports-dir", "--as-of"),
     "run": ("--config-dir", "--data-dir", "--reports-dir", "--as-of"),
     "candidates": ("--config-dir", "--data-dir", "--as-of"),
+    "heat-movers": ("--config-dir", "--data-dir", "--as-of"),
     "trends": ("--config-dir", "--data-dir", "--as-of"),
     "clean-old-data": ("--data-dir",),
 }
+
+STAGE_DOCS_COMMANDS = ("heat-movers",)
+HEAT_MOVERS_MENTION_DOCS = (
+    README,
+    TREND_DELTAS_DOC,
+    DASHBOARD_DOC,
+    CLI_REFERENCE,
+    ARCHITECTURE_DOC,
+    UPLOAD_CHECKLIST,
+    CHANGELOG,
+)
+HEAT_MOVERS_BOUNDARY_DOCS = (
+    README,
+    TREND_DELTAS_DOC,
+    DASHBOARD_DOC,
+    CLI_REFERENCE,
+    ARCHITECTURE_DOC,
+    SOURCE_BOUNDARIES_DOC,
+    AGENTS_DOC,
+)
+HEAT_MOVERS_BOUNDARY_MENTION_DOCS = (
+    UPLOAD_CHECKLIST,
+    CHANGELOG,
+)
+HEAT_MOVERS_SECTION_DOCS = (
+    README,
+    TREND_DELTAS_DOC,
+    DASHBOARD_DOC,
+    CLI_REFERENCE,
+    ARCHITECTURE_DOC,
+    SOURCE_BOUNDARIES_DOC,
+    AGENTS_DOC,
+)
+HEAT_MOVERS_REQUIRED_BOUNDARY_PHRASES = (
+    "local observed heat movement",
+    "configured source set",
+    "configured sources and imported local signals",
+    "needs review",
+    "no demand proof",
+    "no platform coverage verification",
+)
+HEAT_MOVERS_CLI_FLAGS = (
+    "--config-dir",
+    "--data-dir",
+    "--as-of",
+    "--baseline-as-of",
+    "--limit",
+    "--format",
+    "--include-cooling",
+)
+HEAT_MOVERS_FORBIDDEN_POSITIVE_CLAIMS = (
+    "hottest",
+    "viral",
+    "market-wide trend",
+    "platform-wide popularity",
+    "verified demand",
+    "top social trend",
+)
 
 FASHION_RADAR_COMMAND_RE = re.compile(
     r"(?:^|\s)"
@@ -69,6 +135,10 @@ def _public_cli_commands() -> list[str]:
         for name, command in click_app.commands.items()
         if not getattr(command, "hidden", False)
     )
+
+
+def _documented_public_cli_commands() -> list[str]:
+    return sorted({*_public_cli_commands(), *STAGE_DOCS_COMMANDS})
 
 
 def _read(path: Path) -> str:
@@ -157,6 +227,31 @@ def _markdown_section(text: str, heading: str) -> str:
     return text.split(heading, 1)[1].split("\n## ", 1)[0]
 
 
+def _markdown_section_matching_heading(text: str, heading_pattern: str) -> str:
+    heading = re.search(
+        rf"^(?P<marker>#+)\s+.*{heading_pattern}.*$",
+        text,
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
+    assert heading is not None, f"Missing markdown heading matching {heading_pattern!r}"
+    level = len(heading.group("marker"))
+    rest = text[heading.end() :]
+    next_heading = re.search(rf"^#{{1,{level}}}\s+", rest, flags=re.MULTILINE)
+    end = heading.end() + next_heading.start() if next_heading is not None else len(text)
+    return text[heading.start() : end]
+
+
+def _heat_movers_section(path: Path) -> str:
+    return _markdown_section_matching_heading(_read(path), r"heat[- ]movers?")
+
+
+def _dashboard_current_tab_labels() -> list[str]:
+    section = _markdown_section_matching_heading(_read(DASHBOARD_DOC), r"current tabs")
+    return [
+        line.removeprefix("- ").strip() for line in section.splitlines() if line.startswith("- ")
+    ]
+
+
 def _first_json_payload_from_section(text: str, heading: str) -> dict[str, object]:
     section = _markdown_section(text, heading)
     match = re.search(r"```json\n(?P<payload>.*?)\n```", section, flags=re.DOTALL)
@@ -220,8 +315,55 @@ def test_cli_reference_lists_every_public_command() -> None:
     assert "validates deterministic sample output content" in normalized
 
 
-def test_upload_checklist_help_loop_matches_public_commands() -> None:
-    assert _upload_checklist_help_loop_commands() == _public_cli_commands()
+def test_upload_checklist_help_loop_matches_documented_commands() -> None:
+    assert _upload_checklist_help_loop_commands() == _documented_public_cli_commands()
+
+
+def test_heat_movers_public_docs_are_linked_and_bounded() -> None:
+    for path in HEAT_MOVERS_MENTION_DOCS:
+        assert "heat-movers" in _read(path), f"{path.relative_to(ROOT)} missing heat-movers"
+
+    for path in HEAT_MOVERS_BOUNDARY_DOCS:
+        section = _heat_movers_section(path)
+        normalized = _normalized_text(section).casefold()
+        for phrase in HEAT_MOVERS_REQUIRED_BOUNDARY_PHRASES:
+            assert phrase in normalized, f"{path.relative_to(ROOT)} missing {phrase!r}"
+
+    for path in HEAT_MOVERS_BOUNDARY_MENTION_DOCS:
+        normalized = _normalized_text(_read(path)).casefold()
+        for phrase in HEAT_MOVERS_REQUIRED_BOUNDARY_PHRASES:
+            assert phrase in normalized, f"{path.relative_to(ROOT)} missing {phrase!r}"
+
+
+def test_heat_movers_sections_do_not_make_positive_scope_claims() -> None:
+    for path in HEAT_MOVERS_SECTION_DOCS:
+        section = _heat_movers_section(path)
+        normalized = _normalized_text(section).casefold()
+        for claim in HEAT_MOVERS_FORBIDDEN_POSITIVE_CLAIMS:
+            assert claim not in normalized, f"{path.relative_to(ROOT)} uses {claim!r}"
+
+
+def test_heat_movers_required_flags_match_repo_local_path_contract() -> None:
+    assert REQUIRED_FLAGS_BY_COMMAND["heat-movers"] == (
+        "--config-dir",
+        "--data-dir",
+        "--as-of",
+    )
+
+
+def test_heat_movers_cli_reference_lists_public_flags() -> None:
+    section = _heat_movers_section(CLI_REFERENCE)
+
+    for flag in HEAT_MOVERS_CLI_FLAGS:
+        assert flag in section
+
+
+def test_heat_movers_upload_checklist_help_loop_includes_command() -> None:
+    assert "heat-movers" in _upload_checklist_help_loop_commands()
+
+
+def test_dashboard_docs_current_tab_order_matches_app_labels() -> None:
+    assert _dashboard_current_tab_labels() == list(DASHBOARD_TAB_LABELS)
 
 
 def test_package_archive_smoke_command_is_documented_and_in_ci() -> None:

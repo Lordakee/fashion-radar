@@ -343,6 +343,17 @@ uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" -
 Trend deltas are read-only local comparisons. They do not prove demand outside
 your configured source set.
 
+### Heat Movers
+
+The `heat-movers` command is a local observed heat movement view over one
+configured source set. It reviews configured sources and imported local
+signals, and the output needs review. It is local observed heat movement only,
+with no demand proof and no platform coverage verification.
+
+```bash
+uv run fashion-radar heat-movers --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+```
+
 Or run the workflow serially:
 
 ```bash

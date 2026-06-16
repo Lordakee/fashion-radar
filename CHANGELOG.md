@@ -88,6 +88,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   media, browser automation, scrape/crawl/monitor/watch/schedule/connectors,
   source acquisition, demand proof, ranking, coverage verification, entity
   generation, or compliance/policy/authorization/safety-review features.
+- Stage 57 `heat-movers` docs for read-only local observed heat movement over
+  one configured source set, comparing configured sources and imported local
+  signals where output needs review, with no demand proof and no platform
+  coverage verification.
 - Print-only `community-signal-profile` command and example JSON producer
   contract for external tools that generate sanitized community signal handoff
   files.

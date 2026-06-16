@@ -137,6 +137,16 @@ These commands read existing local SQLite rows where `source_type` is
   Requires `--as-of`; supports `--config-dir`, `--data-dir`,
   `--baseline-as-of`, `--limit`, `--format table|json`, and
   `--include-dropped`.
+
+### Heat Movers
+
+- `heat-movers`: review local observed heat movement for one configured source
+  set. It compares configured sources and imported local signals, and the
+  output needs review, with no demand proof and no platform coverage
+  verification. Requires `--config-dir`, `--data-dir`, and `--as-of`; supports
+  `--baseline-as-of`, `--limit`, `--format table|json`, and
+  `--include-cooling`.
+
 - `dashboard`: launch the optional local Streamlit dashboard. Supports
   `--config-dir`, `--data-dir`, `--reports-dir`, `--host`, and `--port`.
   Defaults to `127.0.0.1:8501`.

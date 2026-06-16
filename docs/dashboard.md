@@ -62,6 +62,7 @@ Dashboard tabs are read-only operational summaries:
 
 - Daily Brief
 - Candidate Signals
+- Heat Movers
 - Trend Deltas
 - Brand Mentions
 - Designer Mentions
@@ -91,3 +92,10 @@ report is written.
 The Trend Deltas tab compares local observed entity and candidate signals
 between two scoring snapshots. These directional signals need review and should
 not be read as platform-wide popularity or market-wide demand.
+
+## Heat Movers
+
+The `heat-movers` dashboard view shows local observed heat movement for one
+configured source set. It compares configured sources and imported local
+signals, and the output needs review. It provides no demand proof and no
+platform coverage verification.

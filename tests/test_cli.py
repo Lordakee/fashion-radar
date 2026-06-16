@@ -21,6 +21,7 @@ from fashion_radar.db.schema import (
     schema_metadata,
 )
 from fashion_radar.digests import DigestOptions, DigestResult
+from fashion_radar.heat_movers import HeatMoversReport
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceType
 from fashion_radar.models.trend import TrendComparison
@@ -6653,6 +6654,110 @@ candidate_discovery:
     return config_dir, data_dir
 
 
+def _prepare_heat_mover_group_limit_cli_fixture(tmp_path: Path) -> tuple[Path, Path]:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text(
+        """
+version: 1
+scoring:
+  current_window_days: 7
+  baseline_window_days: 30
+  min_match_confidence: 0.5
+  rising_min_mentions: 1
+  hot_score_threshold: 999
+candidate_discovery:
+  enabled: false
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (config_dir / "entities.yaml").write_text("version: 1\nentities: []\n", encoding="utf-8")
+
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    as_of = datetime(2026, 6, 12, 12, 0, tzinfo=UTC)
+    baseline_as_of = as_of - timedelta(days=7)
+
+    def store(
+        *,
+        entity_name: str,
+        url: str,
+        title: str,
+        source_name: str,
+        collected_at: datetime,
+    ) -> None:
+        item_id = repository.upsert_item(
+            CollectedItem(
+                source_name=source_name,
+                source_type=SourceType.RSS,
+                url=url,
+                title=title,
+                published_at=collected_at,
+                summary=title,
+            ),
+            collected_at=collected_at,
+        )
+        repository.replace_item_matches(
+            item_id,
+            [
+                {
+                    "entity_name": entity_name,
+                    "entity_type": "brand",
+                    "alias": entity_name,
+                    "confidence": 1.0,
+                    "reason": "accepted",
+                    "context_terms": [],
+                }
+            ],
+        )
+
+    for entity_name, slug in (("Alaia", "alaia"), ("Khaite", "khaite")):
+        store(
+            entity_name=entity_name,
+            url=f"https://example.com/{slug}-current",
+            title=f"{entity_name} current heat",
+            source_name="Fashionista",
+            collected_at=as_of - timedelta(days=1),
+        )
+
+    for entity_name, slug in (("The Row", "the-row"), ("Miu Miu", "miu-miu")):
+        store(
+            entity_name=entity_name,
+            url=f"https://example.com/{slug}-baseline",
+            title=f"{entity_name} baseline heat",
+            source_name="Vogue Business",
+            collected_at=baseline_as_of - timedelta(hours=1),
+        )
+        store(
+            entity_name=entity_name,
+            url=f"https://example.com/{slug}-current-a",
+            title=f"{entity_name} current heat one",
+            source_name="Fashionista",
+            collected_at=as_of - timedelta(days=1),
+        )
+        store(
+            entity_name=entity_name,
+            url=f"https://example.com/{slug}-current-b",
+            title=f"{entity_name} current heat two",
+            source_name="WWD",
+            collected_at=as_of - timedelta(days=2),
+        )
+
+    return config_dir, data_dir
+
+
+def _heat_mover_group_rows(report: HeatMoversReport, group_name: str):
+    groups_by_name = {group.name: group for group in report.groups}
+    return groups_by_name[group_name].rows
+
+
+def _heat_mover_group_names(report: HeatMoversReport) -> list[str]:
+    return [group.name for group in report.groups]
+
+
 def test_trends_command_missing_database_writes_nothing(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     data_dir = tmp_path / "data"
@@ -6992,6 +7097,426 @@ def test_trends_command_help_lists_public_flags() -> None:
     assert "--no-include" in result.output
     assert "--limit" in result.output
     assert "--format" in result.output
+
+
+def test_heat_movers_command_help_lists_public_flags() -> None:
+    result = CliRunner().invoke(app, ["heat-movers", "--help"], env={"COLUMNS": "120"})
+
+    assert result.exit_code == 0
+    assert "local observed new and rising heat movers" in result.output
+    assert "--config-dir" in result.output
+    assert "--data-dir" in result.output
+    assert "--as-of" in result.output
+    assert "--baseline-as-of" in result.output
+    assert "--limit" in result.output
+    assert "--format" in result.output
+    assert "--include-cooling" in result.output
+
+
+def test_heat_movers_command_missing_database_writes_nothing_and_prints_empty_outputs(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    json_data_dir = tmp_path / "json-data"
+    table_data_dir = tmp_path / "table-data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+    json_result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(json_data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert json_result.exit_code == 0
+    report = HeatMoversReport.model_validate_json(json_result.output)
+    assert report.row_count == 0
+    assert report.group_count == 4
+    assert report.baseline_as_of == datetime(2026, 6, 5, 12, 0, tzinfo=UTC)
+    assert _heat_mover_group_names(report) == [
+        "new_tracked_entities",
+        "rising_tracked_entities",
+        "new_candidate_phrases",
+        "rising_candidate_phrases",
+    ]
+    assert all(group.rows == [] for group in report.groups)
+    assert not json_data_dir.exists()
+    assert not (json_data_dir / "fashion-radar.sqlite").exists()
+
+    table_result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(table_data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert table_result.exit_code == 0
+    assert "# Heat Movers" in table_result.output
+    assert "Local observed heat movement" in table_result.output
+    assert "_No rows._" in table_result.output
+    assert not table_data_dir.exists()
+    assert not (table_data_dir / "fashion-radar.sqlite").exists()
+
+
+def test_heat_movers_command_rejects_invalid_as_of_before_data_dir_creation(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review heat movers: invalid --as-of" in result.output
+    assert not data_dir.exists()
+
+
+def test_heat_movers_command_rejects_invalid_baseline_before_data_dir_creation(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--baseline-as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review heat movers: invalid --baseline-as-of" in result.output
+    assert not data_dir.exists()
+
+
+def test_heat_movers_command_rejects_baseline_at_or_after_as_of(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--baseline-as-of",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review heat movers: baseline-as-of must be before as-of" in result.output
+    assert not data_dir.exists()
+
+
+def test_heat_movers_command_rejects_invalid_config_before_data_dir_creation(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text(
+        "version: 1\nscoring:\n  current_window_days: 0\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Invalid heat movers config" in result.output
+    assert not data_dir.exists()
+
+
+def test_heat_movers_command_rejects_negative_limit_at_parse_time(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--limit",
+            "-1",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid value" in result.output
+    assert not data_dir.exists()
+
+
+def test_heat_movers_command_rejects_incompatible_database_without_schema_mutation(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    db_path = data_dir / "fashion-radar.sqlite"
+    db_path.touch()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review heat movers" in result.output
+    assert "schema" in result.output.lower()
+    assert "fashion-radar migrate-db --data-dir" in result.output
+    with sqlite3.connect(db_path) as connection:
+        table_names = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+    assert table_names == set()
+
+
+def test_heat_movers_command_reports_future_schema_before_missing_table_validation(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    _create_future_metadata_only_database(data_dir / "fashion-radar.sqlite")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-01-15T00:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review heat movers" in result.output
+    assert f"Unsupported database schema version 999; expected {SCHEMA_VERSION}" in result.output
+    assert "This database may require a newer Fashion Radar version." in result.output
+    assert "missing tables" not in result.output
+    assert "migrate-db" not in result.output
+    assert "Traceback" not in result.output
+
+
+def test_heat_movers_command_prints_grouped_json(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_trend_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    report = HeatMoversReport.model_validate_json(result.output)
+    assert _heat_mover_group_names(report) == [
+        "new_tracked_entities",
+        "rising_tracked_entities",
+        "new_candidate_phrases",
+        "rising_candidate_phrases",
+    ]
+    assert "The Row" in {
+        row.name for row in _heat_mover_group_rows(report, "rising_tracked_entities")
+    }
+
+
+def test_heat_movers_command_groups_candidate_new_and_cooling_rows(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_candidate_trend_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T00:00:00Z",
+            "--baseline-as-of",
+            "2026-06-05T00:00:00Z",
+            "--include-cooling",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    report = HeatMoversReport.model_validate_json(result.output)
+    assert "Bright bag" in {
+        row.name for row in _heat_mover_group_rows(report, "new_candidate_phrases")
+    }
+    assert "Fading bag" in {row.name for row in _heat_mover_group_rows(report, "cooling_watchlist")}
+    assert report.include_cooling is True
+
+
+def test_heat_movers_command_limit_caps_each_group_not_raw_trend_deltas(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir = _prepare_heat_mover_group_limit_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--limit",
+            "1",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    report = HeatMoversReport.model_validate_json(result.output)
+    assert report.limit_per_group == 1
+    assert len(_heat_mover_group_rows(report, "new_tracked_entities")) == 1
+    assert len(_heat_mover_group_rows(report, "rising_tracked_entities")) == 1
+    assert report.row_count == 2
+
+
+def test_heat_movers_command_table_output_includes_local_observed_review_wording(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir = _prepare_candidate_trend_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T00:00:00Z",
+            "--baseline-as-of",
+            "2026-06-05T00:00:00Z",
+            "--include-cooling",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Local observed heat movers need review." in result.output
+    assert "Local observed heat movement" in result.output
+    assert "review" in result.output
+
+
+def test_heat_movers_command_existing_database_remains_read_only(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_trend_cli_fixture(tmp_path)
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    with engine.connect() as connection:
+        item_count = connection.execute(select(items.c.id)).all()
+        match_count = connection.execute(select(item_entities.c.id)).all()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "heat-movers",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    with engine.connect() as connection:
+        assert connection.execute(select(items.c.id)).all() == item_count
+        assert connection.execute(select(item_entities.c.id)).all() == match_count
 
 
 def test_source_pack_lint_help_lists_format_and_strict() -> None:
