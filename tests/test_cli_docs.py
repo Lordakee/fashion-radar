@@ -700,8 +700,59 @@ def test_community_handoff_manifest_docs_show_current_profile_example_paths_only
     manifest_payload = _first_json_payload_from_section(import_doc, "## Directory Manifest")
 
     assert manifest_payload["example_paths"] == build_community_signal_profile().example_paths
+    assert manifest_payload["directory_example_paths"] == list(
+        COMMUNITY_TOOL_HANDOFF_DIRECTORY_PATHS
+    )
+    manifest_keys = list(manifest_payload)
+    assert manifest_keys.index("directory_example_paths") == (
+        manifest_keys.index("example_paths") + 1
+    )
     for path in COMMUNITY_TOOL_HANDOFF_DIRECTORY_PATHS:
         assert path not in manifest_payload["example_paths"]
+
+
+def test_directory_example_paths_are_machine_readable_and_documented() -> None:
+    profile = build_community_signal_profile()
+    manifest = build_community_handoff_manifest(
+        directory=Path("exports"),
+        config_dir=Path("configs"),
+        data_dir=Path("data"),
+        input_format="csv",
+        pattern="*.csv",
+        as_of="2026-06-13T12:00:00Z",
+        source_name="Community Tool Export",
+    )
+
+    assert tuple(profile.directory_example_paths) == COMMUNITY_TOOL_HANDOFF_DIRECTORY_PATHS
+    assert profile.directory_example_paths == manifest.directory_example_paths
+
+    field_docs = (
+        README,
+        ROOT / "docs" / "community-signal-import.md",
+        ROOT / "docs" / "community-signal-quality.md",
+        CLI_REFERENCE,
+        SOURCE_BOUNDARIES_DOC,
+        ARCHITECTURE_DOC,
+        UPLOAD_CHECKLIST,
+        CHANGELOG,
+    )
+    path_docs = (
+        README,
+        ROOT / "docs" / "community-signal-import.md",
+        ROOT / "docs" / "community-signal-quality.md",
+        CLI_REFERENCE,
+        UPLOAD_CHECKLIST,
+        CHANGELOG,
+    )
+
+    for path in field_docs:
+        normalized = _normalized_doc_text(path).casefold()
+        assert "directory_example_paths" in normalized
+
+    for path in path_docs:
+        normalized = _normalized_doc_text(path).casefold()
+        for relative_path in COMMUNITY_TOOL_HANDOFF_DIRECTORY_PATHS:
+            assert relative_path.casefold() in normalized
 
 
 def test_external_community_tool_handoff_template_docs_are_linked_and_bounded() -> None:

@@ -13,6 +13,15 @@ state.
 
 Run `community-signal-profile --format json` when a local external tool needs a
 machine-readable producer contract before it writes CSV/JSON handoff files.
+`community-signal-profile --format json` and
+`community-handoff-manifest --format json` expose `directory_example_paths` for
+the checked-in directory layout:
+
+- `examples/community-tool-handoff-directory.example/README.md`
+- `examples/community-tool-handoff-directory.example/csv/community-tool-a.csv`
+- `examples/community-tool-handoff-directory.example/csv/community-tool-b.csv`
+- `examples/community-tool-handoff-directory.example/json/community-tool-a.json`
+- `examples/community-tool-handoff-directory.example/json/community-tool-b.json`
 
 ## Commands
 

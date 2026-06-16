@@ -62,6 +62,7 @@ class CommunityHandoffManifest(BaseModel):
     manifest_storage_note: str
     schema_path: str
     example_paths: list[str]
+    directory_example_paths: list[str]
     csv_header: list[str]
     required_fields: list[str]
     optional_fields: list[str]
@@ -112,6 +113,7 @@ def build_community_handoff_manifest(
         manifest_storage_note=COMMUNITY_HANDOFF_MANIFEST_STORAGE_NOTE,
         schema_path=profile.schema_path,
         example_paths=[*profile.example_paths],
+        directory_example_paths=[*profile.directory_example_paths],
         csv_header=[*profile.csv_header],
         required_fields=[*profile.required_fields],
         optional_fields=[*profile.optional_fields],
@@ -148,6 +150,7 @@ def render_community_handoff_manifest_table(
         f"Supported input formats: {', '.join(manifest.supported_input_formats)}",
         f"Schema path: {manifest.schema_path}",
         f"Example paths: {', '.join(manifest.example_paths)}",
+        f"Directory example paths: {', '.join(manifest.directory_example_paths)}",
         f"CSV header: {', '.join(manifest.csv_header)}",
         f"Required fields: {', '.join(manifest.required_fields)}",
         f"Optional fields: {', '.join(manifest.optional_fields)}",

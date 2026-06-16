@@ -16,6 +16,7 @@ YAML config
   -> optionally use checked-in external community tool export directory
      examples for a local external tool
   -> optionally print the community signal producer profile before a local tool writes files
+     with static directory_example_paths pointers
   -> optionally print a community directory handoff checklist without executing it
   -> optionally run a local-only community directory handoff readiness report
   -> optionally lint one community signal CSV/JSON file or a local directory batch before import
@@ -68,12 +69,16 @@ YAML config
   demand proof, ranking, or coverage verification.
   The external community tool export directory examples are sanitized CSV/JSON
   local directory samples for user-controlled external/community tools. They
-  are not platform collection and do not add connectors, scraping, browser
-  automation, platform APIs, monitoring, scheduling, source acquisition,
-  demand proof, ranking, or coverage verification.
+  are exposed as static `directory_example_paths` pointers and are not platform
+  collection. They do not add connectors, scraping, browser automation,
+  platform APIs, monitoring, scheduling, source acquisition, demand proof,
+  ranking, or coverage verification.
   `community-signal-profile` prints that local producer contract for
   user-controlled tools without reading handoff files, creating artifacts,
   acquiring sources, monitoring platforms, or performing compliance review.
+  `community-handoff-manifest` copies those `directory_example_paths` into its
+  JSON manifest for external/local tool discovery without reading the supplied
+  directory.
   `community-candidates` is an in-memory pre-import preview over one local
   handoff file. It sits before manual import and does not write database,
   report, config, or dashboard state.

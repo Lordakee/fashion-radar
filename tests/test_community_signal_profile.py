@@ -24,6 +24,13 @@ ROOT = Path(__file__).resolve().parents[1]
 CSV_EXAMPLE = ROOT / "examples" / "community-signals.example.csv"
 PROFILE_EXAMPLE = ROOT / "examples" / "community-signal-profile.example.json"
 SCHEMA_PATH = ROOT / "schemas" / "community-signals.schema.json"
+DIRECTORY_EXAMPLE_PATHS = [
+    "examples/community-tool-handoff-directory.example/README.md",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-a.csv",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-b.csv",
+    "examples/community-tool-handoff-directory.example/json/community-tool-a.json",
+    "examples/community-tool-handoff-directory.example/json/community-tool-b.json",
+]
 
 
 def _schema_signal() -> dict[str, object]:
@@ -51,6 +58,7 @@ def test_profile_contract_matches_schema_csv_header_and_constants() -> None:
         "examples/community-tool-handoff.example.csv",
         "examples/community-tool-handoff.example.json",
     ]
+    assert profile.directory_example_paths == DIRECTORY_EXAMPLE_PATHS
     assert profile.supported_input_formats == ["csv", "json"]
     assert profile.csv_header == _csv_header()
     assert profile.allowed_fields == profile.csv_header
@@ -87,6 +95,19 @@ def test_profile_example_paths_exist_and_lint_cleanly() -> None:
         assert result.findings == []
 
 
+def test_profile_directory_example_paths_exist_without_replacing_single_file_examples() -> None:
+    profile = build_community_signal_profile()
+
+    assert profile.directory_example_paths == DIRECTORY_EXAMPLE_PATHS
+    assert all(
+        (ROOT / relative_path).is_file() for relative_path in profile.directory_example_paths
+    )
+    assert all(
+        not relative_path.startswith("examples/community-tool-handoff-directory.example/")
+        for relative_path in profile.example_paths
+    )
+
+
 def test_profile_has_stable_json_key_order() -> None:
     payload = build_community_signal_profile().model_dump(mode="json")
 
@@ -95,6 +116,7 @@ def test_profile_has_stable_json_key_order() -> None:
         "execution_mode",
         "schema_path",
         "example_paths",
+        "directory_example_paths",
         "supported_input_formats",
         "csv_header",
         "required_fields",
@@ -230,6 +252,9 @@ def test_profile_table_includes_contract_commands_and_boundaries() -> None:
     assert "Community signal producer profile" in lines[0]
     assert "Contract version: community-signals/v1" in text
     assert "Execution mode: print_only" in text
+    assert (
+        "Directory example paths: examples/community-tool-handoff-directory.example/README.md"
+    ) in text
     assert "Supported input formats: csv, json" in text
     assert (
         "CSV header: url, title, published_at, summary, source_name, platform, "

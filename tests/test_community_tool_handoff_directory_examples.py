@@ -7,6 +7,7 @@ import pytest
 from typer.testing import CliRunner
 
 from fashion_radar.cli import app
+from fashion_radar.community_signal_profile import build_community_signal_profile
 from fashion_radar.community_signals import lint_community_signal_file
 from fashion_radar.importers.manual_signals import load_manual_signal_rows
 
@@ -58,6 +59,25 @@ def test_directory_example_root_layout_is_locked() -> None:
     assert (EXAMPLE_ROOT / "README.md").is_file()
     assert CSV_DIRECTORY.is_dir()
     assert JSON_DIRECTORY.is_dir()
+
+
+def test_profile_directory_example_paths_match_checked_in_directory_examples() -> None:
+    profile = build_community_signal_profile()
+
+    assert tuple(profile.directory_example_paths) == (
+        "examples/community-tool-handoff-directory.example/README.md",
+        "examples/community-tool-handoff-directory.example/csv/community-tool-a.csv",
+        "examples/community-tool-handoff-directory.example/csv/community-tool-b.csv",
+        "examples/community-tool-handoff-directory.example/json/community-tool-a.json",
+        "examples/community-tool-handoff-directory.example/json/community-tool-b.json",
+    )
+    assert [ROOT / path for path in profile.directory_example_paths] == [
+        EXAMPLE_ROOT / "README.md",
+        CSV_DIRECTORY / "community-tool-a.csv",
+        CSV_DIRECTORY / "community-tool-b.csv",
+        JSON_DIRECTORY / "community-tool-a.json",
+        JSON_DIRECTORY / "community-tool-b.json",
+    ]
 
 
 @pytest.mark.parametrize(

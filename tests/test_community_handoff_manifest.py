@@ -9,6 +9,14 @@ from fashion_radar.community_handoff_manifest import (
     render_community_handoff_manifest_table,
 )
 
+DIRECTORY_EXAMPLE_PATHS = [
+    "examples/community-tool-handoff-directory.example/README.md",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-a.csv",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-b.csv",
+    "examples/community-tool-handoff-directory.example/json/community-tool-a.json",
+    "examples/community-tool-handoff-directory.example/json/community-tool-b.json",
+]
+
 
 def test_build_community_handoff_manifest_has_stable_directory_contract() -> None:
     manifest = build_community_handoff_manifest(
@@ -40,6 +48,7 @@ def test_build_community_handoff_manifest_has_stable_directory_contract() -> Non
         "manifest_storage_note",
         "schema_path",
         "example_paths",
+        "directory_example_paths",
         "csv_header",
         "required_fields",
         "optional_fields",
@@ -84,6 +93,7 @@ def test_build_community_handoff_manifest_has_stable_directory_contract() -> Non
         "examples/community-tool-handoff.example.csv",
         "examples/community-tool-handoff.example.json",
     ]
+    assert manifest.directory_example_paths == DIRECTORY_EXAMPLE_PATHS
     assert manifest.csv_header == [
         "url",
         "title",
@@ -191,6 +201,9 @@ def test_render_community_handoff_manifest_table_sanitizes_cells() -> None:
         manifest_storage_note="Keep manifest | outside\nmatched exports.",
         schema_path="schemas/community-signals.schema.json",
         example_paths=["examples/community-signals.example.csv"],
+        directory_example_paths=[
+            "examples/community-tool-handoff-directory.example/README.md",
+        ],
         csv_header=["url", "title", "published_at"],
         required_fields=["url", "title", "published_at"],
         optional_fields=["summary"],
@@ -242,6 +255,7 @@ def test_render_community_handoff_manifest_table_sanitizes_cells() -> None:
         "Supported input formats: csv, json",
         "Schema path: schemas/community-signals.schema.json",
         "Example paths: examples/community-signals.example.csv",
+        "Directory example paths: examples/community-tool-handoff-directory.example/README.md",
         "CSV header: url, title, published_at",
         "Required fields: url, title, published_at",
         "Optional fields: summary",

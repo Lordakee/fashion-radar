@@ -71,16 +71,18 @@ proof, ranking, or coverage verification.
 
 The external community tool export directory examples are sanitized CSV/JSON
 local directory samples for user-controlled external/community tools. They are
-not platform collection and do not add connectors, scraping, browser
-automation, platform APIs, monitoring, scheduling, source acquisition, demand
-proof, ranking, or coverage verification.
+exposed as static `directory_example_paths` pointers for local/external tool
+discovery. They are not platform collection and do not add connectors,
+scraping, browser automation, platform APIs, monitoring, scheduling, source
+acquisition, demand proof, ranking, or coverage verification.
 
 `community-signal-profile` prints the community handoff producer contract only.
 It does not read handoff files or directories, create config/data/report
 artifacts, open SQLite, fetch URLs, search platforms, log in, store cookies,
 automate browsers, call platform APIs, monitor communities, rank sources,
 verify platform coverage, perform source acquisition, or provide a
-compliance-review workflow.
+compliance-review workflow. Its JSON output may include
+`directory_example_paths` as static checked-in directory example pointers.
 
 `community-handoff-manifest` prints a local producer-facing directory manifest
 only. It does not execute commands, inspect or create the supplied directory,
@@ -90,8 +92,8 @@ call platform APIs, monitor communities, schedule work, add source/platform
 connectors, prove demand, verify platform coverage, rank sources, or provide a
 compliance-review workflow. It may print supplied directory/config/data paths,
 the matched file pattern, a suggested filename, profile/schema/example
-pointers, producer profile field/rule summaries, a manifest storage note, and
-workflow commands for local external producers.
+pointers, `directory_example_paths`, producer profile field/rule summaries, a
+manifest storage note, and workflow commands for local external producers.
 
 `community-handoff-check-dir` is a local-only handoff readiness report for
 user-controlled community signal directories. It reads only matched local

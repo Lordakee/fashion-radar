@@ -72,6 +72,10 @@ local export directory examples for user-controlled external/community tools:
 [examples/community-tool-handoff-directory.example/json/community-tool-a.json](examples/community-tool-handoff-directory.example/json/community-tool-a.json),
 and
 [examples/community-tool-handoff-directory.example/json/community-tool-b.json](examples/community-tool-handoff-directory.example/json/community-tool-b.json).
+`community-signal-profile --format json` and
+`community-handoff-manifest --format json` expose these same checked-in
+directory layout pointers as `directory_example_paths` for local/external tool
+discovery, while `example_paths` stays limited to single-file examples.
 The checked-in `csv/` and `json/` directories are separate non-recursive
 examples for one input format and one matched filename pattern per run. They
 are not platform collection and do not add connectors, scraping, browser
@@ -302,12 +306,12 @@ of demand, not platform coverage, and not source ranking.
 `community-handoff-manifest` is local and print-only. It prints a
 producer-facing manifest for a supplied directory without reading it. The
 manifest describes the directory, matched file pattern, suggested handoff
-filename, `community-signal-profile`/schema/example pointers, embedded producer
-profile fields and rules, a storage note, and the local workflow commands used
-by `community-handoff-workflow`. If an external tool saves the manifest, keep
-it outside the matched export directory or use a filename excluded by the
-handoff `--pattern`, especially for JSON export directories using
-`--pattern "*.json"`.
+filename, `community-signal-profile`/schema/example pointers,
+`directory_example_paths`, embedded producer profile fields and rules, a
+storage note, and the local workflow commands used by
+`community-handoff-workflow`. If an external tool saves the manifest, keep it
+outside the matched export directory or use a filename excluded by the handoff
+`--pattern`, especially for JSON export directories using `--pattern "*.json"`.
 
 `community-handoff-workflow` is local and print-only. It prints the ordered
 local sequence `community-signal-lint-dir`, `community-candidates-dir`,
@@ -490,8 +494,8 @@ do not create the data directory or SQLite database.
 `community-handoff-manifest` can print a directory producer manifest before
 workflow or directory validation. It is local and print-only; it describes the
 target directory, file pattern, suggested filename, producer contract/profile
-pointers, storage note, and workflow commands without reading the supplied
-directory or creating artifacts.
+pointers, `directory_example_paths`, storage note, and workflow commands
+without reading the supplied directory or creating artifacts.
 
 `community-handoff-workflow` can print the same directory handoff order before
 you run any step. It prints copyable commands only; it does not execute them,

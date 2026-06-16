@@ -28,6 +28,13 @@ from fashion_radar.models.source import SourceType
 from fashion_radar.models.trend import TrendComparison
 
 ROOT = Path(__file__).resolve().parents[1]
+DIRECTORY_EXAMPLE_PATHS = [
+    "examples/community-tool-handoff-directory.example/README.md",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-a.csv",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-b.csv",
+    "examples/community-tool-handoff-directory.example/json/community-tool-a.json",
+    "examples/community-tool-handoff-directory.example/json/community-tool-b.json",
+]
 
 
 def test_cli_help() -> None:
@@ -480,6 +487,7 @@ def test_community_signal_profile_prints_table() -> None:
     assert "Community signal producer profile" in result.output
     assert "Contract version: community-signals/v1" in result.output
     assert "CSV header: url, title, published_at" in result.output
+    assert "Directory example paths:" in result.output
     assert "fashion-radar community-signal-lint-dir" in result.output
     assert "Does not create config, data, report, dashboard, or SQLite artifacts." in result.output
 
@@ -494,6 +502,7 @@ def test_community_signal_profile_prints_json() -> None:
         "execution_mode",
         "schema_path",
         "example_paths",
+        "directory_example_paths",
         "supported_input_formats",
         "csv_header",
         "required_fields",
@@ -516,6 +525,7 @@ def test_community_signal_profile_prints_json() -> None:
         "examples/community-tool-handoff.example.csv",
         "examples/community-tool-handoff.example.json",
     ]
+    assert payload["directory_example_paths"] == DIRECTORY_EXAMPLE_PATHS
     assert payload["supported_input_formats"] == ["csv", "json"]
     assert payload["csv_header"] == payload["allowed_fields"]
     assert payload["required_fields"] == ["url", "title", "published_at"]
@@ -4174,6 +4184,7 @@ def test_community_handoff_manifest_command_prints_json_with_stable_keys(
         "manifest_storage_note",
         "schema_path",
         "example_paths",
+        "directory_example_paths",
         "csv_header",
         "required_fields",
         "optional_fields",
@@ -4210,6 +4221,7 @@ def test_community_handoff_manifest_command_prints_json_with_stable_keys(
         "examples/community-tool-handoff.example.csv",
         "examples/community-tool-handoff.example.json",
     ]
+    assert payload["directory_example_paths"] == DIRECTORY_EXAMPLE_PATHS
     assert payload["csv_header"] == [
         "url",
         "title",
@@ -4325,6 +4337,7 @@ def test_community_handoff_manifest_command_prints_table_without_artifacts(
     assert "Workflow commands were not executed." in result.output
     assert "Suggested filename: community-signals.json" in result.output
     assert "Manifest storage note:" in result.output
+    assert "Directory example paths:" in result.output
     assert "community-signal-profile --format json" in result.output
     assert "community-signal-lint-dir" in result.output
     assert "community-candidates-dir" in result.output

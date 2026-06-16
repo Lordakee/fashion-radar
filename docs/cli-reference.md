@@ -103,6 +103,17 @@ validates deterministic sample output content, not only command execution.
   `--config-dir`, `--input-format`, `--pattern`, `--source-name`, `--limit`,
   `--strict`, and `--format table|json`.
 
+For local/external tools that need machine-readable example discovery,
+`fashion-radar community-signal-profile --format json` and
+`fashion-radar community-handoff-manifest DIRECTORY --format json` include
+`directory_example_paths` with these checked-in directory layout pointers:
+
+- `examples/community-tool-handoff-directory.example/README.md`
+- `examples/community-tool-handoff-directory.example/csv/community-tool-a.csv`
+- `examples/community-tool-handoff-directory.example/csv/community-tool-b.csv`
+- `examples/community-tool-handoff-directory.example/json/community-tool-a.json`
+- `examples/community-tool-handoff-directory.example/json/community-tool-b.json`
+
 ## Imported Signal Review
 
 These commands read existing local SQLite rows where `source_type` is

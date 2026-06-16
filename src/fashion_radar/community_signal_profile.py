@@ -17,6 +17,13 @@ COMMUNITY_SIGNAL_EXAMPLE_PATHS = [
     "examples/community-tool-handoff.example.csv",
     "examples/community-tool-handoff.example.json",
 ]
+COMMUNITY_SIGNAL_DIRECTORY_EXAMPLE_PATHS = [
+    "examples/community-tool-handoff-directory.example/README.md",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-a.csv",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-b.csv",
+    "examples/community-tool-handoff-directory.example/json/community-tool-a.json",
+    "examples/community-tool-handoff-directory.example/json/community-tool-b.json",
+]
 COMMUNITY_SIGNAL_CSV_HEADER = [
     "url",
     "title",
@@ -50,6 +57,7 @@ class CommunitySignalProducerProfile(BaseModel):
     execution_mode: str
     schema_path: str
     example_paths: list[str]
+    directory_example_paths: list[str]
     supported_input_formats: list[str]
     csv_header: list[str]
     required_fields: list[str]
@@ -71,6 +79,7 @@ def build_community_signal_profile() -> CommunitySignalProducerProfile:
         execution_mode=COMMUNITY_SIGNAL_EXECUTION_MODE,
         schema_path=COMMUNITY_SIGNAL_SCHEMA_PATH,
         example_paths=[*COMMUNITY_SIGNAL_EXAMPLE_PATHS],
+        directory_example_paths=[*COMMUNITY_SIGNAL_DIRECTORY_EXAMPLE_PATHS],
         supported_input_formats=["csv", "json"],
         csv_header=[*COMMUNITY_SIGNAL_CSV_HEADER],
         required_fields=[*COMMUNITY_SIGNAL_REQUIRED_FIELDS],
@@ -160,6 +169,7 @@ def render_community_signal_profile_table(
         f"Execution mode: {profile.execution_mode}",
         f"Schema path: {profile.schema_path}",
         f"Example paths: {', '.join(profile.example_paths)}",
+        f"Directory example paths: {', '.join(profile.directory_example_paths)}",
         f"Supported input formats: {', '.join(profile.supported_input_formats)}",
         f"CSV header: {', '.join(profile.csv_header)}",
         f"Required fields: {', '.join(profile.required_fields)}",

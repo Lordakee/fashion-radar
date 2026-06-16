@@ -101,8 +101,9 @@ Stage 52 docs check:
 
 - [ ] `community-handoff-manifest` docs describe a local print-only producer
       manifest for one directory, including directory, pattern, suggested
-      filename, producer profile/schema/example pointers, storage note, and
-      workflow commands; no command execution, directory reads, file
+      filename, producer profile/schema/example pointers,
+      `directory_example_paths`, storage note, and workflow commands; no
+      command execution, directory reads, file
       validation, row import, SQLite open/write, URL fetching, login, platform
       APIs, monitoring, scheduling, source/platform connectors, demand proof,
       platform coverage verification, source ranking, report writing,
@@ -149,6 +150,9 @@ External community tool export directory examples docs check:
       are not platform collection and do not add connectors, scraping, browser
       automation, platform APIs, monitoring, scheduling, source acquisition,
       demand proof, ranking, or coverage verification.
+- [ ] `community-signal-profile --format json` and
+      `community-handoff-manifest --format json` docs expose those checked-in
+      directory layout pointers as `directory_example_paths`.
 - [ ] Package archive checks require the directory README plus the two CSV and
       two JSON handoff files.
 

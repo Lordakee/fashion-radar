@@ -65,9 +65,10 @@ and
 [examples/community-tool-handoff-directory.example/json/community-tool-b.json](../examples/community-tool-handoff-directory.example/json/community-tool-b.json).
 The checked-in `csv/` and `json/` directories are separate non-recursive
 examples because each directory command takes one input format and one matched
-filename pattern per run. These directory paths are documented separately from
-the producer profile `example_paths`, which remain the current importable
-single-file profile examples.
+filename pattern per run. Machine-readable `directory_example_paths` carries
+these directory-layout pointers in `community-signal-profile --format json` and
+`community-handoff-manifest --format json`, while `example_paths` remains the
+single-file import examples.
 
 ```bash
 uv run fashion-radar community-signal-lint-dir examples/community-tool-handoff-directory.example/csv --input-format csv --pattern "*.csv" --source-name "External Community Tool" --strict
@@ -90,9 +91,10 @@ uv run fashion-radar community-signal-profile --format json
 
 The profile includes the contract version, supported input formats, canonical
 CSV header, required fields, optional fields, allowed fields, excluded fields,
-accepted JSON envelope shapes, field notes, source-weight bounds, unsupported
-capabilities, and the recommended local lint/preview/dry-run/import/review
-command sequence. A checked-in example is available at
+accepted JSON envelope shapes, field notes, source-weight bounds,
+`directory_example_paths`, unsupported capabilities, and the recommended local
+lint/preview/dry-run/import/review command sequence. A checked-in example is
+available at
 `examples/community-signal-profile.example.json`. It prints the contract only
 and does not read handoff files or directories, create config/data/report
 directories, open SQLite, fetch URLs, search platforms, log in, store cookies,
@@ -144,6 +146,13 @@ Example JSON fields:
     "examples/community-tool-handoff.example.csv",
     "examples/community-tool-handoff.example.json"
   ],
+  "directory_example_paths": [
+    "examples/community-tool-handoff-directory.example/README.md",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-a.csv",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-b.csv",
+    "examples/community-tool-handoff-directory.example/json/community-tool-a.json",
+    "examples/community-tool-handoff-directory.example/json/community-tool-b.json"
+  ],
   "required_fields": ["url", "title", "published_at"],
   "optional_fields": ["summary", "source_name", "platform", "source_weight", "collected_at"],
   "prohibited_fields": [
@@ -175,13 +184,13 @@ Example JSON fields:
 
 The manifest describes the target directory, matched file pattern, suggested
 filename (`community-signals.csv` or `community-signals.json`), producer profile
-fields and pointers, schema/example paths, field notes and rules, prohibited
-fields, unsupported capabilities, storage guidance, and workflow commands. It
-is local and print-only: it does not execute workflow commands, read the
-supplied directory, validate files, import rows, open SQLite, create artifacts,
-fetch URLs, log in, call platform APIs, monitor communities, schedule work, add
-source/platform connectors, prove demand, verify platform coverage, or rank
-sources.
+fields and pointers, schema/example paths, `directory_example_paths`, field
+notes and rules, prohibited fields, unsupported capabilities, storage guidance,
+and workflow commands. It is local and print-only: it does not execute workflow
+commands, read the supplied directory, validate files, import rows, open SQLite,
+create artifacts, fetch URLs, log in, call platform APIs, monitor communities,
+schedule work, add source/platform connectors, prove demand, verify platform
+coverage, or rank sources.
 
 Do not save this manifest as a matched handoff file. If saved, keep it outside the matched export directory or use an excluded filename/pattern, especially
 for JSON export directories using `--pattern "*.json"`. Otherwise
@@ -248,8 +257,8 @@ uv run fashion-radar community-handoff-workflow "$tmp_run/exports" --input-forma
 
 `community-handoff-manifest` prints a producer-facing manifest for the supplied
 directory, pattern, suggested filename, profile/schema/example pointers,
-storage note, and workflow command list. It does not read the directory or
-execute any workflow step.
+`directory_example_paths`, storage note, and workflow command list. It does not
+read the directory or execute any workflow step.
 
 `community-handoff-workflow` prints the local sequence
 `community-signal-lint-dir`, `community-candidates-dir`,

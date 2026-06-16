@@ -110,9 +110,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and
   `examples/community-tool-handoff-directory.example/json/community-tool-b.json`
   as sanitized CSV/JSON local directory samples for user-controlled
-  external/community tools, not platform collection, connectors, scraping,
-  browser automation, platform APIs, monitoring, scheduling, source acquisition,
-  demand proof, ranking, or coverage verification.
+  external/community tools. `community-signal-profile --format json` and
+  `community-handoff-manifest --format json` expose those same pointers as
+  `directory_example_paths`; this is not platform collection, connectors,
+  scraping, browser automation, platform APIs, monitoring, scheduling, source
+  acquisition, demand proof, ranking, or coverage verification.
 - Stage 53 community handoff guardrail tests for prohibited-field lint
   coverage, producer-profile command order, docs drift, and parser rejection.
 - Optional fashion entity watchlist pack for broader local matching coverage

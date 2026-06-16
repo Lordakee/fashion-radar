@@ -8,6 +8,13 @@
     "examples/community-tool-handoff.example.csv",
     "examples/community-tool-handoff.example.json"
   ],
+  "directory_example_paths": [
+    "examples/community-tool-handoff-directory.example/README.md",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-a.csv",
+    "examples/community-tool-handoff-directory.example/csv/community-tool-b.csv",
+    "examples/community-tool-handoff-directory.example/json/community-tool-a.json",
+    "examples/community-tool-handoff-directory.example/json/community-tool-b.json"
+  ],
   "supported_input_formats": [
     "csv",
     "json"
