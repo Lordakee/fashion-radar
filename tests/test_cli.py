@@ -554,6 +554,8 @@ def test_external_tool_adapters_command_prints_json() -> None:
         "required": True,
         "note": "Stable source URL or local reference URL for the observed item.",
     }
+    commands = payload["adapters"][0]["recommended_commands"]
+    assert any("fashion-radar external-tool-readiness" in command for command in commands)
 
 
 def test_external_tool_adapters_command_filters_adapter_and_quotes_paths() -> None:
@@ -579,11 +581,16 @@ def test_external_tool_adapters_command_filters_adapter_and_quotes_paths() -> No
     assert result.exit_code == 0
     payload = json.loads(result.output)
     assert [adapter["id"] for adapter in payload["adapters"]] == ["instaloader"]
-    command = payload["adapters"][0]["recommended_commands"][1]
-    assert "'exports ? # & %'" in command
-    assert "'config ? # & %'" in command
-    assert "'data ? # & %'" in command
-    assert "--source-name 'Instaloader Export'" in command
+    commands = payload["adapters"][0]["recommended_commands"]
+    readiness_command = commands[1]
+    manifest_command = commands[2]
+    for command in (readiness_command, manifest_command):
+        assert "'exports ? # & %'" in command
+        assert "'config ? # & %'" in command
+        assert "'data ? # & %'" in command
+        assert "--source-name 'Instaloader Export'" in command
+    assert "fashion-radar external-tool-readiness" in readiness_command
+    assert "fashion-radar community-handoff-manifest" in manifest_command
 
 
 def test_external_tool_adapters_command_rejects_unknown_adapter() -> None:

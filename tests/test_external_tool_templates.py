@@ -104,6 +104,26 @@ def test_template_json_renderer_outputs_importable_items_only() -> None:
     assert payload["items"] == template.items
 
 
+def test_template_command_guidance_includes_external_tool_readiness() -> None:
+    template = build_external_tool_template(
+        adapter_id="instaloader",
+        directory=Path("./exports"),
+        config_dir=Path("./configs"),
+        data_dir=Path("./data"),
+        as_of="2026-06-13T12:00:00Z",
+    )
+
+    assert any(
+        "fashion-radar external-tool-readiness" in command
+        for command in template.recommended_commands
+    )
+    json_output = render_external_tool_template_json(template)
+    csv_output = render_external_tool_template_csv(template)
+
+    assert "external-tool-readiness" not in json_output
+    assert "external-tool-readiness" not in csv_output
+
+
 def test_template_collection_includes_two_rows_per_adapter_when_unfiltered() -> None:
     collection = build_external_tool_template_collection(
         adapter_id=None,

@@ -17,9 +17,14 @@ Run `external-tool-adapters --format json` when a local producer needs the
 external social/community tool adapter registry and local producer-discovery
 registry before choosing a sanitized CSV/JSON local file handoff target for
 user-controlled external/community tools.
+Each adapter command list includes `external-tool-readiness` as an optional
+local read-only preflight command, while `external-tool-adapters` itself
+remains print-only and does not run readiness or perform PATH lookup.
 Run `external-tool-template --adapter instaloader --format json` when a local
 producer needs adapter-specific template rows for sanitized CSV/JSON local file
 handoff examples before writing an export file.
+The JSON/CSV handoff rows remain importable row output only, while table/model
+guidance can include the same adapter recommended command list.
 Run `external-tool-readiness --adapter instaloader --format json` when a local
 producer needs external tool readiness guidance, command availability only
 checks, mirror-friendly install hints, and Fashion Radar next-step handoff
@@ -190,15 +195,20 @@ file handoff rows. It does not run adapters, inspect directories, read handoff
 files, validate files, import rows, open SQLite, or create artifacts. It is not
 platform collection and has no connectors, no scraping, no browser automation,
 no platform APIs, no monitoring, no scheduling, no source acquisition, no
-demand proof, no ranking, and no coverage verification.
+demand proof, no ranking, and no coverage verification. Each adapter command
+list includes `external-tool-readiness` as an optional local read-only
+preflight command, while `external-tool-adapters` itself remains print-only and
+does not run readiness or perform PATH lookup.
 
 `external-tool-template` is local and print-only. It prints adapter-specific
 template rows for user-controlled external/community tools that need sanitized
 CSV/JSON local file handoff examples. JSON and CSV output contain importable
 community handoff rows only; table output may include local metadata,
-boundaries, field mappings, and copyable commands. It does not write files, run
-adapters, inspect directories, read handoff files, validate files, import rows,
-open SQLite, or create artifacts. It is not platform collection and has no
+boundaries, field mappings, and copyable commands. The JSON/CSV handoff rows
+remain importable row output only, while table/model guidance can include the
+same adapter recommended command list. It does not write files, run adapters,
+inspect directories, read handoff files, validate files, import rows, open
+SQLite, or create artifacts. It is not platform collection and has no
 connectors, no scraping, no browser automation, no platform APIs, no
 monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
 and no coverage verification.

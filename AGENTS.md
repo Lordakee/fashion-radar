@@ -66,14 +66,19 @@ paywall bypass, or fragile full social-platform scraping.
   CSV/JSON local file handoff. It is not platform collection and must have no
   connectors, no scraping, no browser automation, no platform APIs, no
   monitoring, no scheduling, no source acquisition, no demand proof, no
-  ranking, and no coverage verification.
+  ranking, and no coverage verification. Each adapter command list includes
+  `external-tool-readiness` as an optional local read-only preflight command,
+  while `external-tool-adapters` itself remains print-only and does not run
+  readiness or perform PATH lookup.
 - Future external social/community template work must keep
   `external-tool-template` as a local, print-only command that prints
   adapter-specific template rows for user-controlled external/community tools
   that target sanitized CSV/JSON local file handoff. It is not platform
   collection and must have no connectors, no scraping, no browser automation,
   no platform APIs, no monitoring, no scheduling, no source acquisition, no
-  demand proof, no ranking, and no coverage verification.
+  demand proof, no ranking, and no coverage verification. JSON/CSV handoff
+  rows must remain importable row output only, while table/model guidance can
+  include the same adapter recommended command list.
 - Future external social/community workflow work must keep
   `external-tool-workflow` as a local, print-only command that prints workflow
   metadata for user-controlled external/community tools that need a

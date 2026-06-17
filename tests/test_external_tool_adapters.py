@@ -76,6 +76,7 @@ def test_instaloader_adapter_has_expected_mapping_and_commands() -> None:
     assert instaloader.upstream_tool_examples == ["Instaloader"]
     assert [command[:2] for command in commands] == [
         ["fashion-radar", "community-signal-profile"],
+        ["fashion-radar", "external-tool-readiness"],
         ["fashion-radar", "community-handoff-manifest"],
         ["fashion-radar", "community-handoff-workflow"],
         ["fashion-radar", "community-signal-lint-dir"],
@@ -84,13 +85,23 @@ def test_instaloader_adapter_has_expected_mapping_and_commands() -> None:
         ["fashion-radar", "import-signals-dir"],
         ["fashion-radar", "imported-review-workflow"],
     ]
-    assert commands[1][2] == "exports"
-    assert commands[1][commands[1].index("--input-format") + 1] == "json"
-    assert commands[1][commands[1].index("--pattern") + 1] == "*.json"
-    assert commands[1][commands[1].index("--source-name") + 1] == "Instaloader Export"
-    assert commands[1][commands[1].index("--as-of") + 1] == "2026-06-13T12:00:00+00:00"
-    assert "--dry-run" in commands[5]
-    assert "--dry-run" not in commands[6]
+    readiness_command = commands[1]
+    assert readiness_command[readiness_command.index("--adapter") + 1] == "instaloader"
+    assert readiness_command[readiness_command.index("--directory") + 1] == "exports"
+    assert readiness_command[readiness_command.index("--input-format") + 1] == "json"
+    assert readiness_command[readiness_command.index("--pattern") + 1] == "*.json"
+    assert readiness_command[readiness_command.index("--source-name") + 1] == "Instaloader Export"
+    assert readiness_command[readiness_command.index("--as-of") + 1] == (
+        "2026-06-13T12:00:00+00:00"
+    )
+    assert readiness_command[readiness_command.index("--format") + 1] == "table"
+    assert commands[2][2] == "exports"
+    assert commands[2][commands[2].index("--input-format") + 1] == "json"
+    assert commands[2][commands[2].index("--pattern") + 1] == "*.json"
+    assert commands[2][commands[2].index("--source-name") + 1] == "Instaloader Export"
+    assert commands[2][commands[2].index("--as-of") + 1] == "2026-06-13T12:00:00+00:00"
+    assert "--dry-run" in commands[6]
+    assert "--dry-run" not in commands[7]
 
 
 def test_adapter_field_mappings_match_community_signal_contract() -> None:
@@ -152,6 +163,10 @@ def test_registry_quotes_paths_pattern_and_source_names() -> None:
     assert "'config ? # & %'" in adapter.recommended_commands[1]
     assert "'data ? # & %'" in adapter.recommended_commands[1]
     assert "--source-name 'X Search Export'" in adapter.recommended_commands[1]
+    assert "'exports ? # & %'" in adapter.recommended_commands[2]
+    assert "'config ? # & %'" in adapter.recommended_commands[2]
+    assert "'data ? # & %'" in adapter.recommended_commands[2]
+    assert "--source-name 'X Search Export'" in adapter.recommended_commands[2]
 
 
 def test_registry_invalid_as_of_raises() -> None:

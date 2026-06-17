@@ -309,6 +309,7 @@ def _adapter(
         upstream_tool_examples=upstream_tool_examples,
         field_mappings=field_mappings,
         recommended_commands=_recommended_commands(
+            adapter_id=adapter_id,
             directory_text=directory_text,
             config_text=config_text,
             data_text=data_text,
@@ -344,6 +345,7 @@ def _field_mappings(
 
 def _recommended_commands(
     *,
+    adapter_id: str,
     directory_text: str,
     config_text: str,
     data_text: str,
@@ -354,6 +356,28 @@ def _recommended_commands(
 ) -> list[str]:
     return [
         _shell_command("fashion-radar", "community-signal-profile", "--format", "json"),
+        _shell_command(
+            "fashion-radar",
+            "external-tool-readiness",
+            "--adapter",
+            adapter_id,
+            "--directory",
+            directory_text,
+            "--config-dir",
+            config_text,
+            "--data-dir",
+            data_text,
+            "--as-of",
+            as_of_text,
+            "--input-format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--source-name",
+            source_name,
+            "--format",
+            "table",
+        ),
         _shell_command(
             "fashion-radar",
             "community-handoff-manifest",

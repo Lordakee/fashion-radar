@@ -88,7 +88,10 @@ YAML config
   or create artifacts. It is not platform collection and has no connectors, no
   scraping, no browser automation, no platform APIs, no monitoring, no
   scheduling, no source acquisition, no demand proof, no ranking, and no
-  coverage verification.
+  coverage verification. Each adapter command list includes
+  `external-tool-readiness` as an optional local read-only preflight command,
+  while `external-tool-adapters` itself remains print-only and does not run
+  readiness or perform PATH lookup.
   `external-tool-template` prints adapter-specific template rows for
   user-controlled external/community tools that need sanitized CSV/JSON local
   file handoff examples. It is local and print-only: JSON and CSV output
@@ -98,7 +101,9 @@ YAML config
   import rows, open SQLite, or create artifacts. It is not platform collection
   and has no connectors, no scraping, no browser automation, no platform APIs,
   no monitoring, no scheduling, no source acquisition, no demand proof, no
-  ranking, and no coverage verification.
+  ranking, and no coverage verification. The JSON/CSV handoff rows remain
+  importable row output only, while table/model guidance can include the same
+  adapter recommended command list.
   `external-tool-workflow` prints workflow metadata as a local producer
   handoff wrapper only. It is for user-controlled external/community tools
   that need a producer-facing wrapper around existing local commands before

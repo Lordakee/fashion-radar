@@ -481,6 +481,20 @@ def validate_external_tool_adapters(command_name: str, payload: Any) -> None:
     if not isinstance(first_adapter, dict):
         raise SmokeError(f"{command_name} first adapter must be a JSON object")
     assert_equal(f"{command_name} first adapter id", first_adapter.get("id"), "rednote_mcp")
+    recommended_commands = first_adapter.get("recommended_commands")
+    if not isinstance(recommended_commands, list):
+        raise SmokeError(f"{command_name} first adapter recommended_commands must be a list")
+    readiness_commands = [
+        str(command)
+        for command in recommended_commands
+        if "fashion-radar external-tool-readiness" in str(command)
+    ]
+    if not readiness_commands:
+        raise SmokeError(f"{command_name} first adapter missing external-tool-readiness command")
+    readiness_command = readiness_commands[0]
+    for expected in ("--adapter", "rednote_mcp", "--input-format", "json", "--format", "table"):
+        if expected not in readiness_command:
+            raise SmokeError(f"{command_name} readiness command missing {expected!r}")
 
 
 def validate_external_tool_template(command_name: str, payload: Any) -> None:

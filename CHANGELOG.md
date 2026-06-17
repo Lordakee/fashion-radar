@@ -136,12 +136,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   external/community tools. This is local and print-only, not platform
   collection, with no connectors, no scraping, no browser automation, no
   platform APIs, no monitoring, no scheduling, no source acquisition, no demand
-  proof, no ranking, and no coverage verification.
+  proof, no ranking, and no coverage verification. Each adapter command list
+  includes `external-tool-readiness` as an optional local read-only preflight
+  command, while `external-tool-adapters` itself remains print-only and does
+  not run readiness or perform PATH lookup.
 - Stage 63 `external-tool-template` command for local, print-only
   adapter-specific template rows for user-controlled external/community tools
   that need sanitized CSV/JSON local file handoff examples. JSON and CSV output
   contain importable community handoff rows only; table output can include local
-  metadata and copyable commands. This is not platform collection, with no
+  metadata and copyable commands. JSON/CSV handoff rows remain importable row
+  output only, while table/model guidance can include the same adapter
+  recommended command list. This is not platform collection, with no
   connectors, no scraping, no browser automation, no platform APIs, no
   monitoring, no scheduling, no source acquisition, no demand proof, no
   ranking, and no coverage verification.

@@ -183,6 +183,10 @@ External social/community tool adapter registry docs check:
       connectors, no scraping, no browser automation, no platform APIs, no
       monitoring, no scheduling, no source acquisition, no demand proof, no
       ranking, and no coverage verification.
+- [ ] Each adapter command list includes `external-tool-readiness` as an
+      optional local read-only preflight command, while
+      `external-tool-adapters` itself remains print-only and does not run
+      readiness or perform PATH lookup.
 - [ ] CLI reference and installed-wheel smoke include `fashion-radar
       external-tool-adapters --format table` and `fashion-radar
       external-tool-adapters --format json`.
@@ -202,6 +206,9 @@ External tool template rows docs check:
       has no connectors, no scraping, no browser automation, no platform APIs,
       no monitoring, no scheduling, no source acquisition, no demand proof, no
       ranking, and no coverage verification.
+- [ ] JSON/CSV handoff rows remain importable row output only, while
+      table/model guidance can include the same adapter recommended command
+      list.
 - [ ] CLI reference and installed-wheel smoke include `fashion-radar
       external-tool-template --adapter instaloader --format table`,
       `fashion-radar external-tool-template --adapter instaloader --format

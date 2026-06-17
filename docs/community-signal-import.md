@@ -175,6 +175,10 @@ recommended CSV/JSON pattern, and the same local profile, manifest, workflow,
 lint, readiness, dry-run, import, and review commands used elsewhere in this
 guide.
 
+Each adapter command list includes `external-tool-readiness` as an optional
+local read-only preflight command, while `external-tool-adapters` itself
+remains print-only and does not run readiness or perform PATH lookup.
+
 The command is local and print-only. It does not run adapters, inspect
 directories, read handoff files, validate files, import rows, open SQLite, or
 create artifacts. It is not platform collection and has no connectors, no
@@ -189,6 +193,8 @@ user-controlled external/community tools that need sanitized CSV/JSON local
 file handoff examples. JSON and CSV output are importable community handoff
 rows only; table output may include local metadata, field mappings, boundaries,
 and copyable local commands.
+The JSON/CSV handoff rows remain importable row output only, while table/model
+guidance can include the same adapter recommended command list.
 
 ```bash
 uv run fashion-radar external-tool-template --adapter instaloader --format table

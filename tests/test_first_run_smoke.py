@@ -411,6 +411,15 @@ def external_tool_adapters_payload() -> dict[str, object]:
                 "id": "rednote_mcp",
                 "platform": "rednote",
                 "source_name": "Rednote MCP Export",
+                "recommended_commands": [
+                    "fashion-radar community-signal-profile --format json",
+                    (
+                        "fashion-radar external-tool-readiness --adapter rednote_mcp "
+                        "--directory exports --config-dir configs --data-dir data "
+                        "--as-of 2026-06-13T12:00:00+00:00 --input-format json "
+                        "--pattern '*.json' --source-name 'Rednote MCP Export' --format table"
+                    ),
+                ],
             }
         ],
         "boundaries": ["Does not run adapters."],
@@ -1141,6 +1150,31 @@ def test_validate_external_tool_adapters_requires_print_only_registry_contract()
     adapters[0]["id"] = "instaloader"  # type: ignore[index]
     with pytest.raises(smoke.SmokeError, match="first adapter id"):
         smoke.validate_external_tool_adapters("external-tool-adapters", wrong_adapter)
+
+    missing_commands = external_tool_adapters_payload()
+    adapters = missing_commands["adapters"]
+    assert isinstance(adapters, list)
+    adapters[0].pop("recommended_commands")  # type: ignore[index]
+    with pytest.raises(smoke.SmokeError, match="recommended_commands must be a list"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", missing_commands)
+
+    missing_readiness = external_tool_adapters_payload()
+    adapters = missing_readiness["adapters"]
+    assert isinstance(adapters, list)
+    adapters[0]["recommended_commands"] = [  # type: ignore[index]
+        "fashion-radar community-signal-profile --format json"
+    ]
+    with pytest.raises(smoke.SmokeError, match="missing external-tool-readiness command"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", missing_readiness)
+
+    missing_token = external_tool_adapters_payload()
+    adapters = missing_token["adapters"]
+    assert isinstance(adapters, list)
+    adapters[0]["recommended_commands"] = [  # type: ignore[index]
+        "fashion-radar external-tool-readiness --adapter rednote_mcp --format table"
+    ]
+    with pytest.raises(smoke.SmokeError, match="readiness command missing '--input-format'"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", missing_token)
 
 
 def test_validate_external_tool_template_requires_importable_items() -> None:

@@ -105,7 +105,10 @@ proof, ranking, or coverage verification.
 `external-tool-adapters` is a local, print-only external social/community tool
 adapter registry and local producer-discovery registry for user-controlled
 external/community tools that need sanitized CSV/JSON local file handoff
-targets. It prints metadata and copyable local handoff commands only. It is not
+targets. It prints metadata and copyable local handoff commands only. Each
+adapter command list includes `external-tool-readiness` as an optional local
+read-only preflight command, while `external-tool-adapters` itself remains
+print-only and does not run readiness or perform PATH lookup. It is not
 platform collection and has no connectors, no scraping, no browser automation,
 no platform APIs, no monitoring, no scheduling, no source acquisition, no
 demand proof, no ranking, and no coverage verification.
@@ -114,10 +117,12 @@ demand proof, no ranking, and no coverage verification.
 adapter-specific template rows for user-controlled external/community tools
 that need sanitized CSV/JSON local file handoff examples. JSON and CSV output
 contain importable community handoff rows only; table output may include local
-metadata, field mappings, and copyable commands. It is not platform collection
-and has no connectors, no scraping, no browser automation, no platform APIs,
-no monitoring, no scheduling, no source acquisition, no demand proof, no
-ranking, and no coverage verification.
+metadata, field mappings, and copyable commands. The JSON/CSV handoff rows
+remain importable row output only, while table/model guidance can include the
+same adapter recommended command list. It is not platform collection and has
+no connectors, no scraping, no browser automation, no platform APIs, no
+monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
+and no coverage verification.
 
 `external-tool-workflow` is a local, print-only command that prints workflow
 metadata for user-controlled external/community tools that need a
@@ -441,7 +446,10 @@ authorization/safety-review features.
 social/community tool adapter registry as a local producer-discovery registry
 for user-controlled external/community tools that want sanitized CSV/JSON local
 file handoff rows. It can print table or JSON metadata and copyable local
-handoff commands, but it does not run adapters, inspect directories, read
+handoff commands. Each adapter command list includes `external-tool-readiness`
+as an optional local read-only preflight command, while
+`external-tool-adapters` itself remains print-only and does not run readiness
+or perform PATH lookup. It does not run adapters, inspect directories, read
 handoff files, validate files, import rows, open SQLite, create artifacts, or
 perform platform collection. It has no connectors, no scraping, no browser
 automation, no platform APIs, no monitoring, no scheduling, no source
@@ -450,12 +458,14 @@ acquisition, no demand proof, no ranking, and no coverage verification.
 `external-tool-template` is local and print-only. It prints adapter-specific
 template rows for user-controlled external/community tools that want sanitized
 CSV/JSON local file handoff examples. It can print importable JSON, importable
-CSV, or a table with local metadata and copyable local commands, but it does
-not write files, run adapters, inspect directories, read handoff files,
-validate files, import rows, open SQLite, create artifacts, or perform
-platform collection. It has no connectors, no scraping, no browser automation,
-no platform APIs, no monitoring, no scheduling, no source acquisition, no
-demand proof, no ranking, and no coverage verification.
+CSV, or a table with local metadata and copyable local commands. The JSON/CSV
+handoff rows remain importable row output only, while table/model guidance can
+include the same adapter recommended command list. It does not write files,
+run adapters, inspect directories, read handoff files, validate files, import
+rows, open SQLite, create artifacts, or perform platform collection. It has no
+connectors, no scraping, no browser automation, no platform APIs, no
+monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
+and no coverage verification.
 
 `external-tool-readiness` provides external tool readiness guidance as local
 read-only command availability only. It uses local PATH lookup (`shutil.which`)
