@@ -1835,7 +1835,16 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         "community-candidates-dir",
         "import-signals-dir",
     ]
-    assert captured[0] == (
+
+    def commands_named(command_name: str) -> list[tuple[str, ...]]:
+        return [command for command in captured if command[0] == command_name]
+
+    def single_command(command_name: str) -> tuple[str, ...]:
+        commands = commands_named(command_name)
+        assert len(commands) == 1
+        return commands[0]
+
+    assert single_command("init") == (
         "init",
         "--config-dir",
         str(context.config_dir),
@@ -1844,7 +1853,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         "--reports-dir",
         str(context.reports_dir),
     )
-    assert captured[1] == ("migrate-db", "--data-dir", str(context.data_dir))
+    assert single_command("migrate-db") == ("migrate-db", "--data-dir", str(context.data_dir))
     for command in captured:
         assert command[0] not in {"collect", "run", "dashboard"}
         if command[0] in {
@@ -1901,9 +1910,9 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         } or (command[0] == "import-signals" and "--dry-run" not in command):
             assert smoke.AS_OF in command
 
-    external_tool_adapters = captured[3]
+    external_tool_adapters = single_command("external-tool-adapters")
     assert external_tool_adapters == ("external-tool-adapters", "--format", "json")
-    external_tool_template = captured[4]
+    external_tool_template = single_command("external-tool-template")
     assert external_tool_template == (
         "external-tool-template",
         "--adapter",
@@ -1911,7 +1920,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         "--format",
         "json",
     )
-    external_tool_workflow = captured[5]
+    external_tool_workflow = single_command("external-tool-workflow")
     assert external_tool_workflow == (
         "external-tool-workflow",
         "--adapter",
@@ -1927,7 +1936,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         "--format",
         "json",
     )
-    external_tool_readiness = captured[6]
+    external_tool_readiness = single_command("external-tool-readiness")
     assert external_tool_readiness == (
         "external-tool-readiness",
         "--adapter",
@@ -1943,12 +1952,13 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         "--format",
         "json",
     )
-    assert captured[18][1] == str(context.exports_dir)
-    assert "--format" in captured[18]
-    assert "json" in captured[18]
-    assert captured[19][1] == str(context.exports_dir)
-    assert captured[20][1] == str(context.exports_dir)
-    assert captured[21][1] == str(context.exports_dir)
+    community_handoff_workflow = single_command("community-handoff-workflow")
+    assert community_handoff_workflow[1] == str(context.exports_dir)
+    assert "--format" in community_handoff_workflow
+    assert "json" in community_handoff_workflow
+    assert single_command("community-signal-lint-dir")[1] == str(context.exports_dir)
+    assert single_command("community-candidates-dir")[1] == str(context.exports_dir)
+    assert single_command("import-signals-dir")[1] == str(context.exports_dir)
     assert (context.exports_dir / smoke.DIR_EXPORT_CSV).read_text(encoding="utf-8") == (
         example_csv.read_text(encoding="utf-8")
     )
