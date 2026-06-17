@@ -11,6 +11,7 @@ from typing import cast
 
 import pytest
 
+from fashion_radar.external_tool_adapters import build_external_tool_adapter_registry
 from fashion_radar.external_tool_templates import (
     build_external_tool_template,
     render_external_tool_template_json,
@@ -53,24 +54,130 @@ SAMPLE_CSV_TEXT = (
 )
 
 EXTERNAL_TOOL_ADAPTER_CASES = (
-    ("rednote_mcp", "rednote", "json", "*.json", "Rednote MCP Export"),
-    ("xiaohongshu_crawler", "xiaohongshu", "csv", "*.csv", "Xiaohongshu Crawler Export"),
-    ("instaloader", "instagram", "json", "*.json", "Instaloader Export"),
-    ("tiktok_api", "tiktok", "json", "*.json", "TikTok-Api Export"),
-    ("yt_dlp", "media", "json", "*.json", "yt-dlp Metadata Export"),
-    ("x_search_export", "x", "csv", "*.csv", "X Search Export"),
-    ("generic_community_export", "community", "csv", "*.csv", "Generic Community Export"),
+    (
+        "rednote_mcp",
+        "rednote",
+        "json",
+        "*.json",
+        "Rednote MCP Export",
+        (
+            "Metadata target for Rednote/Xiaohongshu MCP exports that already "
+            "produce sanitized local observations."
+        ),
+        ("rednote-mcp",),
+    ),
+    (
+        "xiaohongshu_crawler",
+        "xiaohongshu",
+        "csv",
+        "*.csv",
+        "Xiaohongshu Crawler Export",
+        (
+            "Metadata target for user-controlled Xiaohongshu crawler exports "
+            "converted to the community signal row shape."
+        ),
+        ("xiaohongshu-crawler",),
+    ),
+    (
+        "instaloader",
+        "instagram",
+        "json",
+        "*.json",
+        "Instaloader Export",
+        (
+            "Metadata target for sanitized Instagram post or profile exports "
+            "created outside Fashion Radar."
+        ),
+        ("Instaloader",),
+    ),
+    (
+        "tiktok_api",
+        "tiktok",
+        "json",
+        "*.json",
+        "TikTok-Api Export",
+        (
+            "Metadata target for sanitized TikTok observations exported by a "
+            "user-controlled upstream tool."
+        ),
+        ("TikTok-Api",),
+    ),
+    (
+        "yt_dlp",
+        "media",
+        "json",
+        "*.json",
+        "yt-dlp Metadata Export",
+        (
+            "Metadata target for sanitized media metadata exports, not media "
+            "downloads or stored video assets."
+        ),
+        ("yt-dlp",),
+    ),
+    (
+        "x_search_export",
+        "x",
+        "csv",
+        "*.csv",
+        "X Search Export",
+        "Metadata target for sanitized X/search exports created outside Fashion Radar.",
+        ("AnySearch X export", "snscrape export"),
+    ),
+    (
+        "generic_community_export",
+        "community",
+        "csv",
+        "*.csv",
+        "Generic Community Export",
+        (
+            "Metadata target for any user-controlled community source already "
+            "converted to sanitized local signal rows."
+        ),
+        ("manual spreadsheet export", "community research export"),
+    ),
 )
 
 EXTERNAL_TOOL_FIELD_MAPPINGS = [
-    {"field": "url", "required": True, "note": "Stable source URL or local reference URL."},
-    {"field": "title", "required": True, "note": "Short observed text or headline."},
-    {"field": "published_at", "required": True, "note": "Observed timestamp."},
-    {"field": "summary", "required": True, "note": "Short sanitized local review note."},
-    {"field": "source_name", "required": True, "note": "Producer/export display name."},
-    {"field": "platform", "required": True, "note": "Short local provenance label."},
-    {"field": "source_weight", "required": False, "note": "Optional local signal weight."},
-    {"field": "collected_at", "required": False, "note": "Export collection timestamp."},
+    {
+        "field": "url",
+        "required": True,
+        "note": "Stable source URL or local reference URL for the observed item.",
+    },
+    {
+        "field": "title",
+        "required": True,
+        "note": "Short observed text, headline, caption summary, or normalized signal phrase.",
+    },
+    {
+        "field": "published_at",
+        "required": True,
+        "note": "ISO 8601-compatible publication or observation timestamp.",
+    },
+    {
+        "field": "summary",
+        "required": False,
+        "note": "Short sanitized local review note without raw comments or full post bodies.",
+    },
+    {
+        "field": "source_name",
+        "required": False,
+        "note": "Producer/export display name for the local handoff rows.",
+    },
+    {
+        "field": "platform",
+        "required": False,
+        "note": "Short local provenance label for review summaries.",
+    },
+    {
+        "field": "source_weight",
+        "required": False,
+        "note": "Optional local weight in the existing community signal range (0, 5].",
+    },
+    {
+        "field": "collected_at",
+        "required": False,
+        "note": "Timestamp for when the upstream tool produced the sanitized row.",
+    },
 ]
 
 EXTERNAL_TOOL_ADAPTER_BOUNDARIES = [
@@ -582,10 +689,8 @@ def external_tool_adapters_payload() -> dict[str, object]:
                 "recommended_input_format": input_format,
                 "recommended_pattern": pattern,
                 "suggested_export_directory": "exports",
-                "description": (
-                    "Metadata target for sanitized local external/community tool exports."
-                ),
-                "upstream_tool_examples": [source_name],
+                "description": description,
+                "upstream_tool_examples": list(upstream_tool_examples),
                 "field_mappings": [
                     dict(field_mapping) for field_mapping in EXTERNAL_TOOL_FIELD_MAPPINGS
                 ],
@@ -603,6 +708,8 @@ def external_tool_adapters_payload() -> dict[str, object]:
                 input_format,
                 pattern,
                 source_name,
+                description,
+                upstream_tool_examples,
             ) in EXTERNAL_TOOL_ADAPTER_CASES
         ],
         "boundaries": [
@@ -978,6 +1085,19 @@ def external_tool_readiness_payload() -> dict[str, object]:
             "Does not provide a compliance-review product feature.",
         ],
     }
+
+
+def test_external_tool_adapters_payload_matches_real_registry() -> None:
+    expected = json.loads(
+        build_external_tool_adapter_registry(
+            directory=Path("./exports"),
+            config_dir=Path("./configs"),
+            data_dir=Path("./data"),
+            as_of="2026-06-13T12:00:00Z",
+        ).model_dump_json()
+    )
+
+    assert external_tool_adapters_payload() == expected
 
 
 def test_external_tool_template_payload_matches_real_rednote_template() -> None:
