@@ -13,6 +13,10 @@ state.
 
 Run `community-signal-profile --format json` when a local external tool needs a
 machine-readable producer contract before it writes CSV/JSON handoff files.
+Run `external-tool-adapters --format json` when a local producer needs the
+external social/community tool adapter registry and local producer-discovery
+registry before choosing a sanitized CSV/JSON local file handoff target for
+user-controlled external/community tools.
 `community-signal-profile --format json` and
 `community-handoff-manifest --format json` expose `directory_example_paths` for
 the checked-in directory layout:
@@ -71,6 +75,13 @@ Print a copyable local directory handoff workflow without running it:
 
 ```bash
 uv run fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
+```
+
+Print local adapter registry metadata without running adapters:
+
+```bash
+uv run fashion-radar external-tool-adapters --format table
+uv run fashion-radar external-tool-adapters --format json
 ```
 
 Recommended order:
@@ -140,6 +151,15 @@ download media, automate browsers, scrape, monitor, watch folders, schedule work
 add source/platform connectors, prove demand, verify platform coverage, rank
 sources, write reports, update dashboards, generate configs, or generate entity
 files.
+
+`external-tool-adapters` is local and print-only. It prints the external
+social/community tool adapter registry as a local producer-discovery registry
+for user-controlled external/community tools that need sanitized CSV/JSON local
+file handoff rows. It does not run adapters, inspect directories, read handoff
+files, validate files, import rows, open SQLite, or create artifacts. It is not
+platform collection and has no connectors, no scraping, no browser automation,
+no platform APIs, no monitoring, no scheduling, no source acquisition, no
+demand proof, no ranking, and no coverage verification.
 
 Directory linting is non-recursive in this version. A pattern such as `*.csv`
 matches regular files directly under the supplied directory only. Nested files

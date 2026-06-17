@@ -387,6 +387,24 @@ def validate_community_handoff_workflow(command_name: str, payload: Any) -> None
     )
 
 
+def validate_external_tool_adapters(command_name: str, payload: Any) -> None:
+    if not isinstance(payload, dict):
+        raise SmokeError(f"{command_name} output must be a JSON object")
+    assert_equal(
+        f"{command_name} contract_version",
+        payload.get("contract_version"),
+        "external-tool-adapters/v1",
+    )
+    assert_equal(f"{command_name} execution_mode", payload.get("execution_mode"), "print_only")
+    adapters = payload.get("adapters")
+    if not isinstance(adapters, list) or not adapters:
+        raise SmokeError(f"{command_name} adapters must be a non-empty list")
+    first_adapter = adapters[0]
+    if not isinstance(first_adapter, dict):
+        raise SmokeError(f"{command_name} first adapter must be a JSON object")
+    assert_equal(f"{command_name} first adapter id", first_adapter.get("id"), "rednote_mcp")
+
+
 def validate_report_outputs(json_payload: Any, markdown_text: str) -> None:
     if not isinstance(json_payload, dict):
         raise SmokeError("report JSON output must be a JSON object")
@@ -583,6 +601,11 @@ def run_first_run_flow(context: SmokeContext) -> None:
         "--reports-dir",
         str(context.reports_dir),
     )
+    external_tool_adapters = validate_json_output(
+        "external-tool-adapters",
+        run_cli(context, "external-tool-adapters", "--format", "json").stdout,
+    )
+    validate_external_tool_adapters("external-tool-adapters", external_tool_adapters)
     run_cli(
         context,
         "community-signal-lint",

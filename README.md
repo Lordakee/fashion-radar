@@ -23,6 +23,10 @@ on the sources you configure and local signals you import.
   before import, without fetching URLs or importing rows.
 - Documents sanitized CSV/JSON local file handoff templates for
   user-controlled external/community tools.
+- Prints the `external-tool-adapters` external social/community tool adapter
+  registry as a local producer-discovery registry for mapping
+  user-controlled external/community tools to the sanitized CSV/JSON local file
+  handoff contract.
 - Prints the community signal producer contract for user-controlled local tools
   without reading handoff files, acquiring sources, monitoring platforms, or
   performing compliance review.
@@ -83,6 +87,14 @@ examples for one input format and one matched filename pattern per run. They
 are not platform collection and do not add connectors, scraping, browser
 automation, platform APIs, monitoring, scheduling, source acquisition, demand
 proof, ranking, or coverage verification.
+
+`external-tool-adapters` is a local, print-only external social/community tool
+adapter registry and local producer-discovery registry for user-controlled
+external/community tools that need sanitized CSV/JSON local file handoff
+targets. It prints metadata and copyable local handoff commands only. It is not
+platform collection and has no connectors, no scraping, no browser automation,
+no platform APIs, no monitoring, no scheduling, no source acquisition, no
+demand proof, no ranking, and no coverage verification.
 
 Future non-core connectors, if ever added, must be explicit opt-ins with clear
 risk labels. They are not required for the core workflow.
@@ -247,6 +259,8 @@ uv run fashion-radar community-candidates examples/community-signals.example.csv
 uv run fashion-radar community-handoff-manifest "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar community-handoff-workflow "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export"
 uv run fashion-radar community-handoff-check-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
+uv run fashion-radar external-tool-adapters --format table
+uv run fashion-radar external-tool-adapters --format json
 uv run fashion-radar community-candidates-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export"
 uv run fashion-radar community-candidates-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
 uv run fashion-radar community-signal-lint-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --source-name "Community Tool Export"
@@ -339,6 +353,16 @@ creates no config/data/report/dashboard/digest artifacts, and has no fetch URLs/
 APIs/download media/browser automation/scrape/crawl/monitor/watch/schedule/connectors/source
 acquisition/demand proof/ranking/coverage verification/entity generation/compliance/policy/
 authorization/safety-review features.
+
+`external-tool-adapters` is local and print-only. It prints the external
+social/community tool adapter registry as a local producer-discovery registry
+for user-controlled external/community tools that want sanitized CSV/JSON local
+file handoff rows. It can print table or JSON metadata and copyable local
+handoff commands, but it does not run adapters, inspect directories, read
+handoff files, validate files, import rows, open SQLite, create artifacts, or
+perform platform collection. It has no connectors, no scraping, no browser
+automation, no platform APIs, no monitoring, no scheduling, no source
+acquisition, no demand proof, no ranking, and no coverage verification.
 
 Review untracked candidate signals from configured sources and imported local
 signals:

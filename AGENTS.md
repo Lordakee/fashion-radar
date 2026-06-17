@@ -60,6 +60,13 @@ paywall bypass, or fragile full social-platform scraping.
   tools. They are not platform collection and do not add connectors, scraping,
   browser automation, platform APIs, monitoring, scheduling, source acquisition,
   demand proof, ranking, or coverage verification.
+- Future external social/community tool adapter registry work must keep
+  `external-tool-adapters` as a local, print-only local producer-discovery
+  registry for user-controlled external/community tools that target sanitized
+  CSV/JSON local file handoff. It is not platform collection and must have no
+  connectors, no scraping, no browser automation, no platform APIs, no
+  monitoring, no scheduling, no source acquisition, no demand proof, no
+  ranking, and no coverage verification.
 - Future community handoff readiness checks must keep
   `community-handoff-check-dir` as a local-only handoff readiness report for
   user-controlled community signal directories. It reads only matched local

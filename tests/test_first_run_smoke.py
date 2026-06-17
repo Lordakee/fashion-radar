@@ -383,6 +383,21 @@ def community_handoff_workflow_payload() -> dict[str, object]:
     }
 
 
+def external_tool_adapters_payload() -> dict[str, object]:
+    return {
+        "contract_version": "external-tool-adapters/v1",
+        "execution_mode": "print_only",
+        "adapters": [
+            {
+                "id": "rednote_mcp",
+                "platform": "rednote",
+                "source_name": "Rednote MCP Export",
+            }
+        ],
+        "boundaries": ["Does not run adapters."],
+    }
+
+
 def make_context(tmp_path: Path, *, python: str = "python-test"):
     runtime_dir = tmp_path / "runtime"
     return smoke.SmokeContext(
@@ -684,6 +699,30 @@ def test_validate_community_handoff_workflow_requires_import_and_review_effects(
 
     with pytest.raises(smoke.SmokeError, match="import step effect"):
         smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
+def test_validate_external_tool_adapters_requires_print_only_registry_contract() -> None:
+    smoke.validate_external_tool_adapters(
+        "external-tool-adapters",
+        external_tool_adapters_payload(),
+    )
+
+    wrong_contract = external_tool_adapters_payload()
+    wrong_contract["contract_version"] = "other/v1"
+    with pytest.raises(smoke.SmokeError, match="contract_version"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", wrong_contract)
+
+    runnable = external_tool_adapters_payload()
+    runnable["execution_mode"] = "runs_adapters"
+    with pytest.raises(smoke.SmokeError, match="execution_mode"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", runnable)
+
+    wrong_adapter = external_tool_adapters_payload()
+    adapters = wrong_adapter["adapters"]
+    assert isinstance(adapters, list)
+    adapters[0]["id"] = "instaloader"  # type: ignore[index]
+    with pytest.raises(smoke.SmokeError, match="first adapter id"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", wrong_adapter)
 
 
 def test_validate_report_requires_expected_first_run_entity_sections() -> None:
@@ -1144,6 +1183,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             "community-candidates": json.dumps(community_candidates_payload()),
             "imported-review-workflow": json.dumps(imported_review_workflow_payload()),
             "community-handoff-workflow": json.dumps(community_handoff_workflow_payload()),
+            "external-tool-adapters": json.dumps(external_tool_adapters_payload()),
             "imported-signals-summary": json.dumps(imported_summary_payload()),
             "imported-signals": json.dumps(imported_signals_payload()),
             "candidates": json.dumps([]),
@@ -1165,6 +1205,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         "init",
         "migrate-db",
         "doctor",
+        "external-tool-adapters",
         "community-signal-lint",
         "community-candidates",
         "import-signals",
@@ -1244,12 +1285,14 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         } or (command[0] == "import-signals" and "--dry-run" not in command):
             assert smoke.AS_OF in command
 
-    assert captured[14][1] == str(context.exports_dir)
-    assert "--format" in captured[14]
-    assert "json" in captured[14]
+    external_tool_adapters = captured[3]
+    assert external_tool_adapters == ("external-tool-adapters", "--format", "json")
     assert captured[15][1] == str(context.exports_dir)
+    assert "--format" in captured[15]
+    assert "json" in captured[15]
     assert captured[16][1] == str(context.exports_dir)
     assert captured[17][1] == str(context.exports_dir)
+    assert captured[18][1] == str(context.exports_dir)
     assert (context.exports_dir / smoke.DIR_EXPORT_CSV).read_text(encoding="utf-8") == (
         example_csv.read_text(encoding="utf-8")
     )

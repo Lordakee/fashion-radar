@@ -96,6 +96,16 @@ the matched file pattern, a suggested filename, profile/schema/example
 pointers, `directory_example_paths`, producer profile field/rule summaries, a
 manifest storage note, and workflow commands for local external producers.
 
+`external-tool-adapters` prints the external social/community tool adapter
+registry as a local producer-discovery registry only. It is for
+user-controlled external/community tools that need sanitized CSV/JSON local
+file handoff targets and copyable local commands. It does not run adapters,
+inspect directories, read handoff files, validate files, import rows, open
+SQLite, or create artifacts. It is not platform collection and has no
+connectors, no scraping, no browser automation, no platform APIs, no
+monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
+and no coverage verification.
+
 `community-handoff-check-dir` is a local-only handoff readiness report for
 user-controlled community signal directories. It reads only matched local
 regular files and local config. It does not import rows, uses no SQLite,

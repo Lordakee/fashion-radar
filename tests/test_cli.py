@@ -532,6 +532,78 @@ def test_community_signal_profile_prints_json() -> None:
     assert payload["unsupported_capabilities"][0] == "scraping"
 
 
+def test_external_tool_adapters_command_prints_json() -> None:
+    result = CliRunner().invoke(app, ["external-tool-adapters", "--format", "json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["contract_version"] == "external-tool-adapters/v1"
+    assert payload["execution_mode"] == "print_only"
+    assert [adapter["id"] for adapter in payload["adapters"]] == [
+        "rednote_mcp",
+        "xiaohongshu_crawler",
+        "instaloader",
+        "tiktok_api",
+        "yt_dlp",
+        "x_search_export",
+        "generic_community_export",
+    ]
+    assert payload["adapters"][0]["field_mappings"][0] == {
+        "field": "url",
+        "required": True,
+        "note": "Stable source URL or local reference URL for the observed item.",
+    }
+
+
+def test_external_tool_adapters_command_filters_adapter_and_quotes_paths() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "external-tool-adapters",
+            "--adapter",
+            "instaloader",
+            "--directory",
+            "exports ? # & %",
+            "--config-dir",
+            "config ? # & %",
+            "--data-dir",
+            "data ? # & %",
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert [adapter["id"] for adapter in payload["adapters"]] == ["instaloader"]
+    command = payload["adapters"][0]["recommended_commands"][1]
+    assert "'exports ? # & %'" in command
+    assert "'config ? # & %'" in command
+    assert "'data ? # & %'" in command
+    assert "--source-name 'Instaloader Export'" in command
+
+
+def test_external_tool_adapters_command_rejects_unknown_adapter() -> None:
+    result = CliRunner().invoke(app, ["external-tool-adapters", "--adapter", "missing"])
+
+    assert result.exit_code == 1
+    assert (
+        "Could not build external tool adapter registry: Unknown external tool adapter: missing"
+    ) in result.output
+
+
+def test_external_tool_adapters_command_prints_table() -> None:
+    result = CliRunner().invoke(app, ["external-tool-adapters"])
+
+    assert result.exit_code == 0
+    assert "External tool adapter registry." in result.output
+    assert "Contract version: external-tool-adapters/v1" in result.output
+    assert "rednote_mcp | rednote | Rednote MCP Export | json | *.json | exports" in (result.output)
+    assert "Commands for instaloader:" in result.output
+
+
 def test_community_signal_profile_json_is_deterministic_across_env_and_cwd(
     tmp_path: Path,
     monkeypatch,

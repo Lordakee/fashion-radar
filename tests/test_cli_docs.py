@@ -63,7 +63,7 @@ REQUIRED_FLAGS_BY_COMMAND = {
     "clean-old-data": ("--data-dir",),
 }
 
-STAGE_DOCS_COMMANDS = ("heat-movers",)
+STAGE_DOCS_COMMANDS = ("external-tool-adapters", "heat-movers")
 HEAT_MOVERS_MENTION_DOCS = (
     README,
     TREND_DELTAS_DOC,
@@ -863,6 +863,71 @@ def test_external_community_tool_directory_example_docs_are_linked_and_bounded()
     assert "external community tool export directory examples" in normalized_changelog
     for path in COMMUNITY_TOOL_HANDOFF_DIRECTORY_PATHS:
         assert path.casefold() in normalized_changelog
+
+
+def test_external_tool_adapter_registry_docs_are_linked_and_bounded() -> None:
+    readme = _read(README)
+    import_doc = _read(ROOT / "docs" / "community-signal-import.md")
+    quality_doc = _read(ROOT / "docs" / "community-signal-quality.md")
+    cli_reference = _read(CLI_REFERENCE)
+    checklist = _read(UPLOAD_CHECKLIST)
+    boundaries = _read(ROOT / "docs" / "source-boundaries.md")
+    architecture = _read(ROOT / "docs" / "architecture.md")
+    agents = _read(ROOT / "AGENTS.md")
+    changelog = _read(ROOT / "CHANGELOG.md")
+
+    for text in (
+        readme,
+        import_doc,
+        quality_doc,
+        cli_reference,
+        checklist,
+        boundaries,
+        architecture,
+        agents,
+        changelog,
+    ):
+        normalized = _normalized_text(text).casefold()
+        assert "external-tool-adapters" in normalized
+        assert "external social/community tool adapter registry" in normalized
+        assert "local producer-discovery registry" in normalized
+
+    for command in (
+        "fashion-radar external-tool-adapters --format table",
+        "fashion-radar external-tool-adapters --format json",
+    ):
+        assert command in cli_reference
+        assert command in checklist
+
+    assert "external-tool-adapters" in _upload_checklist_help_loop_commands()
+    assert '"$tmp_env/venv/bin/fashion-radar" external-tool-adapters --help' in checklist
+    assert '"$tmp_env/venv/bin/fashion-radar" external-tool-adapters --format json' in checklist
+
+    boundary_terms = (
+        "local",
+        "print-only",
+        "sanitized CSV/JSON local file handoff",
+        "user-controlled external/community tools",
+        "not platform collection",
+        "no connectors",
+        "no scraping",
+        "no browser automation",
+        "no platform APIs",
+        "no monitoring",
+        "no scheduling",
+        "no source acquisition",
+        "no demand proof",
+        "no ranking",
+        "no coverage verification",
+    )
+    for doc_text in (readme, import_doc, quality_doc, boundaries, architecture, agents):
+        normalized = _normalized_text(doc_text).casefold()
+        for term in boundary_terms:
+            assert term.casefold() in normalized
+
+    normalized_changelog = _normalized_text(changelog).casefold()
+    for term in boundary_terms:
+        assert term.casefold() in normalized_changelog
 
 
 def test_community_handoff_check_dir_docs_are_linked_and_bounded() -> None:

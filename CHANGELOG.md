@@ -122,6 +122,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `directory_example_paths`; this is not platform collection, connectors,
   scraping, browser automation, platform APIs, monitoring, scheduling, source
   acquisition, demand proof, ranking, or coverage verification.
+- Stage 62 docs for the print-only `external-tool-adapters` external
+  social/community tool adapter registry and local producer-discovery registry
+  for sanitized CSV/JSON local file handoff by user-controlled
+  external/community tools. This is local and print-only, not platform
+  collection, with no connectors, no scraping, no browser automation, no
+  platform APIs, no monitoring, no scheduling, no source acquisition, no demand
+  proof, no ranking, and no coverage verification.
 - Stage 53 community handoff guardrail tests for prohibited-field lint
   coverage, producer-profile command order, docs drift, and parser rejection.
 - Optional fashion entity watchlist pack for broader local matching coverage

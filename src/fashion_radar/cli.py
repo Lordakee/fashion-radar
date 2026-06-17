@@ -75,6 +75,13 @@ from fashion_radar.entity_packs import (
     lint_entity_pack,
     render_entity_pack_lint_table,
 )
+from fashion_radar.external_tool_adapters import (
+    DEFAULT_ADAPTER_AS_OF,
+    DEFAULT_EXPORT_DIRECTORY,
+    build_external_tool_adapter_registry,
+    filter_external_tool_adapter_registry,
+    render_external_tool_adapter_registry_table,
+)
 from fashion_radar.heat_movers import (
     HeatMoversReport,
     build_heat_movers,
@@ -191,6 +198,7 @@ ImportedReviewWorkflowOutputFormat = Literal["table", "json"]
 ImportedSignalsOutputFormat = Literal["table", "json"]
 ImportedSignalsSummaryOutputFormat = Literal["table", "json"]
 EntityPackLintOutputFormat = Literal["table", "json"]
+ExternalToolAdaptersOutputFormat = Literal["table", "json"]
 SourcePackLintOutputFormat = Literal["table", "json"]
 TrendOutputFormat = Literal["table", "json"]
 HeatMoversOutputFormat = Literal["table", "json"]
@@ -205,6 +213,11 @@ COMMUNITY_SIGNAL_LINT_FORMAT_OPTION = typer.Option(
     help="Output format.",
 )
 COMMUNITY_SIGNAL_PROFILE_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+EXTERNAL_TOOL_ADAPTERS_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
@@ -578,6 +591,43 @@ def community_signal_profile_command(
         typer.echo(profile.model_dump_json(indent=2))
         return
     for line in render_community_signal_profile_table(profile):
+        typer.echo(line)
+
+
+@app.command(name="external-tool-adapters")
+def external_tool_adapters_command(
+    adapter: str | None = typer.Option(None, "--adapter", help="Adapter id to print."),
+    directory: str = typer.Option(
+        DEFAULT_EXPORT_DIRECTORY,
+        "--directory",
+        help="Suggested local export directory used in printed commands only.",
+    ),
+    config_dir: str = CONFIG_DIR_OPTION,
+    data_dir: str = DATA_DIR_OPTION,
+    as_of: str = typer.Option(
+        DEFAULT_ADAPTER_AS_OF,
+        "--as-of",
+        help="UTC timestamp used in printed commands only.",
+    ),
+    output_format: ExternalToolAdaptersOutputFormat = EXTERNAL_TOOL_ADAPTERS_FORMAT_OPTION,
+) -> None:
+    """Print local external tool adapter handoff guidance without running tools."""
+    try:
+        registry = build_external_tool_adapter_registry(
+            directory=Path(directory),
+            config_dir=Path(config_dir),
+            data_dir=Path(data_dir),
+            as_of=as_of,
+        )
+        registry = filter_external_tool_adapter_registry(registry, adapter_id=adapter)
+    except ValueError as exc:
+        typer.echo(f"Could not build external tool adapter registry: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(registry.model_dump_json(indent=2))
+        return
+    for line in render_external_tool_adapter_registry_table(registry):
         typer.echo(line)
 
 

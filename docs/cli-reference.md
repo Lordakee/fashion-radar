@@ -72,6 +72,16 @@ validates deterministic sample output content, not only command execution.
 - `community-signal-profile`: print the local producer contract for external
   user-controlled tools that write sanitized community signal CSV/JSON handoff
   files; supports `--format table|json`.
+- `external-tool-adapters`: print the external social/community tool adapter
+  registry as a local producer-discovery registry for user-controlled
+  external/community tools that need sanitized CSV/JSON local file handoff
+  targets. Supports `--adapter`, `--directory`, `--config-dir`, `--data-dir`,
+  `--as-of`, and `--format table|json`. It is local and print-only: it does
+  not run adapters, inspect directories, read handoff files, validate files,
+  import rows, open SQLite, or create artifacts. It is not platform collection
+  and has no connectors, no scraping, no browser automation, no platform APIs,
+  no monitoring, no scheduling, no source acquisition, no demand proof, no
+  ranking, and no coverage verification.
 - `community-signal-lint` PATH: lint one community signal handoff file. Requires
   `--input-format csv|json`; supports `--format table|json`, `--source-name`,
   and `--strict`.
@@ -123,6 +133,13 @@ For local/external tools that need machine-readable example discovery,
 - `examples/community-tool-handoff-directory.example/csv/community-tool-b.csv`
 - `examples/community-tool-handoff-directory.example/json/community-tool-a.json`
 - `examples/community-tool-handoff-directory.example/json/community-tool-b.json`
+
+Print adapter registry examples:
+
+```bash
+fashion-radar external-tool-adapters --format table
+fashion-radar external-tool-adapters --format json
+```
 
 ## Imported Signal Review
 

@@ -15,6 +15,8 @@ YAML config
      for a local external tool
   -> optionally use checked-in external community tool export directory
      examples for a local external tool
+  -> optionally print the external social/community tool adapter registry
+     as a local producer-discovery registry
   -> optionally print the community signal producer profile before a local tool writes files
      with static directory_example_paths pointers
   -> optionally print a community directory handoff checklist without executing it
@@ -73,6 +75,15 @@ YAML config
   collection. They do not add connectors, scraping, browser automation,
   platform APIs, monitoring, scheduling, source acquisition, demand proof,
   ranking, or coverage verification.
+  `external-tool-adapters` prints the external social/community tool adapter
+  registry as a local producer-discovery registry for user-controlled
+  external/community tools that need sanitized CSV/JSON local file handoff
+  targets. It is local and print-only: it does not run adapters, inspect
+  directories, read handoff files, validate files, import rows, open SQLite,
+  or create artifacts. It is not platform collection and has no connectors, no
+  scraping, no browser automation, no platform APIs, no monitoring, no
+  scheduling, no source acquisition, no demand proof, no ranking, and no
+  coverage verification.
   `community-signal-profile` prints that local producer contract for
   user-controlled tools without reading handoff files, creating artifacts,
   acquiring sources, monitoring platforms, or performing compliance review.
@@ -205,6 +216,7 @@ fashion-radar migrate-db --data-dir ./data
 fashion-radar source-pack-lint ./configs/sources.yaml --strict
 fashion-radar entity-pack-lint ./configs/entities.yaml
 fashion-radar collect --config-dir ./configs --data-dir ./data
+fashion-radar external-tool-adapters --format json
 fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --data-dir ./data --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar community-handoff-check-dir ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar community-signal-lint ./signals.csv --input-format csv --source-name "Manual Export"

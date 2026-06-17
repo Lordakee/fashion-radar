@@ -39,6 +39,9 @@ Use `community-signal-lint` or `community-signal-lint-dir` when you want
 Fashion Radar to enforce the strict community handoff contract before
 dry-run/import. Use `community-handoff-check-dir` when you want one local-only
 handoff readiness report before import.
+Use `external-tool-adapters` when a local upstream producer needs the
+external social/community tool adapter registry and local producer-discovery
+registry before choosing a sanitized CSV/JSON local file handoff shape.
 
 ## External Tool Handoff Templates
 
@@ -78,6 +81,33 @@ uv run fashion-radar import-signals-dir examples/community-tool-handoff-director
 They are not platform collection and do not add connectors, scraping, browser
 automation, platform APIs, monitoring, scheduling, source acquisition, demand
 proof, ranking, or coverage verification.
+
+## External Tool Adapter Registry
+
+`external-tool-adapters` prints the external social/community tool adapter
+registry. It is a local producer-discovery registry for user-controlled
+external/community tools that already produce sanitized CSV/JSON local file
+handoff rows or need copyable commands for that handoff.
+
+```bash
+uv run fashion-radar external-tool-adapters --format table
+uv run fashion-radar external-tool-adapters --format json
+```
+
+The registry describes built-in producer categories such as Rednote/Xiaohongshu
+exports, Instaloader, TikTok-Api, yt-dlp metadata exports, X search exports, and
+generic community exports. Each entry maps to the existing community signal
+fields, a local provenance `platform` label, a suggested `source_name`, a
+recommended CSV/JSON pattern, and the same local profile, manifest, workflow,
+lint, readiness, dry-run, import, and review commands used elsewhere in this
+guide.
+
+The command is local and print-only. It does not run adapters, inspect
+directories, read handoff files, validate files, import rows, open SQLite, or
+create artifacts. It is not platform collection and has no connectors, no
+scraping, no browser automation, no platform APIs, no monitoring, no
+scheduling, no source acquisition, no demand proof, no ranking, and no
+coverage verification.
 
 ## Producer Profile
 
