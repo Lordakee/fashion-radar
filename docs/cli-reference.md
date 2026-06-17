@@ -93,6 +93,18 @@ validates deterministic sample output content, not only command execution.
   It is not platform collection and has no connectors, no scraping, no browser
   automation, no platform APIs, no monitoring, no scheduling, no source
   acquisition, no demand proof, no ranking, and no coverage verification.
+- `external-tool-workflow`: print workflow metadata for user-controlled
+  external/community tools that need a producer-facing wrapper around existing
+  local commands before writing sanitized CSV/JSON local file handoff rows.
+  Supports `--adapter`, `--directory`, `--config-dir`, `--data-dir`, `--as-of`,
+  and `--format table|json`. It is local and print-only: JSON output is
+  workflow metadata, not importable handoff rows, table output may include
+  metadata and copyable commands, and the command does not run generated
+  commands, adapters, or upstream tools, inspect directories, read handoff
+  files, validate rows, import rows, open SQLite, or create artifacts. It is
+  not platform collection and has no connectors, no scraping, no browser
+  automation, no platform APIs, no monitoring, no scheduling, no source
+  acquisition, no demand proof, no ranking, and no coverage verification.
 - `community-signal-lint` PATH: lint one community signal handoff file. Requires
   `--input-format csv|json`; supports `--format table|json`, `--source-name`,
   and `--strict`.
@@ -153,6 +165,8 @@ fashion-radar external-tool-adapters --format json
 fashion-radar external-tool-template --adapter instaloader --format table
 fashion-radar external-tool-template --adapter instaloader --format json
 fashion-radar external-tool-template --adapter instaloader --format csv
+fashion-radar external-tool-workflow --adapter instaloader --format table
+fashion-radar external-tool-workflow --adapter instaloader --format json
 ```
 
 ## Imported Signal Review

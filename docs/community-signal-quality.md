@@ -184,6 +184,18 @@ connectors, no scraping, no browser automation, no platform APIs, no
 monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
 and no coverage verification.
 
+`external-tool-workflow` is local and print-only. It prints workflow metadata
+for user-controlled external/community tools that need a producer-facing
+wrapper around existing local commands before writing sanitized CSV/JSON local
+file handoff rows. JSON output is workflow metadata, not importable handoff
+rows; table output may include local metadata and copyable commands. It does
+not run generated commands, adapters, or upstream tools, and it does not
+inspect the supplied directory, read handoff files, validate rows, import
+rows, write artifacts, or open SQLite. It is not platform collection and has
+no connectors, no scraping, no browser automation, no platform APIs, no
+monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
+and no coverage verification.
+
 Directory linting is non-recursive in this version. A pattern such as `*.csv`
 matches regular files directly under the supplied directory only. Nested files
 are ignored, and `**/*.csv` does not recurse.

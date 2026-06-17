@@ -73,6 +73,19 @@ EXPECTED_COMMUNITY_HANDOFF_WORKFLOW_STEPS = (
     "import_directory_signals",
     "print_post_import_review",
 )
+EXPECTED_EXTERNAL_TOOL_WORKFLOW_STEPS = (
+    "inspect_adapter_registry",
+    "print_adapter_template_json",
+    "print_signal_profile",
+    "print_handoff_manifest",
+    "print_handoff_workflow",
+    "lint_export_directory",
+    "preview_candidate_phrases",
+    "review_handoff_readiness",
+    "dry_run_directory_import",
+    "import_directory_signals",
+    "print_post_import_review",
+)
 
 
 class SmokeError(Exception):
@@ -448,6 +461,130 @@ def validate_external_tool_template(command_name: str, payload: Any) -> None:
         assert_equal(f"{command_name} row {index} platform", item.get("platform"), "rednote")
 
 
+def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
+    if not isinstance(payload, dict):
+        raise SmokeError(f"{command_name} output must be a JSON object")
+    assert_equal(
+        f"{command_name} keys",
+        list(payload),
+        [
+            "contract_version",
+            "execution_mode",
+            "adapter_id",
+            "display_name",
+            "platform_label",
+            "directory",
+            "input_format",
+            "pattern",
+            "as_of",
+            "config_dir",
+            "data_dir",
+            "source_name",
+            "step_count",
+            "steps",
+            "boundaries",
+        ],
+    )
+    assert_equal(
+        f"{command_name} contract_version",
+        payload.get("contract_version"),
+        "external-tool-workflow/v1",
+    )
+    assert_equal(f"{command_name} execution_mode", payload.get("execution_mode"), "print_only")
+    assert_equal(f"{command_name} adapter_id", payload.get("adapter_id"), "rednote_mcp")
+    assert_equal(f"{command_name} platform_label", payload.get("platform_label"), "rednote")
+    assert_equal(f"{command_name} input_format", payload.get("input_format"), "json")
+    assert_equal(f"{command_name} pattern", payload.get("pattern"), "*.json")
+    assert_equal(f"{command_name} as_of", payload.get("as_of"), "2026-06-13T12:00:00+00:00")
+    assert_equal(f"{command_name} source_name", payload.get("source_name"), "Rednote MCP Export")
+    assert_equal(f"{command_name} step_count", payload.get("step_count"), 11)
+    for field in ("directory", "config_dir", "data_dir"):
+        value = payload.get(field)
+        if not isinstance(value, str) or not value:
+            raise SmokeError(f"{command_name} {field} must be populated")
+
+    steps = payload.get("steps")
+    if not isinstance(steps, list):
+        raise SmokeError(f"{command_name} steps must be a list")
+    if len(steps) != len(EXPECTED_EXTERNAL_TOOL_WORKFLOW_STEPS):
+        raise SmokeError(
+            f"{command_name} step_count expected {len(EXPECTED_EXTERNAL_TOOL_WORKFLOW_STEPS)!r}, "
+            f"got {len(steps)!r}"
+        )
+    names = [step.get("name") for step in steps if isinstance(step, dict)]
+    assert_equal(
+        f"{command_name} step names",
+        names,
+        list(EXPECTED_EXTERNAL_TOOL_WORKFLOW_STEPS),
+    )
+
+    import_step = steps[9]
+    if not isinstance(import_step, dict):
+        raise SmokeError(f"{command_name} import step must be a JSON object")
+    assert_equal(
+        f"{command_name} import step effect",
+        import_step.get("suggested_effect"),
+        "updates_local_imports",
+    )
+
+    effects = [step.get("suggested_effect") for step in steps if isinstance(step, dict)]
+    assert_equal(
+        f"{command_name} step effects",
+        effects,
+        [
+            "print_only",
+            "print_only",
+            "print_only",
+            "print_only",
+            "print_only",
+            "read_only",
+            "read_only",
+            "read_only",
+            "read_only",
+            "updates_local_imports",
+            "print_only",
+        ],
+    )
+
+    registry_step = steps[0]
+    if not isinstance(registry_step, dict):
+        raise SmokeError(f"{command_name} registry step must be a JSON object")
+    registry_command = str(registry_step.get("command", ""))
+    for expected in ("fashion-radar external-tool-adapters", "--adapter", "rednote_mcp"):
+        if expected not in registry_command:
+            raise SmokeError(f"{command_name} registry command missing {expected!r}")
+
+    template_step = steps[1]
+    if not isinstance(template_step, dict):
+        raise SmokeError(f"{command_name} template step must be a JSON object")
+    template_command = str(template_step.get("command", ""))
+    for expected in (
+        "fashion-radar external-tool-template",
+        "--adapter",
+        "rednote_mcp",
+        "--format",
+        "json",
+    ):
+        if expected not in template_command:
+            raise SmokeError(f"{command_name} template command missing {expected!r}")
+
+    lint_step = steps[5]
+    if not isinstance(lint_step, dict):
+        raise SmokeError(f"{command_name} lint step must be a JSON object")
+    lint_command = str(lint_step.get("command", ""))
+    for expected in ("fashion-radar community-signal-lint-dir", "--source-name", "--strict"):
+        if expected not in lint_command:
+            raise SmokeError(f"{command_name} lint command missing {expected!r}")
+
+    boundaries = payload.get("boundaries")
+    if not isinstance(boundaries, list) or not boundaries:
+        raise SmokeError(f"{command_name} boundaries must be a non-empty list")
+    boundary_text = " ".join(str(boundary) for boundary in boundaries)
+    for expected in ("Does not run", "No platform collection", "no scraping", "no platform APIs"):
+        if expected not in boundary_text:
+            raise SmokeError(f"{command_name} boundaries missing {expected!r}")
+
+
 def validate_report_outputs(json_payload: Any, markdown_text: str) -> None:
     if not isinstance(json_payload, dict):
         raise SmokeError("report JSON output must be a JSON object")
@@ -661,6 +798,26 @@ def run_first_run_flow(context: SmokeContext) -> None:
         ).stdout,
     )
     validate_external_tool_template("external-tool-template", external_tool_template)
+    external_tool_workflow = validate_json_output(
+        "external-tool-workflow",
+        run_cli(
+            context,
+            "external-tool-workflow",
+            "--adapter",
+            "rednote_mcp",
+            "--directory",
+            str(context.exports_dir),
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--as-of",
+            AS_OF,
+            "--format",
+            "json",
+        ).stdout,
+    )
+    validate_external_tool_workflow("external-tool-workflow", external_tool_workflow)
     run_cli(
         context,
         "community-signal-lint",

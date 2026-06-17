@@ -13,6 +13,7 @@ from fashion_radar.external_tool_templates import (
     build_external_tool_template,
     render_external_tool_template_json,
 )
+from fashion_radar.external_tool_workflow import build_external_tool_workflow
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "check_first_run_smoke.py"
@@ -436,6 +437,169 @@ def external_tool_template_payload() -> dict[str, object]:
     }
 
 
+def external_tool_workflow_payload() -> dict[str, object]:
+    return {
+        "contract_version": "external-tool-workflow/v1",
+        "execution_mode": "print_only",
+        "adapter_id": "rednote_mcp",
+        "display_name": "Rednote MCP Export",
+        "platform_label": "rednote",
+        "directory": "exports",
+        "input_format": "json",
+        "pattern": "*.json",
+        "as_of": "2026-06-13T12:00:00+00:00",
+        "config_dir": "configs",
+        "data_dir": "data",
+        "source_name": "Rednote MCP Export",
+        "step_count": 11,
+        "steps": [
+            {
+                "order": 1,
+                "name": "inspect_adapter_registry",
+                "purpose": (
+                    "Print adapter defaults and boundaries before preparing local handoff files."
+                ),
+                "command": (
+                    "fashion-radar external-tool-adapters --adapter rednote_mcp "
+                    "--directory exports --config-dir configs --data-dir data "
+                    "--as-of 2026-06-13T12:00:00+00:00 --format table"
+                ),
+                "suggested_effect": "print_only",
+            },
+            {
+                "order": 2,
+                "name": "print_adapter_template_json",
+                "purpose": "Print example sanitized local handoff rows for the selected adapter.",
+                "command": (
+                    "fashion-radar external-tool-template --adapter rednote_mcp "
+                    "--directory exports --config-dir configs --data-dir data "
+                    "--as-of 2026-06-13T12:00:00+00:00 --format json"
+                ),
+                "suggested_effect": "print_only",
+            },
+            {
+                "order": 3,
+                "name": "print_signal_profile",
+                "purpose": "Print the accepted community signal row fields.",
+                "command": "fashion-radar community-signal-profile --format json",
+                "suggested_effect": "print_only",
+            },
+            {
+                "order": 4,
+                "name": "print_handoff_manifest",
+                "purpose": "Print a local handoff manifest for the selected export directory.",
+                "command": (
+                    "fashion-radar community-handoff-manifest exports "
+                    "--input-format json --pattern '*.json' --config-dir configs "
+                    "--data-dir data --as-of 2026-06-13T12:00:00+00:00 "
+                    "--source-name 'Rednote MCP Export' --format json"
+                ),
+                "suggested_effect": "print_only",
+            },
+            {
+                "order": 5,
+                "name": "print_handoff_workflow",
+                "purpose": "Print the local community handoff workflow for these adapter settings.",
+                "command": (
+                    "fashion-radar community-handoff-workflow exports "
+                    "--input-format json --pattern '*.json' --config-dir configs "
+                    "--data-dir data --as-of 2026-06-13T12:00:00+00:00 "
+                    "--source-name 'Rednote MCP Export'"
+                ),
+                "suggested_effect": "print_only",
+            },
+            {
+                "order": 6,
+                "name": "lint_export_directory",
+                "purpose": "Lint local external tool handoff files before import.",
+                "command": (
+                    "fashion-radar community-signal-lint-dir exports "
+                    "--input-format json --pattern '*.json' "
+                    "--source-name 'Rednote MCP Export' --strict"
+                ),
+                "suggested_effect": "read_only",
+            },
+            {
+                "order": 7,
+                "name": "preview_candidate_phrases",
+                "purpose": (
+                    "Preview aggregate candidate phrases before importing local handoff rows."
+                ),
+                "command": (
+                    "fashion-radar community-candidates-dir exports "
+                    "--input-format json --pattern '*.json' --config-dir configs "
+                    "--as-of 2026-06-13T12:00:00+00:00 "
+                    "--source-name 'Rednote MCP Export'"
+                ),
+                "suggested_effect": "read_only",
+            },
+            {
+                "order": 8,
+                "name": "review_handoff_readiness",
+                "purpose": "Review local handoff readiness before import.",
+                "command": (
+                    "fashion-radar community-handoff-check-dir exports "
+                    "--input-format json --pattern '*.json' --config-dir configs "
+                    "--as-of 2026-06-13T12:00:00+00:00 "
+                    "--source-name 'Rednote MCP Export' --strict"
+                ),
+                "suggested_effect": "read_only",
+            },
+            {
+                "order": 9,
+                "name": "dry_run_directory_import",
+                "purpose": (
+                    "Validate matched local files through the importer without writing rows."
+                ),
+                "command": (
+                    "fashion-radar import-signals-dir exports --format json "
+                    "--pattern '*.json' --source-name 'Rednote MCP Export' "
+                    "--data-dir data --imported-at 2026-06-13T12:00:00+00:00 "
+                    "--dry-run"
+                ),
+                "suggested_effect": "read_only",
+            },
+            {
+                "order": 10,
+                "name": "import_directory_signals",
+                "purpose": "Import validated local handoff rows into local SQLite.",
+                "command": (
+                    "fashion-radar import-signals-dir exports --format json "
+                    "--pattern '*.json' --source-name 'Rednote MCP Export' "
+                    "--data-dir data --imported-at 2026-06-13T12:00:00+00:00"
+                ),
+                "suggested_effect": "updates_local_imports",
+            },
+            {
+                "order": 11,
+                "name": "print_post_import_review",
+                "purpose": "Print the local post-import review workflow.",
+                "command": (
+                    "fashion-radar imported-review-workflow --config-dir configs "
+                    "--data-dir data --as-of 2026-06-13T12:00:00+00:00 "
+                    "--source-name 'Rednote MCP Export'"
+                ),
+                "suggested_effect": "print_only",
+            },
+        ],
+        "boundaries": [
+            "Prints local external/community tool handoff workflow commands only.",
+            "Does not run generated commands.",
+            "Does not run adapters or upstream tools.",
+            "Does not inspect the supplied directory.",
+            "Does not read handoff files, validate files, import rows, or open SQLite.",
+            "Does not write config, data, report, dashboard, or workflow artifacts.",
+            (
+                "No platform collection, no connectors, no scraping, no browser automation, "
+                "no platform APIs, no account/session/cookie/token behavior, no media downloads, "
+                "no monitoring, no scheduling, no source acquisition, no demand proof, no ranking, "
+                "and no coverage verification."
+            ),
+            "Does not provide a compliance-review workflow.",
+        ],
+    }
+
+
 def test_external_tool_template_payload_matches_real_rednote_template() -> None:
     expected = json.loads(
         render_external_tool_template_json(
@@ -450,6 +614,20 @@ def test_external_tool_template_payload_matches_real_rednote_template() -> None:
     )
 
     assert external_tool_template_payload() == expected
+
+
+def test_external_tool_workflow_payload_matches_real_rednote_workflow() -> None:
+    expected = json.loads(
+        build_external_tool_workflow(
+            adapter_id="rednote_mcp",
+            directory=Path("./exports"),
+            config_dir=Path("./configs"),
+            data_dir=Path("./data"),
+            as_of="2026-06-13T12:00:00Z",
+        ).model_dump_json()
+    )
+
+    assert external_tool_workflow_payload() == expected
 
 
 def make_context(tmp_path: Path, *, python: str = "python-test"):
@@ -823,6 +1001,39 @@ def test_validate_external_tool_template_requires_importable_items() -> None:
     items[0]["raw_payload"] = {"opaque": True}  # type: ignore[index]
     with pytest.raises(smoke.SmokeError, match="private/raw field"):
         smoke.validate_external_tool_template("external-tool-template", raw_field)
+
+
+def test_validate_external_tool_workflow_requires_print_only_workflow_contract() -> None:
+    smoke.validate_external_tool_workflow(
+        "external-tool-workflow",
+        external_tool_workflow_payload(),
+    )
+
+    wrong_contract = external_tool_workflow_payload()
+    wrong_contract["contract_version"] = "other/v1"
+    with pytest.raises(smoke.SmokeError, match="contract_version"):
+        smoke.validate_external_tool_workflow("external-tool-workflow", wrong_contract)
+
+    runnable = external_tool_workflow_payload()
+    runnable["execution_mode"] = "runs_commands"
+    with pytest.raises(smoke.SmokeError, match="execution_mode"):
+        smoke.validate_external_tool_workflow("external-tool-workflow", runnable)
+
+    missing_step = external_tool_workflow_payload()
+    steps = missing_step["steps"]
+    assert isinstance(steps, list)
+    del steps[8]
+    with pytest.raises(smoke.SmokeError, match="step_count|step names"):
+        smoke.validate_external_tool_workflow("external-tool-workflow", missing_step)
+
+    executable_import = external_tool_workflow_payload()
+    steps = executable_import["steps"]
+    assert isinstance(steps, list)
+    import_step = steps[9]
+    assert isinstance(import_step, dict)
+    import_step["suggested_effect"] = "read_only"
+    with pytest.raises(smoke.SmokeError, match="import step effect"):
+        smoke.validate_external_tool_workflow("external-tool-workflow", executable_import)
 
 
 def test_validate_report_requires_expected_first_run_entity_sections() -> None:
@@ -1285,6 +1496,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             "community-handoff-workflow": json.dumps(community_handoff_workflow_payload()),
             "external-tool-adapters": json.dumps(external_tool_adapters_payload()),
             "external-tool-template": json.dumps(external_tool_template_payload()),
+            "external-tool-workflow": json.dumps(external_tool_workflow_payload()),
             "imported-signals-summary": json.dumps(imported_summary_payload()),
             "imported-signals": json.dumps(imported_signals_payload()),
             "candidates": json.dumps([]),
@@ -1308,6 +1520,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         "doctor",
         "external-tool-adapters",
         "external-tool-template",
+        "external-tool-workflow",
         "community-signal-lint",
         "community-candidates",
         "import-signals",
@@ -1338,6 +1551,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         assert command[0] not in {"collect", "run", "dashboard"}
         if command[0] in {
             "doctor",
+            "external-tool-workflow",
             "match",
             "imported-review-workflow",
             "report",
@@ -1351,6 +1565,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             "migrate-db",
             "doctor",
             "import-signals",
+            "external-tool-workflow",
             "imported-review-workflow",
             "imported-signals-summary",
             "imported-signals",
@@ -1379,6 +1594,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             "community-candidates",
             "imported-review-workflow",
             "imported-signals",
+            "external-tool-workflow",
             "report",
             "candidates",
             "trends",
@@ -1397,12 +1613,28 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         "--format",
         "json",
     )
-    assert captured[16][1] == str(context.exports_dir)
-    assert "--format" in captured[16]
-    assert "json" in captured[16]
+    external_tool_workflow = captured[5]
+    assert external_tool_workflow == (
+        "external-tool-workflow",
+        "--adapter",
+        "rednote_mcp",
+        "--directory",
+        str(context.exports_dir),
+        "--config-dir",
+        str(context.config_dir),
+        "--data-dir",
+        str(context.data_dir),
+        "--as-of",
+        smoke.AS_OF,
+        "--format",
+        "json",
+    )
     assert captured[17][1] == str(context.exports_dir)
+    assert "--format" in captured[17]
+    assert "json" in captured[17]
     assert captured[18][1] == str(context.exports_dir)
     assert captured[19][1] == str(context.exports_dir)
+    assert captured[20][1] == str(context.exports_dir)
     assert (context.exports_dir / smoke.DIR_EXPORT_CSV).read_text(encoding="utf-8") == (
         example_csv.read_text(encoding="utf-8")
     )

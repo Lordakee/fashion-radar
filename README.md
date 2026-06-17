@@ -30,6 +30,10 @@ on the sources you configure and local signals you import.
 - Prints `external-tool-template` adapter-specific template rows for
   user-controlled external/community tools that need sanitized CSV/JSON local
   file handoff examples.
+- Prints `external-tool-workflow` workflow metadata for user-controlled
+  external/community tools that need a producer-facing wrapper around existing
+  local commands before writing sanitized CSV/JSON local file handoff rows.
+  JSON output is workflow metadata, not importable handoff rows.
 - Prints the community signal producer contract for user-controlled local tools
   without reading handoff files, acquiring sources, monitoring platforms, or
   performing compliance review.
@@ -107,6 +111,22 @@ metadata, field mappings, and copyable commands. It is not platform collection
 and has no connectors, no scraping, no browser automation, no platform APIs,
 no monitoring, no scheduling, no source acquisition, no demand proof, no
 ranking, and no coverage verification.
+
+`external-tool-workflow` is a local, print-only command that prints workflow
+metadata for user-controlled external/community tools that need a
+producer-facing wrapper around existing local commands before writing sanitized
+CSV/JSON local file handoff rows. JSON output is workflow metadata, not
+importable handoff rows; table output may include local metadata and copyable
+commands. It does not inspect directories, read handoff files, import rows,
+open SQLite, or create artifacts. It is not platform collection and has no
+connectors, no scraping, no browser automation, no platform APIs, no
+monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
+and no coverage verification.
+
+```bash
+uv run fashion-radar external-tool-workflow --adapter instaloader --format table
+uv run fashion-radar external-tool-workflow --adapter instaloader --format json
+```
 
 Future non-core connectors, if ever added, must be explicit opt-ins with clear
 risk labels. They are not required for the core workflow.
@@ -276,6 +296,8 @@ uv run fashion-radar external-tool-adapters --format json
 uv run fashion-radar external-tool-template --adapter instaloader --format table
 uv run fashion-radar external-tool-template --adapter instaloader --format json
 uv run fashion-radar external-tool-template --adapter instaloader --format csv
+uv run fashion-radar external-tool-workflow --adapter instaloader --format table
+uv run fashion-radar external-tool-workflow --adapter instaloader --format json
 uv run fashion-radar community-candidates-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export"
 uv run fashion-radar community-candidates-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
 uv run fashion-radar community-signal-lint-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --source-name "Community Tool Export"

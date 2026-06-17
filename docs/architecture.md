@@ -96,6 +96,18 @@ YAML config
   and has no connectors, no scraping, no browser automation, no platform APIs,
   no monitoring, no scheduling, no source acquisition, no demand proof, no
   ranking, and no coverage verification.
+  `external-tool-workflow` prints workflow metadata as a local producer
+  handoff wrapper only. It is for user-controlled external/community tools
+  that need a producer-facing wrapper around existing local commands before
+  writing sanitized CSV/JSON local file handoff rows. It is local and
+  print-only: JSON output is workflow metadata, not importable handoff rows,
+  table output may include local metadata and copyable commands, and the
+  command does not run generated commands, adapters, or upstream tools,
+  inspect the supplied directory, read handoff files, validate rows, import
+  rows, open SQLite, or create artifacts. It is not platform collection and
+  has no connectors, no scraping, no browser automation, no platform APIs, no
+  monitoring, no scheduling, no source acquisition, no demand proof, no
+  ranking, and no coverage verification.
   `community-signal-profile` prints that local producer contract for
   user-controlled tools without reading handoff files, creating artifacts,
   acquiring sources, monitoring platforms, or performing compliance review.
@@ -230,6 +242,7 @@ fashion-radar entity-pack-lint ./configs/entities.yaml
 fashion-radar collect --config-dir ./configs --data-dir ./data
 fashion-radar external-tool-adapters --format json
 fashion-radar external-tool-template --adapter instaloader --format json
+fashion-radar external-tool-workflow --adapter instaloader --format json
 fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --data-dir ./data --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar community-handoff-check-dir ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar community-signal-lint ./signals.csv --input-format csv --source-name "Manual Export"

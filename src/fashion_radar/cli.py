@@ -88,6 +88,11 @@ from fashion_radar.external_tool_templates import (
     render_external_tool_template_json,
     render_external_tool_template_table,
 )
+from fashion_radar.external_tool_workflow import (
+    DEFAULT_EXTERNAL_TOOL_WORKFLOW_ADAPTER_ID,
+    build_external_tool_workflow,
+    render_external_tool_workflow_table,
+)
 from fashion_radar.heat_movers import (
     HeatMoversReport,
     build_heat_movers,
@@ -206,6 +211,7 @@ ImportedSignalsSummaryOutputFormat = Literal["table", "json"]
 EntityPackLintOutputFormat = Literal["table", "json"]
 ExternalToolAdaptersOutputFormat = Literal["table", "json"]
 ExternalToolTemplateOutputFormat = Literal["table", "json", "csv"]
+ExternalToolWorkflowOutputFormat = Literal["table", "json"]
 SourcePackLintOutputFormat = Literal["table", "json"]
 TrendOutputFormat = Literal["table", "json"]
 HeatMoversOutputFormat = Literal["table", "json"]
@@ -233,6 +239,41 @@ EXTERNAL_TOOL_TEMPLATE_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
+)
+EXTERNAL_TOOL_WORKFLOW_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+EXTERNAL_TOOL_WORKFLOW_ADAPTER_OPTION = typer.Option(
+    DEFAULT_EXTERNAL_TOOL_WORKFLOW_ADAPTER_ID,
+    "--adapter",
+    help="Adapter id to print a workflow for.",
+)
+EXTERNAL_TOOL_WORKFLOW_DIRECTORY_OPTION = typer.Option(
+    DEFAULT_EXPORT_DIRECTORY,
+    "--directory",
+    help="Local export directory used in printed commands only.",
+)
+EXTERNAL_TOOL_WORKFLOW_AS_OF_OPTION = typer.Option(
+    DEFAULT_ADAPTER_AS_OF,
+    "--as-of",
+    help="UTC timestamp used in printed commands only.",
+)
+EXTERNAL_TOOL_WORKFLOW_INPUT_FORMAT_OPTION = typer.Option(
+    None,
+    "--input-format",
+    help="Override adapter input file format.",
+)
+EXTERNAL_TOOL_WORKFLOW_PATTERN_OPTION = typer.Option(
+    None,
+    "--pattern",
+    help="Override adapter handoff file glob pattern.",
+)
+EXTERNAL_TOOL_WORKFLOW_SOURCE_NAME_OPTION = typer.Option(
+    None,
+    "--source-name",
+    help="Override adapter source name.",
 )
 COMMUNITY_CANDIDATES_AS_OF_OPTION = typer.Option(
     ...,
@@ -682,6 +723,51 @@ def external_tool_template_command(
         typer.echo(render_external_tool_template_csv(template), nl=False)
         return
     for line in render_external_tool_template_table(template):
+        typer.echo(line)
+
+
+@app.command(name="external-tool-workflow")
+def external_tool_workflow_command(
+    adapter: str = EXTERNAL_TOOL_WORKFLOW_ADAPTER_OPTION,
+    directory: str = EXTERNAL_TOOL_WORKFLOW_DIRECTORY_OPTION,
+    config_dir: str = CONFIG_DIR_OPTION,
+    data_dir: str = DATA_DIR_OPTION,
+    as_of: str = EXTERNAL_TOOL_WORKFLOW_AS_OF_OPTION,
+    input_format: ManualSignalInputFormat | None = EXTERNAL_TOOL_WORKFLOW_INPUT_FORMAT_OPTION,
+    pattern: str | None = EXTERNAL_TOOL_WORKFLOW_PATTERN_OPTION,
+    source_name: str | None = EXTERNAL_TOOL_WORKFLOW_SOURCE_NAME_OPTION,
+    output_format: ExternalToolWorkflowOutputFormat = EXTERNAL_TOOL_WORKFLOW_FORMAT_OPTION,
+) -> None:
+    """Print local external tool workflow commands without executing commands."""
+    try:
+        try:
+            as_of_value = parse_datetime_utc(as_of)
+        except (TypeError, ValueError) as exc:
+            typer.echo(
+                f"Could not build external tool workflow: invalid --as-of: {exc}",
+                err=True,
+            )
+            raise typer.Exit(1) from exc
+        workflow = build_external_tool_workflow(
+            adapter_id=adapter,
+            directory=Path(directory),
+            config_dir=Path(config_dir),
+            data_dir=Path(data_dir),
+            as_of=as_of_value,
+            input_format=input_format,
+            pattern=pattern,
+            source_name=source_name,
+        )
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        typer.echo(f"Could not build external tool workflow: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(workflow.model_dump_json(indent=2))
+        return
+    for line in render_external_tool_workflow_table(workflow):
         typer.echo(line)
 
 

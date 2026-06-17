@@ -209,6 +209,29 @@ External tool template rows docs check:
       fashion-radar external-tool-template --adapter instaloader --format csv
       ```
 
+External tool workflow docs check:
+
+- [ ] Docs describe `external-tool-workflow` as a local, print-only command
+      that prints workflow metadata for user-controlled external/community
+      tools that need a producer-facing wrapper around existing local commands
+      before writing sanitized CSV/JSON local file handoff rows.
+- [ ] Boundary text says the workflow command is not platform collection and
+      has no connectors, no scraping, no browser automation, no platform APIs,
+      no monitoring, no scheduling, no source acquisition, no demand proof, no
+      ranking, and no coverage verification.
+- [ ] Boundary text says the workflow command does not inspect directories,
+      read handoff files, import rows, open SQLite, or create artifacts.
+- [ ] JSON output is workflow metadata, not importable handoff rows.
+- [ ] CLI reference and installed-wheel smoke include `fashion-radar
+      external-tool-workflow --adapter instaloader --format table` and
+      `fashion-radar external-tool-workflow --adapter instaloader --format
+      json`.
+
+      ```bash
+      fashion-radar external-tool-workflow --adapter instaloader --format table
+      fashion-radar external-tool-workflow --adapter instaloader --format json
+      ```
+
 ## Exclude
 
 Do not commit or upload:
@@ -305,7 +328,7 @@ uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 for cmd in \
   init migrate-db doctor source-pack-lint entity-pack-lint \
   community-signal-profile \
-  external-tool-adapters external-tool-template \
+  external-tool-adapters external-tool-template external-tool-workflow \
   community-signal-lint community-signal-lint-dir \
   community-candidates community-candidates-dir \
   community-handoff-manifest community-handoff-workflow \
@@ -340,6 +363,9 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" external-tool-template --adapter instaloader --format table
 "$tmp_env/venv/bin/fashion-radar" external-tool-template --adapter instaloader --format json
 "$tmp_env/venv/bin/fashion-radar" external-tool-template --adapter instaloader --format csv
+"$tmp_env/venv/bin/fashion-radar" external-tool-workflow --help
+"$tmp_env/venv/bin/fashion-radar" external-tool-workflow --adapter instaloader --format table
+"$tmp_env/venv/bin/fashion-radar" external-tool-workflow --adapter instaloader --format json
 "$tmp_env/venv/bin/fashion-radar" imported-signals --data-dir "$tmp_run/data" --as-of "2026-06-12T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidate-evidence --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --phrase "Le Teckel bag" --format json

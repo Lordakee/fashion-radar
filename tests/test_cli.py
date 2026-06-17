@@ -709,6 +709,318 @@ def test_external_tool_template_command_rejects_invalid_as_of() -> None:
     assert "Could not build external tool template:" in result.output
 
 
+def test_external_tool_workflow_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["external-tool-workflow", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "--adapter" in result.output
+    assert "--directory" in result.output
+    assert "--input-format" in result.output
+    assert "--pattern" in result.output
+    assert "--config-dir" in result.output
+    assert "--data-dir" in result.output
+    assert "--as-of" in result.output
+    assert "--source-name" in result.output
+    assert "--format" in result.output
+    assert "generic_community_export" in result.output
+    assert "Print local external tool workflow commands" in result.output
+
+
+def test_external_tool_workflow_command_prints_json_with_stable_keys(
+    tmp_path: Path,
+) -> None:
+    directory = tmp_path / "exports ? # & %"
+    config_dir = tmp_path / "config ? # & %"
+    data_dir = tmp_path / "data ? # & %"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "external-tool-workflow",
+            "--adapter",
+            "instaloader",
+            "--directory",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "contract_version",
+        "execution_mode",
+        "adapter_id",
+        "display_name",
+        "platform_label",
+        "directory",
+        "input_format",
+        "pattern",
+        "as_of",
+        "config_dir",
+        "data_dir",
+        "source_name",
+        "step_count",
+        "steps",
+        "boundaries",
+    ]
+    assert payload["contract_version"] == "external-tool-workflow/v1"
+    assert payload["execution_mode"] == "print_only"
+    assert payload["adapter_id"] == "instaloader"
+    assert payload["step_count"] == 11
+    assert list(payload["steps"][0]) == [
+        "order",
+        "name",
+        "purpose",
+        "command",
+        "suggested_effect",
+    ]
+    assert [step["name"] for step in payload["steps"]] == [
+        "inspect_adapter_registry",
+        "print_adapter_template_json",
+        "print_signal_profile",
+        "print_handoff_manifest",
+        "print_handoff_workflow",
+        "lint_export_directory",
+        "preview_candidate_phrases",
+        "review_handoff_readiness",
+        "dry_run_directory_import",
+        "import_directory_signals",
+        "print_post_import_review",
+    ]
+    assert payload["steps"][9]["suggested_effect"] == "updates_local_imports"
+    assert f"'{directory}'" in payload["steps"][3]["command"]
+    assert not directory.exists()
+    assert not config_dir.exists()
+    assert not data_dir.exists()
+
+
+def test_external_tool_workflow_command_prints_table_without_artifacts(
+    tmp_path: Path,
+) -> None:
+    directory = tmp_path / "missing exports"
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "external-tool-workflow",
+            "--adapter",
+            "rednote_mcp",
+            "--directory",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "External tool handoff workflow." in result.output
+    assert "Contract version: external-tool-workflow/v1" in result.output
+    assert "Commands were not executed." in result.output
+    assert "inspect_adapter_registry" in result.output
+    assert "print_adapter_template_json" in result.output
+    assert "community-handoff-manifest" in result.output
+    assert "community-candidates-dir" in result.output
+    assert "imported-review-workflow" in result.output
+    assert "No platform collection" in result.output
+    assert not directory.exists()
+    assert not config_dir.exists()
+    assert not data_dir.exists()
+
+
+def test_external_tool_workflow_command_applies_overrides() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "external-tool-workflow",
+            "--adapter",
+            "x_search_export",
+            "--input-format",
+            "json",
+            "--pattern",
+            "*.handoff.json",
+            "--source-name",
+            "Local Desk Export",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["adapter_id"] == "x_search_export"
+    assert payload["input_format"] == "json"
+    assert payload["pattern"] == "*.handoff.json"
+    assert payload["source_name"] == "Local Desk Export"
+
+
+def test_external_tool_workflow_command_defaults_to_generic_adapter() -> None:
+    result = CliRunner().invoke(app, ["external-tool-workflow", "--format", "json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["adapter_id"] == "generic_community_export"
+
+
+def test_external_tool_workflow_command_rejects_unknown_adapter() -> None:
+    result = CliRunner().invoke(app, ["external-tool-workflow", "--adapter", "missing"])
+
+    assert result.exit_code == 1
+    assert (
+        "Could not build external tool workflow: Unknown external tool adapter: missing"
+        in result.output
+    )
+
+
+def test_external_tool_workflow_command_rejects_invalid_as_of_without_builder(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        cli_module,
+        "build_external_tool_workflow",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("build_external_tool_workflow should not be called")
+        ),
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["external-tool-workflow", "--as-of", "not-a-date"],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not build external tool workflow: invalid --as-of" in result.output
+    assert "build_external_tool_workflow should not be called" not in result.output
+    assert "Traceback" not in result.output
+
+
+def test_external_tool_workflow_command_rejects_invalid_format_without_builder(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        cli_module,
+        "build_external_tool_workflow",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("build_external_tool_workflow should not be called")
+        ),
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["external-tool-workflow", "--format", "xml"],
+    )
+
+    assert result.exit_code != 0
+    assert "--format" in result.output
+    assert "build_external_tool_workflow should not be called" not in result.output
+    assert "Traceback" not in result.output
+
+
+def test_external_tool_workflow_command_does_not_read_directory_or_run_side_effects(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    directory = tmp_path / "exports"
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    guarded_paths = {directory, config_dir, data_dir}
+
+    def fail_side_effect(*args, **kwargs):
+        raise AssertionError("side effect should not run")
+
+    def is_guarded_path(path) -> bool:
+        try:
+            return Path(path) in guarded_paths
+        except TypeError:
+            return False
+
+    def guard_path_method(name: str):
+        original = getattr(Path, name)
+
+        def guarded(self: Path, *args, **kwargs):
+            if self in guarded_paths:
+                raise AssertionError(f"{name} should not inspect supplied paths")
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, name, guarded)
+
+    def guard_os_function(name: str):
+        original = getattr(os, name)
+
+        def guarded(path, *args, **kwargs):
+            if is_guarded_path(path):
+                raise AssertionError(f"os.{name} should not inspect supplied path: {path}")
+            return original(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, name, guarded)
+
+    for path_method in (
+        "exists",
+        "is_file",
+        "is_dir",
+        "iterdir",
+        "glob",
+        "rglob",
+        "stat",
+        "lstat",
+    ):
+        guard_path_method(path_method)
+    for os_function in ("scandir", "stat", "listdir", "walk"):
+        guard_os_function(os_function)
+    monkeypatch.setattr(cli_module.subprocess, "run", fail_side_effect)
+    monkeypatch.setattr(subprocess, "Popen", fail_side_effect)
+    monkeypatch.setattr(sqlite3, "connect", fail_side_effect)
+    monkeypatch.setattr(cli_module, "create_sqlite_engine", fail_side_effect)
+    monkeypatch.setattr(cli_module, "initialize_schema", fail_side_effect)
+    monkeypatch.setattr(cli_module, "load_manual_signal_directory_rows", fail_side_effect)
+    monkeypatch.setattr(cli_module, "store_manual_signal_rows", fail_side_effect)
+    monkeypatch.setattr(cli_module, "lint_community_signal_directory", fail_side_effect)
+    monkeypatch.setattr(cli_module, "check_community_handoff_directory", fail_side_effect)
+    monkeypatch.setattr(cli_module, "collect_configured_sources", fail_side_effect)
+    monkeypatch.setattr(cli_module, "write_daily_report_files", fail_side_effect)
+    monkeypatch.setattr(cli_module, "package_daily_digest", fail_side_effect)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "external-tool-workflow",
+            "--adapter",
+            "instaloader",
+            "--directory",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["adapter_id"] == "instaloader"
+
+
 def test_community_signal_profile_json_is_deterministic_across_env_and_cwd(
     tmp_path: Path,
     monkeypatch,

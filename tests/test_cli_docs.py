@@ -63,7 +63,12 @@ REQUIRED_FLAGS_BY_COMMAND = {
     "clean-old-data": ("--data-dir",),
 }
 
-STAGE_DOCS_COMMANDS = ("external-tool-adapters", "external-tool-template", "heat-movers")
+STAGE_DOCS_COMMANDS = (
+    "external-tool-adapters",
+    "external-tool-template",
+    "external-tool-workflow",
+    "heat-movers",
+)
 HEAT_MOVERS_MENTION_DOCS = (
     README,
     TREND_DELTAS_DOC,
@@ -140,6 +145,58 @@ IMPORTED_REVIEW_WORKFLOW_REQUIRED_PHRASES = (
     "configured sources and imported local signals",
     "no demand proof",
     "no platform coverage verification",
+)
+
+EXTERNAL_TOOL_WORKFLOW_STEP_NAMES = (
+    "inspect_adapter_registry",
+    "print_adapter_template_json",
+    "print_signal_profile",
+    "print_handoff_manifest",
+    "print_handoff_workflow",
+    "lint_export_directory",
+    "preview_candidate_phrases",
+    "review_handoff_readiness",
+    "dry_run_directory_import",
+    "import_directory_signals",
+    "print_post_import_review",
+)
+
+EXTERNAL_TOOL_WORKFLOW_BOUNDARY_PHRASES = (
+    "local",
+    "print-only",
+    "workflow metadata",
+    "not importable handoff rows",
+    "producer-facing wrapper around existing local commands",
+    "sanitized CSV/JSON local file handoff",
+    "user-controlled external/community tools",
+    "inspect directories",
+    "read handoff files",
+    "import rows",
+    "open SQLite",
+    "create artifacts",
+    "not platform collection",
+    "no connectors",
+    "no scraping",
+    "no browser automation",
+    "no platform APIs",
+    "no monitoring",
+    "no scheduling",
+    "no source acquisition",
+    "no demand proof",
+    "no ranking",
+    "no coverage verification",
+)
+
+EXTERNAL_TOOL_WORKFLOW_DOCS = (
+    README,
+    ROOT / "docs" / "community-signal-import.md",
+    ROOT / "docs" / "community-signal-quality.md",
+    CLI_REFERENCE,
+    UPLOAD_CHECKLIST,
+    ROOT / "docs" / "source-boundaries.md",
+    ROOT / "docs" / "architecture.md",
+    ROOT / "AGENTS.md",
+    ROOT / "CHANGELOG.md",
 )
 
 FASHION_RADAR_COMMAND_RE = re.compile(
@@ -997,6 +1054,38 @@ def test_external_tool_template_docs_are_linked_and_bounded() -> None:
     normalized_changelog = _normalized_text(changelog).casefold()
     for term in boundary_terms:
         assert term.casefold() in normalized_changelog
+
+
+def test_external_tool_workflow_docs_are_linked_and_bounded() -> None:
+    for path in EXTERNAL_TOOL_WORKFLOW_DOCS:
+        text = _read(path)
+        normalized = _normalized_text(text).casefold()
+        assert "external-tool-workflow" in normalized, path.relative_to(ROOT)
+        for term in EXTERNAL_TOOL_WORKFLOW_BOUNDARY_PHRASES:
+            assert term.casefold() in normalized, f"{path.relative_to(ROOT)} missing {term!r}"
+
+
+def test_external_tool_workflow_docs_include_examples_and_steps() -> None:
+    cli_reference = _read(CLI_REFERENCE)
+    checklist = _read(UPLOAD_CHECKLIST)
+    import_doc = _read(ROOT / "docs" / "community-signal-import.md")
+
+    for command in (
+        "fashion-radar external-tool-workflow --adapter instaloader --format table",
+        "fashion-radar external-tool-workflow --adapter instaloader --format json",
+    ):
+        assert command in cli_reference
+        assert command in checklist
+
+    assert "external-tool-workflow" in _upload_checklist_help_loop_commands()
+    assert '"$tmp_env/venv/bin/fashion-radar" external-tool-workflow --help' in checklist
+    assert (
+        '"$tmp_env/venv/bin/fashion-radar" external-tool-workflow '
+        "--adapter instaloader --format json"
+    ) in checklist
+
+    for step_name in EXTERNAL_TOOL_WORKFLOW_STEP_NAMES:
+        assert step_name in import_doc
 
 
 def test_community_handoff_check_dir_docs_are_linked_and_bounded() -> None:

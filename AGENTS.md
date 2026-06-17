@@ -74,6 +74,16 @@ paywall bypass, or fragile full social-platform scraping.
   collection and must have no connectors, no scraping, no browser automation,
   no platform APIs, no monitoring, no scheduling, no source acquisition, no
   demand proof, no ranking, and no coverage verification.
+- Future external social/community workflow work must keep
+  `external-tool-workflow` as a local, print-only command that prints workflow
+  metadata for user-controlled external/community tools that need a
+  producer-facing wrapper around existing local commands before writing
+  sanitized CSV/JSON local file handoff rows. JSON output is workflow metadata,
+  not importable handoff rows. It must not inspect directories, read handoff
+  files, import rows, open SQLite, or create artifacts. It is not platform
+  collection and must have no connectors, no scraping, no browser automation,
+  no platform APIs, no monitoring, no scheduling, no source acquisition, no
+  demand proof, no ranking, and no coverage verification.
 - Future community handoff readiness checks must keep
   `community-handoff-check-dir` as a local-only handoff readiness report for
   user-controlled community signal directories. It reads only matched local

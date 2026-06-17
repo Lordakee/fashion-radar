@@ -117,6 +117,18 @@ and has no connectors, no scraping, no browser automation, no platform APIs,
 no monitoring, no scheduling, no source acquisition, no demand proof, no
 ranking, and no coverage verification.
 
+`external-tool-workflow` prints workflow metadata as a local producer handoff
+wrapper only. It is for user-controlled external/community tools that need a
+producer-facing wrapper around existing local commands before writing sanitized
+CSV/JSON local file handoff rows. JSON output is workflow metadata, not
+importable handoff rows; table output may include local metadata and copyable
+commands. It does not run generated commands, adapters, or upstream tools, and
+it does not inspect the supplied directory, read handoff files, validate rows,
+import rows, open SQLite, or create artifacts. It is not platform collection
+and has no connectors, no scraping, no browser automation, no platform APIs,
+no monitoring, no scheduling, no source acquisition, no demand proof, no
+ranking, and no coverage verification.
+
 `community-handoff-check-dir` is a local-only handoff readiness report for
 user-controlled community signal directories. It reads only matched local
 regular files and local config. It does not import rows, uses no SQLite,

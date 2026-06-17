@@ -45,6 +45,10 @@ registry before choosing a sanitized CSV/JSON local file handoff shape.
 Use `external-tool-template` when a local upstream producer needs
 adapter-specific template rows for a sanitized CSV/JSON local file handoff
 shape before writing its own export file.
+Use `external-tool-workflow` when a local upstream producer needs a
+producer-facing wrapper around existing local commands before writing
+sanitized CSV/JSON local file handoff rows. Its JSON output is workflow
+metadata, not importable handoff rows.
 
 ## External Tool Handoff Templates
 
@@ -58,6 +62,38 @@ locally before Fashion Radar lint, preview, dry-run, import, and review steps.
 They are not platform collection and do not add connectors, scraping, browser
 automation, platform APIs, monitoring, scheduling, source acquisition, demand
 proof, ranking, or coverage verification.
+
+## External Tool Workflow
+
+`external-tool-workflow` prints workflow metadata for user-controlled
+external/community tools that need a producer-facing wrapper around existing
+local commands before writing sanitized CSV/JSON local file handoff rows. JSON
+output is workflow metadata, not importable handoff rows; table output may
+include local metadata and copyable commands.
+
+```bash
+uv run fashion-radar external-tool-workflow --adapter instaloader --format table
+uv run fashion-radar external-tool-workflow --adapter instaloader --format json
+```
+
+The printed sequence uses these step names:
+
+- `inspect_adapter_registry`
+- `print_adapter_template_json`
+- `print_signal_profile`
+- `print_handoff_manifest`
+- `print_handoff_workflow`
+- `lint_export_directory`
+- `preview_candidate_phrases`
+- `review_handoff_readiness`
+- `dry_run_directory_import`
+- `import_directory_signals`
+- `print_post_import_review`
+
+The workflow is local and print-only. It is not platform collection and has no
+connectors, no scraping, no browser automation, no platform APIs, no
+monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
+and no coverage verification.
 
 ## External Tool Export Directory Examples
 

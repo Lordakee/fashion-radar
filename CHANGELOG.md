@@ -137,6 +137,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   connectors, no scraping, no browser automation, no platform APIs, no
   monitoring, no scheduling, no source acquisition, no demand proof, no
   ranking, and no coverage verification.
+- Stage 64 `external-tool-workflow` command for local, print-only workflow
+  metadata over a producer-facing wrapper around existing local commands for
+  user-controlled external/community tools that need sanitized CSV/JSON local
+  file handoff rows. JSON output is workflow metadata, not importable handoff
+  rows; table output can include local metadata and copyable commands. It does
+  not inspect directories, read handoff files, import rows, open SQLite, or
+  create artifacts. This is not platform collection, with no connectors, no
+  scraping, no browser automation, no platform APIs, no monitoring, no
+  scheduling, no source acquisition, no demand proof, no ranking, and no
+  coverage verification.
 - Stage 53 community handoff guardrail tests for prohibited-field lint
   coverage, producer-profile command order, docs drift, and parser rejection.
 - Optional fashion entity watchlist pack for broader local matching coverage
