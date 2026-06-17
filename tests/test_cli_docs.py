@@ -1029,6 +1029,12 @@ def test_external_tool_adapter_registry_docs_are_linked_and_bounded() -> None:
     architecture = _read(ROOT / "docs" / "architecture.md")
     agents = _read(ROOT / "AGENTS.md")
     changelog = _read(ROOT / "CHANGELOG.md")
+    readiness_preflight_terms = (
+        "external-tool-readiness",
+        "optional local read-only preflight command",
+        "itself remains print-only",
+        "does not run readiness or perform PATH lookup",
+    )
 
     for text in (
         readme,
@@ -1045,6 +1051,8 @@ def test_external_tool_adapter_registry_docs_are_linked_and_bounded() -> None:
         assert "external-tool-adapters" in normalized
         assert "external social/community tool adapter registry" in normalized
         assert "local producer-discovery registry" in normalized
+        for term in readiness_preflight_terms:
+            assert term.casefold() in normalized
 
     for command in (
         "fashion-radar external-tool-adapters --format table",
