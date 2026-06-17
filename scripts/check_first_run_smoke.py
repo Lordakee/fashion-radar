@@ -124,6 +124,137 @@ EXPECTED_EXTERNAL_TOOL_COMMAND_NAMES = (
     "import-signals-dir",
     "imported-review-workflow",
 )
+EXPECTED_EXTERNAL_TOOL_REGISTRY_KEYS = (
+    "contract_version",
+    "execution_mode",
+    "adapters",
+    "boundaries",
+)
+EXPECTED_EXTERNAL_TOOL_ADAPTER_KEYS = (
+    "id",
+    "display_name",
+    "platform_label",
+    "suggested_source_name",
+    "recommended_input_format",
+    "recommended_pattern",
+    "suggested_export_directory",
+    "description",
+    "upstream_tool_examples",
+    "field_mappings",
+    "recommended_commands",
+    "boundaries",
+)
+EXPECTED_EXTERNAL_TOOL_ADAPTER_DETAILS = {
+    "rednote_mcp": {
+        "description": (
+            "Metadata target for Rednote/Xiaohongshu MCP exports that already "
+            "produce sanitized local observations."
+        ),
+        "upstream_tool_examples": ["rednote-mcp"],
+    },
+    "xiaohongshu_crawler": {
+        "description": (
+            "Metadata target for user-controlled Xiaohongshu crawler exports "
+            "converted to the community signal row shape."
+        ),
+        "upstream_tool_examples": ["xiaohongshu-crawler"],
+    },
+    "instaloader": {
+        "description": (
+            "Metadata target for sanitized Instagram post or profile exports "
+            "created outside Fashion Radar."
+        ),
+        "upstream_tool_examples": ["Instaloader"],
+    },
+    "tiktok_api": {
+        "description": (
+            "Metadata target for sanitized TikTok observations exported by a "
+            "user-controlled upstream tool."
+        ),
+        "upstream_tool_examples": ["TikTok-Api"],
+    },
+    "yt_dlp": {
+        "description": (
+            "Metadata target for sanitized media metadata exports, not media "
+            "downloads or stored video assets."
+        ),
+        "upstream_tool_examples": ["yt-dlp"],
+    },
+    "x_search_export": {
+        "description": (
+            "Metadata target for sanitized X/search exports created outside Fashion Radar."
+        ),
+        "upstream_tool_examples": ["AnySearch X export", "snscrape export"],
+    },
+    "generic_community_export": {
+        "description": (
+            "Metadata target for any user-controlled community source already "
+            "converted to sanitized local signal rows."
+        ),
+        "upstream_tool_examples": ["manual spreadsheet export", "community research export"],
+    },
+}
+EXPECTED_EXTERNAL_TOOL_FIELD_MAPPINGS = [
+    {
+        "field": "url",
+        "required": True,
+        "note": "Stable source URL or local reference URL for the observed item.",
+    },
+    {
+        "field": "title",
+        "required": True,
+        "note": "Short observed text, headline, caption summary, or normalized signal phrase.",
+    },
+    {
+        "field": "published_at",
+        "required": True,
+        "note": "ISO 8601-compatible publication or observation timestamp.",
+    },
+    {
+        "field": "summary",
+        "required": False,
+        "note": "Short sanitized local review note without raw comments or full post bodies.",
+    },
+    {
+        "field": "source_name",
+        "required": False,
+        "note": "Producer/export display name for the local handoff rows.",
+    },
+    {
+        "field": "platform",
+        "required": False,
+        "note": "Short local provenance label for review summaries.",
+    },
+    {
+        "field": "source_weight",
+        "required": False,
+        "note": "Optional local weight in the existing community signal range (0, 5].",
+    },
+    {
+        "field": "collected_at",
+        "required": False,
+        "note": "Timestamp for when the upstream tool produced the sanitized row.",
+    },
+]
+EXPECTED_EXTERNAL_TOOL_ADAPTER_BOUNDARIES = [
+    "Local producer-discovery metadata only.",
+    "Writes should target sanitized CSV/JSON local handoff rows.",
+    "Platform label is local provenance only.",
+    "No platform collection, connector execution, scraping, browser automation, or API calls.",
+]
+EXPECTED_EXTERNAL_TOOL_REGISTRY_BOUNDARIES = [
+    "Does not run adapters.",
+    "Does not inspect the supplied directory.",
+    "Does not read handoff files, validate files, import rows, or open SQLite.",
+    "Does not create config, data, report, dashboard, or workflow artifacts.",
+    (
+        "Does not fetch URLs, search platforms, log in, store cookies, automate "
+        "browsers, call platform APIs, monitor communities, schedule work, add "
+        "source/platform connectors, acquire sources, prove demand, rank sources, "
+        "or verify platform coverage."
+    ),
+    "Does not provide a compliance-review workflow.",
+]
 REQUIRED_EXTERNAL_TOOL_READINESS_BOUNDARY_PHRASES = (
     "local read-only",
     "availability only",
@@ -179,6 +310,9 @@ def command_environment(
     source_checkout: bool = True,
 ) -> dict[str, str]:
     env = dict(os.environ if base_env is None else base_env)
+    # Keep print-only adapter registry commands deterministic in source and wheel smokes.
+    env["FASHION_RADAR_CONFIG_DIR"] = "configs"
+    env["FASHION_RADAR_DATA_DIR"] = "data"
     if not source_checkout:
         remove_pythonpath_entry(env, context.repo_root / "src", relative_to=context.repo_root)
         return env
@@ -225,6 +359,143 @@ def validate_json_output(command_name: str, output: str) -> Any:
 def assert_equal(label: str, actual: Any, expected: Any) -> None:
     if actual != expected:
         raise SmokeError(f"{label} expected {expected!r}, got {actual!r}")
+
+
+def expected_external_tool_command(*parts: str) -> str:
+    return shlex.join(("fashion-radar", *parts))
+
+
+def expected_external_tool_adapter_commands(
+    *,
+    adapter_id: str,
+    input_format: str,
+    pattern: str,
+    source_name: str,
+) -> list[str]:
+    return [
+        expected_external_tool_command("community-signal-profile", "--format", "json"),
+        expected_external_tool_command(
+            "external-tool-readiness",
+            "--adapter",
+            adapter_id,
+            "--directory",
+            "exports",
+            "--config-dir",
+            "configs",
+            "--data-dir",
+            "data",
+            "--as-of",
+            "2026-06-13T12:00:00+00:00",
+            "--input-format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--source-name",
+            source_name,
+            "--format",
+            "table",
+        ),
+        expected_external_tool_command(
+            "community-handoff-manifest",
+            "exports",
+            "--input-format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--config-dir",
+            "configs",
+            "--data-dir",
+            "data",
+            "--as-of",
+            "2026-06-13T12:00:00+00:00",
+            "--source-name",
+            source_name,
+            "--format",
+            "json",
+        ),
+        expected_external_tool_command(
+            "community-handoff-workflow",
+            "exports",
+            "--input-format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--config-dir",
+            "configs",
+            "--data-dir",
+            "data",
+            "--as-of",
+            "2026-06-13T12:00:00+00:00",
+            "--source-name",
+            source_name,
+        ),
+        expected_external_tool_command(
+            "community-signal-lint-dir",
+            "exports",
+            "--input-format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--source-name",
+            source_name,
+            "--strict",
+        ),
+        expected_external_tool_command(
+            "community-handoff-check-dir",
+            "exports",
+            "--input-format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--config-dir",
+            "configs",
+            "--as-of",
+            "2026-06-13T12:00:00+00:00",
+            "--source-name",
+            source_name,
+            "--strict",
+        ),
+        expected_external_tool_command(
+            "import-signals-dir",
+            "exports",
+            "--format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--source-name",
+            source_name,
+            "--data-dir",
+            "data",
+            "--imported-at",
+            "2026-06-13T12:00:00+00:00",
+            "--dry-run",
+        ),
+        expected_external_tool_command(
+            "import-signals-dir",
+            "exports",
+            "--format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--source-name",
+            source_name,
+            "--data-dir",
+            "data",
+            "--imported-at",
+            "2026-06-13T12:00:00+00:00",
+        ),
+        expected_external_tool_command(
+            "imported-review-workflow",
+            "--config-dir",
+            "configs",
+            "--data-dir",
+            "data",
+            "--as-of",
+            "2026-06-13T12:00:00+00:00",
+            "--source-name",
+            source_name,
+        ),
+    ]
 
 
 def validate_sample_csv(path: Path) -> None:
@@ -640,6 +911,53 @@ def validate_external_tool_adapters(command_name: str, payload: Any) -> None:
             required_readiness_value(readiness_parts, adapter_id, "--format"),
             "table",
         )
+        assert_equal(
+            f"{command_name} {adapter_id} keys",
+            list(adapter),
+            list(EXPECTED_EXTERNAL_TOOL_ADAPTER_KEYS),
+        )
+        adapter_details = EXPECTED_EXTERNAL_TOOL_ADAPTER_DETAILS[adapter_id]
+        assert_equal(
+            f"{command_name} {adapter_id} description",
+            adapter.get("description"),
+            adapter_details["description"],
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} upstream_tool_examples",
+            adapter.get("upstream_tool_examples"),
+            adapter_details["upstream_tool_examples"],
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} field_mappings",
+            adapter.get("field_mappings"),
+            EXPECTED_EXTERNAL_TOOL_FIELD_MAPPINGS,
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} recommended_commands",
+            adapter.get("recommended_commands"),
+            expected_external_tool_adapter_commands(
+                adapter_id=adapter_id,
+                input_format=input_format,
+                pattern=pattern,
+                source_name=source_name,
+            ),
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} boundaries",
+            adapter.get("boundaries"),
+            EXPECTED_EXTERNAL_TOOL_ADAPTER_BOUNDARIES,
+        )
+
+    assert_equal(
+        f"{command_name} keys",
+        list(payload),
+        list(EXPECTED_EXTERNAL_TOOL_REGISTRY_KEYS),
+    )
+    assert_equal(
+        f"{command_name} boundaries",
+        payload.get("boundaries"),
+        EXPECTED_EXTERNAL_TOOL_REGISTRY_BOUNDARIES,
+    )
 
 
 def validate_external_tool_template(command_name: str, payload: Any) -> None:

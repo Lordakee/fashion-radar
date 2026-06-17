@@ -6,6 +6,7 @@ import os
 import shlex
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -735,6 +736,129 @@ def external_tool_adapter_entries(payload: dict[str, object]) -> list[dict[str, 
     return cast(list[dict[str, object]], adapters)
 
 
+def external_tool_adapter_entry(
+    payload: dict[str, object],
+    adapter_id: str,
+) -> dict[str, object]:
+    for adapter in external_tool_adapter_entries(payload):
+        if adapter.get("id") == adapter_id:
+            return adapter
+    raise AssertionError(f"missing adapter {adapter_id}")
+
+
+def assert_external_tool_adapter_contract_drift(
+    payload: dict[str, object],
+    match: str,
+) -> None:
+    with pytest.raises(smoke.SmokeError, match=match):
+        smoke.validate_external_tool_adapters("external-tool-adapters", payload)
+
+
+def add_external_tool_registry_extra_key(payload: dict[str, object]) -> None:
+    payload["runs_adapters"] = False
+
+
+def remove_external_tool_registry_boundary(payload: dict[str, object]) -> None:
+    boundaries = payload["boundaries"]
+    assert isinstance(boundaries, list)
+    payload["boundaries"] = boundaries[:-1]
+
+
+def add_external_tool_adapter_extra_key(payload: dict[str, object]) -> None:
+    adapter = external_tool_adapter_entry(payload, "rednote_mcp")
+    adapter["runs_adapter"] = False
+
+
+def remove_external_tool_adapter_key(payload: dict[str, object]) -> None:
+    adapter = external_tool_adapter_entry(payload, "rednote_mcp")
+    adapter.pop("description")
+
+
+def drift_external_tool_later_adapter_description(payload: dict[str, object]) -> None:
+    adapter = external_tool_adapter_entry(payload, "xiaohongshu_crawler")
+    adapter["description"] = "Unexpected crawler description."
+
+
+def drift_external_tool_upstream_examples(payload: dict[str, object]) -> None:
+    adapter = external_tool_adapter_entry(payload, "x_search_export")
+    adapter["upstream_tool_examples"] = ["other export"]
+
+
+def drift_external_tool_field_mapping_required(payload: dict[str, object]) -> None:
+    adapter = external_tool_adapter_entry(payload, "rednote_mcp")
+    field_mappings = adapter["field_mappings"]
+    assert isinstance(field_mappings, list)
+    first_mapping = field_mappings[0]
+    assert isinstance(first_mapping, dict)
+    first_mapping["required"] = False
+
+
+def drift_external_tool_field_mapping_note(payload: dict[str, object]) -> None:
+    adapter = external_tool_adapter_entry(payload, "rednote_mcp")
+    field_mappings = adapter["field_mappings"]
+    assert isinstance(field_mappings, list)
+    second_mapping = field_mappings[1]
+    assert isinstance(second_mapping, dict)
+    second_mapping["note"] = "Changed note."
+
+
+def drift_external_tool_adapter_boundaries(payload: dict[str, object]) -> None:
+    adapter = external_tool_adapter_entry(payload, "rednote_mcp")
+    adapter["boundaries"] = ["Local producer-discovery metadata only."]
+
+
+def drift_external_tool_later_manifest_command(payload: dict[str, object]) -> None:
+    adapter = external_tool_adapter_entry(payload, "xiaohongshu_crawler")
+    commands = adapter["recommended_commands"]
+    assert isinstance(commands, list)
+    commands[2] = external_tool_command(
+        "community-handoff-manifest",
+        "exports",
+        "--input-format",
+        "csv",
+        "--pattern",
+        "*.csv",
+        "--config-dir",
+        "configs",
+        "--data-dir",
+        "data",
+        "--as-of",
+        "2026-06-13T12:00:00+00:00",
+        "--source-name",
+        "Xiaohongshu Crawler Export",
+        "--format",
+        "table",
+    )
+
+
+def drift_external_tool_readiness_extra_flag(payload: dict[str, object]) -> None:
+    replace_external_tool_readiness_command(
+        payload,
+        external_tool_command(
+            "external-tool-readiness",
+            "--adapter",
+            "rednote_mcp",
+            "--directory",
+            "exports",
+            "--config-dir",
+            "configs",
+            "--data-dir",
+            "data",
+            "--as-of",
+            "2026-06-13T12:00:00+00:00",
+            "--input-format",
+            "json",
+            "--pattern",
+            "*.json",
+            "--source-name",
+            "Rednote MCP Export",
+            "--format",
+            "table",
+            "--verbose",
+        ),
+    )
+
+
 def replace_external_tool_readiness_command(
     payload: dict[str, object],
     command: str,
@@ -1100,6 +1224,32 @@ def test_external_tool_adapters_payload_matches_real_registry() -> None:
     assert external_tool_adapters_payload() == expected
 
 
+@pytest.mark.parametrize(
+    ("adapter_id", "input_format", "pattern", "source_name"),
+    (
+        ("rednote_mcp", "json", "*.json", "Rednote MCP Export"),
+        ("xiaohongshu_crawler", "csv", "*.csv", "Xiaohongshu Crawler Export"),
+    ),
+)
+def test_expected_external_tool_adapter_commands_match_fixture_helper(
+    adapter_id: str,
+    input_format: str,
+    pattern: str,
+    source_name: str,
+) -> None:
+    assert smoke.expected_external_tool_adapter_commands(
+        adapter_id=adapter_id,
+        input_format=input_format,
+        pattern=pattern,
+        source_name=source_name,
+    ) == external_tool_adapter_commands(
+        adapter_id=adapter_id,
+        input_format=input_format,
+        pattern=pattern,
+        source_name=source_name,
+    )
+
+
 def test_external_tool_template_payload_matches_real_rednote_template() -> None:
     expected = json.loads(
         render_external_tool_template_json(
@@ -1265,6 +1415,20 @@ def test_command_environment_removes_relative_repo_src_in_installed_mode(
     env = smoke.command_environment(context, source_checkout=False)
 
     assert env["PYTHONPATH"] == os.pathsep.join(["/before", "/after"])
+
+
+def test_command_environment_sets_deterministic_adapter_registry_dirs(
+    tmp_path: Path,
+) -> None:
+    context = make_context(tmp_path)
+
+    source_env = smoke.command_environment(context)
+    installed_env = smoke.command_environment(context, source_checkout=False)
+
+    assert source_env["FASHION_RADAR_CONFIG_DIR"] == "configs"
+    assert source_env["FASHION_RADAR_DATA_DIR"] == "data"
+    assert installed_env["FASHION_RADAR_CONFIG_DIR"] == "configs"
+    assert installed_env["FASHION_RADAR_DATA_DIR"] == "data"
 
 
 def test_validate_json_output_rejects_invalid_json() -> None:
@@ -1631,6 +1795,32 @@ def test_validate_external_tool_adapters_requires_print_only_registry_contract()
     )
     with pytest.raises(smoke.SmokeError, match="command 2 is not shell-parseable"):
         smoke.validate_external_tool_adapters("external-tool-adapters", malformed_readiness)
+
+
+@pytest.mark.parametrize(
+    ("mutate", "match"),
+    (
+        (add_external_tool_registry_extra_key, "external-tool-adapters keys"),
+        (remove_external_tool_registry_boundary, "external-tool-adapters boundaries"),
+        (add_external_tool_adapter_extra_key, "rednote_mcp keys"),
+        (remove_external_tool_adapter_key, "rednote_mcp keys"),
+        (drift_external_tool_later_adapter_description, "xiaohongshu_crawler description"),
+        (drift_external_tool_upstream_examples, "x_search_export upstream_tool_examples"),
+        (drift_external_tool_field_mapping_required, "rednote_mcp field_mappings"),
+        (drift_external_tool_field_mapping_note, "rednote_mcp field_mappings"),
+        (drift_external_tool_adapter_boundaries, "rednote_mcp boundaries"),
+        (drift_external_tool_later_manifest_command, "xiaohongshu_crawler recommended_commands"),
+        (drift_external_tool_readiness_extra_flag, "rednote_mcp recommended_commands"),
+    ),
+)
+def test_validate_external_tool_adapters_rejects_full_static_contract_drift(
+    mutate: Callable[[dict[str, object]], None],
+    match: str,
+) -> None:
+    payload = external_tool_adapters_payload()
+    mutate(payload)
+
+    assert_external_tool_adapter_contract_drift(payload, match)
 
 
 def test_validate_external_tool_template_requires_importable_items() -> None:
