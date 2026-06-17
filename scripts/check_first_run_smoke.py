@@ -97,6 +97,33 @@ EXPECTED_EXTERNAL_TOOL_READINESS_STEPS = (
     "review_handoff_readiness",
     "dry_run_directory_import",
 )
+# Pinned independently from the runtime registry so first-run smoke catches
+# adapter registry drift instead of importing the code under test.
+EXPECTED_EXTERNAL_TOOL_ADAPTERS = {
+    "rednote_mcp": ("rednote", "json", "*.json", "Rednote MCP Export"),
+    "xiaohongshu_crawler": (
+        "xiaohongshu",
+        "csv",
+        "*.csv",
+        "Xiaohongshu Crawler Export",
+    ),
+    "instaloader": ("instagram", "json", "*.json", "Instaloader Export"),
+    "tiktok_api": ("tiktok", "json", "*.json", "TikTok-Api Export"),
+    "yt_dlp": ("media", "json", "*.json", "yt-dlp Metadata Export"),
+    "x_search_export": ("x", "csv", "*.csv", "X Search Export"),
+    "generic_community_export": ("community", "csv", "*.csv", "Generic Community Export"),
+}
+EXPECTED_EXTERNAL_TOOL_COMMAND_NAMES = (
+    "community-signal-profile",
+    "external-tool-readiness",
+    "community-handoff-manifest",
+    "community-handoff-workflow",
+    "community-signal-lint-dir",
+    "community-handoff-check-dir",
+    "import-signals-dir",
+    "import-signals-dir",
+    "imported-review-workflow",
+)
 REQUIRED_EXTERNAL_TOOL_READINESS_BOUNDARY_PHRASES = (
     "local read-only",
     "availability only",
@@ -477,75 +504,142 @@ def validate_external_tool_adapters(command_name: str, payload: Any) -> None:
     adapters = payload.get("adapters")
     if not isinstance(adapters, list) or not adapters:
         raise SmokeError(f"{command_name} adapters must be a non-empty list")
-    first_adapter = adapters[0]
-    if not isinstance(first_adapter, dict):
-        raise SmokeError(f"{command_name} first adapter must be a JSON object")
-    assert_equal(f"{command_name} first adapter id", first_adapter.get("id"), "rednote_mcp")
-    recommended_commands = first_adapter.get("recommended_commands")
-    if not isinstance(recommended_commands, list):
-        raise SmokeError(f"{command_name} first adapter recommended_commands must be a list")
-    readiness_commands = [
-        str(command)
-        for command in recommended_commands
-        if "fashion-radar external-tool-readiness" in str(command)
-    ]
-    if not readiness_commands:
-        raise SmokeError(f"{command_name} first adapter missing external-tool-readiness command")
-    readiness_command = readiness_commands[0]
-    try:
-        readiness_parts = shlex.split(readiness_command)
-    except ValueError as exc:
-        raise SmokeError(f"{command_name} readiness command is not shell-parseable: {exc}") from exc
+    adapter_ids: list[str] = []
+    for index, adapter in enumerate(adapters, start=1):
+        if not isinstance(adapter, dict):
+            raise SmokeError(f"{command_name} adapter {index} must be a JSON object")
+        adapter_id = str(adapter.get("id", ""))
+        adapter_ids.append(adapter_id)
+
     assert_equal(
-        f"{command_name} readiness command prefix",
-        readiness_parts[:2],
-        ["fashion-radar", "external-tool-readiness"],
+        f"{command_name} adapter ids",
+        adapter_ids,
+        list(EXPECTED_EXTERNAL_TOOL_ADAPTERS),
     )
 
-    def required_readiness_value(flag: str) -> str:
-        if flag not in readiness_parts:
-            raise SmokeError(f"{command_name} readiness command missing {flag!r}")
-        index = readiness_parts.index(flag)
-        if index + 1 >= len(readiness_parts):
-            raise SmokeError(f"{command_name} readiness command missing value for {flag!r}")
-        value = readiness_parts[index + 1]
+    def required_readiness_value(parts: list[str], adapter_id: str, flag: str) -> str:
+        if flag not in parts:
+            raise SmokeError(f"{command_name} {adapter_id} readiness command missing {flag!r}")
+        index = parts.index(flag)
+        if index + 1 >= len(parts):
+            raise SmokeError(
+                f"{command_name} {adapter_id} readiness command missing value for {flag!r}"
+            )
+        value = parts[index + 1]
         if not value or value.startswith("--"):
-            raise SmokeError(f"{command_name} readiness command missing value for {flag!r}")
+            raise SmokeError(
+                f"{command_name} {adapter_id} readiness command missing value for {flag!r}"
+            )
         return value
 
-    assert_equal(
-        f"{command_name} readiness adapter",
-        required_readiness_value("--adapter"),
-        "rednote_mcp",
-    )
-    assert_equal(
-        f"{command_name} readiness directory",
-        required_readiness_value("--directory"),
-        "exports",
-    )
-    required_readiness_value("--config-dir")
-    required_readiness_value("--data-dir")
-    required_readiness_value("--as-of")
-    assert_equal(
-        f"{command_name} readiness input_format",
-        required_readiness_value("--input-format"),
-        "json",
-    )
-    assert_equal(
-        f"{command_name} readiness pattern",
-        required_readiness_value("--pattern"),
-        "*.json",
-    )
-    assert_equal(
-        f"{command_name} readiness source_name",
-        required_readiness_value("--source-name"),
-        "Rednote MCP Export",
-    )
-    assert_equal(
-        f"{command_name} readiness output format",
-        required_readiness_value("--format"),
-        "table",
-    )
+    for adapter in adapters:
+        adapter_id = str(adapter["id"])
+        platform_label, input_format, pattern, source_name = EXPECTED_EXTERNAL_TOOL_ADAPTERS[
+            adapter_id
+        ]
+        assert_equal(
+            f"{command_name} {adapter_id} display_name",
+            adapter.get("display_name"),
+            source_name,
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} platform_label",
+            adapter.get("platform_label"),
+            platform_label,
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} suggested_source_name",
+            adapter.get("suggested_source_name"),
+            source_name,
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} recommended_input_format",
+            adapter.get("recommended_input_format"),
+            input_format,
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} recommended_pattern",
+            adapter.get("recommended_pattern"),
+            pattern,
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} suggested_export_directory",
+            adapter.get("suggested_export_directory"),
+            "exports",
+        )
+        recommended_commands = adapter.get("recommended_commands")
+        if not isinstance(recommended_commands, list):
+            raise SmokeError(f"{command_name} {adapter_id} recommended_commands must be a list")
+        command_parts: list[list[str]] = []
+        for command_index, command in enumerate(recommended_commands, start=1):
+            try:
+                parts = shlex.split(str(command))
+            except ValueError as exc:
+                raise SmokeError(
+                    f"{command_name} {adapter_id} command {command_index} is not "
+                    f"shell-parseable: {exc}"
+                ) from exc
+            command_parts.append(parts)
+
+        readiness_commands = [
+            parts
+            for parts in command_parts
+            if parts[:2] == ["fashion-radar", "external-tool-readiness"]
+        ]
+        if not readiness_commands:
+            raise SmokeError(f"{command_name} {adapter_id} missing external-tool-readiness command")
+        if len(readiness_commands) != 1:
+            raise SmokeError(
+                f"{command_name} {adapter_id} must contain exactly one "
+                "external-tool-readiness command"
+            )
+        assert_equal(
+            f"{command_name} {adapter_id} command prefixes",
+            [parts[:2] for parts in command_parts],
+            [
+                ["fashion-radar", expected_name]
+                for expected_name in EXPECTED_EXTERNAL_TOOL_COMMAND_NAMES
+            ],
+        )
+        readiness_parts = readiness_commands[0]
+        assert_equal(
+            f"{command_name} {adapter_id} readiness command prefix",
+            readiness_parts[:2],
+            ["fashion-radar", "external-tool-readiness"],
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} readiness adapter",
+            required_readiness_value(readiness_parts, adapter_id, "--adapter"),
+            adapter_id,
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} readiness directory",
+            required_readiness_value(readiness_parts, adapter_id, "--directory"),
+            "exports",
+        )
+        required_readiness_value(readiness_parts, adapter_id, "--config-dir")
+        required_readiness_value(readiness_parts, adapter_id, "--data-dir")
+        required_readiness_value(readiness_parts, adapter_id, "--as-of")
+        assert_equal(
+            f"{command_name} {adapter_id} readiness input_format",
+            required_readiness_value(readiness_parts, adapter_id, "--input-format"),
+            input_format,
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} readiness pattern",
+            required_readiness_value(readiness_parts, adapter_id, "--pattern"),
+            pattern,
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} readiness source_name",
+            required_readiness_value(readiness_parts, adapter_id, "--source-name"),
+            source_name,
+        )
+        assert_equal(
+            f"{command_name} {adapter_id} readiness output format",
+            required_readiness_value(readiness_parts, adapter_id, "--format"),
+            "table",
+        )
 
 
 def validate_external_tool_template(command_name: str, payload: Any) -> None:

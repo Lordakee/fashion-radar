@@ -3,9 +3,11 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -49,6 +51,171 @@ SAMPLE_CSV_TEXT = (
     "Short sanitized note about ballet flats shoes and footwear styling,"
     "Community Tool Export,community,1.1,2026-06-12T09:20:00Z\n"
 )
+
+EXTERNAL_TOOL_ADAPTER_CASES = (
+    ("rednote_mcp", "rednote", "json", "*.json", "Rednote MCP Export"),
+    ("xiaohongshu_crawler", "xiaohongshu", "csv", "*.csv", "Xiaohongshu Crawler Export"),
+    ("instaloader", "instagram", "json", "*.json", "Instaloader Export"),
+    ("tiktok_api", "tiktok", "json", "*.json", "TikTok-Api Export"),
+    ("yt_dlp", "media", "json", "*.json", "yt-dlp Metadata Export"),
+    ("x_search_export", "x", "csv", "*.csv", "X Search Export"),
+    ("generic_community_export", "community", "csv", "*.csv", "Generic Community Export"),
+)
+
+EXTERNAL_TOOL_FIELD_MAPPINGS = [
+    {"field": "url", "required": True, "note": "Stable source URL or local reference URL."},
+    {"field": "title", "required": True, "note": "Short observed text or headline."},
+    {"field": "published_at", "required": True, "note": "Observed timestamp."},
+    {"field": "summary", "required": True, "note": "Short sanitized local review note."},
+    {"field": "source_name", "required": True, "note": "Producer/export display name."},
+    {"field": "platform", "required": True, "note": "Short local provenance label."},
+    {"field": "source_weight", "required": False, "note": "Optional local signal weight."},
+    {"field": "collected_at", "required": False, "note": "Export collection timestamp."},
+]
+
+EXTERNAL_TOOL_ADAPTER_BOUNDARIES = [
+    "Local producer-discovery metadata only.",
+    "Writes should target sanitized CSV/JSON local handoff rows.",
+    "Platform label is local provenance only.",
+    "No platform collection, connector execution, scraping, browser automation, or API calls.",
+]
+
+
+def external_tool_command(*parts: str) -> str:
+    return shlex.join(("fashion-radar", *parts))
+
+
+def external_tool_adapter_commands(
+    *,
+    adapter_id: str,
+    input_format: str,
+    pattern: str,
+    source_name: str,
+) -> list[str]:
+    return [
+        external_tool_command("community-signal-profile", "--format", "json"),
+        external_tool_command(
+            "external-tool-readiness",
+            "--adapter",
+            adapter_id,
+            "--directory",
+            "exports",
+            "--config-dir",
+            "configs",
+            "--data-dir",
+            "data",
+            "--as-of",
+            "2026-06-13T12:00:00+00:00",
+            "--input-format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--source-name",
+            source_name,
+            "--format",
+            "table",
+        ),
+        external_tool_command(
+            "community-handoff-manifest",
+            "exports",
+            "--input-format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--config-dir",
+            "configs",
+            "--data-dir",
+            "data",
+            "--as-of",
+            "2026-06-13T12:00:00+00:00",
+            "--source-name",
+            source_name,
+            "--format",
+            "json",
+        ),
+        external_tool_command(
+            "community-handoff-workflow",
+            "exports",
+            "--input-format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--config-dir",
+            "configs",
+            "--data-dir",
+            "data",
+            "--as-of",
+            "2026-06-13T12:00:00+00:00",
+            "--source-name",
+            source_name,
+        ),
+        external_tool_command(
+            "community-signal-lint-dir",
+            "exports",
+            "--input-format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--source-name",
+            source_name,
+            "--strict",
+        ),
+        external_tool_command(
+            "community-handoff-check-dir",
+            "exports",
+            "--input-format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--config-dir",
+            "configs",
+            "--as-of",
+            "2026-06-13T12:00:00+00:00",
+            "--source-name",
+            source_name,
+            "--strict",
+        ),
+        external_tool_command(
+            "import-signals-dir",
+            "exports",
+            "--format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--source-name",
+            source_name,
+            "--data-dir",
+            "data",
+            "--imported-at",
+            "2026-06-13T12:00:00+00:00",
+            "--dry-run",
+        ),
+        external_tool_command(
+            "import-signals-dir",
+            "exports",
+            "--format",
+            input_format,
+            "--pattern",
+            pattern,
+            "--source-name",
+            source_name,
+            "--data-dir",
+            "data",
+            "--imported-at",
+            "2026-06-13T12:00:00+00:00",
+        ),
+        external_tool_command(
+            "imported-review-workflow",
+            "--config-dir",
+            "configs",
+            "--data-dir",
+            "data",
+            "--as-of",
+            "2026-06-13T12:00:00+00:00",
+            "--source-name",
+            source_name,
+        ),
+    ]
 
 
 def community_candidates_payload(*, directory: bool = False) -> dict[str, object]:
@@ -408,22 +575,69 @@ def external_tool_adapters_payload() -> dict[str, object]:
         "execution_mode": "print_only",
         "adapters": [
             {
-                "id": "rednote_mcp",
-                "platform": "rednote",
-                "source_name": "Rednote MCP Export",
-                "recommended_commands": [
-                    "fashion-radar community-signal-profile --format json",
-                    (
-                        "fashion-radar external-tool-readiness --adapter rednote_mcp "
-                        "--directory exports --config-dir configs --data-dir data "
-                        "--as-of 2026-06-13T12:00:00+00:00 --input-format json "
-                        "--pattern '*.json' --source-name 'Rednote MCP Export' --format table"
-                    ),
+                "id": adapter_id,
+                "display_name": source_name,
+                "platform_label": platform_label,
+                "suggested_source_name": source_name,
+                "recommended_input_format": input_format,
+                "recommended_pattern": pattern,
+                "suggested_export_directory": "exports",
+                "description": (
+                    "Metadata target for sanitized local external/community tool exports."
+                ),
+                "upstream_tool_examples": [source_name],
+                "field_mappings": [
+                    dict(field_mapping) for field_mapping in EXTERNAL_TOOL_FIELD_MAPPINGS
                 ],
+                "recommended_commands": external_tool_adapter_commands(
+                    adapter_id=adapter_id,
+                    input_format=input_format,
+                    pattern=pattern,
+                    source_name=source_name,
+                ),
+                "boundaries": list(EXTERNAL_TOOL_ADAPTER_BOUNDARIES),
             }
+            for (
+                adapter_id,
+                platform_label,
+                input_format,
+                pattern,
+                source_name,
+            ) in EXTERNAL_TOOL_ADAPTER_CASES
         ],
-        "boundaries": ["Does not run adapters."],
+        "boundaries": [
+            "Does not run adapters.",
+            "Does not inspect the supplied directory.",
+            "Does not read handoff files, validate files, import rows, or open SQLite.",
+            "Does not create config, data, report, dashboard, or workflow artifacts.",
+            (
+                "Does not fetch URLs, search platforms, log in, store cookies, automate "
+                "browsers, call platform APIs, monitor communities, schedule work, add "
+                "source/platform connectors, acquire sources, prove demand, rank sources, "
+                "or verify platform coverage."
+            ),
+            "Does not provide a compliance-review workflow.",
+        ],
     }
+
+
+def external_tool_adapter_entries(payload: dict[str, object]) -> list[dict[str, object]]:
+    adapters = payload["adapters"]
+    assert isinstance(adapters, list)
+    assert all(isinstance(adapter, dict) for adapter in adapters)
+    return cast(list[dict[str, object]], adapters)
+
+
+def replace_external_tool_readiness_command(
+    payload: dict[str, object],
+    command: str,
+    *,
+    adapter_index: int = 0,
+) -> None:
+    adapters = external_tool_adapter_entries(payload)
+    commands = adapters[adapter_index]["recommended_commands"]
+    assert isinstance(commands, list)
+    commands[1] = command
 
 
 def external_tool_template_payload() -> dict[str, object]:
@@ -1145,103 +1359,157 @@ def test_validate_external_tool_adapters_requires_print_only_registry_contract()
         smoke.validate_external_tool_adapters("external-tool-adapters", runnable)
 
     wrong_adapter = external_tool_adapters_payload()
-    adapters = wrong_adapter["adapters"]
-    assert isinstance(adapters, list)
-    adapters[0]["id"] = "instaloader"  # type: ignore[index]
-    with pytest.raises(smoke.SmokeError, match="first adapter id"):
+    adapters = external_tool_adapter_entries(wrong_adapter)
+    adapters[1]["id"] = "unexpected_adapter"
+    with pytest.raises(smoke.SmokeError, match="adapter ids"):
         smoke.validate_external_tool_adapters("external-tool-adapters", wrong_adapter)
 
+    reordered_adapter = external_tool_adapters_payload()
+    adapters = external_tool_adapter_entries(reordered_adapter)
+    adapters[0], adapters[1] = adapters[1], adapters[0]
+    with pytest.raises(smoke.SmokeError, match="adapter ids"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", reordered_adapter)
+
+    metadata_drift = external_tool_adapters_payload()
+    adapters = external_tool_adapter_entries(metadata_drift)
+    adapters[1]["platform_label"] = "instagram"
+    with pytest.raises(smoke.SmokeError, match="xiaohongshu_crawler platform_label"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", metadata_drift)
+
     missing_commands = external_tool_adapters_payload()
-    adapters = missing_commands["adapters"]
-    assert isinstance(adapters, list)
-    adapters[0].pop("recommended_commands")  # type: ignore[index]
+    adapters = external_tool_adapter_entries(missing_commands)
+    adapters[1].pop("recommended_commands")
     with pytest.raises(smoke.SmokeError, match="recommended_commands must be a list"):
         smoke.validate_external_tool_adapters("external-tool-adapters", missing_commands)
 
+    wrong_command_prefix = external_tool_adapters_payload()
+    adapters = external_tool_adapter_entries(wrong_command_prefix)
+    commands = adapters[0]["recommended_commands"]
+    assert isinstance(commands, list)
+    commands[0] = "python community-signal-profile --format json"
+    with pytest.raises(smoke.SmokeError, match="command prefixes"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", wrong_command_prefix)
+
     missing_readiness = external_tool_adapters_payload()
-    adapters = missing_readiness["adapters"]
-    assert isinstance(adapters, list)
-    adapters[0]["recommended_commands"] = [  # type: ignore[index]
-        "fashion-radar community-signal-profile --format json"
+    adapters = external_tool_adapter_entries(missing_readiness)
+    adapters[0]["recommended_commands"] = [
+        external_tool_command("community-signal-profile", "--format", "json")
     ]
     with pytest.raises(smoke.SmokeError, match="missing external-tool-readiness command"):
         smoke.validate_external_tool_adapters("external-tool-adapters", missing_readiness)
 
+    duplicate_readiness = external_tool_adapters_payload()
+    adapters = external_tool_adapter_entries(duplicate_readiness)
+    commands = adapters[0]["recommended_commands"]
+    assert isinstance(commands, list)
+    commands[2] = commands[1]
+    with pytest.raises(smoke.SmokeError, match="exactly one external-tool-readiness"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", duplicate_readiness)
+
     missing_token = external_tool_adapters_payload()
-    adapters = missing_token["adapters"]
-    assert isinstance(adapters, list)
-    adapters[0]["recommended_commands"] = [  # type: ignore[index]
+    replace_external_tool_readiness_command(
+        missing_token,
         (
             "fashion-radar external-tool-readiness --adapter rednote_mcp "
             "--directory exports --config-dir configs --data-dir data "
             "--as-of 2026-06-13T12:00:00+00:00 "
             "--pattern '*.json' --source-name 'Rednote MCP Export' --format table"
-        )
-    ]
+        ),
+    )
     with pytest.raises(smoke.SmokeError, match="readiness command missing '--input-format'"):
         smoke.validate_external_tool_adapters("external-tool-adapters", missing_token)
 
     missing_format = external_tool_adapters_payload()
-    adapters = missing_format["adapters"]
-    assert isinstance(adapters, list)
-    adapters[0]["recommended_commands"] = [  # type: ignore[index]
+    replace_external_tool_readiness_command(
+        missing_format,
         (
             "fashion-radar external-tool-readiness --adapter rednote_mcp "
             "--directory exports --config-dir configs --data-dir data "
             "--as-of 2026-06-13T12:00:00+00:00 --input-format json "
             "--pattern '*.json' --source-name 'Rednote MCP Export'"
-        )
-    ]
+        ),
+    )
     with pytest.raises(smoke.SmokeError, match="readiness command missing '--format'"):
         smoke.validate_external_tool_adapters("external-tool-adapters", missing_format)
 
     invalid_format = external_tool_adapters_payload()
-    adapters = invalid_format["adapters"]
-    assert isinstance(adapters, list)
-    adapters[0]["recommended_commands"] = [  # type: ignore[index]
+    replace_external_tool_readiness_command(
+        invalid_format,
         (
             "fashion-radar external-tool-readiness --adapter rednote_mcp "
             "--directory exports --config-dir configs --data-dir data "
             "--as-of 2026-06-13T12:00:00+00:00 --input-format json "
             "--pattern '*.json' --source-name 'Rednote MCP Export' --format json"
-        )
-    ]
+        ),
+    )
     with pytest.raises(smoke.SmokeError, match="readiness output format"):
         smoke.validate_external_tool_adapters("external-tool-adapters", invalid_format)
 
+    later_input_format_drift = external_tool_adapters_payload()
+    replace_external_tool_readiness_command(
+        later_input_format_drift,
+        external_tool_command(
+            "external-tool-readiness",
+            "--adapter",
+            "xiaohongshu_crawler",
+            "--directory",
+            "exports",
+            "--config-dir",
+            "configs",
+            "--data-dir",
+            "data",
+            "--as-of",
+            "2026-06-13T12:00:00+00:00",
+            "--input-format",
+            "json",
+            "--pattern",
+            "*.json",
+            "--source-name",
+            "Xiaohongshu Crawler Export",
+            "--format",
+            "table",
+        ),
+        adapter_index=1,
+    )
+    with pytest.raises(
+        smoke.SmokeError,
+        match="xiaohongshu_crawler readiness input_format",
+    ):
+        smoke.validate_external_tool_adapters(
+            "external-tool-adapters",
+            later_input_format_drift,
+        )
+
     missing_value = external_tool_adapters_payload()
-    adapters = missing_value["adapters"]
-    assert isinstance(adapters, list)
-    adapters[0]["recommended_commands"] = [  # type: ignore[index]
+    replace_external_tool_readiness_command(
+        missing_value,
         (
             "fashion-radar external-tool-readiness --adapter rednote_mcp "
             "--directory exports --config-dir configs --data-dir data "
             "--as-of 2026-06-13T12:00:00+00:00 --input-format json "
             "--pattern '*.json' --source-name --format table"
-        )
-    ]
+        ),
+    )
     with pytest.raises(smoke.SmokeError, match="missing value for '--source-name'"):
         smoke.validate_external_tool_adapters("external-tool-adapters", missing_value)
 
     trailing_flag = external_tool_adapters_payload()
-    adapters = trailing_flag["adapters"]
-    assert isinstance(adapters, list)
-    adapters[0]["recommended_commands"] = [  # type: ignore[index]
+    replace_external_tool_readiness_command(
+        trailing_flag,
         (
             "fashion-radar external-tool-readiness --adapter rednote_mcp "
             "--directory exports --config-dir configs --data-dir data --as-of"
-        )
-    ]
+        ),
+    )
     with pytest.raises(smoke.SmokeError, match="missing value for '--as-of'"):
         smoke.validate_external_tool_adapters("external-tool-adapters", trailing_flag)
 
     malformed_readiness = external_tool_adapters_payload()
-    adapters = malformed_readiness["adapters"]
-    assert isinstance(adapters, list)
-    adapters[0]["recommended_commands"] = [  # type: ignore[index]
-        "fashion-radar external-tool-readiness --adapter rednote_mcp --source-name 'Rednote"
-    ]
-    with pytest.raises(smoke.SmokeError, match="readiness command is not shell-parseable"):
+    replace_external_tool_readiness_command(
+        malformed_readiness,
+        "fashion-radar external-tool-readiness --adapter rednote_mcp --source-name 'Rednote",
+    )
+    with pytest.raises(smoke.SmokeError, match="command 2 is not shell-parseable"):
         smoke.validate_external_tool_adapters("external-tool-adapters", malformed_readiness)
 
 
