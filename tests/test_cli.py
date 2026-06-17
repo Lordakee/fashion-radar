@@ -538,46 +538,105 @@ def test_external_tool_adapters_command_prints_json() -> None:
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert payload["contract_version"] == "external-tool-adapters/v1"
-    assert payload["execution_mode"] == "print_only"
-    assert [adapter["id"] for adapter in payload["adapters"]] == [
-        "rednote_mcp",
-        "xiaohongshu_crawler",
-        "instaloader",
-        "tiktok_api",
-        "yt_dlp",
-        "x_search_export",
-        "generic_community_export",
-    ]
-    assert payload["adapters"][0]["field_mappings"][0] == {
-        "field": "url",
-        "required": True,
-        "note": "Stable source URL or local reference URL for the observed item.",
+    expected_adapters = {
+        "rednote_mcp": ("rednote", "Rednote MCP Export", "json", "*.json"),
+        "xiaohongshu_crawler": (
+            "xiaohongshu",
+            "Xiaohongshu Crawler Export",
+            "csv",
+            "*.csv",
+        ),
+        "instaloader": ("instagram", "Instaloader Export", "json", "*.json"),
+        "tiktok_api": ("tiktok", "TikTok-Api Export", "json", "*.json"),
+        "yt_dlp": ("media", "yt-dlp Metadata Export", "json", "*.json"),
+        "x_search_export": ("x", "X Search Export", "csv", "*.csv"),
+        "generic_community_export": (
+            "community",
+            "Generic Community Export",
+            "csv",
+            "*.csv",
+        ),
     }
-    commands = payload["adapters"][0]["recommended_commands"]
-    readiness_command = next(
-        command for command in commands if "fashion-radar external-tool-readiness" in command
-    )
-    readiness_parts = shlex.split(readiness_command)
+    expected_adapter_keys = [
+        "id",
+        "display_name",
+        "platform_label",
+        "suggested_source_name",
+        "recommended_input_format",
+        "recommended_pattern",
+        "suggested_export_directory",
+        "description",
+        "upstream_tool_examples",
+        "field_mappings",
+        "recommended_commands",
+        "boundaries",
+    ]
+    expected_command_names = [
+        "community-signal-profile",
+        "external-tool-readiness",
+        "community-handoff-manifest",
+        "community-handoff-workflow",
+        "community-signal-lint-dir",
+        "community-handoff-check-dir",
+        "import-signals-dir",
+        "import-signals-dir",
+        "imported-review-workflow",
+    ]
 
-    def flag_value(flag: str) -> str:
-        index = readiness_parts.index(flag)
-        assert index + 1 < len(readiness_parts)
-        value = readiness_parts[index + 1]
+    def flag_value(parts: list[str], flag: str) -> str:
+        index = parts.index(flag)
+        assert index + 1 < len(parts)
+        value = parts[index + 1]
         assert value
         assert not value.startswith("--")
         return value
 
-    assert readiness_parts[:2] == ["fashion-radar", "external-tool-readiness"]
-    assert flag_value("--adapter") == "rednote_mcp"
-    assert flag_value("--directory") == "exports"
-    assert flag_value("--config-dir")
-    assert flag_value("--data-dir")
-    assert flag_value("--as-of") == "2026-06-13T12:00:00+00:00"
-    assert flag_value("--input-format") == "json"
-    assert flag_value("--pattern") == "*.json"
-    assert flag_value("--source-name") == "Rednote MCP Export"
-    assert flag_value("--format") == "table"
+    assert payload["contract_version"] == "external-tool-adapters/v1"
+    assert payload["execution_mode"] == "print_only"
+    adapters = payload["adapters"]
+    assert [adapter["id"] for adapter in adapters] == list(expected_adapters)
+    expected_field_mappings = adapters[0]["field_mappings"]
+    config_dirs: list[str] = []
+    data_dirs: list[str] = []
+    assert expected_field_mappings[0] == {
+        "field": "url",
+        "required": True,
+        "note": "Stable source URL or local reference URL for the observed item.",
+    }
+
+    for adapter in adapters:
+        adapter_id = adapter["id"]
+        platform_label, source_name, input_format, pattern = expected_adapters[adapter_id]
+        assert list(adapter) == expected_adapter_keys
+        assert adapter["display_name"] == source_name
+        assert adapter["platform_label"] == platform_label
+        assert adapter["suggested_source_name"] == source_name
+        assert adapter["recommended_input_format"] == input_format
+        assert adapter["recommended_pattern"] == pattern
+        assert adapter["suggested_export_directory"] == "exports"
+        assert adapter["upstream_tool_examples"]
+        assert adapter["field_mappings"] == expected_field_mappings
+
+        commands = adapter["recommended_commands"]
+        command_parts = [shlex.split(command) for command in commands]
+        assert [parts[:2] for parts in command_parts] == [
+            ["fashion-radar", name] for name in expected_command_names
+        ]
+        readiness_parts = command_parts[1]
+
+        assert readiness_parts[:2] == ["fashion-radar", "external-tool-readiness"]
+        assert flag_value(readiness_parts, "--adapter") == adapter_id
+        assert flag_value(readiness_parts, "--directory") == "exports"
+        config_dirs.append(flag_value(readiness_parts, "--config-dir"))
+        data_dirs.append(flag_value(readiness_parts, "--data-dir"))
+        assert flag_value(readiness_parts, "--as-of") == "2026-06-13T12:00:00+00:00"
+        assert flag_value(readiness_parts, "--input-format") == input_format
+        assert flag_value(readiness_parts, "--pattern") == pattern
+        assert flag_value(readiness_parts, "--source-name") == source_name
+        assert flag_value(readiness_parts, "--format") == "table"
+
+    assert len(set(config_dirs)) == 1
+    assert len(set(data_dirs)) == 1
 
 
 def test_external_tool_adapters_command_filters_adapter_and_quotes_paths() -> None:
