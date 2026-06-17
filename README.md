@@ -113,6 +113,21 @@ platform collection and has no connectors, no scraping, no browser automation,
 no platform APIs, no monitoring, no scheduling, no source acquisition, no
 demand proof, no ranking, and no coverage verification.
 
+Known adapter ids:
+
+| Adapter id | Display/source name | Platform label | Format | Pattern |
+| --- | --- | --- | --- | --- |
+| `rednote_mcp` | Rednote MCP Export | `rednote` | `json` | `*.json` |
+| `xiaohongshu_crawler` | Xiaohongshu Crawler Export | `xiaohongshu` | `csv` | `*.csv` |
+| `instaloader` | Instaloader Export | `instagram` | `json` | `*.json` |
+| `tiktok_api` | TikTok-Api Export | `tiktok` | `json` | `*.json` |
+| `yt_dlp` | yt-dlp Metadata Export | `media` | `json` | `*.json` |
+| `x_search_export` | X Search Export | `x` | `csv` | `*.csv` |
+| `generic_community_export` | Generic Community Export | `community` | `csv` | `*.csv` |
+
+The Display/source name column reflects the current registry `display_name` and
+`suggested_source_name` values, which are identical for these adapters.
+
 `external-tool-template` is a local, print-only command that prints
 adapter-specific template rows for user-controlled external/community tools
 that need sanitized CSV/JSON local file handoff examples. JSON and CSV output
@@ -281,6 +296,9 @@ The automated smoke validates that sample rows import as community signals,
 match the starter entities `The Row`, `The Row Margaux`, and `Ballet Flats`,
 appear in the dated report, produce matching entity trend deltas, and keep
 untracked candidates empty under starter config.
+The automated first-run smoke also validates the external-tool adapter registry
+JSON contract from `external-tool-adapters --format json` across all seven
+adapters.
 Temporary smokes do not leave dashboard-inspectable repo-local reports; use the
 manual repo-local sample flow when you want dashboard output under
 `reports/`.

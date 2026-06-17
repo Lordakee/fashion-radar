@@ -182,6 +182,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and adds no connectors, scraping, browser automation, platform APIs,
   monitoring, scheduling, source acquisition, demand proof, ranking, coverage
   verification, or compliance-review product feature.
+- Stage 75 docs for the complete `external-tool-adapters` adapter matrix in
+  `README.md` and `docs/cli-reference.md`, guarded by CLI docs tests. This is
+  documentation/test-only and adds no runtime adapter or external-platform
+  behavior.
 - Stage 53 community handoff guardrail tests for prohibited-field lint
   coverage, producer-profile command order, docs drift, and parser rejection.
 - Optional fashion entity watchlist pack for broader local matching coverage

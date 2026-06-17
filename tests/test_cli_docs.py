@@ -267,6 +267,22 @@ EXTERNAL_TOOL_READINESS_BOUNDARY_PHRASES = (
     "no compliance-review product feature",
 )
 
+EXTERNAL_TOOL_ADAPTER_DOC_ROWS = (
+    "| `rednote_mcp` | Rednote MCP Export | `rednote` | `json` | `*.json` |",
+    ("| `xiaohongshu_crawler` | Xiaohongshu Crawler Export | `xiaohongshu` | `csv` | `*.csv` |"),
+    "| `instaloader` | Instaloader Export | `instagram` | `json` | `*.json` |",
+    "| `tiktok_api` | TikTok-Api Export | `tiktok` | `json` | `*.json` |",
+    "| `yt_dlp` | yt-dlp Metadata Export | `media` | `json` | `*.json` |",
+    "| `x_search_export` | X Search Export | `x` | `csv` | `*.csv` |",
+    ("| `generic_community_export` | Generic Community Export | `community` | `csv` | `*.csv` |"),
+)
+
+FIRST_RUN_EXTERNAL_ADAPTER_SMOKE_PHRASE = (
+    "The automated first-run smoke also validates the external-tool adapter "
+    "registry JSON contract from `external-tool-adapters --format json` across "
+    "all seven adapters."
+)
+
 FASHION_RADAR_COMMAND_RE = re.compile(
     r"(?:^|\s)"
     r"(?:(?:\"[^\"]*/fashion-radar\")|(?:'[^']*/fashion-radar')|(?:\S*/fashion-radar)|fashion-radar)"
@@ -674,6 +690,7 @@ def test_readme_documents_manual_sample_flow_and_automated_smoke_boundary() -> N
         "appear in the dated report",
         "produce matching entity trend deltas",
         "keep untracked candidates empty under starter config",
+        FIRST_RUN_EXTERNAL_ADAPTER_SMOKE_PHRASE,
     ):
         assert term in normalized
     assert manual_flow.index("uv run fashion-radar match --config-dir") < manual_flow.index(
@@ -748,6 +765,7 @@ def test_first_run_guide_documents_paths_outputs_dashboard_reset_and_boundaries(
         "appear in the dated report",
         "produce matching entity trend deltas",
         "keep untracked candidates empty under starter config",
+        FIRST_RUN_EXTERNAL_ADAPTER_SMOKE_PHRASE,
     ):
         assert term in normalized
     assert manual_flow.index("uv run fashion-radar match --config-dir") < manual_flow.index(
@@ -1060,6 +1078,11 @@ def test_external_tool_adapter_registry_docs_are_linked_and_bounded() -> None:
     ):
         assert command in cli_reference
         assert command in checklist
+
+    for doc_path, doc_text in ((README, readme), (CLI_REFERENCE, cli_reference)):
+        normalized = _normalized_text(doc_text)
+        for row in EXTERNAL_TOOL_ADAPTER_DOC_ROWS:
+            assert row in normalized, f"{doc_path.relative_to(ROOT)} missing {row!r}"
 
     assert "external-tool-adapters" in _upload_checklist_help_loop_commands()
     assert '"$tmp_env/venv/bin/fashion-radar" external-tool-adapters --help' in checklist

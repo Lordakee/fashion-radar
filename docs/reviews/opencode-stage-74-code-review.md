@@ -44,3 +44,10 @@ I have enough to deliver the review. All code/test verification passes; one docu
 The change is strictly test-only fixture parity. No new connectors, scraping, browser automation, platform APIs, login/cookie/session/token/proxy/CAPTCHA behavior, media download, monitoring/scheduling, source acquisition, demand proof, ranking, coverage verification, or compliance-review product behavior introduced.
 
 **Recommendation:** Proceed to commit after fixing M1 (rewrite `opencode-stage-74-plan-review.md` as a single coherent document).
+
+### Correction Note
+
+The M1 finding above referred to an earlier corrupted draft of
+`docs/reviews/opencode-stage-74-plan-review.md`. The committed Stage 74
+plan-review artifact is the cleaned single-review version, so M1 is resolved
+and does not remain a release blocker.
