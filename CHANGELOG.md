@@ -62,6 +62,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   presence.
 - Local read-only `imported-entity-deltas` command for comparing stored matched
   entities on retained `manual_import` rows across collected-at windows.
+- Local read-only imported-only `imported-entity-evidence` command for
+  reviewing privacy-safe retained local rows behind one `manual_import` stored
+  matched entity, plus the print-only `review_imported_entity_evidence`
+  workflow step. It adds no scraping, browser automation, platform APIs, or
+  account or cookie behavior.
 - Local read-only `imported-candidates` command for reviewing candidate phrases
   from retained `manual_import` rows only.
 - Local read-only `imported-candidate-evidence` command for reviewing retained
@@ -102,6 +107,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   step for candidate phrase review before the final read-only heat-movers step
   over local observed heat movement from configured sources and imported local
   signals, with no demand proof and no platform coverage verification.
+- Stage 65 docs for the `imported-entity-evidence` local read-only imported-only
+  drilldown over retained local rows, with privacy-safe fields only and no
+  scraping, browser automation, platform APIs, account or cookie work.
 - Print-only `community-signal-profile` command and example JSON producer
   contract for external tools that generate sanitized community signal handoff
   files.

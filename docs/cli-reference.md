@@ -183,6 +183,16 @@ These commands read existing local SQLite rows where `source_type` is
   collected-at windows. Requires `--as-of`; supports `--data-dir`,
   `--current-days`, `--baseline-days`, `--entity-type`, `--source-name`,
   `--limit`, and `--format`.
+- `imported-entity-evidence`: local read-only imported-only
+  `manual_import` evidence drilldown for one stored matched entity. Requires
+  `--as-of`, `--entity-name`, and `--entity-type`; supports `--data-dir`,
+  `--current-days`, `--baseline-days`, `--source-name`, `--limit`, and
+  `--format`. JSON and table output are privacy-safe: review metadata plus
+  `window`, `id`, `source_name`, `title`, `url`, `published_at`, and
+  `collected_at` for retained local rows, omitting summaries, candidate
+  contexts, match internals, import file paths, normalized keys, and platform
+  labels. It does no scraping, no browser automation, no platform APIs, and no
+  account or cookie work.
 - `imported-candidates`: review imported candidate phrases. Requires `--as-of`;
   supports `--config-dir`, `--data-dir`, `--source-name`, `--limit`, and
   `--format`.
@@ -192,12 +202,13 @@ These commands read existing local SQLite rows where `source_type` is
 - `imported-review-workflow`: print a post-import review checklist without
   executing commands. Requires `--as-of`; supports `--config-dir`, `--data-dir`,
   `--source-name`, `--lookback-days`, `--current-days`, `--baseline-days`, and
-  `--format`. The printed sequence includes a read-only imported-candidates
-  step for candidate phrase review and still ends with the final read-only
-  heat-movers step for local observed heat movement from configured sources and
-  imported local signals; those review outputs need review and provide no
-  demand proof and no platform coverage verification. The `--current-days` and
-  `--baseline-days` options apply to the entity-delta review command, not to
+  `--format`. The printed sequence includes `review_imported_entity_evidence`
+  after entity deltas, then a read-only imported-candidates step for candidate
+  phrase review, and still ends with the final read-only heat-movers step for
+  local observed heat movement from configured sources and imported local
+  signals; those review outputs need review and provide no demand proof and no
+  platform coverage verification. The `--current-days` and `--baseline-days`
+  options apply to the entity-delta and entity-evidence review commands, not to
   candidate phrase review.
 
 ## Trends, Dashboard, And Cleanup

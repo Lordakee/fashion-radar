@@ -48,6 +48,12 @@ uv run fashion-radar dashboard --config-dir "$PWD/configs" --data-dir "$PWD/data
   mention tabs require matching before imported rows appear as entity mentions.
 - `imported-signals` can inspect retained imported rows from local SQLite before
   matching or report/dashboard review; it does not add a dashboard tab.
+- `imported-entity-evidence` is a CLI-only drilldown for one matched entity.
+  It is local read-only, imported-only, and privacy-safe over retained local
+  rows with source type `manual_import`. The
+  `review_imported_entity_evidence` workflow step does not add a dashboard tab,
+  and it has no scraping, no browser automation, no platform APIs, and no
+  account or cookie work.
 
 ## Security
 

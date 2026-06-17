@@ -38,6 +38,13 @@ artifacts.
 Imported entity deltas read stored matches on existing `manual_import` rows from
 local SQLite, compare aggregate entity counts across collected-at windows, and
 create no config, data, report, or dashboard artifacts.
+`imported-entity-evidence` is local read-only and imported-only. It reads
+existing `manual_import` rows from local SQLite for one requested matched
+entity, returns only privacy-safe retained local rows and drilldown fields
+(`window`, `id`, `source_name`, `title`, `url`, `published_at`, and
+`collected_at`), and creates no config, data, report, or dashboard artifacts.
+It does no scraping, no browser automation, no platform APIs, and no account or
+cookie work.
 Imported candidates read existing `manual_import` rows from local SQLite,
 surface aggregate observed candidate phrases for review, and create no config,
 data, report, or dashboard artifacts.
@@ -58,11 +65,12 @@ not a connector, source pack, platform collector, remote community ingestion
 workflow, or source-acquisition guide.
 
 `imported-review-workflow` is print-only and includes a read-only
-imported-candidates step for candidate phrase review before the final read-only
-heat-movers step after local matching. The final step reviews local observed
-heat movement from configured sources and imported local signals. Those review
-outputs need review and provide no demand proof and no platform coverage
-verification.
+review_imported_entity_evidence step after entity deltas, then a read-only
+imported-candidates step for candidate phrase review before the final
+read-only heat-movers step after local matching. The final step reviews local
+observed heat movement from configured sources and imported local signals.
+Those review outputs need review and provide no demand proof and no platform
+coverage verification.
 
 The external tool handoff templates are sanitized CSV/JSON local file handoff
 templates for user-controlled external/community tools.

@@ -110,6 +110,10 @@ from fashion_radar.imported_entity_deltas import (
     query_imported_entity_deltas,
     render_imported_entity_deltas_table,
 )
+from fashion_radar.imported_entity_evidence import (
+    query_imported_entity_evidence,
+    render_imported_entity_evidence_table,
+)
 from fashion_radar.imported_review_workflow import (
     build_imported_review_workflow,
     render_imported_review_workflow_table,
@@ -205,6 +209,7 @@ ImportSignalsDirOutputFormat = Literal["table", "json"]
 ImportedCandidateEvidenceOutputFormat = Literal["table", "json"]
 ImportedCandidatesOutputFormat = Literal["table", "json"]
 ImportedEntityDeltasOutputFormat = Literal["table", "json"]
+ImportedEntityEvidenceOutputFormat = Literal["table", "json"]
 ImportedReviewWorkflowOutputFormat = Literal["table", "json"]
 ImportedSignalsOutputFormat = Literal["table", "json"]
 ImportedSignalsSummaryOutputFormat = Literal["table", "json"]
@@ -361,6 +366,16 @@ IMPORTED_ENTITY_DELTAS_AS_OF_OPTION = typer.Option(
     help="UTC comparison timestamp, for example 2026-06-13T12:00:00Z.",
 )
 IMPORTED_ENTITY_DELTAS_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+IMPORTED_ENTITY_EVIDENCE_AS_OF_OPTION = typer.Option(
+    ...,
+    "--as-of",
+    help="UTC imported entity evidence timestamp, for example 2026-06-13T12:00:00Z.",
+)
+IMPORTED_ENTITY_EVIDENCE_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
@@ -1690,6 +1705,69 @@ def imported_review_workflow_command(
         typer.echo(workflow.model_dump_json(indent=2))
         return
     for line in render_imported_review_workflow_table(workflow):
+        typer.echo(line)
+
+
+@app.command(name="imported-entity-evidence")
+def imported_entity_evidence_command(
+    data_dir: Path = DATA_DIR_OPTION,
+    as_of: str = IMPORTED_ENTITY_EVIDENCE_AS_OF_OPTION,
+    entity_name: str = typer.Option(..., "--entity-name", help="Matched entity name to inspect."),
+    entity_type: str = typer.Option(..., "--entity-type", help="Matched entity type to inspect."),
+    source_name: str | None = typer.Option(None, help="Exact stored source name filter."),
+    current_days: int = typer.Option(7, min=1, help="Current window in days."),
+    baseline_days: int = typer.Option(7, min=1, help="Baseline window in days."),
+    limit: int | None = typer.Option(20, min=0, help="Maximum evidence rows to print."),
+    output_format: ImportedEntityEvidenceOutputFormat = IMPORTED_ENTITY_EVIDENCE_FORMAT_OPTION,
+) -> None:
+    """Review retained imported rows behind one matched entity."""
+    try:
+        try:
+            as_of_value = parse_datetime_utc(as_of)
+        except (TypeError, ValueError) as exc:
+            typer.echo(
+                f"Could not review imported entity evidence: invalid --as-of: {exc}",
+                err=True,
+            )
+            raise typer.Exit(1) from exc
+        entity_name_value = entity_name.strip()
+        if not entity_name_value:
+            typer.echo(
+                "Could not review imported entity evidence: invalid --entity-name: "
+                "entity name must not be blank",
+                err=True,
+            )
+            raise typer.Exit(1)
+        entity_type_value = entity_type.strip()
+        if not entity_type_value:
+            typer.echo(
+                "Could not review imported entity evidence: invalid --entity-type: "
+                "entity type must not be blank",
+                err=True,
+            )
+            raise typer.Exit(1)
+    except typer.Exit:
+        raise
+
+    try:
+        review = query_imported_entity_evidence(
+            default_database_path(data_dir),
+            as_of=as_of_value,
+            entity_name=entity_name_value,
+            entity_type=entity_type_value,
+            current_days=current_days,
+            baseline_days=baseline_days,
+            source_name=source_name,
+            limit=limit,
+        )
+    except Exception as exc:
+        typer.echo(f"Could not review imported entity evidence: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(review.model_dump_json(indent=2))
+        return
+    for line in render_imported_entity_evidence_table(review):
         typer.echo(line)
 
 

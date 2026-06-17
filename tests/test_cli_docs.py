@@ -146,6 +146,42 @@ IMPORTED_REVIEW_WORKFLOW_REQUIRED_PHRASES = (
     "no demand proof",
     "no platform coverage verification",
 )
+IMPORTED_ENTITY_EVIDENCE_DOCS = (
+    README,
+    CLI_REFERENCE,
+    ROOT / "docs" / "community-signal-import.md",
+    ROOT / "docs" / "community-signal-quality.md",
+    SOURCE_BOUNDARIES_DOC,
+    ARCHITECTURE_DOC,
+    DASHBOARD_DOC,
+    UPLOAD_CHECKLIST,
+)
+IMPORTED_ENTITY_EVIDENCE_BOUNDARY_MENTION_DOCS = (
+    AGENTS_DOC,
+    CHANGELOG,
+)
+IMPORTED_ENTITY_EVIDENCE_REQUIRED_PHRASES = (
+    "imported-entity-evidence",
+    "local read-only",
+    "imported-only",
+    "manual_import",
+    "privacy-safe",
+    "retained local rows",
+    "review_imported_entity_evidence",
+    "no scraping",
+    "no browser automation",
+    "no platform apis",
+    "no account or cookie",
+)
+IMPORTED_ENTITY_EVIDENCE_SAFE_FIELDS = (
+    "window",
+    "id",
+    "source_name",
+    "title",
+    "url",
+    "published_at",
+    "collected_at",
+)
 
 EXTERNAL_TOOL_WORKFLOW_STEP_NAMES = (
     "inspect_adapter_registry",
@@ -451,13 +487,42 @@ def test_imported_review_workflow_docs_include_candidate_review_and_heat_handoff
             assert phrase in normalized, f"{path.relative_to(ROOT)} missing {phrase!r}"
 
 
+def test_imported_entity_evidence_docs_are_bounded_and_privacy_safe() -> None:
+    for path in IMPORTED_ENTITY_EVIDENCE_DOCS:
+        normalized = _normalized_doc_text(path).casefold()
+        for phrase in IMPORTED_ENTITY_EVIDENCE_REQUIRED_PHRASES:
+            assert phrase in normalized, f"{path.relative_to(ROOT)} missing {phrase!r}"
+
+    for path in IMPORTED_ENTITY_EVIDENCE_BOUNDARY_MENTION_DOCS:
+        normalized = _normalized_doc_text(path).casefold()
+        for phrase in (
+            "imported-entity-evidence",
+            "local read-only",
+            "imported-only",
+            "manual_import",
+            "privacy-safe",
+            "retained local rows",
+            "review_imported_entity_evidence",
+            "no scraping",
+            "no browser automation",
+            "no platform apis",
+            "account or cookie",
+        ):
+            assert phrase in normalized, f"{path.relative_to(ROOT)} missing {phrase!r}"
+
+    cli_reference = _normalized_doc_text(CLI_REFERENCE).casefold()
+    for field in IMPORTED_ENTITY_EVIDENCE_SAFE_FIELDS:
+        assert field in cli_reference
+
+
 def test_upload_checklist_installed_workflow_json_check_uses_installed_python() -> None:
     checklist = _read(UPLOAD_CHECKLIST)
 
     assert '"$tmp_env/venv/bin/python" - "$tmp_run/imported-review-workflow.json" <<' in checklist
     assert 'workflow_json = Path(sys.argv[1]).read_text(encoding="utf-8")' in checklist
-    assert 'assert payload["step_count"] == 6' in checklist
-    assert 'assert payload["steps"][3]["name"] == "review_imported_candidate_phrases"' in checklist
+    assert 'assert payload["step_count"] == 7' in checklist
+    assert 'assert payload["steps"][3]["name"] == "review_imported_entity_evidence"' in checklist
+    assert 'assert payload["steps"][4]["name"] == "review_imported_candidate_phrases"' in checklist
     assert 'assert payload["steps"][-1]["name"] == "review_local_heat_movers"' in checklist
 
 

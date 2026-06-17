@@ -24,12 +24,13 @@ def test_build_imported_review_workflow_returns_deterministic_steps() -> None:
     assert workflow.current_days == 7
     assert workflow.baseline_days == 7
     assert workflow.execution_mode == "print_only"
-    assert workflow.step_count == 6
-    assert [step.order for step in workflow.steps] == [1, 2, 3, 4, 5, 6]
+    assert workflow.step_count == 7
+    assert [step.order for step in workflow.steps] == [1, 2, 3, 4, 5, 6, 7]
     assert [step.name for step in workflow.steps] == [
         "summarize_imported_sources",
         "refresh_stored_matches",
         "compare_imported_entities",
+        "review_imported_entity_evidence",
         "review_imported_candidate_phrases",
         "review_unmatched_imported_rows",
         "review_local_heat_movers",
@@ -37,6 +38,7 @@ def test_build_imported_review_workflow_returns_deterministic_steps() -> None:
     assert [step.suggested_effect for step in workflow.steps] == [
         "read_only",
         "updates_local_matches",
+        "read_only",
         "read_only",
         "read_only",
         "read_only",
@@ -49,18 +51,26 @@ def test_build_imported_review_workflow_returns_deterministic_steps() -> None:
         "--as-of 2026-06-13T12:00:00+00:00 --current-days 7 --baseline-days 7"
     )
     assert workflow.steps[3].command == (
+        "fashion-radar imported-entity-evidence --data-dir data "
+        "--as-of 2026-06-13T12:00:00+00:00 --entity-name 'The Row' --entity-type brand "
+        "--current-days 7 --baseline-days 7"
+    )
+    assert workflow.steps[3].purpose == (
+        "Review retained imported rows behind one selected matched entity."
+    )
+    assert workflow.steps[4].command == (
         "fashion-radar imported-candidates --config-dir configs --data-dir data "
         "--as-of 2026-06-13T12:00:00+00:00"
     )
-    assert workflow.steps[3].purpose == (
+    assert workflow.steps[4].purpose == (
         "Review observed candidate phrases from retained imported rows after stored "
         "matches are refreshed."
     )
-    assert workflow.steps[4].command == (
+    assert workflow.steps[5].command == (
         "fashion-radar imported-signals --data-dir data "
         "--as-of 2026-06-13T12:00:00+00:00 --lookback-days 7 --unmatched-only"
     )
-    assert workflow.steps[5].command == (
+    assert workflow.steps[6].command == (
         "fashion-radar heat-movers --config-dir configs --data-dir data "
         "--as-of 2026-06-13T12:00:00+00:00"
     )
@@ -90,20 +100,25 @@ def test_build_imported_review_workflow_quotes_paths_and_source_name() -> None:
         "--source-name 'Community | Tool Export'"
     )
     assert workflow.steps[3].command == (
+        "fashion-radar imported-entity-evidence --data-dir 'data ? # & %' "
+        "--as-of 2026-06-13T12:00:00+00:00 --entity-name 'The Row' --entity-type brand "
+        "--current-days 5 --baseline-days 9 --source-name 'Community | Tool Export'"
+    )
+    assert workflow.steps[4].command == (
         "fashion-radar imported-candidates --config-dir 'config ? # & %' "
         "--data-dir 'data ? # & %' --as-of 2026-06-13T12:00:00+00:00 "
         "--source-name 'Community | Tool Export'"
     )
-    assert workflow.steps[4].command == (
+    assert workflow.steps[5].command == (
         "fashion-radar imported-signals --data-dir 'data ? # & %' "
         "--as-of 2026-06-13T12:00:00+00:00 --lookback-days 3 --unmatched-only "
         "--source-name 'Community | Tool Export'"
     )
-    assert workflow.steps[5].command == (
+    assert workflow.steps[6].command == (
         "fashion-radar heat-movers --config-dir 'config ? # & %' "
         "--data-dir 'data ? # & %' --as-of 2026-06-13T12:00:00+00:00"
     )
-    assert "--source-name" not in workflow.steps[5].command
+    assert "--source-name" not in workflow.steps[6].command
 
 
 def test_build_imported_review_workflow_blank_source_name_is_no_filter() -> None:
@@ -119,6 +134,7 @@ def test_build_imported_review_workflow_blank_source_name_is_no_filter() -> None
     assert "--source-name" not in workflow.steps[3].command
     assert "--source-name" not in workflow.steps[4].command
     assert "--source-name" not in workflow.steps[5].command
+    assert "--source-name" not in workflow.steps[6].command
 
 
 def test_render_imported_review_workflow_table() -> None:

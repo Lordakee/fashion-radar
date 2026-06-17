@@ -30,10 +30,11 @@ YAML config
   -> optionally print a post-import review command checklist without executing it
   -> optionally review retained manual_import rows from local SQLite
   -> optionally summarize retained manual_import rows by stored source-name label
-  -> optionally review candidate phrases from retained manual_import rows
-  -> optionally inspect retained manual_import rows behind one candidate phrase
   -> match configured entities
   -> optionally compare stored manual_import entity counts across collected-at windows
+  -> optionally inspect privacy-safe retained manual_import rows behind one matched entity
+  -> optionally review candidate phrases from retained manual_import rows
+  -> optionally inspect retained manual_import rows behind one candidate phrase
   -> score current vs baseline windows
   -> discover candidate signals from retained local items
   -> write Markdown/JSON reports
@@ -148,14 +149,18 @@ YAML config
   read boundary and groups retained rows by stored `source_name`. The
   entity-deltas command uses stored
   matches on retained rows to compare aggregate entity counts across
-  collected-at windows. The imported-candidates command computes observed
+  collected-at windows. The imported-entity-evidence command shows a
+  privacy-safe drilldown over retained local `manual_import` rows behind one
+  stored matched entity and does not expose summaries, candidate contexts, match
+  internals, import file paths, or platform labels. The imported-candidates command computes observed
   candidate phrases from retained rows only and does not expose item URLs,
   titles, summaries, candidate contexts, or match internals. The
   imported-candidate-evidence command shows phrase-scoped retained rows with
   titles and URLs, while omitting summaries, candidate contexts, and match
-  internals. `imported-review-workflow` remains print-only and includes a
-  read-only imported-candidates step for candidate phrase review before the
-  final read-only heat-movers step for local observed heat movement from
+  internals. `imported-review-workflow` remains print-only and includes
+  `review_imported_entity_evidence` after entity deltas, a read-only
+  imported-candidates step for candidate phrase review, and the final read-only
+  heat-movers step for local observed heat movement from
   configured sources and imported local signals. Those review outputs need
   review and provide no demand proof and no platform coverage verification. The
   review workflow command only prints a copyable sequence for existing local
@@ -348,6 +353,13 @@ The read-only `imported-candidate-evidence` command computes a phrase-scoped
 view from retained `manual_import` rows. It helps inspect why one observed
 candidate phrase appeared and does not create report files or dashboard
 artifacts.
+
+The read-only `imported-entity-evidence` command computes a matched-entity
+drilldown from retained `manual_import` rows. It is local read-only and
+imported-only, returns privacy-safe retained local rows for
+`review_imported_entity_evidence`, and does not add scraping, browser
+automation, platform APIs, report files, or dashboard artifacts. It has no
+account or cookie work.
 
 ## Source Boundary
 

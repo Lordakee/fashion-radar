@@ -45,6 +45,9 @@ on the sources you configure and local signals you import.
   importing rows or writing SQLite.
 - Reviews retained `manual_import` rows already stored in local SQLite without
   importing, collecting, matching, scoring, or writing reports.
+- Reviews privacy-safe imported-only entity evidence for one matched entity
+  from retained local rows without scraping, browser automation, platform APIs,
+  or account or cookie behavior.
 - Stores conservative metadata in a local SQLite database.
 - Matches entities with deterministic alias and context rules.
 - Computes transparent heat scores over current and baseline windows.
@@ -306,7 +309,7 @@ uv run fashion-radar import-signals-dir "$tmp_run/exports" --format csv --patter
 uv run fashion-radar import-signals examples/community-signals.example.csv --format csv --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
 ```
 
-Inspect retained imported rows before matching or downstream review:
+Inspect retained imported rows and matched-entity evidence after import:
 
 ```bash
 AS_OF="2026-06-13T12:00:00Z"
@@ -314,8 +317,11 @@ uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-di
 uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data" --format json
+uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
 uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$AS_OF"
 uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$AS_OF" --format json
+uv run fashion-radar imported-entity-evidence --data-dir "$PWD/data" --as-of "$AS_OF" --entity-name "The Row" --entity-type brand
+uv run fashion-radar imported-entity-evidence --data-dir "$PWD/data" --as-of "$AS_OF" --entity-name "The Row" --entity-type brand --source-name "Community Tool Export" --format json
 uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF"
 uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF" --phrase "Le Teckel bag"
@@ -328,11 +334,21 @@ uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$AS_OF" --
 
 `imported-review-workflow` is local and does not execute commands. It prints a
 copyable review sequence for existing local commands after manual signal
-import. The workflow includes a read-only imported-candidates step for
-candidate phrase review and still ends with the final read-only heat-movers
-step for local observed heat movement from configured sources and imported
-local signals. Those review outputs need review and provide no demand proof and
-no platform coverage verification.
+import. The workflow includes `review_imported_entity_evidence` after entity
+deltas, then a read-only imported-candidates step for candidate phrase review,
+and still ends with the final read-only heat-movers step for local observed
+heat movement from configured sources and imported local signals. Those review
+outputs need review and provide no demand proof and no platform coverage
+verification.
+
+`imported-entity-evidence` is local read-only and imported-only. It opens an
+existing SQLite database in read-only mode and shows retained local rows whose
+`manual_import` stored matched entity equals the requested entity. Output is a
+privacy-safe drilldown: it includes only review metadata plus `window`, `id`,
+`source_name`, `title`, `url`, `published_at`, and `collected_at`; it omits
+summaries, candidate contexts, match internals, import file paths, normalized
+keys, and platform labels. It does no scraping, no browser automation, no
+platform APIs, and no account or cookie work.
 
 `imported-candidates` is local and read-only. It surfaces observed candidate
 phrases from retained `manual_import` rows only. These phrases need review and
@@ -611,6 +627,16 @@ database.
 `imported-entity-deltas` is local and read-only. It compares stored matched
 entities on retained `manual_import` rows across collected-at windows and
 prints aggregate entity counts only.
+
+`imported-entity-evidence` is local read-only and imported-only. It opens an
+existing SQLite database in read-only mode and shows retained local rows whose
+`manual_import` stored matched entity equals the requested entity. Output is a
+privacy-safe drilldown with review metadata plus `window`, `id`, `source_name`,
+`title`, `url`, `published_at`, and `collected_at`; it omits summaries,
+candidate contexts, match internals, import file paths, normalized keys, and
+platform labels. It does not import rows, fetch URLs, run entity matching,
+write scores, generate reports, monitor folders, scrape, automate browsers, use
+platform APIs, or perform account or cookie work.
 
 `imported-candidates` is local and read-only. It opens an existing SQLite
 database in read-only mode and computes review-oriented candidate signals from

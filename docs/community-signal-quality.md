@@ -124,15 +124,21 @@ importer model to validate matched local files without writing rows. Then use
 after the full matched set validates.
 Use `imported-review-workflow` when you want a printed, copyable local sequence
 for existing post-import review commands without executing anything. The
-workflow includes a read-only imported-candidates step for candidate phrase
-review and still ends with the final read-only heat-movers step for local
-observed heat movement from configured sources and imported local signals.
-Those review outputs need review and provide no demand proof and no platform
-coverage verification.
+workflow includes `review_imported_entity_evidence` after entity deltas, then a
+read-only imported-candidates step for candidate phrase review, and still ends
+with the final read-only heat-movers step for local observed heat movement from
+configured sources and imported local signals. Those review outputs need
+review and provide no demand proof and no platform coverage verification.
 Use `imported-signals-summary` after import to inspect retained row counts by
 stored `source_name`. Use `imported-entity-deltas` after matching to compare
 stored matched entities across collected-at windows. Use `imported-candidates`
 to review observed candidate phrases from retained `manual_import` rows only.
+Use `imported-entity-evidence` to inspect retained local rows behind one
+requested matched entity. It is a local read-only imported-only drilldown that
+returns privacy-safe fields only: review metadata plus `window`, `id`,
+`source_name`, `title`, `url`, `published_at`, and `collected_at`. It does no
+scraping, no browser automation, no platform APIs, and no account or cookie
+work.
 Use `imported-candidate-evidence` to inspect retained local rows behind one
 requested candidate phrase.
 Use `imported-signals --unmatched-only` for row-level review of retained local

@@ -270,7 +270,7 @@ def trends_payload() -> dict[str, object]:
 def imported_review_workflow_payload() -> dict[str, object]:
     return {
         "execution_mode": "print_only",
-        "step_count": 6,
+        "step_count": 7,
         "steps": [
             {
                 "name": "summarize_imported_sources",
@@ -286,6 +286,14 @@ def imported_review_workflow_payload() -> dict[str, object]:
                     "fashion-radar imported-entity-deltas --data-dir data "
                     "--as-of 2026-06-13T12:00:00+00:00 "
                     "--source-name 'Community Tool Export'"
+                ),
+            },
+            {
+                "name": "review_imported_entity_evidence",
+                "command": (
+                    "fashion-radar imported-entity-evidence --data-dir data "
+                    "--as-of 2026-06-13T12:00:00+00:00 --entity-name 'The Row' "
+                    "--entity-type brand --source-name 'Community Tool Export'"
                 ),
             },
             {
@@ -860,18 +868,28 @@ def test_validate_imported_signals_requires_expected_sample_items() -> None:
         smoke.validate_imported_signals("imported-signals", wrong_status)
 
 
-def test_validate_imported_review_workflow_requires_candidate_step() -> None:
+def test_validate_imported_review_workflow_requires_entity_evidence_and_candidate_steps() -> None:
     smoke.validate_imported_review_workflow(
         "imported-review-workflow",
         imported_review_workflow_payload(),
     )
 
 
-def test_validate_imported_review_workflow_rejects_missing_candidate_step() -> None:
+def test_validate_imported_review_workflow_rejects_missing_entity_evidence_step() -> None:
     payload = imported_review_workflow_payload()
     steps = payload["steps"]
     assert isinstance(steps, list)
     del steps[3]
+
+    with pytest.raises(smoke.SmokeError, match="step"):
+        smoke.validate_imported_review_workflow("imported-review-workflow", payload)
+
+
+def test_validate_imported_review_workflow_rejects_missing_candidate_step() -> None:
+    payload = imported_review_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    del steps[4]
 
     with pytest.raises(smoke.SmokeError, match="step"):
         smoke.validate_imported_review_workflow("imported-review-workflow", payload)

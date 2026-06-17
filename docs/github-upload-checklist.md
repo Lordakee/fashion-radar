@@ -105,6 +105,11 @@ Stage 41 docs freshness check:
       read-only heat-movers step for local observed heat movement from
       configured sources and imported local signals, and say there is no demand
       proof and no platform coverage verification.
+- [ ] Stage 65 `imported-entity-evidence` docs describe a local read-only,
+      imported-only, privacy-safe drilldown over retained local rows with source
+      type `manual_import`; include the `review_imported_entity_evidence`
+      imported review workflow step; and state no scraping, no browser
+      automation, no platform APIs, and no account or cookie work.
 - [ ] `community-signal-profile` remains a print-only local producer contract
       for user-controlled tools, not source acquisition, platform monitoring,
       or compliance review.
@@ -334,7 +339,7 @@ for cmd in \
   community-handoff-manifest community-handoff-workflow \
   community-handoff-check-dir \
   import-signals import-signals-dir imported-signals imported-signals-summary \
-  imported-entity-deltas imported-candidates imported-candidate-evidence \
+  imported-entity-deltas imported-entity-evidence imported-candidates imported-candidate-evidence \
   imported-review-workflow collect match report candidates trends heat-movers \
   schedule-example dashboard clean-old-data run
 do
@@ -351,6 +356,7 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" imported-signals --help
 "$tmp_env/venv/bin/fashion-radar" imported-signals-summary --help
 "$tmp_env/venv/bin/fashion-radar" imported-entity-deltas --help
+"$tmp_env/venv/bin/fashion-radar" imported-entity-evidence --help
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --help
 "$tmp_env/venv/bin/fashion-radar" imported-candidate-evidence --help
 "$tmp_env/venv/bin/fashion-radar" imported-review-workflow --help
@@ -368,6 +374,7 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" external-tool-workflow --adapter instaloader --format json
 "$tmp_env/venv/bin/fashion-radar" imported-signals --data-dir "$tmp_run/data" --as-of "2026-06-12T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --format json
+"$tmp_env/venv/bin/fashion-radar" imported-entity-evidence --data-dir "$tmp_run/data" --as-of "2026-06-13T12:00:00Z" --entity-name "The Row" --entity-type brand --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidate-evidence --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --phrase "Le Teckel bag" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-review-workflow --data-dir "$tmp_run/data ? # & %" --config-dir "$tmp_run/config ? # & %" --as-of "2026-06-13T12:00:00Z" --format json > "$tmp_run/imported-review-workflow.json"
 "$tmp_env/venv/bin/fashion-radar" community-handoff-manifest "$tmp_run/missing ? # & %" --input-format csv --pattern "*.csv" --config-dir "$tmp_run/config ? # & %" --data-dir "$tmp_run/data ? # & %" --as-of "2026-06-13T12:00:00Z" --format json
@@ -404,8 +411,9 @@ PY
 ```
 
 Check the installed-wheel workflow JSON shape after the command above. The
-checklist expectation is `step_count == 6`,
-`review_imported_candidate_phrases`, and final `review_local_heat_movers`:
+checklist expectation is `step_count == 7`,
+`review_imported_entity_evidence`, `review_imported_candidate_phrases`, and
+final `review_local_heat_movers`:
 
 ```bash
 "$tmp_env/venv/bin/python" - "$tmp_run/imported-review-workflow.json" <<'PY'
@@ -415,8 +423,9 @@ from pathlib import Path
 
 workflow_json = Path(sys.argv[1]).read_text(encoding="utf-8")
 payload = json.loads(workflow_json)
-assert payload["step_count"] == 6
-assert payload["steps"][3]["name"] == "review_imported_candidate_phrases"
+assert payload["step_count"] == 7
+assert payload["steps"][3]["name"] == "review_imported_entity_evidence"
+assert payload["steps"][4]["name"] == "review_imported_candidate_phrases"
 assert payload["steps"][-1]["name"] == "review_local_heat_movers"
 PY
 ```

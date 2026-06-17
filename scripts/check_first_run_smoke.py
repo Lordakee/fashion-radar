@@ -61,6 +61,7 @@ EXPECTED_IMPORTED_REVIEW_WORKFLOW_STEPS = (
     "summarize_imported_sources",
     "refresh_stored_matches",
     "compare_imported_entities",
+    "review_imported_entity_evidence",
     "review_imported_candidate_phrases",
     "review_unmatched_imported_rows",
     "review_local_heat_movers",
@@ -322,7 +323,7 @@ def validate_imported_review_workflow(command_name: str, payload: Any) -> None:
     if not isinstance(payload, dict):
         raise SmokeError(f"{command_name} output must be a JSON object")
     assert_equal(f"{command_name} execution_mode", payload.get("execution_mode"), "print_only")
-    assert_equal(f"{command_name} step_count", payload.get("step_count"), 6)
+    assert_equal(f"{command_name} step_count", payload.get("step_count"), 7)
     steps = payload.get("steps")
     if not isinstance(steps, list):
         raise SmokeError(f"{command_name} steps must be a list")
@@ -333,7 +334,25 @@ def validate_imported_review_workflow(command_name: str, payload: Any) -> None:
         list(EXPECTED_IMPORTED_REVIEW_WORKFLOW_STEPS),
     )
 
-    candidate_step = steps[3]
+    evidence_step = steps[3]
+    if not isinstance(evidence_step, dict):
+        raise SmokeError(f"{command_name} entity evidence step must be a JSON object")
+    evidence_command = str(evidence_step.get("command", ""))
+    for expected in (
+        "fashion-radar imported-entity-evidence",
+        "--data-dir",
+        "--as-of",
+        "--entity-name",
+        "The Row",
+        "--entity-type",
+        "brand",
+        "--source-name",
+        SOURCE_NAME,
+    ):
+        if expected not in evidence_command:
+            raise SmokeError(f"{command_name} entity evidence command missing {expected!r}")
+
+    candidate_step = steps[4]
     if not isinstance(candidate_step, dict):
         raise SmokeError(f"{command_name} candidate step must be a JSON object")
     candidate_command = str(candidate_step.get("command", ""))

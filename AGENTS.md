@@ -92,6 +92,11 @@ paywall bypass, or fragile full social-platform scraping.
   APIs/download media/browser automation/scrape/crawl/monitor/watch/schedule/connectors/source
   acquisition/demand proof/ranking/coverage verification/entity generation/compliance/policy/
   authorization/safety-review features.
+- Future `imported-entity-evidence` work must keep the command local
+  read-only, imported-only, and limited to privacy-safe retained local rows for
+  one `manual_import` stored matched entity. The `review_imported_entity_evidence`
+  workflow step must stay print-only. It must have no scraping, no browser
+  automation, no platform APIs, and no account or cookie behavior.
 
 ## Heat Movers Boundary
 

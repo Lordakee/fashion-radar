@@ -107,6 +107,29 @@ def build_imported_review_workflow(
         ),
         ImportedReviewWorkflowStep(
             order=4,
+            name="review_imported_entity_evidence",
+            purpose="Review retained imported rows behind one selected matched entity.",
+            command=_shell_command(
+                "fashion-radar",
+                "imported-entity-evidence",
+                "--data-dir",
+                data_text,
+                "--as-of",
+                as_of_text,
+                "--entity-name",
+                "The Row",
+                "--entity-type",
+                "brand",
+                "--current-days",
+                str(current_days),
+                "--baseline-days",
+                str(baseline_days),
+                *source_args,
+            ),
+            suggested_effect="read_only",
+        ),
+        ImportedReviewWorkflowStep(
+            order=5,
             name="review_imported_candidate_phrases",
             purpose=(
                 "Review observed candidate phrases from retained imported rows after stored "
@@ -126,7 +149,7 @@ def build_imported_review_workflow(
             suggested_effect="read_only",
         ),
         ImportedReviewWorkflowStep(
-            order=5,
+            order=6,
             name="review_unmatched_imported_rows",
             purpose="Review retained imported rows without stored matches.",
             command=_shell_command(
@@ -144,7 +167,7 @@ def build_imported_review_workflow(
             suggested_effect="read_only",
         ),
         ImportedReviewWorkflowStep(
-            order=6,
+            order=7,
             name="review_local_heat_movers",
             purpose="Review local observed heat movement after imported rows are matched.",
             command=_shell_command(

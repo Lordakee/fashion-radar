@@ -581,14 +581,16 @@ uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-di
 uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar imported-signals-summary --data-dir "$PWD/data"
+uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
 uv run fashion-radar imported-entity-deltas --data-dir "$PWD/data" --as-of "$AS_OF"
+uv run fashion-radar imported-entity-evidence --data-dir "$PWD/data" --as-of "$AS_OF" --entity-name "The Row" --entity-type brand
+uv run fashion-radar imported-entity-evidence --data-dir "$PWD/data" --as-of "$AS_OF" --entity-name "The Row" --entity-type brand --source-name "Community Tool Export" --format json
 uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF"
 uv run fashion-radar imported-candidates --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export" --format json
 uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF" --phrase "Le Teckel bag"
 uv run fashion-radar imported-candidate-evidence --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$AS_OF" --phrase "Le Teckel bag" --source-name "Community Tool Export" --format json
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export"
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$AS_OF" --source-name "Community Tool Export" --unmatched-only
-uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
 uv run fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$AS_OF"
 uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF"
 uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF"
@@ -601,13 +603,14 @@ Retained-row review commands can be narrowed with `--source-name`,
 `--format json` when you need machine-readable output.
 
 `imported-review-workflow` prints a copyable sequence for existing local review
-commands after import. The workflow includes a read-only imported-candidates
-step for candidate phrase review and still ends with the final read-only
-heat-movers step for local observed heat movement from configured sources and
-imported local signals. Those review outputs need review and provide no demand
-proof and no platform coverage verification. The workflow does not execute
-those commands, open SQLite, read configs, import rows, run matching, score
-signals, generate reports, or create artifacts.
+commands after import. The workflow includes `review_imported_entity_evidence`
+after entity deltas, then a read-only imported-candidates step for candidate
+phrase review, and still ends with the final read-only heat-movers step for
+local observed heat movement from configured sources and imported local
+signals. Those review outputs need review and provide no demand proof and no
+platform coverage verification. The workflow does not execute those commands,
+open SQLite, read configs, import rows, run matching, score signals, generate
+reports, or create artifacts.
 
 `imported-signals-summary` reads the same retained local rows and groups counts
 by stored `source_name`. Stored `platform` values, when present, are local
@@ -615,6 +618,14 @@ provenance labels for review output only.
 
 `imported-entity-deltas` reads retained local rows with stored matches and
 compares aggregate entity counts across collected-at windows.
+
+`imported-entity-evidence` is local read-only and imported-only. It reads
+retained local rows whose `manual_import` stored matched entity equals one
+requested entity and prints a privacy-safe drilldown. Output contains review
+metadata plus `window`, `id`, `source_name`, `title`, `url`, `published_at`,
+and `collected_at`; it omits summaries, candidate contexts, match internals,
+import file paths, normalized keys, and platform labels. It does no scraping,
+no browser automation, no platform APIs, and no account or cookie work.
 
 `imported-candidates` reads retained local rows and surfaces observed candidate
 phrases from `manual_import` rows only. It is local and read-only, and the

@@ -7,6 +7,7 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from sqlalchemy import select
 from typer.testing import CliRunner
 
@@ -3997,7 +3998,7 @@ def test_imported_review_workflow_command_prints_json_with_stable_keys(
     assert payload["data_dir"] == str(data_dir)
     assert payload["source_name"] == "Community Tool Export"
     assert payload["execution_mode"] == "print_only"
-    assert payload["step_count"] == 6
+    assert payload["step_count"] == 7
     assert list(payload["steps"][0]) == [
         "order",
         "name",
@@ -4007,9 +4008,18 @@ def test_imported_review_workflow_command_prints_json_with_stable_keys(
     ]
     assert payload["steps"][1]["suggested_effect"] == "updates_local_matches"
     assert "--source-name 'Community Tool Export'" in payload["steps"][2]["command"]
-    assert payload["steps"][3]["name"] == "review_imported_candidate_phrases"
+    assert payload["steps"][3]["name"] == "review_imported_entity_evidence"
     assert payload["steps"][3]["suggested_effect"] == "read_only"
     assert payload["steps"][3]["command"] == (
+        "fashion-radar imported-entity-evidence "
+        f"--data-dir {shlex.quote(str(data_dir))} "
+        "--as-of 2026-06-13T12:00:00+00:00 --entity-name 'The Row' "
+        "--entity-type brand --current-days 7 --baseline-days 7 "
+        "--source-name 'Community Tool Export'"
+    )
+    assert payload["steps"][4]["name"] == "review_imported_candidate_phrases"
+    assert payload["steps"][4]["suggested_effect"] == "read_only"
+    assert payload["steps"][4]["command"] == (
         "fashion-radar imported-candidates "
         f"--config-dir {shlex.quote(str(config_dir))} "
         f"--data-dir {shlex.quote(str(data_dir))} "
@@ -4017,6 +4027,7 @@ def test_imported_review_workflow_command_prints_json_with_stable_keys(
     )
     assert "--source-name 'Community Tool Export'" in payload["steps"][3]["command"]
     assert "--source-name 'Community Tool Export'" in payload["steps"][4]["command"]
+    assert "--source-name 'Community Tool Export'" in payload["steps"][5]["command"]
     assert payload["steps"][-1]["name"] == "review_local_heat_movers"
     assert payload["steps"][-1]["suggested_effect"] == "read_only"
     assert payload["steps"][-1]["command"] == (
@@ -4053,6 +4064,9 @@ def test_imported_review_workflow_command_prints_table() -> None:
     assert "Commands were not executed." in result.output
     assert "Order | Step | Suggested Effect | Purpose | Command" in result.output
     assert "refresh_stored_matches | updates_local_matches" in result.output
+    assert "review_imported_entity_evidence" in result.output
+    assert "fashion-radar imported-entity-evidence" in result.output
+    assert "--entity-name 'The Row' --entity-type brand" in result.output
     assert "review_imported_candidate_phrases" in result.output
     assert "fashion-radar imported-candidates" in result.output
     assert "review_local_heat_movers" in result.output
@@ -4995,6 +5009,7 @@ def _patch_imported_review_workflow_no_data_access(monkeypatch) -> None:
         "query_imported_signals",
         "query_imported_signals_summary",
         "query_imported_entity_deltas",
+        "query_imported_entity_evidence",
         "match_stored_items",
         "default_database_path",
         "load_source_config",
@@ -5177,8 +5192,521 @@ def test_imported_review_workflow_command_does_not_access_data_or_execute(
     assert result.exit_code == 0
     assert "should not be called" not in result.output
     assert "Traceback" not in result.output
+    assert "fashion-radar imported-entity-evidence" in result.output
     assert "fashion-radar imported-candidates" in result.output
     assert "fashion-radar heat-movers" in result.output
+
+
+def test_imported_entity_evidence_command_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["imported-entity-evidence", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "--data-dir" in result.output
+    assert "--as-of" in result.output
+    assert "--entity-name" in result.output
+    assert "--entity-type" in result.output
+    assert "--source-name" in result.output
+    assert "--current-days" in result.output
+    assert "--baseline-days" in result.output
+    assert "--limit" in result.output
+    assert "--format" in result.output
+    assert "Review retained imported rows behind one matched entity." in result.output
+
+
+def test_imported_entity_evidence_command_prints_json_with_stable_keys(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_imported_entity_evidence_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--entity-name",
+            "The Row",
+            "--entity-type",
+            "brand",
+            "--source-name",
+            "Community Tool Export",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "database",
+        "as_of",
+        "entity_name",
+        "entity_type",
+        "current_window_start",
+        "baseline_window_start",
+        "current_days",
+        "baseline_days",
+        "source_type",
+        "source_name",
+        "limit",
+        "row_count",
+        "total_count",
+        "current_mentions",
+        "baseline_mentions",
+        "distinct_sources",
+        "evidence",
+    ]
+    assert payload["entity_name"] == "The Row"
+    assert payload["entity_type"] == "brand"
+    assert payload["source_type"] == "manual_import"
+    assert payload["source_name"] == "Community Tool Export"
+    assert payload["row_count"] == 2
+    assert payload["total_count"] == 2
+    assert payload["current_mentions"] == 1
+    assert payload["baseline_mentions"] == 1
+    assert list(payload["evidence"][0]) == [
+        "id",
+        "window",
+        "source_name",
+        "title",
+        "url",
+        "published_at",
+        "collected_at",
+    ]
+    forbidden = {
+        "summary",
+        "matches",
+        "match_status",
+        "alias",
+        "confidence",
+        "reason",
+        "context_terms",
+        "source_file",
+        "source_path",
+        "import_path",
+        "raw_comment",
+        "account_id",
+        "profile_url",
+        "media_url",
+    }
+    assert forbidden.isdisjoint(payload)
+    assert forbidden.isdisjoint(payload["evidence"][0])
+
+
+def test_imported_entity_evidence_command_prints_table(tmp_path: Path) -> None:
+    data_dir = _prepare_imported_entity_evidence_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--entity-name",
+            "The Row",
+            "--entity-type",
+            "brand",
+            "--source-name",
+            "Community Tool Export",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Imported manual entity evidence from local SQLite." in result.output
+    assert "The Row current mention" in result.output
+    assert "https://example.com/current" in result.output
+    for forbidden in (
+        "private review note",
+        "alias",
+        "confidence",
+        "reason",
+        "context_terms",
+        "raw_comment",
+    ):
+        assert forbidden not in result.output
+
+
+def _fail_imported_entity_evidence_query(*args, **kwargs):
+    raise AssertionError("query_imported_entity_evidence should not be called")
+
+
+def test_imported_entity_evidence_command_requires_entity_name(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--entity-type",
+            "brand",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--entity-name" in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_entity_evidence_command_requires_entity_type(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--entity-name",
+            "The Row",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--entity-type" in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_entity_evidence_command_rejects_blank_entity_name_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_entity_evidence",
+        _fail_imported_entity_evidence_query,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--entity-name",
+            "  ",
+            "--entity-type",
+            "brand",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review imported entity evidence: invalid --entity-name" in result.output
+    assert "query_imported_entity_evidence should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_entity_evidence_command_rejects_blank_entity_type_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_entity_evidence",
+        _fail_imported_entity_evidence_query,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--entity-name",
+            "The Row",
+            "--entity-type",
+            " ",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review imported entity evidence: invalid --entity-type" in result.output
+    assert "query_imported_entity_evidence should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_entity_evidence_command_rejects_invalid_as_of_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_entity_evidence",
+        _fail_imported_entity_evidence_query,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "not-a-date",
+            "--entity-name",
+            "The Row",
+            "--entity-type",
+            "brand",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review imported entity evidence: invalid --as-of" in result.output
+    assert "query_imported_entity_evidence should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_entity_evidence_command_rejects_invalid_format_without_query(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_entity_evidence",
+        _fail_imported_entity_evidence_query,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--entity-name",
+            "The Row",
+            "--entity-type",
+            "brand",
+            "--format",
+            "xml",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--format" in result.output
+    assert "query_imported_entity_evidence should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [
+        ("--current-days", "0"),
+        ("--baseline-days", "0"),
+        ("--limit", "-1"),
+    ],
+)
+def test_imported_entity_evidence_command_rejects_invalid_numbers_without_query(
+    tmp_path: Path,
+    monkeypatch,
+    option: str,
+    value: str,
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setattr(
+        cli_module,
+        "query_imported_entity_evidence",
+        _fail_imported_entity_evidence_query,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--entity-name",
+            "The Row",
+            "--entity-type",
+            "brand",
+            option,
+            value,
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert option in result.output
+    assert "query_imported_entity_evidence should not be called" not in result.output
+    assert "Traceback" not in result.output
+    assert not data_dir.exists()
+
+
+def test_imported_entity_evidence_command_blank_source_name_is_no_filter(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_imported_entity_evidence_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--entity-name",
+            "The Row",
+            "--entity-type",
+            "brand",
+            "--source-name",
+            "   ",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["source_name"] is None
+    assert payload["total_count"] == 3
+    assert payload["current_mentions"] == 2
+
+
+def test_imported_entity_evidence_command_missing_database_is_read_only(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "missing-data"
+    reports_dir = tmp_path / "reports"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--entity-name",
+            "The Row",
+            "--entity-type",
+            "brand",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["row_count"] == 0
+    assert payload["total_count"] == 0
+    assert payload["evidence"] == []
+    assert not data_dir.exists()
+    assert not reports_dir.exists()
+    assert list(tmp_path.rglob("*.sqlite")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.json")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.md")) == []
+
+
+def test_imported_entity_evidence_command_invalid_schema_no_traceback(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    with sqlite3.connect(data_dir / "fashion-radar.sqlite") as connection:
+        connection.execute("create table schema_metadata (version integer primary key)")
+        connection.execute(f"insert into schema_metadata (version) values ({SCHEMA_VERSION})")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--entity-name",
+            "The Row",
+            "--entity-type",
+            "brand",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not review imported entity evidence" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_imported_entity_evidence_command_does_not_mutate_existing_database(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_imported_entity_evidence_cli_fixture(tmp_path)
+    db_path = data_dir / "fashion-radar.sqlite"
+    with sqlite3.connect(db_path) as connection:
+        before_items = connection.execute("select count(*) from items").fetchone()[0]
+        before_matches = connection.execute("select count(*) from item_entities").fetchone()[0]
+        before_schema_version = connection.execute(
+            "select version from schema_metadata"
+        ).fetchone()[0]
+        before_tables = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "imported-entity-evidence",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--entity-name",
+            "The Row",
+            "--entity-type",
+            "brand",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    with sqlite3.connect(db_path) as connection:
+        after_items = connection.execute("select count(*) from items").fetchone()[0]
+        after_matches = connection.execute("select count(*) from item_entities").fetchone()[0]
+        after_schema_version = connection.execute("select version from schema_metadata").fetchone()[
+            0
+        ]
+        after_tables = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+    assert after_items == before_items
+    assert after_matches == before_matches
+    assert after_schema_version == before_schema_version
+    assert after_tables == before_tables
 
 
 def test_imported_entity_deltas_command_help_lists_options() -> None:
@@ -5589,6 +6117,89 @@ def _prepare_imported_entity_deltas_cli_fixture(
     repository.replace_item_matches(baseline_id, [_imported_entity_delta_match("The Row", "brand")])
     repository.replace_item_matches(new_id, [_imported_entity_delta_match("Alaia", "brand")])
     repository.replace_item_matches(rss_id, [_imported_entity_delta_match("Alaia", "brand")])
+    engine.dispose()
+    return data_dir
+
+
+def _prepare_imported_entity_evidence_cli_fixture(tmp_path: Path) -> Path:
+    data_dir = tmp_path / "data"
+    engine = create_sqlite_engine(data_dir / "fashion-radar.sqlite")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    as_of = datetime(2026, 6, 13, 12, 0, tzinfo=UTC)
+    current_id = _store_imported_entity_delta_item(
+        repository,
+        source_name="Community Tool Export",
+        url="https://example.com/current",
+        title="The Row current mention",
+        published_at=as_of - timedelta(hours=1),
+        collected_at=as_of - timedelta(hours=1),
+    )
+    baseline_id = _store_imported_entity_delta_item(
+        repository,
+        source_name="Community Tool Export",
+        url="https://example.com/baseline",
+        title="The Row baseline mention",
+        published_at=as_of - timedelta(days=10),
+        collected_at=as_of - timedelta(days=10),
+    )
+    manual_id = _store_imported_entity_delta_item(
+        repository,
+        source_name="Manual Export",
+        url="https://example.com/manual",
+        title="The Row manual mention",
+        published_at=as_of - timedelta(hours=2),
+        collected_at=as_of - timedelta(hours=2),
+    )
+    other_entity_id = _store_imported_entity_delta_item(
+        repository,
+        source_name="Community Tool Export",
+        url="https://example.com/other-entity",
+        title="Alaia current mention",
+        published_at=as_of - timedelta(hours=3),
+        collected_at=as_of - timedelta(hours=3),
+    )
+    rss_id = _store_imported_entity_delta_item(
+        repository,
+        source_name="RSS Source",
+        source_type=SourceType.RSS,
+        url="https://example.com/rss",
+        title="The Row RSS mention",
+        published_at=as_of - timedelta(hours=4),
+        collected_at=as_of - timedelta(hours=4),
+    )
+    future_id = _store_imported_entity_delta_item(
+        repository,
+        source_name="Community Tool Export",
+        url="https://example.com/future",
+        title="The Row future mention",
+        published_at=as_of + timedelta(hours=1),
+        collected_at=as_of + timedelta(hours=1),
+    )
+    old_id = _store_imported_entity_delta_item(
+        repository,
+        source_name="Community Tool Export",
+        url="https://example.com/old",
+        title="The Row old mention",
+        published_at=as_of - timedelta(days=60),
+        collected_at=as_of - timedelta(days=60),
+    )
+    repository.replace_item_matches(
+        current_id,
+        [
+            _imported_entity_delta_match("The Row", "brand"),
+            _imported_entity_delta_match("The Row", "brand"),
+        ],
+    )
+    repository.replace_item_matches(baseline_id, [_imported_entity_delta_match("The Row", "brand")])
+    repository.replace_item_matches(manual_id, [_imported_entity_delta_match("The Row", "brand")])
+    repository.replace_item_matches(
+        other_entity_id,
+        [_imported_entity_delta_match("Alaia", "brand")],
+    )
+    repository.replace_item_matches(rss_id, [_imported_entity_delta_match("The Row", "brand")])
+    repository.replace_item_matches(future_id, [_imported_entity_delta_match("The Row", "brand")])
+    repository.replace_item_matches(old_id, [_imported_entity_delta_match("The Row", "brand")])
     engine.dispose()
     return data_dir
 
