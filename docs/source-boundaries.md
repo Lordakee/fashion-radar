@@ -137,6 +137,22 @@ and has no connectors, no scraping, no browser automation, no platform APIs,
 no monitoring, no scheduling, no source acquisition, no demand proof, no
 ranking, and no coverage verification.
 
+`external-tool-readiness` reports external tool readiness and local command
+readiness guidance only. It is local read-only, not print-only, because it
+performs command availability only with local PATH lookup (`shutil.which`) for
+known free external/community tools such as Rednote MCP, Xiaohongshu crawler,
+Instaloader, TikTok-Api, yt-dlp, and X/search exports. It prints
+mirror-friendly install hints and Fashion Radar next-step handoff commands for
+user-controlled external/community tools that produce sanitized CSV/JSON local
+file handoff rows. It does not install
+dependencies automatically, does not run adapters, does not run upstream tools,
+does not inspect directories, does not read handoff files, validate files,
+import rows, open or write SQLite, or create config/data/report/dashboard/
+workflow/handoff artifacts. It is not a scraper/connector and has no scraping,
+no browser automation, no platform APIs, no account/session/cookie/token
+behavior, no monitoring, no scheduling, no source acquisition, no demand proof,
+no ranking, no coverage verification, and no compliance-review product feature.
+
 `community-handoff-check-dir` is a local-only handoff readiness report for
 user-controlled community signal directories. It reads only matched local
 regular files and local config. It does not import rows, uses no SQLite,
@@ -374,6 +390,14 @@ The public README must explain:
   automation/scrape/crawl/monitor/watch/schedule/connectors/source acquisition/
   demand proof/ranking/coverage verification/entity generation/compliance/
   policy/authorization/safety-review features.
+- External tool readiness reports are local read-only command availability only
+  guidance for user-controlled external/community tools producing sanitized
+  CSV/JSON local file handoff rows. They may use local PATH lookup but must not
+  install dependencies, run adapters, run upstream tools, inspect directories,
+  read handoff files, import rows, open/write SQLite, create artifacts, scrape,
+  automate browsers, call platform APIs, use account/session/cookie/token
+  behavior, monitor, schedule, acquire sources, prove demand, rank sources,
+  verify coverage, or add compliance-review product features.
 - Community candidate directory preview reads matched local files only and
   outputs aggregate candidate phrase metrics only; it is not source acquisition,
   platform/community coverage verification, authorization verification, or a

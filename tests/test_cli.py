@@ -1022,6 +1022,313 @@ def test_external_tool_workflow_command_does_not_read_directory_or_run_side_effe
     assert payload["adapter_id"] == "instaloader"
 
 
+def test_external_tool_readiness_help_lists_options() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["external-tool-readiness", "--help"],
+        env={"COLUMNS": "120"},
+    )
+
+    assert result.exit_code == 0
+    assert "--adapter" in result.output
+    assert "--directory" in result.output
+    assert "--input-format" in result.output
+    assert "--pattern" in result.output
+    assert "--config-dir" in result.output
+    assert "--data-dir" in result.output
+    assert "--as-of" in result.output
+    assert "--source-name" in result.output
+    assert "--format" in result.output
+    assert "generic_community_export" in result.output
+    assert "Print local external tool readiness guidance" in result.output
+
+
+def test_external_tool_readiness_command_prints_json_with_stable_keys(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(cli_module.external_tool_readiness_shutil, "which", lambda command: None)
+    directory = tmp_path / "exports ? # & %"
+    config_dir = tmp_path / "config ? # & %"
+    data_dir = tmp_path / "data ? # & %"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "external-tool-readiness",
+            "--adapter",
+            "instaloader",
+            "--directory",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == [
+        "contract_version",
+        "execution_mode",
+        "adapter_id",
+        "display_name",
+        "platform_label",
+        "directory",
+        "input_format",
+        "pattern",
+        "as_of",
+        "config_dir",
+        "data_dir",
+        "source_name",
+        "checks",
+        "step_count",
+        "steps",
+        "boundaries",
+    ]
+    assert payload["contract_version"] == "external-tool-readiness/v1"
+    assert payload["execution_mode"] == "local_read_only"
+    assert payload["adapter_id"] == "instaloader"
+    assert payload["checks"][0]["status"] in {"missing", "found"}
+    assert payload["step_count"] == 7
+    assert not directory.exists()
+    assert not config_dir.exists()
+    assert not data_dir.exists()
+
+
+def test_external_tool_readiness_command_prints_table_without_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(cli_module.external_tool_readiness_shutil, "which", lambda command: None)
+    directory = tmp_path / "missing exports"
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "external-tool-readiness",
+            "--adapter",
+            "rednote_mcp",
+            "--directory",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-13T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "External tool readiness." in result.output
+    assert "Contract version: external-tool-readiness/v1" in result.output
+    assert "Commands were not executed." in result.output
+    assert "upstream_command" in result.output
+    assert "rednote-mcp" in result.output
+    assert "install" in result.output.lower()
+    assert "npmmirror" in result.output
+    assert "No platform collection" in result.output
+    assert not directory.exists()
+    assert not config_dir.exists()
+    assert not data_dir.exists()
+
+
+def test_external_tool_readiness_command_defaults_to_generic_adapter(monkeypatch) -> None:
+    monkeypatch.setattr(cli_module.external_tool_readiness_shutil, "which", lambda command: None)
+
+    result = CliRunner().invoke(app, ["external-tool-readiness", "--format", "json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["adapter_id"] == "generic_community_export"
+    assert payload["checks"][0]["status"] == "not_applicable"
+
+
+def test_external_tool_readiness_command_applies_overrides(monkeypatch) -> None:
+    monkeypatch.setattr(cli_module.external_tool_readiness_shutil, "which", lambda command: None)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "external-tool-readiness",
+            "--adapter",
+            "x_search_export",
+            "--input-format",
+            "json",
+            "--pattern",
+            "*.handoff.json",
+            "--source-name",
+            "Local Desk Export",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["adapter_id"] == "x_search_export"
+    assert payload["input_format"] == "json"
+    assert payload["pattern"] == "*.handoff.json"
+    assert payload["source_name"] == "Local Desk Export"
+
+
+def test_external_tool_readiness_command_rejects_unknown_adapter() -> None:
+    result = CliRunner().invoke(app, ["external-tool-readiness", "--adapter", "missing"])
+
+    assert result.exit_code == 1
+    assert (
+        "Could not build external tool readiness: Unknown external tool adapter: missing"
+        in result.output
+    )
+
+
+def test_external_tool_readiness_command_rejects_invalid_as_of_without_builder(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        cli_module,
+        "build_external_tool_readiness",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("build_external_tool_readiness should not be called")
+        ),
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["external-tool-readiness", "--as-of", "not-a-date"],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not build external tool readiness: invalid --as-of" in result.output
+    assert "build_external_tool_readiness should not be called" not in result.output
+    assert "Traceback" not in result.output
+
+
+def test_external_tool_readiness_command_rejects_invalid_format_without_builder(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        cli_module,
+        "build_external_tool_readiness",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("build_external_tool_readiness should not be called")
+        ),
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["external-tool-readiness", "--format", "xml"],
+    )
+
+    assert result.exit_code != 0
+    assert "--format" in result.output
+    assert "build_external_tool_readiness should not be called" not in result.output
+    assert "Traceback" not in result.output
+
+
+def test_external_tool_readiness_command_does_not_read_directory_or_run_side_effects(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    directory = tmp_path / "exports"
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    guarded_paths = {directory, config_dir, data_dir}
+    monkeypatch.setattr(cli_module.external_tool_readiness_shutil, "which", lambda command: None)
+
+    def fail_side_effect(*args, **kwargs):
+        raise AssertionError("side effect should not run")
+
+    def is_guarded_path(path) -> bool:
+        try:
+            return Path(path) in guarded_paths
+        except TypeError:
+            return False
+
+    def guard_path_method(name: str):
+        original = getattr(Path, name)
+
+        def guarded(self: Path, *args, **kwargs):
+            if self in guarded_paths:
+                raise AssertionError(f"{name} should not inspect supplied paths")
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, name, guarded)
+
+    def guard_os_function(name: str):
+        original = getattr(os, name)
+
+        def guarded(path, *args, **kwargs):
+            if is_guarded_path(path):
+                raise AssertionError(f"os.{name} should not inspect supplied path: {path}")
+            return original(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, name, guarded)
+
+    for path_method in (
+        "is_dir",
+        "is_file",
+        "iterdir",
+        "open",
+        "stat",
+        "glob",
+        "rglob",
+    ):
+        guard_path_method(path_method)
+    for os_function in ("scandir", "stat", "listdir", "walk"):
+        guard_os_function(os_function)
+    monkeypatch.setattr(cli_module.subprocess, "run", fail_side_effect)
+    monkeypatch.setattr(subprocess, "Popen", fail_side_effect)
+    monkeypatch.setattr(sqlite3, "connect", fail_side_effect)
+    for name in (
+        "create_sqlite_engine",
+        "initialize_schema",
+        "load_manual_signal_directory_rows",
+        "load_manual_signal_rows",
+        "store_manual_signal_rows",
+        "lint_community_signal_directory",
+        "lint_community_signal_file",
+        "check_community_handoff_directory",
+        "collect_configured_sources",
+        "write_daily_report_files",
+        "package_daily_digest",
+    ):
+        if hasattr(cli_module, name):
+            monkeypatch.setattr(cli_module, name, fail_side_effect)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "external-tool-readiness",
+            "--adapter",
+            "instaloader",
+            "--directory",
+            str(directory),
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["adapter_id"] == "instaloader"
+    assert "should not" not in result.output
+
+
 def test_community_signal_profile_json_is_deterministic_across_env_and_cwd(
     tmp_path: Path,
     monkeypatch,

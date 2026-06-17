@@ -20,6 +20,11 @@ user-controlled external/community tools.
 Run `external-tool-template --adapter instaloader --format json` when a local
 producer needs adapter-specific template rows for sanitized CSV/JSON local file
 handoff examples before writing an export file.
+Run `external-tool-readiness --adapter instaloader --format json` when a local
+producer needs external tool readiness guidance, command availability only
+checks, mirror-friendly install hints, and Fashion Radar next-step handoff
+commands for known user-controlled external/community tools before writing
+sanitized CSV/JSON local file handoff rows.
 
 `community-signal-profile --format json` and
 `community-handoff-manifest --format json` expose `directory_example_paths` for
@@ -94,6 +99,14 @@ Print adapter-specific template rows without running adapters:
 uv run fashion-radar external-tool-template --adapter instaloader --format table
 uv run fashion-radar external-tool-template --adapter instaloader --format json
 uv run fashion-radar external-tool-template --adapter instaloader --format csv
+```
+
+Check local external tool command readiness without running adapters or
+upstream tools:
+
+```bash
+uv run fashion-radar external-tool-readiness --adapter instaloader
+uv run fashion-radar external-tool-readiness --adapter rednote_mcp --format json
 ```
 
 Recommended order:
@@ -201,6 +214,22 @@ rows, write artifacts, or open SQLite. It is not platform collection and has
 no connectors, no scraping, no browser automation, no platform APIs, no
 monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
 and no coverage verification.
+
+`external-tool-readiness` reports external tool readiness guidance and is local
+read-only, not print-only, because it checks command availability only with
+local PATH lookup (`shutil.which`) for known free external/community tools such
+as Rednote MCP, Xiaohongshu crawler, Instaloader, TikTok-Api, yt-dlp, and
+X/search exports. It prints readiness guidance, mirror-friendly install hints,
+and Fashion Radar next-step handoff commands for user-controlled
+external/community tools producing sanitized CSV/JSON local file handoff rows.
+It does not install dependencies automatically, does not run
+adapters, does not run upstream tools, does not inspect directories, does not
+read handoff files, validate files, import rows, open SQLite, or create
+config/data/report/dashboard/workflow/handoff artifacts. It is not a
+scraper/connector and has no scraping, no browser automation, no platform APIs,
+no account/session/cookie/token behavior, no monitoring, no scheduling, no
+source acquisition, no demand proof, no ranking, no coverage verification, and
+no compliance-review product feature.
 
 Directory linting is non-recursive in this version. A pattern such as `*.csv`
 matches regular files directly under the supplied directory only. Nested files

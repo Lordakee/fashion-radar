@@ -155,6 +155,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   scraping, no browser automation, no platform APIs, no monitoring, no
   scheduling, no source acquisition, no demand proof, no ranking, and no
   coverage verification.
+- Stage 66 `external-tool-readiness` external tool readiness documentation for
+  a local read-only, command availability only readiness guide over known free
+  external/community tools such as Rednote MCP, Xiaohongshu crawler,
+  Instaloader, TikTok-Api, yt-dlp, and X/search exports. It prints
+  mirror-friendly install hints and Fashion Radar next-step handoff commands
+  for user-controlled external/community tools producing sanitized CSV/JSON
+  local file handoff rows, but it does not install dependencies automatically,
+  does not run adapters, does not run upstream tools, does not inspect
+  directories, does not read handoff files, import rows, open/write SQLite, or
+  create config/data/report/dashboard/workflow/handoff artifacts. This is not a
+  scraper/connector and has no scraping, no browser automation, no platform
+  APIs, no account/session/cookie/token behavior, no monitoring, no scheduling,
+  no source acquisition, no demand proof, no ranking, no coverage verification,
+  and no compliance-review product feature.
 - Stage 53 community handoff guardrail tests for prohibited-field lint
   coverage, producer-profile command order, docs drift, and parser rejection.
 - Optional fashion entity watchlist pack for broader local matching coverage

@@ -105,6 +105,22 @@ validates deterministic sample output content, not only command execution.
   not platform collection and has no connectors, no scraping, no browser
   automation, no platform APIs, no monitoring, no scheduling, no source
   acquisition, no demand proof, no ranking, and no coverage verification.
+- `external-tool-readiness`: report external tool readiness and local command
+  readiness for known free external/community tools such as Rednote MCP,
+  Xiaohongshu crawler, Instaloader, TikTok-Api, yt-dlp, and X/search exports.
+  Supports `--adapter` and `--format table|json`. It is local read-only, not
+  print-only, because it performs command availability only with local PATH
+  lookup (`shutil.which`).
+  It prints readiness guidance, mirror-friendly install hints, and Fashion
+  Radar next-step handoff commands for user-controlled external/community tools
+  producing sanitized CSV/JSON local file handoff rows. It does not install
+  dependencies automatically, does not run adapters, does not run upstream
+  tools, does not inspect directories, does not read handoff files, validate
+  rows, import rows, open SQLite, or create artifacts. It is not platform
+  collection and has no connectors, no scraping, no browser automation, no
+  platform APIs, no account/session/cookie/token behavior, no monitoring, no
+  scheduling, no source acquisition, no demand proof, no ranking, no coverage
+  verification, and no compliance-review product feature.
 - `community-signal-lint` PATH: lint one community signal handoff file. Requires
   `--input-format csv|json`; supports `--format table|json`, `--source-name`,
   and `--strict`.
@@ -167,6 +183,8 @@ fashion-radar external-tool-template --adapter instaloader --format json
 fashion-radar external-tool-template --adapter instaloader --format csv
 fashion-radar external-tool-workflow --adapter instaloader --format table
 fashion-radar external-tool-workflow --adapter instaloader --format json
+fashion-radar external-tool-readiness --adapter instaloader --format table
+fashion-radar external-tool-readiness --adapter instaloader --format json
 ```
 
 ## Imported Signal Review

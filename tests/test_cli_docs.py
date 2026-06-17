@@ -65,6 +65,7 @@ REQUIRED_FLAGS_BY_COMMAND = {
 
 STAGE_DOCS_COMMANDS = (
     "external-tool-adapters",
+    "external-tool-readiness",
     "external-tool-template",
     "external-tool-workflow",
     "heat-movers",
@@ -233,6 +234,36 @@ EXTERNAL_TOOL_WORKFLOW_DOCS = (
     ROOT / "docs" / "architecture.md",
     ROOT / "AGENTS.md",
     ROOT / "CHANGELOG.md",
+)
+
+EXTERNAL_TOOL_READINESS_DOCS = (
+    README,
+    CLI_REFERENCE,
+    ROOT / "docs" / "community-signal-import.md",
+    ROOT / "docs" / "community-signal-quality.md",
+    ROOT / "docs" / "source-boundaries.md",
+    ROOT / "docs" / "architecture.md",
+    ROOT / "docs" / "github-upload-checklist.md",
+    ROOT / "AGENTS.md",
+    ROOT / "CHANGELOG.md",
+)
+
+EXTERNAL_TOOL_READINESS_BOUNDARY_PHRASES = (
+    "local read-only",
+    "command availability only",
+    "user-controlled external/community tools",
+    "sanitized CSV/JSON local file handoff",
+    "no scraping",
+    "no browser automation",
+    "no platform APIs",
+    "no account/session/cookie/token behavior",
+    "no monitoring",
+    "no scheduling",
+    "no source acquisition",
+    "no demand proof",
+    "no ranking",
+    "no coverage verification",
+    "no compliance-review product feature",
 )
 
 FASHION_RADAR_COMMAND_RE = re.compile(
@@ -1151,6 +1182,31 @@ def test_external_tool_workflow_docs_include_examples_and_steps() -> None:
 
     for step_name in EXTERNAL_TOOL_WORKFLOW_STEP_NAMES:
         assert step_name in import_doc
+
+
+def test_external_tool_readiness_docs_are_linked_and_bounded() -> None:
+    for path in EXTERNAL_TOOL_READINESS_DOCS:
+        text = _read(path)
+        normalized = _normalized_text(text).casefold()
+        assert "external-tool-readiness" in normalized, path.relative_to(ROOT)
+        assert "external tool readiness" in normalized, path.relative_to(ROOT)
+        for phrase in EXTERNAL_TOOL_READINESS_BOUNDARY_PHRASES:
+            assert phrase.casefold() in normalized, f"{path.relative_to(ROOT)} missing {phrase!r}"
+
+
+def test_external_tool_readiness_upload_checklist_help_loop_and_smoke() -> None:
+    checklist = _read(UPLOAD_CHECKLIST)
+
+    assert "external-tool-readiness" in _upload_checklist_help_loop_commands()
+    assert '"$tmp_env/venv/bin/fashion-radar" external-tool-readiness --help' in checklist
+    assert (
+        '"$tmp_env/venv/bin/fashion-radar" external-tool-readiness '
+        "--adapter instaloader --format json"
+    ) in checklist
+    assert (
+        '"$tmp_env/venv/bin/fashion-radar" external-tool-readiness --adapter rednote_mcp'
+    ) in checklist
+    assert "scripts/check_first_run_smoke.py" in checklist
 
 
 def test_community_handoff_check_dir_docs_are_linked_and_bounded() -> None:

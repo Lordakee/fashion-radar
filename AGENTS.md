@@ -84,6 +84,19 @@ paywall bypass, or fragile full social-platform scraping.
   collection and must have no connectors, no scraping, no browser automation,
   no platform APIs, no monitoring, no scheduling, no source acquisition, no
   demand proof, no ranking, and no coverage verification.
+- Future `external-tool-readiness` external tool readiness work must stay
+  distinct from the print-only external-tool trio: it may remain local
+  read-only command availability only guidance using local PATH lookup,
+  mirror-friendly install hints, and Fashion Radar handoff next steps for
+  user-controlled
+  external/community tools producing sanitized CSV/JSON local file handoff
+  rows. It must not install dependencies, run adapters, run upstream tools,
+  inspect directories, read handoff files, import rows, open/write SQLite, or
+  create config/data/report/dashboard/workflow/handoff artifacts. It must have
+  no connectors, no scraping, no browser automation, no platform APIs, no
+  account/session/cookie/token behavior, no monitoring, no scheduling, no
+  source acquisition, no demand proof, no ranking, no coverage verification,
+  and no compliance-review product feature.
 - Future community handoff readiness checks must keep
   `community-handoff-check-dir` as a local-only handoff readiness report for
   user-controlled community signal directories. It reads only matched local

@@ -19,6 +19,8 @@ YAML config
      as a local producer-discovery registry
   -> optionally print adapter-specific template rows for sanitized CSV/JSON
      local file handoff examples
+  -> optionally check local command availability guidance for external/community tools
+     without running adapters or upstream tools
   -> optionally print the community signal producer profile before a local tool writes files
      with static directory_example_paths pointers
   -> optionally print a community directory handoff checklist without executing it
@@ -109,6 +111,22 @@ YAML config
   has no connectors, no scraping, no browser automation, no platform APIs, no
   monitoring, no scheduling, no source acquisition, no demand proof, no
   ranking, and no coverage verification.
+  `external-tool-readiness` reports external tool readiness and local command
+  readiness guidance only. It is local read-only, not print-only, because it
+  checks command availability only with local PATH lookup (`shutil.which`) for
+  known free
+  external/community tools such as Rednote MCP, Xiaohongshu crawler,
+  Instaloader, TikTok-Api, yt-dlp, and X/search exports. It prints
+  mirror-friendly install hints and Fashion Radar next-step handoff commands
+  for user-controlled external/community tools producing sanitized CSV/JSON
+  local file handoff rows. It does not install dependencies automatically, does
+  not run adapters, does not run upstream tools, does not inspect directories,
+  does not read handoff files, import rows, open or write SQLite, or create
+  config/data/report/dashboard/workflow/handoff artifacts. It is not a
+  scraper/connector and has no scraping, no browser automation, no platform
+  APIs, no account/session/cookie/token behavior, no monitoring, no scheduling,
+  no source acquisition, no demand proof, no ranking, no coverage verification,
+  and no compliance-review product feature.
   `community-signal-profile` prints that local producer contract for
   user-controlled tools without reading handoff files, creating artifacts,
   acquiring sources, monitoring platforms, or performing compliance review.
@@ -248,6 +266,7 @@ fashion-radar collect --config-dir ./configs --data-dir ./data
 fashion-radar external-tool-adapters --format json
 fashion-radar external-tool-template --adapter instaloader --format json
 fashion-radar external-tool-workflow --adapter instaloader --format json
+fashion-radar external-tool-readiness --adapter instaloader --format json
 fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --data-dir ./data --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar community-handoff-check-dir ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar community-signal-lint ./signals.csv --input-format csv --source-name "Manual Export"
@@ -307,6 +326,16 @@ SQLite, creates no config/data/report/dashboard/digest artifacts, and has no
 fetch URLs/login/platform APIs/download media/browser automation/scrape/crawl/monitor/
 watch/schedule/connectors/source acquisition/demand proof/ranking/coverage verification/entity
 generation/compliance/policy/authorization/safety-review features.
+
+`external-tool-readiness` prints external tool readiness guidance as local
+read-only command availability only guidance. It may look up commands on PATH
+with `shutil.which`, but it does not install dependencies, run adapters, run
+upstream tools, inspect directories, read handoff files, import rows, open or
+write SQLite, create
+config/data/report/dashboard/workflow/handoff artifacts, scrape, automate
+browsers, call platform APIs, use account/session/cookie/token behavior,
+monitor, schedule, acquire sources, prove demand, rank sources, verify
+coverage, or add a compliance-review product feature.
 
 ## Source-Pack Quality Boundary
 

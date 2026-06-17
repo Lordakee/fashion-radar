@@ -237,6 +237,36 @@ External tool workflow docs check:
       fashion-radar external-tool-workflow --adapter instaloader --format json
       ```
 
+External tool readiness docs check:
+
+- [ ] Docs describe `external-tool-readiness` as local read-only, not
+      print-only, because it performs command availability only with local PATH
+      lookup (`shutil.which`) for known free external/community tools such as
+      Rednote MCP, Xiaohongshu crawler, Instaloader, TikTok-Api, yt-dlp, and
+      X/search exports.
+- [ ] Boundary text says the readiness command prints readiness guidance,
+      mirror-friendly install hints, and Fashion Radar next-step handoff
+      commands for user-controlled external/community tools producing
+      sanitized CSV/JSON local file handoff rows, but does not install
+      dependencies automatically, does not run adapters, does not run upstream
+      tools, does not inspect directories, does not read handoff files, import
+      rows, open/write SQLite, or create config/data/report/dashboard/workflow/
+      handoff artifacts.
+- [ ] Boundary text says the readiness command is not a scraper/connector and
+      has no scraping, no browser automation, no platform APIs, no
+      account/session/cookie/token behavior, no monitoring, no scheduling, no
+      source acquisition, no demand proof, no ranking, no coverage
+      verification, and no compliance-review product feature.
+- [ ] CLI reference and installed-wheel smoke include `fashion-radar
+      external-tool-readiness --adapter instaloader --format table` and
+      `fashion-radar external-tool-readiness --adapter instaloader --format
+      json`.
+
+      ```bash
+      fashion-radar external-tool-readiness --adapter instaloader --format table
+      fashion-radar external-tool-readiness --adapter instaloader --format json
+      ```
+
 ## Exclude
 
 Do not commit or upload:
@@ -333,7 +363,7 @@ uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 for cmd in \
   init migrate-db doctor source-pack-lint entity-pack-lint \
   community-signal-profile \
-  external-tool-adapters external-tool-template external-tool-workflow \
+  external-tool-adapters external-tool-template external-tool-workflow external-tool-readiness \
   community-signal-lint community-signal-lint-dir \
   community-candidates community-candidates-dir \
   community-handoff-manifest community-handoff-workflow \
@@ -372,6 +402,9 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" external-tool-workflow --help
 "$tmp_env/venv/bin/fashion-radar" external-tool-workflow --adapter instaloader --format table
 "$tmp_env/venv/bin/fashion-radar" external-tool-workflow --adapter instaloader --format json
+"$tmp_env/venv/bin/fashion-radar" external-tool-readiness --help
+"$tmp_env/venv/bin/fashion-radar" external-tool-readiness --adapter instaloader --format json
+"$tmp_env/venv/bin/fashion-radar" external-tool-readiness --adapter rednote_mcp --format json
 "$tmp_env/venv/bin/fashion-radar" imported-signals --data-dir "$tmp_run/data" --as-of "2026-06-12T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-entity-evidence --data-dir "$tmp_run/data" --as-of "2026-06-13T12:00:00Z" --entity-name "The Row" --entity-type brand --format json

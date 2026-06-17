@@ -12,6 +12,7 @@ from typing import Literal
 
 import typer
 
+import fashion_radar.external_tool_readiness as external_tool_readiness_module
 from fashion_radar.community_candidates import (
     preview_community_candidate_directory,
     preview_community_candidates,
@@ -81,6 +82,11 @@ from fashion_radar.external_tool_adapters import (
     build_external_tool_adapter_registry,
     filter_external_tool_adapter_registry,
     render_external_tool_adapter_registry_table,
+)
+from fashion_radar.external_tool_readiness import (
+    DEFAULT_EXTERNAL_TOOL_READINESS_ADAPTER_ID,
+    build_external_tool_readiness,
+    render_external_tool_readiness_table,
 )
 from fashion_radar.external_tool_templates import (
     build_external_tool_template_collection,
@@ -176,6 +182,7 @@ app = typer.Typer(
     help="Fashion Radar command line interface.",
     context_settings={"max_content_width": 120},
 )
+external_tool_readiness_shutil = external_tool_readiness_module.shutil
 CONFIG_DIR_OPTION = typer.Option(
     default_factory=default_config_dir,
     envvar="FASHION_RADAR_CONFIG_DIR",
@@ -215,6 +222,7 @@ ImportedSignalsOutputFormat = Literal["table", "json"]
 ImportedSignalsSummaryOutputFormat = Literal["table", "json"]
 EntityPackLintOutputFormat = Literal["table", "json"]
 ExternalToolAdaptersOutputFormat = Literal["table", "json"]
+ExternalToolReadinessOutputFormat = Literal["table", "json"]
 ExternalToolTemplateOutputFormat = Literal["table", "json", "csv"]
 ExternalToolWorkflowOutputFormat = Literal["table", "json"]
 SourcePackLintOutputFormat = Literal["table", "json"]
@@ -236,6 +244,11 @@ COMMUNITY_SIGNAL_PROFILE_FORMAT_OPTION = typer.Option(
     help="Output format.",
 )
 EXTERNAL_TOOL_ADAPTERS_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+EXTERNAL_TOOL_READINESS_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
@@ -783,6 +796,55 @@ def external_tool_workflow_command(
         typer.echo(workflow.model_dump_json(indent=2))
         return
     for line in render_external_tool_workflow_table(workflow):
+        typer.echo(line)
+
+
+@app.command(name="external-tool-readiness")
+def external_tool_readiness_command(
+    adapter: str = typer.Option(
+        DEFAULT_EXTERNAL_TOOL_READINESS_ADAPTER_ID,
+        "--adapter",
+        help="Adapter id to check.",
+    ),
+    directory: str = EXTERNAL_TOOL_WORKFLOW_DIRECTORY_OPTION,
+    config_dir: str = CONFIG_DIR_OPTION,
+    data_dir: str = DATA_DIR_OPTION,
+    as_of: str = EXTERNAL_TOOL_WORKFLOW_AS_OF_OPTION,
+    input_format: ManualSignalInputFormat | None = EXTERNAL_TOOL_WORKFLOW_INPUT_FORMAT_OPTION,
+    pattern: str | None = EXTERNAL_TOOL_WORKFLOW_PATTERN_OPTION,
+    source_name: str | None = EXTERNAL_TOOL_WORKFLOW_SOURCE_NAME_OPTION,
+    output_format: ExternalToolReadinessOutputFormat = EXTERNAL_TOOL_READINESS_FORMAT_OPTION,
+) -> None:
+    """Print local external tool readiness guidance without executing commands."""
+    try:
+        try:
+            as_of_value = parse_datetime_utc(as_of)
+        except (TypeError, ValueError) as exc:
+            typer.echo(
+                f"Could not build external tool readiness: invalid --as-of: {exc}",
+                err=True,
+            )
+            raise typer.Exit(1) from exc
+        readiness = build_external_tool_readiness(
+            adapter_id=adapter,
+            directory=Path(directory),
+            config_dir=Path(config_dir),
+            data_dir=Path(data_dir),
+            as_of=as_of_value,
+            input_format=input_format,
+            pattern=pattern,
+            source_name=source_name,
+        )
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        typer.echo(f"Could not build external tool readiness: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(readiness.model_dump_json(indent=2))
+        return
+    for line in render_external_tool_readiness_table(readiness):
         typer.echo(line)
 
 

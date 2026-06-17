@@ -49,6 +49,11 @@ Use `external-tool-workflow` when a local upstream producer needs a
 producer-facing wrapper around existing local commands before writing
 sanitized CSV/JSON local file handoff rows. Its JSON output is workflow
 metadata, not importable handoff rows.
+Use `external-tool-readiness` when a local upstream producer needs external
+tool readiness guidance, command availability only checks, mirror-friendly
+install hints, and Fashion Radar next-step handoff commands before using
+user-controlled external/community tools to produce sanitized CSV/JSON local
+file handoff rows.
 
 ## External Tool Handoff Templates
 
@@ -94,6 +99,31 @@ The workflow is local and print-only. It is not platform collection and has no
 connectors, no scraping, no browser automation, no platform APIs, no
 monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
 and no coverage verification.
+
+## External Tool Readiness
+
+`external-tool-readiness` reports external tool readiness guidance and is local
+read-only, not print-only, because it checks command availability only with
+local PATH lookup (`shutil.which`). It reports readiness guidance for known free
+external/community tools such as Rednote MCP, Xiaohongshu crawler, Instaloader,
+TikTok-Api, yt-dlp, and X/search exports, then prints mirror-friendly install
+hints and Fashion Radar next-step handoff commands for user-controlled
+external/community tools that produce sanitized CSV/JSON local file handoff
+rows.
+
+```bash
+uv run fashion-radar external-tool-readiness --adapter instaloader
+uv run fashion-radar external-tool-readiness --adapter rednote_mcp --format json
+```
+
+The command does not install dependencies automatically, does not run adapters,
+does not run upstream tools, does not inspect directories, does not read handoff
+files, validate files, import rows, open or write SQLite, or create
+config/data/report/dashboard/workflow/handoff artifacts. It is not a
+scraper/connector and has no scraping, no browser automation, no platform APIs,
+no account/session/cookie/token behavior, no monitoring, no scheduling, no
+source acquisition, no demand proof, no ranking, no coverage verification, and
+no compliance-review product feature.
 
 ## External Tool Export Directory Examples
 
@@ -670,6 +700,16 @@ rows, uses no SQLite, creates no config/data/report/dashboard/digest artifacts,
 and has no fetch URLs/login/platform APIs/download media/browser automation/scrape/crawl/monitor/
 watch/schedule/connectors/source acquisition/demand proof/ranking/coverage verification/entity
 generation/compliance/policy/authorization/safety-review features.
+
+`external-tool-readiness` is external tool readiness guidance with local
+read-only command availability only. It uses local PATH lookup (`shutil.which`)
+and does not run adapters, run upstream tools, inspect directories, read
+handoff files, import rows, open or write SQLite, or create
+config/data/report/dashboard/workflow/handoff artifacts. It has no scraping, no
+browser automation, no platform APIs, no
+account/session/cookie/token behavior, no monitoring, no scheduling, no source
+acquisition, no demand proof, no ranking, no coverage verification, and no
+compliance-review product feature.
 
 `community-candidates-dir` reads only matched regular files directly under the
 local directory passed to it plus local config. It does not recurse, import

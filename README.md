@@ -34,6 +34,10 @@ on the sources you configure and local signals you import.
   external/community tools that need a producer-facing wrapper around existing
   local commands before writing sanitized CSV/JSON local file handoff rows.
   JSON output is workflow metadata, not importable handoff rows.
+- Checks `external-tool-readiness` local command availability for known free
+  external/community tools and prints readiness guidance, mirror-friendly
+  install hints, and Fashion Radar next-step handoff commands without
+  installing dependencies or running upstream tools.
 - Prints the community signal producer contract for user-controlled local tools
   without reading handoff files, acquiring sources, monitoring platforms, or
   performing compliance review.
@@ -129,6 +133,27 @@ and no coverage verification.
 ```bash
 uv run fashion-radar external-tool-workflow --adapter instaloader --format table
 uv run fashion-radar external-tool-workflow --adapter instaloader --format json
+```
+
+`external-tool-readiness` provides external tool readiness guidance and is local
+read-only, not print-only, because it checks command availability only with
+local PATH lookup (`shutil.which`) for known free external/community tools such
+as Rednote MCP, Xiaohongshu crawler, Instaloader, TikTok-Api, yt-dlp, and
+X/search exports. It prints readiness guidance, mirror-friendly install hints,
+and Fashion Radar next-step handoff commands for user-controlled
+external/community tools producing sanitized CSV/JSON local file handoff rows.
+It does not install dependencies automatically, does not run
+adapters, does not run upstream tools, does not inspect directories, does not
+read handoff files, import rows, open or write SQLite, or create
+config/data/report/dashboard/workflow/handoff artifacts. It is not a
+scraper/connector and has no scraping, no browser automation, no platform APIs,
+no account/session/cookie/token behavior, no monitoring, no scheduling, no
+source acquisition, no demand proof, no ranking, no coverage verification, and
+no compliance-review product feature.
+
+```bash
+uv run fashion-radar external-tool-readiness --adapter instaloader
+uv run fashion-radar external-tool-readiness --adapter rednote_mcp --format json
 ```
 
 Future non-core connectors, if ever added, must be explicit opt-ins with clear
@@ -301,6 +326,8 @@ uv run fashion-radar external-tool-template --adapter instaloader --format json
 uv run fashion-radar external-tool-template --adapter instaloader --format csv
 uv run fashion-radar external-tool-workflow --adapter instaloader --format table
 uv run fashion-radar external-tool-workflow --adapter instaloader --format json
+uv run fashion-radar external-tool-readiness --adapter instaloader
+uv run fashion-radar external-tool-readiness --adapter rednote_mcp --format json
 uv run fashion-radar community-candidates-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --source-name "Community Tool Export"
 uv run fashion-radar community-candidates-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$AS_OF" --format json
 uv run fashion-radar community-signal-lint-dir "$tmp_run/exports" --input-format csv --pattern "*.csv" --source-name "Community Tool Export"
@@ -426,6 +453,20 @@ validate files, import rows, open SQLite, create artifacts, or perform
 platform collection. It has no connectors, no scraping, no browser automation,
 no platform APIs, no monitoring, no scheduling, no source acquisition, no
 demand proof, no ranking, and no coverage verification.
+
+`external-tool-readiness` provides external tool readiness guidance as local
+read-only command availability only. It uses local PATH lookup (`shutil.which`)
+to report whether the known command for a free external/community tool appears
+available, then prints mirror-friendly install guidance and next-step Fashion
+Radar handoff commands for sanitized CSV/JSON local file handoff rows. It does
+not install dependencies, run
+adapters, run upstream tools, inspect directories, read handoff files, import
+rows, open or write SQLite, or create config/data/report/dashboard/workflow/
+handoff artifacts. It is not platform collection and has no connectors, no
+scraping, no browser automation, no platform APIs, no account/session/cookie/
+token behavior, no monitoring, no scheduling, no source acquisition, no demand
+proof, no ranking, no coverage verification, and no compliance-review product
+feature.
 
 Review untracked candidate signals from configured sources and imported local
 signals:
