@@ -124,11 +124,14 @@ metadata for user-controlled external/community tools that need a
 producer-facing wrapper around existing local commands before writing sanitized
 CSV/JSON local file handoff rows. JSON output is workflow metadata, not
 importable handoff rows; table output may include local metadata and copyable
-commands. It does not inspect directories, read handoff files, import rows,
-open SQLite, or create artifacts. It is not platform collection and has no
-connectors, no scraping, no browser automation, no platform APIs, no
-monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
-and no coverage verification.
+commands. The printed steps include `check_external_tool_readiness`, an
+optional preflight command that points to `external-tool-readiness` for local
+command availability guidance before sanitized handoff rows are prepared. It
+does not inspect directories, read handoff files, import rows, open SQLite, or
+create artifacts. It is not platform collection and has no connectors, no
+scraping, no browser automation, no platform APIs, no monitoring, no
+scheduling, no source acquisition, no demand proof, no ranking, and no
+coverage verification.
 
 ```bash
 uv run fashion-radar external-tool-workflow --adapter instaloader --format table

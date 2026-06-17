@@ -169,6 +169,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   APIs, no account/session/cookie/token behavior, no monitoring, no scheduling,
   no source acquisition, no demand proof, no ranking, no coverage verification,
   and no compliance-review product feature.
+- Stage 67 `external-tool-workflow` now prints an early
+  `check_external_tool_readiness` preflight step pointing to the local
+  read-only `external-tool-readiness` command before sanitized CSV/JSON
+  external/community handoff rows are prepared. The workflow itself remains
+  local and print-only, does not execute generated commands or upstream tools,
+  and adds no connectors, scraping, browser automation, platform APIs,
+  monitoring, scheduling, source acquisition, demand proof, ranking, coverage
+  verification, or compliance-review product feature.
 - Stage 53 community handoff guardrail tests for prohibited-field lint
   coverage, producer-profile command order, docs drift, and parser rejection.
 - Optional fashion entity watchlist pack for broader local matching coverage

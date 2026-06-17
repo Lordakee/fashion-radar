@@ -79,8 +79,11 @@ paywall bypass, or fragile full social-platform scraping.
   metadata for user-controlled external/community tools that need a
   producer-facing wrapper around existing local commands before writing
   sanitized CSV/JSON local file handoff rows. JSON output is workflow metadata,
-  not importable handoff rows. It must not inspect directories, read handoff
-  files, import rows, open SQLite, or create artifacts. It is not platform
+  not importable handoff rows. It may print `check_external_tool_readiness` as
+  an optional preflight command pointing to the local read-only
+  `external-tool-readiness` command, but it must not run that command. It must
+  not inspect directories, read handoff files, import rows, open SQLite, or
+  create artifacts. It is not platform
   collection and must have no connectors, no scraping, no browser automation,
   no platform APIs, no monitoring, no scheduling, no source acquisition, no
   demand proof, no ranking, and no coverage verification.

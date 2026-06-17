@@ -186,6 +186,7 @@ IMPORTED_ENTITY_EVIDENCE_SAFE_FIELDS = (
 
 EXTERNAL_TOOL_WORKFLOW_STEP_NAMES = (
     "inspect_adapter_registry",
+    "check_external_tool_readiness",
     "print_adapter_template_json",
     "print_signal_profile",
     "print_handoff_manifest",

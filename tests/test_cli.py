@@ -779,7 +779,7 @@ def test_external_tool_workflow_command_prints_json_with_stable_keys(
     assert payload["contract_version"] == "external-tool-workflow/v1"
     assert payload["execution_mode"] == "print_only"
     assert payload["adapter_id"] == "instaloader"
-    assert payload["step_count"] == 11
+    assert payload["step_count"] == 12
     assert list(payload["steps"][0]) == [
         "order",
         "name",
@@ -789,6 +789,7 @@ def test_external_tool_workflow_command_prints_json_with_stable_keys(
     ]
     assert [step["name"] for step in payload["steps"]] == [
         "inspect_adapter_registry",
+        "check_external_tool_readiness",
         "print_adapter_template_json",
         "print_signal_profile",
         "print_handoff_manifest",
@@ -800,8 +801,10 @@ def test_external_tool_workflow_command_prints_json_with_stable_keys(
         "import_directory_signals",
         "print_post_import_review",
     ]
-    assert payload["steps"][9]["suggested_effect"] == "updates_local_imports"
-    assert f"'{directory}'" in payload["steps"][3]["command"]
+    assert payload["steps"][1]["suggested_effect"] == "read_only"
+    assert "fashion-radar external-tool-readiness" in payload["steps"][1]["command"]
+    assert payload["steps"][10]["suggested_effect"] == "updates_local_imports"
+    assert f"'{directory}'" in payload["steps"][4]["command"]
     assert not directory.exists()
     assert not config_dir.exists()
     assert not data_dir.exists()
@@ -836,6 +839,8 @@ def test_external_tool_workflow_command_prints_table_without_artifacts(
     assert "Contract version: external-tool-workflow/v1" in result.output
     assert "Commands were not executed." in result.output
     assert "inspect_adapter_registry" in result.output
+    assert "check_external_tool_readiness" in result.output
+    assert "external-tool-readiness" in result.output
     assert "print_adapter_template_json" in result.output
     assert "community-handoff-manifest" in result.output
     assert "community-candidates-dir" in result.output

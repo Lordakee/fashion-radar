@@ -130,12 +130,15 @@ wrapper only. It is for user-controlled external/community tools that need a
 producer-facing wrapper around existing local commands before writing sanitized
 CSV/JSON local file handoff rows. JSON output is workflow metadata, not
 importable handoff rows; table output may include local metadata and copyable
-commands. It does not run generated commands, adapters, or upstream tools, and
-it does not inspect the supplied directory, read handoff files, validate rows,
-import rows, open SQLite, or create artifacts. It is not platform collection
-and has no connectors, no scraping, no browser automation, no platform APIs,
-no monitoring, no scheduling, no source acquisition, no demand proof, no
-ranking, and no coverage verification.
+commands. The printed steps include `check_external_tool_readiness`, an
+optional preflight command that points to `external-tool-readiness` for local
+command availability guidance before sanitized handoff rows are prepared. It
+does not run generated commands, adapters, or upstream tools, and it does not
+inspect the supplied directory, read handoff files, validate rows, import rows,
+open SQLite, or create artifacts. It is not platform collection and has no
+connectors, no scraping, no browser automation, no platform APIs, no
+monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
+and no coverage verification.
 
 `external-tool-readiness` reports external tool readiness and local command
 readiness guidance only. It is local read-only, not print-only, because it

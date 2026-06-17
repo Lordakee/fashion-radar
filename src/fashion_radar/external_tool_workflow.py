@@ -192,6 +192,37 @@ def _workflow_steps(
         ),
         ExternalToolWorkflowStep(
             order=2,
+            name="check_external_tool_readiness",
+            purpose=(
+                "Print local external tool readiness guidance before preparing "
+                "sanitized handoff rows."
+            ),
+            command=_shell_command(
+                "fashion-radar",
+                "external-tool-readiness",
+                "--adapter",
+                adapter_id,
+                "--directory",
+                directory_text,
+                "--config-dir",
+                config_text,
+                "--data-dir",
+                data_text,
+                "--as-of",
+                as_of_text,
+                "--input-format",
+                input_format,
+                "--pattern",
+                pattern,
+                "--source-name",
+                source_name,
+                "--format",
+                "table",
+            ),
+            suggested_effect="read_only",
+        ),
+        ExternalToolWorkflowStep(
+            order=3,
             name="print_adapter_template_json",
             purpose="Print example sanitized local handoff rows for the selected adapter.",
             command=_shell_command(
@@ -213,14 +244,14 @@ def _workflow_steps(
             suggested_effect="print_only",
         ),
         ExternalToolWorkflowStep(
-            order=3,
+            order=4,
             name="print_signal_profile",
             purpose="Print the accepted community signal row fields.",
             command=_shell_command("fashion-radar", "community-signal-profile", "--format", "json"),
             suggested_effect="print_only",
         ),
         ExternalToolWorkflowStep(
-            order=4,
+            order=5,
             name="print_handoff_manifest",
             purpose="Print a local handoff manifest for the selected export directory.",
             command=_shell_command(
@@ -245,7 +276,7 @@ def _workflow_steps(
             suggested_effect="print_only",
         ),
         ExternalToolWorkflowStep(
-            order=5,
+            order=6,
             name="print_handoff_workflow",
             purpose="Print the local community handoff workflow for these adapter settings.",
             command=_shell_command(
@@ -268,7 +299,7 @@ def _workflow_steps(
             suggested_effect="print_only",
         ),
         ExternalToolWorkflowStep(
-            order=6,
+            order=7,
             name="lint_export_directory",
             purpose="Lint local external tool handoff files before import.",
             command=_shell_command(
@@ -286,7 +317,7 @@ def _workflow_steps(
             suggested_effect="read_only",
         ),
         ExternalToolWorkflowStep(
-            order=7,
+            order=8,
             name="preview_candidate_phrases",
             purpose="Preview aggregate candidate phrases before importing local handoff rows.",
             command=_shell_command(
@@ -307,7 +338,7 @@ def _workflow_steps(
             suggested_effect="read_only",
         ),
         ExternalToolWorkflowStep(
-            order=8,
+            order=9,
             name="review_handoff_readiness",
             purpose="Review local handoff readiness before import.",
             command=_shell_command(
@@ -329,7 +360,7 @@ def _workflow_steps(
             suggested_effect="read_only",
         ),
         ExternalToolWorkflowStep(
-            order=9,
+            order=10,
             name="dry_run_directory_import",
             purpose="Validate matched local files through the importer without writing rows.",
             command=_shell_command(
@@ -351,7 +382,7 @@ def _workflow_steps(
             suggested_effect="read_only",
         ),
         ExternalToolWorkflowStep(
-            order=10,
+            order=11,
             name="import_directory_signals",
             purpose="Import validated local handoff rows into local SQLite.",
             command=_shell_command(
@@ -372,7 +403,7 @@ def _workflow_steps(
             suggested_effect="updates_local_imports",
         ),
         ExternalToolWorkflowStep(
-            order=11,
+            order=12,
             name="print_post_import_review",
             purpose="Print the local post-import review workflow.",
             command=_shell_command(

@@ -227,6 +227,10 @@ External tool workflow docs check:
 - [ ] Boundary text says the workflow command does not inspect directories,
       read handoff files, import rows, open SQLite, or create artifacts.
 - [ ] JSON output is workflow metadata, not importable handoff rows.
+- [ ] Workflow output includes `check_external_tool_readiness`, an optional
+      preflight command that points to `external-tool-readiness` for local
+      command availability guidance before sanitized handoff rows are prepared,
+      while `external-tool-workflow` itself remains print-only.
 - [ ] CLI reference and installed-wheel smoke include `fashion-radar
       external-tool-workflow --adapter instaloader --format table` and
       `fashion-radar external-tool-workflow --adapter instaloader --format

@@ -75,6 +75,9 @@ external/community tools that need a producer-facing wrapper around existing
 local commands before writing sanitized CSV/JSON local file handoff rows. JSON
 output is workflow metadata, not importable handoff rows; table output may
 include local metadata and copyable commands.
+The printed steps include `check_external_tool_readiness`, an optional
+preflight command that points to `external-tool-readiness` for local command
+availability guidance before sanitized handoff rows are prepared.
 
 ```bash
 uv run fashion-radar external-tool-workflow --adapter instaloader --format table
@@ -84,6 +87,7 @@ uv run fashion-radar external-tool-workflow --adapter instaloader --format json
 The printed sequence uses these step names:
 
 - `inspect_adapter_registry`
+- `check_external_tool_readiness`
 - `print_adapter_template_json`
 - `print_signal_profile`
 - `print_handoff_manifest`

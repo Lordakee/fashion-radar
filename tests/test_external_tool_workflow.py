@@ -50,9 +50,10 @@ def test_workflow_has_stable_instaloader_contract_and_steps() -> None:
     assert workflow.config_dir == "configs"
     assert workflow.data_dir == "data"
     assert workflow.source_name == "Instaloader Export"
-    assert workflow.step_count == 11
+    assert workflow.step_count == 12
     assert [step.name for step in workflow.steps] == [
         "inspect_adapter_registry",
+        "check_external_tool_readiness",
         "print_adapter_template_json",
         "print_signal_profile",
         "print_handoff_manifest",
@@ -66,6 +67,7 @@ def test_workflow_has_stable_instaloader_contract_and_steps() -> None:
     ]
     assert [step.suggested_effect for step in workflow.steps] == [
         "print_only",
+        "read_only",
         "print_only",
         "print_only",
         "print_only",
@@ -102,6 +104,13 @@ def test_workflow_commands_use_adapter_defaults_and_shell_quote_paths() -> None:
         "--data-dir 'data ? # & %' --as-of 2026-06-13T12:00:00+00:00 "
         "--format table"
     )
+    assert commands["check_external_tool_readiness"] == (
+        "fashion-radar external-tool-readiness --adapter instaloader "
+        "--directory 'exports ? # & %' --config-dir 'config ? # & %' "
+        "--data-dir 'data ? # & %' --as-of 2026-06-13T12:00:00+00:00 "
+        "--input-format json --pattern '*.json' "
+        "--source-name 'Instaloader Export' --format table"
+    )
     assert commands["print_adapter_template_json"] == (
         "fashion-radar external-tool-template --adapter instaloader "
         "--directory 'exports ? # & %' --config-dir 'config ? # & %' "
@@ -132,7 +141,8 @@ def test_workflow_defaults_to_generic_adapter_and_accepts_local_overrides() -> N
     assert workflow.input_format == "json"
     assert workflow.pattern == "*.handoff.json"
     assert workflow.source_name == "Local Desk Export"
-    assert "--source-name 'Local Desk Export'" in workflow.steps[3].command
+    assert "--source-name 'Local Desk Export'" in workflow.steps[1].command
+    assert "--source-name 'Local Desk Export'" in workflow.steps[4].command
 
 
 def test_workflow_blank_source_name_falls_back_to_adapter_source_name() -> None:

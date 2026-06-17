@@ -464,7 +464,7 @@ def external_tool_workflow_payload() -> dict[str, object]:
         "config_dir": "configs",
         "data_dir": "data",
         "source_name": "Rednote MCP Export",
-        "step_count": 11,
+        "step_count": 12,
         "steps": [
             {
                 "order": 1,
@@ -481,6 +481,21 @@ def external_tool_workflow_payload() -> dict[str, object]:
             },
             {
                 "order": 2,
+                "name": "check_external_tool_readiness",
+                "purpose": (
+                    "Print local external tool readiness guidance before preparing sanitized "
+                    "handoff rows."
+                ),
+                "command": (
+                    "fashion-radar external-tool-readiness --adapter rednote_mcp "
+                    "--directory exports --config-dir configs --data-dir data "
+                    "--as-of 2026-06-13T12:00:00+00:00 --input-format json "
+                    "--pattern '*.json' --source-name 'Rednote MCP Export' --format table"
+                ),
+                "suggested_effect": "read_only",
+            },
+            {
+                "order": 3,
                 "name": "print_adapter_template_json",
                 "purpose": "Print example sanitized local handoff rows for the selected adapter.",
                 "command": (
@@ -491,14 +506,14 @@ def external_tool_workflow_payload() -> dict[str, object]:
                 "suggested_effect": "print_only",
             },
             {
-                "order": 3,
+                "order": 4,
                 "name": "print_signal_profile",
                 "purpose": "Print the accepted community signal row fields.",
                 "command": "fashion-radar community-signal-profile --format json",
                 "suggested_effect": "print_only",
             },
             {
-                "order": 4,
+                "order": 5,
                 "name": "print_handoff_manifest",
                 "purpose": "Print a local handoff manifest for the selected export directory.",
                 "command": (
@@ -510,7 +525,7 @@ def external_tool_workflow_payload() -> dict[str, object]:
                 "suggested_effect": "print_only",
             },
             {
-                "order": 5,
+                "order": 6,
                 "name": "print_handoff_workflow",
                 "purpose": "Print the local community handoff workflow for these adapter settings.",
                 "command": (
@@ -522,7 +537,7 @@ def external_tool_workflow_payload() -> dict[str, object]:
                 "suggested_effect": "print_only",
             },
             {
-                "order": 6,
+                "order": 7,
                 "name": "lint_export_directory",
                 "purpose": "Lint local external tool handoff files before import.",
                 "command": (
@@ -533,7 +548,7 @@ def external_tool_workflow_payload() -> dict[str, object]:
                 "suggested_effect": "read_only",
             },
             {
-                "order": 7,
+                "order": 8,
                 "name": "preview_candidate_phrases",
                 "purpose": (
                     "Preview aggregate candidate phrases before importing local handoff rows."
@@ -547,7 +562,7 @@ def external_tool_workflow_payload() -> dict[str, object]:
                 "suggested_effect": "read_only",
             },
             {
-                "order": 8,
+                "order": 9,
                 "name": "review_handoff_readiness",
                 "purpose": "Review local handoff readiness before import.",
                 "command": (
@@ -559,7 +574,7 @@ def external_tool_workflow_payload() -> dict[str, object]:
                 "suggested_effect": "read_only",
             },
             {
-                "order": 9,
+                "order": 10,
                 "name": "dry_run_directory_import",
                 "purpose": (
                     "Validate matched local files through the importer without writing rows."
@@ -573,7 +588,7 @@ def external_tool_workflow_payload() -> dict[str, object]:
                 "suggested_effect": "read_only",
             },
             {
-                "order": 10,
+                "order": 11,
                 "name": "import_directory_signals",
                 "purpose": "Import validated local handoff rows into local SQLite.",
                 "command": (
@@ -584,7 +599,7 @@ def external_tool_workflow_payload() -> dict[str, object]:
                 "suggested_effect": "updates_local_imports",
             },
             {
-                "order": 11,
+                "order": 12,
                 "name": "print_post_import_review",
                 "purpose": "Print the local post-import review workflow.",
                 "command": (
@@ -1200,7 +1215,7 @@ def test_validate_external_tool_workflow_requires_print_only_workflow_contract()
     executable_import = external_tool_workflow_payload()
     steps = executable_import["steps"]
     assert isinstance(steps, list)
-    import_step = steps[9]
+    import_step = steps[10]
     assert isinstance(import_step, dict)
     import_step["suggested_effect"] = "read_only"
     with pytest.raises(smoke.SmokeError, match="import step effect"):

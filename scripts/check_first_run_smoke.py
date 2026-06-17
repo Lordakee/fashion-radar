@@ -76,6 +76,7 @@ EXPECTED_COMMUNITY_HANDOFF_WORKFLOW_STEPS = (
 )
 EXPECTED_EXTERNAL_TOOL_WORKFLOW_STEPS = (
     "inspect_adapter_registry",
+    "check_external_tool_readiness",
     "print_adapter_template_json",
     "print_signal_profile",
     "print_handoff_manifest",
@@ -551,7 +552,7 @@ def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
     assert_equal(f"{command_name} pattern", payload.get("pattern"), "*.json")
     assert_equal(f"{command_name} as_of", payload.get("as_of"), "2026-06-13T12:00:00+00:00")
     assert_equal(f"{command_name} source_name", payload.get("source_name"), "Rednote MCP Export")
-    assert_equal(f"{command_name} step_count", payload.get("step_count"), 11)
+    assert_equal(f"{command_name} step_count", payload.get("step_count"), 12)
     for field in ("directory", "config_dir", "data_dir"):
         value = payload.get(field)
         if not isinstance(value, str) or not value:
@@ -572,7 +573,7 @@ def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
         list(EXPECTED_EXTERNAL_TOOL_WORKFLOW_STEPS),
     )
 
-    import_step = steps[9]
+    import_step = steps[10]
     if not isinstance(import_step, dict):
         raise SmokeError(f"{command_name} import step must be a JSON object")
     assert_equal(
@@ -587,6 +588,7 @@ def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
         effects,
         [
             "print_only",
+            "read_only",
             "print_only",
             "print_only",
             "print_only",
@@ -608,7 +610,26 @@ def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
         if expected not in registry_command:
             raise SmokeError(f"{command_name} registry command missing {expected!r}")
 
-    template_step = steps[1]
+    readiness_step = steps[1]
+    if not isinstance(readiness_step, dict):
+        raise SmokeError(f"{command_name} readiness step must be a JSON object")
+    readiness_command = str(readiness_step.get("command", ""))
+    for expected in (
+        "fashion-radar external-tool-readiness",
+        "--adapter",
+        "rednote_mcp",
+        "--input-format",
+        "json",
+        "--pattern",
+        "*.json",
+        "--source-name",
+        "--format",
+        "table",
+    ):
+        if expected not in readiness_command:
+            raise SmokeError(f"{command_name} readiness command missing {expected!r}")
+
+    template_step = steps[2]
     if not isinstance(template_step, dict):
         raise SmokeError(f"{command_name} template step must be a JSON object")
     template_command = str(template_step.get("command", ""))
@@ -622,7 +643,7 @@ def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
         if expected not in template_command:
             raise SmokeError(f"{command_name} template command missing {expected!r}")
 
-    lint_step = steps[5]
+    lint_step = steps[6]
     if not isinstance(lint_step, dict):
         raise SmokeError(f"{command_name} lint step must be a JSON object")
     lint_command = str(lint_step.get("command", ""))
