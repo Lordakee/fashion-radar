@@ -492,9 +492,60 @@ def validate_external_tool_adapters(command_name: str, payload: Any) -> None:
     if not readiness_commands:
         raise SmokeError(f"{command_name} first adapter missing external-tool-readiness command")
     readiness_command = readiness_commands[0]
-    for expected in ("--adapter", "rednote_mcp", "--input-format", "json", "--format", "table"):
-        if expected not in readiness_command:
-            raise SmokeError(f"{command_name} readiness command missing {expected!r}")
+    try:
+        readiness_parts = shlex.split(readiness_command)
+    except ValueError as exc:
+        raise SmokeError(f"{command_name} readiness command is not shell-parseable: {exc}") from exc
+    assert_equal(
+        f"{command_name} readiness command prefix",
+        readiness_parts[:2],
+        ["fashion-radar", "external-tool-readiness"],
+    )
+
+    def required_readiness_value(flag: str) -> str:
+        if flag not in readiness_parts:
+            raise SmokeError(f"{command_name} readiness command missing {flag!r}")
+        index = readiness_parts.index(flag)
+        if index + 1 >= len(readiness_parts):
+            raise SmokeError(f"{command_name} readiness command missing value for {flag!r}")
+        value = readiness_parts[index + 1]
+        if not value or value.startswith("--"):
+            raise SmokeError(f"{command_name} readiness command missing value for {flag!r}")
+        return value
+
+    assert_equal(
+        f"{command_name} readiness adapter",
+        required_readiness_value("--adapter"),
+        "rednote_mcp",
+    )
+    assert_equal(
+        f"{command_name} readiness directory",
+        required_readiness_value("--directory"),
+        "exports",
+    )
+    required_readiness_value("--config-dir")
+    required_readiness_value("--data-dir")
+    required_readiness_value("--as-of")
+    assert_equal(
+        f"{command_name} readiness input_format",
+        required_readiness_value("--input-format"),
+        "json",
+    )
+    assert_equal(
+        f"{command_name} readiness pattern",
+        required_readiness_value("--pattern"),
+        "*.json",
+    )
+    assert_equal(
+        f"{command_name} readiness source_name",
+        required_readiness_value("--source-name"),
+        "Rednote MCP Export",
+    )
+    assert_equal(
+        f"{command_name} readiness output format",
+        required_readiness_value("--format"),
+        "table",
+    )
 
 
 def validate_external_tool_template(command_name: str, payload: Any) -> None:

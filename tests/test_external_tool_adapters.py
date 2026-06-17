@@ -88,6 +88,8 @@ def test_instaloader_adapter_has_expected_mapping_and_commands() -> None:
     readiness_command = commands[1]
     assert readiness_command[readiness_command.index("--adapter") + 1] == "instaloader"
     assert readiness_command[readiness_command.index("--directory") + 1] == "exports"
+    assert readiness_command[readiness_command.index("--config-dir") + 1] == "configs"
+    assert readiness_command[readiness_command.index("--data-dir") + 1] == "data"
     assert readiness_command[readiness_command.index("--input-format") + 1] == "json"
     assert readiness_command[readiness_command.index("--pattern") + 1] == "*.json"
     assert readiness_command[readiness_command.index("--source-name") + 1] == "Instaloader Export"

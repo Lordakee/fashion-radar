@@ -555,7 +555,29 @@ def test_external_tool_adapters_command_prints_json() -> None:
         "note": "Stable source URL or local reference URL for the observed item.",
     }
     commands = payload["adapters"][0]["recommended_commands"]
-    assert any("fashion-radar external-tool-readiness" in command for command in commands)
+    readiness_command = next(
+        command for command in commands if "fashion-radar external-tool-readiness" in command
+    )
+    readiness_parts = shlex.split(readiness_command)
+
+    def flag_value(flag: str) -> str:
+        index = readiness_parts.index(flag)
+        assert index + 1 < len(readiness_parts)
+        value = readiness_parts[index + 1]
+        assert value
+        assert not value.startswith("--")
+        return value
+
+    assert readiness_parts[:2] == ["fashion-radar", "external-tool-readiness"]
+    assert flag_value("--adapter") == "rednote_mcp"
+    assert flag_value("--directory") == "exports"
+    assert flag_value("--config-dir")
+    assert flag_value("--data-dir")
+    assert flag_value("--as-of") == "2026-06-13T12:00:00+00:00"
+    assert flag_value("--input-format") == "json"
+    assert flag_value("--pattern") == "*.json"
+    assert flag_value("--source-name") == "Rednote MCP Export"
+    assert flag_value("--format") == "table"
 
 
 def test_external_tool_adapters_command_filters_adapter_and_quotes_paths() -> None:
@@ -590,6 +612,10 @@ def test_external_tool_adapters_command_filters_adapter_and_quotes_paths() -> No
         assert "'data ? # & %'" in command
         assert "--source-name 'Instaloader Export'" in command
     assert "fashion-radar external-tool-readiness" in readiness_command
+    readiness_parts = shlex.split(readiness_command)
+    assert readiness_parts[readiness_parts.index("--directory") + 1] == "exports ? # & %"
+    assert readiness_parts[readiness_parts.index("--config-dir") + 1] == "config ? # & %"
+    assert readiness_parts[readiness_parts.index("--data-dir") + 1] == "data ? # & %"
     assert "fashion-radar community-handoff-manifest" in manifest_command
 
 

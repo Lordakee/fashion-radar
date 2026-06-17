@@ -1171,10 +1171,78 @@ def test_validate_external_tool_adapters_requires_print_only_registry_contract()
     adapters = missing_token["adapters"]
     assert isinstance(adapters, list)
     adapters[0]["recommended_commands"] = [  # type: ignore[index]
-        "fashion-radar external-tool-readiness --adapter rednote_mcp --format table"
+        (
+            "fashion-radar external-tool-readiness --adapter rednote_mcp "
+            "--directory exports --config-dir configs --data-dir data "
+            "--as-of 2026-06-13T12:00:00+00:00 "
+            "--pattern '*.json' --source-name 'Rednote MCP Export' --format table"
+        )
     ]
     with pytest.raises(smoke.SmokeError, match="readiness command missing '--input-format'"):
         smoke.validate_external_tool_adapters("external-tool-adapters", missing_token)
+
+    missing_format = external_tool_adapters_payload()
+    adapters = missing_format["adapters"]
+    assert isinstance(adapters, list)
+    adapters[0]["recommended_commands"] = [  # type: ignore[index]
+        (
+            "fashion-radar external-tool-readiness --adapter rednote_mcp "
+            "--directory exports --config-dir configs --data-dir data "
+            "--as-of 2026-06-13T12:00:00+00:00 --input-format json "
+            "--pattern '*.json' --source-name 'Rednote MCP Export'"
+        )
+    ]
+    with pytest.raises(smoke.SmokeError, match="readiness command missing '--format'"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", missing_format)
+
+    invalid_format = external_tool_adapters_payload()
+    adapters = invalid_format["adapters"]
+    assert isinstance(adapters, list)
+    adapters[0]["recommended_commands"] = [  # type: ignore[index]
+        (
+            "fashion-radar external-tool-readiness --adapter rednote_mcp "
+            "--directory exports --config-dir configs --data-dir data "
+            "--as-of 2026-06-13T12:00:00+00:00 --input-format json "
+            "--pattern '*.json' --source-name 'Rednote MCP Export' --format json"
+        )
+    ]
+    with pytest.raises(smoke.SmokeError, match="readiness output format"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", invalid_format)
+
+    missing_value = external_tool_adapters_payload()
+    adapters = missing_value["adapters"]
+    assert isinstance(adapters, list)
+    adapters[0]["recommended_commands"] = [  # type: ignore[index]
+        (
+            "fashion-radar external-tool-readiness --adapter rednote_mcp "
+            "--directory exports --config-dir configs --data-dir data "
+            "--as-of 2026-06-13T12:00:00+00:00 --input-format json "
+            "--pattern '*.json' --source-name --format table"
+        )
+    ]
+    with pytest.raises(smoke.SmokeError, match="missing value for '--source-name'"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", missing_value)
+
+    trailing_flag = external_tool_adapters_payload()
+    adapters = trailing_flag["adapters"]
+    assert isinstance(adapters, list)
+    adapters[0]["recommended_commands"] = [  # type: ignore[index]
+        (
+            "fashion-radar external-tool-readiness --adapter rednote_mcp "
+            "--directory exports --config-dir configs --data-dir data --as-of"
+        )
+    ]
+    with pytest.raises(smoke.SmokeError, match="missing value for '--as-of'"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", trailing_flag)
+
+    malformed_readiness = external_tool_adapters_payload()
+    adapters = malformed_readiness["adapters"]
+    assert isinstance(adapters, list)
+    adapters[0]["recommended_commands"] = [  # type: ignore[index]
+        "fashion-radar external-tool-readiness --adapter rednote_mcp --source-name 'Rednote"
+    ]
+    with pytest.raises(smoke.SmokeError, match="readiness command is not shell-parseable"):
+        smoke.validate_external_tool_adapters("external-tool-adapters", malformed_readiness)
 
 
 def test_validate_external_tool_template_requires_importable_items() -> None:
