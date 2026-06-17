@@ -47,6 +47,16 @@ EXPECTED_SAMPLE_TITLES = tuple(row["title"] for row in EXPECTED_SAMPLE_ROWS)
 EXPECTED_SAMPLE_ENTITIES = ("The Row", "The Row Margaux", "Ballet Flats")
 EXPECTED_PLATFORM_COUNTS = {"community": 2}
 EXPECTED_SOURCE_COUNTS = {SOURCE_NAME: 2}
+EXPECTED_EXTERNAL_TOOL_TEMPLATE_FIELDS = (
+    "url",
+    "title",
+    "published_at",
+    "summary",
+    "source_name",
+    "platform",
+    "source_weight",
+    "collected_at",
+)
 EXPECTED_IMPORTED_REVIEW_WORKFLOW_STEPS = (
     "summarize_imported_sources",
     "refresh_stored_matches",
@@ -405,6 +415,39 @@ def validate_external_tool_adapters(command_name: str, payload: Any) -> None:
     assert_equal(f"{command_name} first adapter id", first_adapter.get("id"), "rednote_mcp")
 
 
+def validate_external_tool_template(command_name: str, payload: Any) -> None:
+    if not isinstance(payload, dict):
+        raise SmokeError(f"{command_name} output must be a JSON object")
+    assert_equal(f"{command_name} keys", list(payload), ["items"])
+    items = payload.get("items")
+    if not isinstance(items, list):
+        raise SmokeError(f"{command_name} items must be a list")
+    if len(items) != 2:
+        raise SmokeError(f"{command_name} items must contain exactly 2 rows")
+    for index, item in enumerate(items, start=1):
+        if not isinstance(item, dict):
+            raise SmokeError(f"{command_name} row {index} must be a JSON object")
+        forbidden_fields = [
+            key for key in item if key == "metadata" or key.startswith("_") or key.startswith("raw")
+        ]
+        if forbidden_fields:
+            raise SmokeError(
+                f"{command_name} row {index} contains private/raw field: {forbidden_fields[0]}"
+            )
+        for field in EXPECTED_EXTERNAL_TOOL_TEMPLATE_FIELDS:
+            if field not in item:
+                raise SmokeError(f"{command_name} row {index} {field} is required")
+        extra_fields = set(item) - set(EXPECTED_EXTERNAL_TOOL_TEMPLATE_FIELDS)
+        if extra_fields:
+            raise SmokeError(
+                f"{command_name} row {index} has unexpected field: {sorted(extra_fields)[0]}"
+            )
+        for field in EXPECTED_EXTERNAL_TOOL_TEMPLATE_FIELDS:
+            if item.get(field) in (None, ""):
+                raise SmokeError(f"{command_name} row {index} {field} must be populated")
+        assert_equal(f"{command_name} row {index} platform", item.get("platform"), "rednote")
+
+
 def validate_report_outputs(json_payload: Any, markdown_text: str) -> None:
     if not isinstance(json_payload, dict):
         raise SmokeError("report JSON output must be a JSON object")
@@ -606,6 +649,18 @@ def run_first_run_flow(context: SmokeContext) -> None:
         run_cli(context, "external-tool-adapters", "--format", "json").stdout,
     )
     validate_external_tool_adapters("external-tool-adapters", external_tool_adapters)
+    external_tool_template = validate_json_output(
+        "external-tool-template",
+        run_cli(
+            context,
+            "external-tool-template",
+            "--adapter",
+            "rednote_mcp",
+            "--format",
+            "json",
+        ).stdout,
+    )
+    validate_external_tool_template("external-tool-template", external_tool_template)
     run_cli(
         context,
         "community-signal-lint",

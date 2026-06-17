@@ -67,6 +67,13 @@ paywall bypass, or fragile full social-platform scraping.
   connectors, no scraping, no browser automation, no platform APIs, no
   monitoring, no scheduling, no source acquisition, no demand proof, no
   ranking, and no coverage verification.
+- Future external social/community template work must keep
+  `external-tool-template` as a local, print-only command that prints
+  adapter-specific template rows for user-controlled external/community tools
+  that target sanitized CSV/JSON local file handoff. It is not platform
+  collection and must have no connectors, no scraping, no browser automation,
+  no platform APIs, no monitoring, no scheduling, no source acquisition, no
+  demand proof, no ranking, and no coverage verification.
 - Future community handoff readiness checks must keep
   `community-handoff-check-dir` as a local-only handoff readiness report for
   user-controlled community signal directories. It reads only matched local

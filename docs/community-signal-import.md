@@ -42,6 +42,9 @@ handoff readiness report before import.
 Use `external-tool-adapters` when a local upstream producer needs the
 external social/community tool adapter registry and local producer-discovery
 registry before choosing a sanitized CSV/JSON local file handoff shape.
+Use `external-tool-template` when a local upstream producer needs
+adapter-specific template rows for a sanitized CSV/JSON local file handoff
+shape before writing its own export file.
 
 ## External Tool Handoff Templates
 
@@ -108,6 +111,32 @@ create artifacts. It is not platform collection and has no connectors, no
 scraping, no browser automation, no platform APIs, no monitoring, no
 scheduling, no source acquisition, no demand proof, no ranking, and no
 coverage verification.
+
+## External Tool Template Rows
+
+`external-tool-template` prints adapter-specific template rows for
+user-controlled external/community tools that need sanitized CSV/JSON local
+file handoff examples. JSON and CSV output are importable community handoff
+rows only; table output may include local metadata, field mappings, boundaries,
+and copyable local commands.
+
+```bash
+uv run fashion-radar external-tool-template --adapter instaloader --format table
+uv run fashion-radar external-tool-template --adapter instaloader --format json
+uv run fashion-radar external-tool-template --adapter instaloader --format csv
+```
+
+Omit `--adapter` to print two synthetic rows for every known adapter. The rows
+use only the community handoff fields `url`, `title`, `published_at`,
+`summary`, `source_name`, `platform`, `source_weight`, and `collected_at`.
+They do not include raw/private/account/media/cookie/session/token fields.
+
+The command is local and print-only. It does not write files, run adapters,
+inspect directories, read handoff files, validate files, import rows, open
+SQLite, or create artifacts. It is not platform collection and has no
+connectors, no scraping, no browser automation, no platform APIs, no
+monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
+and no coverage verification.
 
 ## Producer Profile
 

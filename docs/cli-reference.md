@@ -82,6 +82,17 @@ validates deterministic sample output content, not only command execution.
   and has no connectors, no scraping, no browser automation, no platform APIs,
   no monitoring, no scheduling, no source acquisition, no demand proof, no
   ranking, and no coverage verification.
+- `external-tool-template`: print local adapter-specific template rows for
+  user-controlled external/community tools that need sanitized CSV/JSON local
+  file handoff examples. Supports `--adapter`, `--directory`, `--config-dir`,
+  `--data-dir`, `--as-of`, and `--format table|json|csv`. It is local and
+  print-only: JSON and CSV output contain importable community handoff rows
+  only, table output may include metadata and copyable commands, and the
+  command does not write files, run adapters, inspect directories, read
+  handoff files, validate files, import rows, open SQLite, or create artifacts.
+  It is not platform collection and has no connectors, no scraping, no browser
+  automation, no platform APIs, no monitoring, no scheduling, no source
+  acquisition, no demand proof, no ranking, and no coverage verification.
 - `community-signal-lint` PATH: lint one community signal handoff file. Requires
   `--input-format csv|json`; supports `--format table|json`, `--source-name`,
   and `--strict`.
@@ -139,6 +150,9 @@ Print adapter registry examples:
 ```bash
 fashion-radar external-tool-adapters --format table
 fashion-radar external-tool-adapters --format json
+fashion-radar external-tool-template --adapter instaloader --format table
+fashion-radar external-tool-template --adapter instaloader --format json
+fashion-radar external-tool-template --adapter instaloader --format csv
 ```
 
 ## Imported Signal Review

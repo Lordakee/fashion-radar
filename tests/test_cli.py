@@ -604,6 +604,111 @@ def test_external_tool_adapters_command_prints_table() -> None:
     assert "Commands for instaloader:" in result.output
 
 
+def test_external_tool_template_command_prints_json() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["external-tool-template", "--adapter", "instaloader", "--format", "json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == ["items"]
+    assert payload["items"][0]["source_name"] == "Instaloader Export"
+    assert payload["items"][0]["platform"] == "instagram"
+    assert "adapter_id" not in payload["items"][0]
+
+
+def test_external_tool_template_command_prints_csv() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["external-tool-template", "--adapter", "x_search_export", "--format", "csv"],
+    )
+
+    assert result.exit_code == 0
+    assert result.output.splitlines()[0] == (
+        "url,title,published_at,summary,source_name,platform,source_weight,collected_at"
+    )
+    assert "X Search Export" in result.output
+    assert ",x," in result.output
+
+
+def test_external_tool_template_command_prints_all_adapters_when_unfiltered() -> None:
+    result = CliRunner().invoke(app, ["external-tool-template", "--format", "json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert list(payload) == ["items"]
+    assert len(payload["items"]) == 14
+    assert {item["platform"] for item in payload["items"]} >= {"rednote", "instagram", "tiktok"}
+
+
+def test_external_tool_template_command_prints_table() -> None:
+    result = CliRunner().invoke(app, ["external-tool-template", "--adapter", "rednote_mcp"])
+
+    assert result.exit_code == 0
+    assert "External tool template." in result.output
+    assert "Contract version: external-tool-template/v1" in result.output
+    assert "Adapter: rednote_mcp" in result.output
+    assert "Source name: Rednote MCP Export" in result.output
+
+
+def test_external_tool_template_command_is_print_only_for_paths(tmp_path: Path) -> None:
+    export_dir = tmp_path / "missing-exports"
+    config_dir = tmp_path / "missing-config"
+    data_dir = tmp_path / "missing-data"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "external-tool-template",
+            "--adapter",
+            "instaloader",
+            "--directory",
+            str(export_dir),
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert len(payload["items"]) == 2
+    assert not export_dir.exists()
+    assert not config_dir.exists()
+    assert not data_dir.exists()
+    assert not (data_dir / "fashion-radar.sqlite").exists()
+
+
+def test_external_tool_template_command_rejects_unknown_adapter() -> None:
+    result = CliRunner().invoke(app, ["external-tool-template", "--adapter", "missing"])
+
+    assert result.exit_code == 1
+    assert (
+        "Could not build external tool template: Unknown external tool adapter: missing"
+        in result.output
+    )
+
+
+def test_external_tool_template_command_rejects_invalid_as_of() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "external-tool-template",
+            "--adapter",
+            "instaloader",
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not build external tool template:" in result.output
+
+
 def test_community_signal_profile_json_is_deterministic_across_env_and_cwd(
     tmp_path: Path,
     monkeypatch,

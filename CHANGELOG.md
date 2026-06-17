@@ -129,6 +129,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   collection, with no connectors, no scraping, no browser automation, no
   platform APIs, no monitoring, no scheduling, no source acquisition, no demand
   proof, no ranking, and no coverage verification.
+- Stage 63 `external-tool-template` command for local, print-only
+  adapter-specific template rows for user-controlled external/community tools
+  that need sanitized CSV/JSON local file handoff examples. JSON and CSV output
+  contain importable community handoff rows only; table output can include local
+  metadata and copyable commands. This is not platform collection, with no
+  connectors, no scraping, no browser automation, no platform APIs, no
+  monitoring, no scheduling, no source acquisition, no demand proof, no
+  ranking, and no coverage verification.
 - Stage 53 community handoff guardrail tests for prohibited-field lint
   coverage, producer-profile command order, docs drift, and parser rejection.
 - Optional fashion entity watchlist pack for broader local matching coverage

@@ -106,6 +106,17 @@ connectors, no scraping, no browser automation, no platform APIs, no
 monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
 and no coverage verification.
 
+`external-tool-template` prints adapter-specific template rows as a local
+producer handoff aid only. It is for user-controlled external/community tools
+that need sanitized CSV/JSON local file handoff examples. JSON and CSV output
+contain importable community handoff rows only; table output may include local
+metadata, field mappings, boundaries, and copyable commands. It does not write
+files, run adapters, inspect directories, read handoff files, validate files,
+import rows, open SQLite, or create artifacts. It is not platform collection
+and has no connectors, no scraping, no browser automation, no platform APIs,
+no monitoring, no scheduling, no source acquisition, no demand proof, no
+ranking, and no coverage verification.
+
 `community-handoff-check-dir` is a local-only handoff readiness report for
 user-controlled community signal directories. It reads only matched local
 regular files and local config. It does not import rows, uses no SQLite,

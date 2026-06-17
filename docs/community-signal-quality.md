@@ -17,6 +17,10 @@ Run `external-tool-adapters --format json` when a local producer needs the
 external social/community tool adapter registry and local producer-discovery
 registry before choosing a sanitized CSV/JSON local file handoff target for
 user-controlled external/community tools.
+Run `external-tool-template --adapter instaloader --format json` when a local
+producer needs adapter-specific template rows for sanitized CSV/JSON local file
+handoff examples before writing an export file.
+
 `community-signal-profile --format json` and
 `community-handoff-manifest --format json` expose `directory_example_paths` for
 the checked-in directory layout:
@@ -82,6 +86,14 @@ Print local adapter registry metadata without running adapters:
 ```bash
 uv run fashion-radar external-tool-adapters --format table
 uv run fashion-radar external-tool-adapters --format json
+```
+
+Print adapter-specific template rows without running adapters:
+
+```bash
+uv run fashion-radar external-tool-template --adapter instaloader --format table
+uv run fashion-radar external-tool-template --adapter instaloader --format json
+uv run fashion-radar external-tool-template --adapter instaloader --format csv
 ```
 
 Recommended order:
@@ -160,6 +172,17 @@ files, validate files, import rows, open SQLite, or create artifacts. It is not
 platform collection and has no connectors, no scraping, no browser automation,
 no platform APIs, no monitoring, no scheduling, no source acquisition, no
 demand proof, no ranking, and no coverage verification.
+
+`external-tool-template` is local and print-only. It prints adapter-specific
+template rows for user-controlled external/community tools that need sanitized
+CSV/JSON local file handoff examples. JSON and CSV output contain importable
+community handoff rows only; table output may include local metadata,
+boundaries, field mappings, and copyable commands. It does not write files, run
+adapters, inspect directories, read handoff files, validate files, import rows,
+open SQLite, or create artifacts. It is not platform collection and has no
+connectors, no scraping, no browser automation, no platform APIs, no
+monitoring, no scheduling, no source acquisition, no demand proof, no ranking,
+and no coverage verification.
 
 Directory linting is non-recursive in this version. A pattern such as `*.csv`
 matches regular files directly under the supplied directory only. Nested files

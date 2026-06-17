@@ -17,6 +17,8 @@ YAML config
      examples for a local external tool
   -> optionally print the external social/community tool adapter registry
      as a local producer-discovery registry
+  -> optionally print adapter-specific template rows for sanitized CSV/JSON
+     local file handoff examples
   -> optionally print the community signal producer profile before a local tool writes files
      with static directory_example_paths pointers
   -> optionally print a community directory handoff checklist without executing it
@@ -84,6 +86,16 @@ YAML config
   scraping, no browser automation, no platform APIs, no monitoring, no
   scheduling, no source acquisition, no demand proof, no ranking, and no
   coverage verification.
+  `external-tool-template` prints adapter-specific template rows for
+  user-controlled external/community tools that need sanitized CSV/JSON local
+  file handoff examples. It is local and print-only: JSON and CSV output
+  contain importable community handoff rows only, table output may include
+  local metadata and copyable commands, and the command does not write files,
+  run adapters, inspect directories, read handoff files, validate files,
+  import rows, open SQLite, or create artifacts. It is not platform collection
+  and has no connectors, no scraping, no browser automation, no platform APIs,
+  no monitoring, no scheduling, no source acquisition, no demand proof, no
+  ranking, and no coverage verification.
   `community-signal-profile` prints that local producer contract for
   user-controlled tools without reading handoff files, creating artifacts,
   acquiring sources, monitoring platforms, or performing compliance review.
@@ -217,6 +229,7 @@ fashion-radar source-pack-lint ./configs/sources.yaml --strict
 fashion-radar entity-pack-lint ./configs/entities.yaml
 fashion-radar collect --config-dir ./configs --data-dir ./data
 fashion-radar external-tool-adapters --format json
+fashion-radar external-tool-template --adapter instaloader --format json
 fashion-radar community-handoff-workflow ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --data-dir ./data --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar community-handoff-check-dir ./exports --input-format csv --pattern "*.csv" --config-dir ./configs --as-of 2026-06-11T12:00:00Z --source-name "Manual Export"
 fashion-radar community-signal-lint ./signals.csv --input-format csv --source-name "Manual Export"

@@ -9,6 +9,11 @@ from pathlib import Path
 
 import pytest
 
+from fashion_radar.external_tool_templates import (
+    build_external_tool_template,
+    render_external_tool_template_json,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "check_first_run_smoke.py"
 
@@ -398,6 +403,55 @@ def external_tool_adapters_payload() -> dict[str, object]:
     }
 
 
+def external_tool_template_payload() -> dict[str, object]:
+    return {
+        "items": [
+            {
+                "url": "https://example.com/external-tool-template/rednote_mcp/the-row-bag",
+                "title": "Rednote MCP Export The Row bag observed signal",
+                "published_at": "2026-06-13T12:00:00+00:00",
+                "summary": (
+                    "Synthetic sanitized observation about The Row bag interest from a "
+                    "user-controlled external/community tool."
+                ),
+                "source_name": "Rednote MCP Export",
+                "platform": "rednote",
+                "source_weight": 1.2,
+                "collected_at": "2026-06-13T12:15:00+00:00",
+            },
+            {
+                "url": "https://example.com/external-tool-template/rednote_mcp/silver-flat-shoe",
+                "title": "Rednote MCP Export silver flat shoe observed signal",
+                "published_at": "2026-06-13T13:00:00+00:00",
+                "summary": (
+                    "Synthetic sanitized observation about silver flat shoes and styling "
+                    "from a user-controlled external/community tool."
+                ),
+                "source_name": "Rednote MCP Export",
+                "platform": "rednote",
+                "source_weight": 1.1,
+                "collected_at": "2026-06-13T13:15:00+00:00",
+            },
+        ]
+    }
+
+
+def test_external_tool_template_payload_matches_real_rednote_template() -> None:
+    expected = json.loads(
+        render_external_tool_template_json(
+            build_external_tool_template(
+                adapter_id="rednote_mcp",
+                directory=Path("./exports"),
+                config_dir=Path("./configs"),
+                data_dir=Path("./data"),
+                as_of="2026-06-13T12:00:00Z",
+            )
+        )
+    )
+
+    assert external_tool_template_payload() == expected
+
+
 def make_context(tmp_path: Path, *, python: str = "python-test"):
     runtime_dir = tmp_path / "runtime"
     return smoke.SmokeContext(
@@ -723,6 +777,52 @@ def test_validate_external_tool_adapters_requires_print_only_registry_contract()
     adapters[0]["id"] = "instaloader"  # type: ignore[index]
     with pytest.raises(smoke.SmokeError, match="first adapter id"):
         smoke.validate_external_tool_adapters("external-tool-adapters", wrong_adapter)
+
+
+def test_validate_external_tool_template_requires_importable_items() -> None:
+    smoke.validate_external_tool_template(
+        "external-tool-template",
+        external_tool_template_payload(),
+    )
+
+    metadata_envelope = {
+        "contract_version": "external-tool-template/v1",
+        "items": [{"platform": "rednote"}],
+    }
+    with pytest.raises(smoke.SmokeError, match="keys"):
+        smoke.validate_external_tool_template("external-tool-template", metadata_envelope)
+
+    missing_items: dict[str, object] = {"items": []}
+    with pytest.raises(smoke.SmokeError, match="exactly 2 rows"):
+        smoke.validate_external_tool_template("external-tool-template", missing_items)
+
+    wrong_platform = external_tool_template_payload()
+    items = wrong_platform["items"]
+    assert isinstance(items, list)
+    items[1]["platform"] = "instagram"  # type: ignore[index]
+    with pytest.raises(smoke.SmokeError, match="row 2 platform"):
+        smoke.validate_external_tool_template("external-tool-template", wrong_platform)
+
+    missing_handoff_field = external_tool_template_payload()
+    items = missing_handoff_field["items"]
+    assert isinstance(items, list)
+    del items[0]["source_weight"]  # type: ignore[index]
+    with pytest.raises(smoke.SmokeError, match="row 1 source_weight"):
+        smoke.validate_external_tool_template("external-tool-template", missing_handoff_field)
+
+    private_field = external_tool_template_payload()
+    items = private_field["items"]
+    assert isinstance(items, list)
+    items[0]["_private"] = "adapter secret"  # type: ignore[index]
+    with pytest.raises(smoke.SmokeError, match="private/raw field"):
+        smoke.validate_external_tool_template("external-tool-template", private_field)
+
+    raw_field = external_tool_template_payload()
+    items = raw_field["items"]
+    assert isinstance(items, list)
+    items[0]["raw_payload"] = {"opaque": True}  # type: ignore[index]
+    with pytest.raises(smoke.SmokeError, match="private/raw field"):
+        smoke.validate_external_tool_template("external-tool-template", raw_field)
 
 
 def test_validate_report_requires_expected_first_run_entity_sections() -> None:
@@ -1184,6 +1284,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             "imported-review-workflow": json.dumps(imported_review_workflow_payload()),
             "community-handoff-workflow": json.dumps(community_handoff_workflow_payload()),
             "external-tool-adapters": json.dumps(external_tool_adapters_payload()),
+            "external-tool-template": json.dumps(external_tool_template_payload()),
             "imported-signals-summary": json.dumps(imported_summary_payload()),
             "imported-signals": json.dumps(imported_signals_payload()),
             "candidates": json.dumps([]),
@@ -1206,6 +1307,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         "migrate-db",
         "doctor",
         "external-tool-adapters",
+        "external-tool-template",
         "community-signal-lint",
         "community-candidates",
         "import-signals",
@@ -1287,12 +1389,20 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
 
     external_tool_adapters = captured[3]
     assert external_tool_adapters == ("external-tool-adapters", "--format", "json")
-    assert captured[15][1] == str(context.exports_dir)
-    assert "--format" in captured[15]
-    assert "json" in captured[15]
+    external_tool_template = captured[4]
+    assert external_tool_template == (
+        "external-tool-template",
+        "--adapter",
+        "rednote_mcp",
+        "--format",
+        "json",
+    )
     assert captured[16][1] == str(context.exports_dir)
+    assert "--format" in captured[16]
+    assert "json" in captured[16]
     assert captured[17][1] == str(context.exports_dir)
     assert captured[18][1] == str(context.exports_dir)
+    assert captured[19][1] == str(context.exports_dir)
     assert (context.exports_dir / smoke.DIR_EXPORT_CSV).read_text(encoding="utf-8") == (
         example_csv.read_text(encoding="utf-8")
     )

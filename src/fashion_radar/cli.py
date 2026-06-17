@@ -82,6 +82,12 @@ from fashion_radar.external_tool_adapters import (
     filter_external_tool_adapter_registry,
     render_external_tool_adapter_registry_table,
 )
+from fashion_radar.external_tool_templates import (
+    build_external_tool_template_collection,
+    render_external_tool_template_csv,
+    render_external_tool_template_json,
+    render_external_tool_template_table,
+)
 from fashion_radar.heat_movers import (
     HeatMoversReport,
     build_heat_movers,
@@ -199,6 +205,7 @@ ImportedSignalsOutputFormat = Literal["table", "json"]
 ImportedSignalsSummaryOutputFormat = Literal["table", "json"]
 EntityPackLintOutputFormat = Literal["table", "json"]
 ExternalToolAdaptersOutputFormat = Literal["table", "json"]
+ExternalToolTemplateOutputFormat = Literal["table", "json", "csv"]
 SourcePackLintOutputFormat = Literal["table", "json"]
 TrendOutputFormat = Literal["table", "json"]
 HeatMoversOutputFormat = Literal["table", "json"]
@@ -218,6 +225,11 @@ COMMUNITY_SIGNAL_PROFILE_FORMAT_OPTION = typer.Option(
     help="Output format.",
 )
 EXTERNAL_TOOL_ADAPTERS_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
+EXTERNAL_TOOL_TEMPLATE_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
     help="Output format.",
@@ -628,6 +640,48 @@ def external_tool_adapters_command(
         typer.echo(registry.model_dump_json(indent=2))
         return
     for line in render_external_tool_adapter_registry_table(registry):
+        typer.echo(line)
+
+
+@app.command(name="external-tool-template")
+def external_tool_template_command(
+    adapter: str | None = typer.Option(
+        None, "--adapter", help="Adapter id to print a template for."
+    ),
+    directory: str = typer.Option(
+        DEFAULT_EXPORT_DIRECTORY,
+        "--directory",
+        help="Suggested local export directory used in printed commands only.",
+    ),
+    config_dir: str = CONFIG_DIR_OPTION,
+    data_dir: str = DATA_DIR_OPTION,
+    as_of: str = typer.Option(
+        DEFAULT_ADAPTER_AS_OF,
+        "--as-of",
+        help="UTC timestamp used in template rows and printed commands only.",
+    ),
+    output_format: ExternalToolTemplateOutputFormat = EXTERNAL_TOOL_TEMPLATE_FORMAT_OPTION,
+) -> None:
+    """Print local adapter handoff template rows without writing files."""
+    try:
+        template = build_external_tool_template_collection(
+            adapter_id=adapter,
+            directory=Path(directory),
+            config_dir=Path(config_dir),
+            data_dir=Path(data_dir),
+            as_of=as_of,
+        )
+    except ValueError as exc:
+        typer.echo(f"Could not build external tool template: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    if output_format == "json":
+        typer.echo(render_external_tool_template_json(template), nl=False)
+        return
+    if output_format == "csv":
+        typer.echo(render_external_tool_template_csv(template), nl=False)
+        return
+    for line in render_external_tool_template_table(template):
         typer.echo(line)
 
 

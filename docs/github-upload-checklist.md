@@ -178,13 +178,35 @@ External social/community tool adapter registry docs check:
       connectors, no scraping, no browser automation, no platform APIs, no
       monitoring, no scheduling, no source acquisition, no demand proof, no
       ranking, and no coverage verification.
-- [ ] CLI reference and upload smoke include `fashion-radar
+- [ ] CLI reference and installed-wheel smoke include `fashion-radar
       external-tool-adapters --format table` and `fashion-radar
       external-tool-adapters --format json`.
 
       ```bash
       fashion-radar external-tool-adapters --format table
       fashion-radar external-tool-adapters --format json
+      ```
+
+External tool template rows docs check:
+
+- [ ] Docs describe `external-tool-template` as a local, print-only command
+      that prints adapter-specific template rows for user-controlled
+      external/community tools that need sanitized CSV/JSON local file handoff
+      examples.
+- [ ] Boundary text says the template command is not platform collection and
+      has no connectors, no scraping, no browser automation, no platform APIs,
+      no monitoring, no scheduling, no source acquisition, no demand proof, no
+      ranking, and no coverage verification.
+- [ ] CLI reference and installed-wheel smoke include `fashion-radar
+      external-tool-template --adapter instaloader --format table`,
+      `fashion-radar external-tool-template --adapter instaloader --format
+      json`, and `fashion-radar external-tool-template --adapter instaloader
+      --format csv`.
+
+      ```bash
+      fashion-radar external-tool-template --adapter instaloader --format table
+      fashion-radar external-tool-template --adapter instaloader --format json
+      fashion-radar external-tool-template --adapter instaloader --format csv
       ```
 
 ## Exclude
@@ -283,7 +305,7 @@ uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 for cmd in \
   init migrate-db doctor source-pack-lint entity-pack-lint \
   community-signal-profile \
-  external-tool-adapters \
+  external-tool-adapters external-tool-template \
   community-signal-lint community-signal-lint-dir \
   community-candidates community-candidates-dir \
   community-handoff-manifest community-handoff-workflow \
@@ -314,6 +336,10 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" community-handoff-check-dir --help
 "$tmp_env/venv/bin/fashion-radar" external-tool-adapters --help
 "$tmp_env/venv/bin/fashion-radar" external-tool-adapters --format json
+"$tmp_env/venv/bin/fashion-radar" external-tool-template --help
+"$tmp_env/venv/bin/fashion-radar" external-tool-template --adapter instaloader --format table
+"$tmp_env/venv/bin/fashion-radar" external-tool-template --adapter instaloader --format json
+"$tmp_env/venv/bin/fashion-radar" external-tool-template --adapter instaloader --format csv
 "$tmp_env/venv/bin/fashion-radar" imported-signals --data-dir "$tmp_run/data" --as-of "2026-06-12T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidate-evidence --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --phrase "Le Teckel bag" --format json
