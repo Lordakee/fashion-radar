@@ -70,3 +70,32 @@ https://pypi.mirrors.ustc.edu.cn/simple/
   ```bash
   rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock
   ```
+
+## Recover A Mirror-Rewritten Lockfile
+
+If `uv.lock` was already rewritten locally with mirror URLs, do not commit it.
+When dependencies did not intentionally change, restore the committed public
+lockfile before release work:
+
+```bash
+git restore -- uv.lock
+UV_NO_CONFIG=1 uv lock --check
+rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock
+git diff --quiet -- uv.lock
+```
+
+The `rg` check above should find no matches; when you use shell negation in a
+release script, `! rg ... uv.lock` passes only when no mirror markers are
+found. Local mirror installs should remain frozen mirror install commands, not
+lockfile regeneration commands.
+
+If `pyproject.toml` intentionally changed and the lockfile must be
+regenerated, run the lock operation with user uv config disabled, then review
+the lockfile diff before committing it:
+
+```bash
+UV_NO_CONFIG=1 uv lock
+UV_NO_CONFIG=1 uv lock --check
+rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock
+git diff -- uv.lock
+```

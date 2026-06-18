@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CLI_REFERENCE = ROOT / "docs" / "cli-reference.md"
 COMMUNITY_SIGNAL_IMPORT_DOC = ROOT / "docs" / "community-signal-import.md"
 UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
+DEPENDENCY_MIRRORS_DOC = ROOT / "docs" / "dependency-mirrors.md"
 README = ROOT / "README.md"
 TREND_DELTAS_DOC = ROOT / "docs" / "trend-deltas.md"
 DASHBOARD_DOC = ROOT / "docs" / "dashboard.md"
@@ -694,6 +695,29 @@ def test_first_run_smoke_command_is_documented_and_in_ci() -> None:
 
     for text in (checklist, ci_workflow, readme, first_run_doc):
         assert installed_command in text
+
+
+def test_dependency_mirror_docs_explain_lockfile_recovery() -> None:
+    mirror_doc = _read(DEPENDENCY_MIRRORS_DOC)
+    recovery = _markdown_section_exact_heading(mirror_doc, "Recover A Mirror-Rewritten Lockfile")
+    readme = _read(README)
+
+    for term in (
+        "Recover A Mirror-Rewritten Lockfile",
+        "If `uv.lock` was already rewritten locally with mirror URLs, do not commit it.",
+        "git restore -- uv.lock",
+        "UV_NO_CONFIG=1 uv lock --check",
+        "git diff --quiet -- uv.lock",
+        "git diff -- uv.lock",
+        "rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock",
+        "frozen mirror install commands",
+    ):
+        assert term in recovery
+
+    assert "do not regenerate or commit `uv.lock` from a mirror-backed lock operation" in (
+        readme.casefold()
+    )
+    assert "[docs/dependency-mirrors.md](docs/dependency-mirrors.md)" in readme
 
 
 def test_upload_checklist_documents_release_hygiene_excludes() -> None:
