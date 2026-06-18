@@ -46,6 +46,11 @@ Check the public lockfile has no mirror URLs:
 rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock
 ```
 
+If `uv.lock` was changed by mirror-backed local operations before upload,
+restore it before staging. See
+[Recover A Mirror-Rewritten Lockfile](dependency-mirrors.md#recover-a-mirror-rewritten-lockfile)
+for the recovery path.
+
 Historical boundary checks:
 
 Stage 27B docs check:

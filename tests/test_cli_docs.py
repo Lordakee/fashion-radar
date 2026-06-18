@@ -720,6 +720,17 @@ def test_dependency_mirror_docs_explain_lockfile_recovery() -> None:
     assert "[docs/dependency-mirrors.md](docs/dependency-mirrors.md)" in readme
 
 
+def test_upload_checklist_mentions_mirror_lockfile_recovery() -> None:
+    checklist = _read(UPLOAD_CHECKLIST)
+
+    for term in (
+        "Recover A Mirror-Rewritten Lockfile",
+        "dependency-mirrors.md#recover-a-mirror-rewritten-lockfile",
+        "If `uv.lock` was changed by mirror-backed local operations before upload",
+    ):
+        assert term in checklist
+
+
 def test_upload_checklist_documents_release_hygiene_excludes() -> None:
     text = _read(UPLOAD_CHECKLIST)
 
