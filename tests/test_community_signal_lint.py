@@ -20,7 +20,7 @@ JSON_EXAMPLE = ROOT / "examples" / "community-signals.example.json"
 TOOL_HANDOFF_CSV_EXAMPLE = ROOT / "examples" / "community-tool-handoff.example.csv"
 TOOL_HANDOFF_JSON_EXAMPLE = ROOT / "examples" / "community-tool-handoff.example.json"
 WATCHLIST_CSV_EXAMPLE = ROOT / "examples" / "community-signals.watchlist.example.csv"
-WATCHLIST_EXPECTED_ROWS = 8
+WATCHLIST_EXPECTED_ROWS = 11
 COMMUNITY_SIGNAL_EXAMPLES = (
     (CSV_EXAMPLE, "csv", "Community Tool Export"),
     (JSON_EXAMPLE, "json", "Community Tool Export"),

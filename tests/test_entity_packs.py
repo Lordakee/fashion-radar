@@ -157,6 +157,10 @@ def test_fashion_watchlist_sample_matches_expected_entities_and_types() -> None:
         "Alaia Le Teckel",
         "Miu Miu Arcadie",
         "Mary Jane Shoes",
+        "Tory Burch",
+        "Tory Burch Pierced Mule",
+        "East-West Bags",
+        "Office Siren",
         "Boho Revival",
     } <= matched_names
     assert {"brand", "product", "designer", "celebrity", "category", "trend"} <= matched_types
