@@ -186,6 +186,26 @@ scraping, no browser automation, no platform APIs, no monitoring, no
 scheduling, no source acquisition, no demand proof, no ranking, and no
 coverage verification.
 
+## External Tool Contract Parity
+
+The external tool adapter surfaces are guarded as one local contract:
+`community-signal-profile` defines the accepted row fields,
+`external-tool-adapters` exposes adapter field mappings and local command
+guidance, `external-tool-template` mirrors those mappings for sanitized example
+rows, and `external-tool-workflow` plus `external-tool-readiness` reuse the same
+handoff commands for shared steps.
+
+The parity gate checks every built-in adapter so field mappings, template model
+metadata, workflow commands, readiness commands, and dry-run import guidance
+remain aligned. JSON/CSV template output remains importable rows only; table and
+model output can include local handoff guidance. Dry-run import guidance remains
+separate from real import guidance.
+
+This is local handoff guidance, not platform collection. It does not add
+connectors, fetch URLs, search platforms, run adapters, or call platform APIs.
+It does not prove demand. It does not rank sources. It does not verify platform
+coverage.
+
 ## External Tool Template Rows
 
 `external-tool-template` prints adapter-specific template rows for

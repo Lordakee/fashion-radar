@@ -15,6 +15,7 @@ from fashion_radar.dashboard.app import DASHBOARD_TAB_LABELS
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI_REFERENCE = ROOT / "docs" / "cli-reference.md"
+COMMUNITY_SIGNAL_IMPORT_DOC = ROOT / "docs" / "community-signal-import.md"
 UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
 README = ROOT / "README.md"
 TREND_DELTAS_DOC = ROOT / "docs" / "trend-deltas.md"
@@ -906,7 +907,7 @@ def test_upload_checklist_documents_first_run_smoke_boundary() -> None:
 
 
 def test_community_import_docs_promote_checked_in_example_import() -> None:
-    text = _read(ROOT / "docs" / "community-signal-import.md")
+    text = _read(COMMUNITY_SIGNAL_IMPORT_DOC)
 
     assert 'AS_OF="2026-06-13T12:00:00Z"' in text
     assert "import-signals examples/community-signals.example.csv" in text
@@ -917,10 +918,38 @@ def test_community_import_docs_promote_checked_in_example_import() -> None:
     )
 
 
+def test_community_signal_import_docs_describe_external_tool_contract_parity() -> None:
+    text = _read(COMMUNITY_SIGNAL_IMPORT_DOC)
+    normalized = _normalized_doc_text(COMMUNITY_SIGNAL_IMPORT_DOC).casefold()
+
+    for term in (
+        "External Tool Contract Parity",
+        "community-signal-profile",
+        "external-tool-adapters",
+        "external-tool-template",
+        "external-tool-workflow",
+        "external-tool-readiness",
+        "field mappings",
+    ):
+        assert term in text
+
+    for term in (
+        "dry-run import guidance remains separate from real import guidance",
+        "json/csv template output remains importable rows only",
+        "local handoff guidance",
+        "not platform collection",
+        "does not add connectors",
+        "does not prove demand",
+        "does not rank sources",
+        "does not verify platform coverage",
+    ):
+        assert term in normalized
+
+
 def test_community_signal_profile_docs_are_linked() -> None:
     readme = _read(README)
     cli_reference = _read(CLI_REFERENCE)
-    import_doc = _read(ROOT / "docs" / "community-signal-import.md")
+    import_doc = _read(COMMUNITY_SIGNAL_IMPORT_DOC)
     quality_doc = _read(ROOT / "docs" / "community-signal-quality.md")
     boundaries = _read(ROOT / "docs" / "source-boundaries.md")
 

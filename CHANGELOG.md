@@ -190,6 +190,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `fashion-watchlist` import, match, report, and trend walkthroughs using
   synthetic checked-in rows. It does not fetch URLs, collect platform data,
   prove demand, rank brands, verify platform coverage, or add connectors.
+- Stage 78 external/community adapter contract parity tests so adapter field
+  mappings, template model metadata, workflow commands, readiness commands, and
+  dry-run guidance stay aligned with the local community signal profile. This
+  is test/docs-only and adds no scraping, platform APIs, connectors, source
+  acquisition, demand proof, ranking, or platform coverage verification.
 - Stage 53 community handoff guardrail tests for prohibited-field lint
   coverage, producer-profile command order, docs drift, and parser rejection.
 - Optional fashion entity watchlist pack for broader local matching coverage
