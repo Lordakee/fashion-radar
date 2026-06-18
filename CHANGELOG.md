@@ -195,6 +195,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   dry-run guidance stay aligned with the local community signal profile. This
   is test/docs-only and adds no scraping, platform APIs, connectors, source
   acquisition, demand proof, ranking, or platform coverage verification.
+- Stage 79 onboarding docs for the recommended manual repo-local first run,
+  automated source-checkout smoke, installed-wheel smoke, reset path, beginner
+  CLI roadmap, and optional entity-pack local matching layer. This is docs-only
+  and adds no live collection, platform automation, connectors, sources,
+  ingestion, demand proof, ranking, or platform coverage verification.
 - Stage 53 community handoff guardrail tests for prohibited-field lint
   coverage, producer-profile command order, docs drift, and parser rejection.
 - Optional fashion entity watchlist pack for broader local matching coverage

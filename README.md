@@ -12,6 +12,24 @@ The MVP is built for personal research and editorial monitoring. It is not a
 full social-listening service, and its heat scores are local metrics based only
 on the sources you configure and local signals you import.
 
+## Start Here
+
+For first-run onboarding, start with [docs/first-run.md](docs/first-run.md).
+The Manual repo-local sample is the recommended first-time path when you want
+inspectable output, local SQLite state, dated reports, and dashboard data.
+
+Use Automated source-checkout smoke or Installed-wheel smoke as verification
+paths when you need disposable source-tree or package checks. They are not the
+main exploratory path.
+
+Entity packs are an optional local matching layer. Copy one after `init` and
+before `match`/`report` when you want a broader local watchlist; see
+[docs/entity-packs.md](docs/entity-packs.md).
+
+All onboarding paths are local-first. This does not add live platform
+collection, does not add social connectors, and does not prove demand, rank
+brands, or verify platform coverage.
+
 ## What It Does
 
 - Collects public RSS/Atom, RSSHub-compatible, and GDELT Doc API signals.

@@ -8,22 +8,33 @@ Run first-run commands from the repository root after `cd /path/to/fashion-radar
 
 ## Choose Your First Run
 
-Choose the manual repo-local sample when you want to inspect the generated
-`data/` and `reports/` artifacts yourself. This path writes local sample output
-under the checkout.
+| Path | Use When | Writes To | Start Here |
+| --- | --- | --- | --- |
+| Manual repo-local sample | Recommended first-time path when you want inspectable output, local SQLite state, dated reports, and dashboard data. | `data/` and `reports/` under this checkout. | [Manual Repo-Local Sample Flow](#manual-repo-local-sample-flow) |
+| Automated source-checkout smoke | Disposable verification for the current source checkout. | temporary config/data/report/export directories. | [Automated First-Run Smoke](#automated-first-run-smoke) |
+| Installed-wheel smoke | Package verification when you need to test the built wheel. | Temporary build directory and temporary virtual environment. | [Installed-Wheel Smoke](#installed-wheel-smoke) |
+| Reset repo-local sample | Cleanup after local experiments. | Removes generated repo-local sample files and keeps placeholder READMEs. | [Reset The Repo-Local Sample](#reset-the-repo-local-sample) |
 
-Choose the automated first-run smoke when you want a disposable verification
-path. The smoke uses temporary config, data, report, and export directories,
-then verifies generated report artifacts there. It should not create files under
-repo `data/` or `reports/`.
+Choose the manual repo-local sample when you want inspectable output from the
+generated `data/` and `reports/` artifacts yourself. This path writes local
+sample output under the checkout and is the recommended first-time path when
+you also want dashboard data.
 
-Use the installed-wheel smoke when you need to verify the packaged wheel instead
-of the source checkout. It builds a local wheel, installs it into a temporary
-virtual environment, and runs the same sample path with `--installed`.
+Choose the automated source-checkout smoke when you want disposable verification
+of the working tree. The smoke uses temporary config/data/report/export
+directories, then verifies generated report artifacts there. It should not
+create files under repo `data/` or `reports/`.
 
-Use the reset path when you want to start over after a repo-local experiment.
-It deletes selected generated runtime files and keeps the placeholder
+Use the installed-wheel smoke when you need package verification instead of the
+source checkout. It builds a local wheel, installs it into a temporary virtual
+environment, and runs the same sample path with `--installed`.
+
+Use the reset repo-local sample after local experiments when you want to start
+over. It deletes selected generated runtime files and keeps the placeholder
 `README.md` files under `data/` and `reports/`.
+
+These first-run paths use checked-in examples and local files. The sample does
+not run live collection.
 
 ## Prepare A Source Checkout
 

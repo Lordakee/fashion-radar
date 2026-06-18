@@ -479,6 +479,42 @@ def test_cli_reference_lists_every_public_command() -> None:
     assert "validates deterministic sample output content" in normalized
 
 
+def test_cli_reference_has_beginner_roadmap_with_existing_commands() -> None:
+    text = _read(CLI_REFERENCE)
+    normalized = _normalized_doc_text(CLI_REFERENCE).casefold()
+
+    assert text.index("## Beginner Roadmap") < text.index("## Shared Path Options")
+    roadmap = text.split("## Beginner Roadmap", 1)[1].split(
+        "## Shared Path Options",
+        1,
+    )[0]
+
+    for term in (
+        "| Phase | Existing Commands | Where To Read Next |",
+        "Setup",
+        "`init`, `migrate-db`, `doctor`",
+        "Local sample/import",
+        "`community-signal-lint`, `import-signals`, `import-signals-dir`",
+        "Match/report/review",
+        "`match`, `report`, `candidates`, `trends`, `imported-signals`",
+        "Dashboard",
+        "`dashboard`",
+        "Cleanup",
+        "Reset The Repo-Local Sample",
+        "[first-run.md](first-run.md)",
+        "[entity-packs.md](entity-packs.md)",
+    ):
+        assert term in roadmap
+
+    for term in (
+        "roadmap uses existing commands only",
+        "does not add live collection",
+        "does not add platform automation",
+        "does not add connectors",
+    ):
+        assert term in normalized
+
+
 def test_upload_checklist_help_loop_matches_documented_commands() -> None:
     assert _upload_checklist_help_loop_commands() == _documented_public_cli_commands()
 
@@ -654,6 +690,36 @@ def test_readme_distinguishes_source_checkout_from_package_smoke() -> None:
     assert "[docs/github-upload-checklist.md](docs/github-upload-checklist.md)" in text
 
 
+def test_readme_start_here_points_to_recommended_first_run_path() -> None:
+    text = _read(README)
+    normalized = _normalized_doc_text(README).casefold()
+
+    assert text.index("## Start Here") < text.index("## What It Does")
+    start_here = text.split("## Start Here", 1)[1].split("## What It Does", 1)[0]
+
+    for term in (
+        "[docs/first-run.md](docs/first-run.md)",
+        "Manual repo-local sample",
+        "recommended first-time path",
+        "inspectable output",
+        "dashboard data",
+        "Automated source-checkout smoke",
+        "Installed-wheel smoke",
+        "[docs/entity-packs.md](docs/entity-packs.md)",
+    ):
+        assert term in start_here
+
+    for term in (
+        "verification paths",
+        "optional local matching layer",
+        "after `init` and before `match`/`report`",
+        "local-first",
+        "does not add live platform collection",
+        "does not add social connectors",
+    ):
+        assert term in normalized
+
+
 def test_readme_documents_manual_sample_flow_and_automated_smoke_boundary() -> None:
     text = _read(README)
     normalized = _normalized_doc_text(README)
@@ -701,6 +767,39 @@ def test_readme_documents_manual_sample_flow_and_automated_smoke_boundary() -> N
     assert manual_flow.index("uv run fashion-radar match --config-dir") < manual_flow.index(
         "uv run fashion-radar imported-signals --data-dir"
     )
+
+
+def test_first_run_guide_has_beginner_path_chooser() -> None:
+    text = _read(FIRST_RUN_DOC)
+    normalized = _normalized_doc_text(FIRST_RUN_DOC).casefold()
+
+    chooser = text.split("## Choose Your First Run", 1)[1].split(
+        "## Prepare A Source Checkout",
+        1,
+    )[0]
+
+    for term in (
+        "| Path | Use When | Writes To | Start Here |",
+        "Manual repo-local sample",
+        "Recommended first-time path",
+        "`data/` and `reports/` under this checkout",
+        "Automated source-checkout smoke",
+        "temporary config/data/report/export directories",
+        "Installed-wheel smoke",
+        "temporary virtual environment",
+        "Reset repo-local sample",
+        "generated repo-local sample files",
+    ):
+        assert term in chooser
+
+    for term in (
+        "manual repo-local sample when you want inspectable output",
+        "automated source-checkout smoke when you want disposable verification",
+        "installed-wheel smoke when you need package verification",
+        "reset repo-local sample after local experiments",
+        "does not run live collection",
+    ):
+        assert term in normalized
 
 
 def test_first_run_guide_documents_paths_outputs_dashboard_reset_and_boundaries() -> None:
@@ -863,6 +962,33 @@ def test_entity_pack_docs_link_optional_watchlist_sample_to_local_pack() -> None
         "not a ranking",
         "not demand proof",
         "not platform coverage verification",
+    ):
+        assert term in normalized
+
+
+def test_entity_pack_docs_describe_optional_matching_layer_sequence() -> None:
+    text = _read(ENTITY_PACKS_DOC)
+    normalized = _normalized_doc_text(ENTITY_PACKS_DOC).casefold()
+
+    intro = text.split("## Lint The Pack", 1)[0]
+
+    for term in (
+        "optional local matching layer",
+        "after `init`",
+        "before your first `match` and `report`",
+        "broader watchlist",
+        "configs/entity-packs/fashion-watchlist.example.yaml",
+    ):
+        assert term in intro
+
+    for term in (
+        "only changes local entity matching",
+        "does not add sources",
+        "does not add ingestion",
+        "does not add live collection",
+        "does not prove demand",
+        "does not rank brands",
+        "does not verify platform coverage",
     ):
         assert term in normalized
 

@@ -3,6 +3,23 @@
 This is a compact map of the current public `fashion-radar` command surface.
 Use `fashion-radar COMMAND --help` for full Typer help and defaults.
 
+## Beginner Roadmap
+
+The roadmap uses existing commands only and points to detail docs instead of
+duplicating each command block.
+
+Boundaries: does not add live collection; does not add platform automation;
+does not add connectors.
+
+| Phase | Existing Commands | Where To Read Next |
+| --- | --- | --- |
+| Setup | `init`, `migrate-db`, `doctor` | [first-run.md](first-run.md) |
+| Local sample/import | `community-signal-lint`, `import-signals`, `import-signals-dir` | [first-run.md](first-run.md) |
+| Match/report/review | `match`, `report`, `candidates`, `trends`, `imported-signals` | [first-run.md](first-run.md) |
+| Dashboard | `dashboard` | [first-run.md](first-run.md) |
+| Optional entity matching | `entity-pack-lint` | [entity-packs.md](entity-packs.md) |
+| Cleanup | Reset The Repo-Local Sample | [first-run.md](first-run.md) |
+
 ## Shared Path Options
 
 Most operational commands accept path options with dynamic defaults:

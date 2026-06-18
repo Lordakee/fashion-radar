@@ -2,7 +2,8 @@
 
 Entity packs are optional local configuration templates for `entities.yaml`.
 They help users start from a broader watchlist without changing Fashion Radar's
-runtime behavior.
+runtime behavior. They are an optional local matching layer copied after `init`
+and before your first `match` and `report` when you want a broader watchlist.
 
 The first optional pack is:
 
@@ -14,6 +15,16 @@ It is a seed watchlist for designer brands, named bags and shoes, product
 categories, designers, celebrity style signals, and style terms. It is not a
 hot-list, ranking, current-hotness detector, platform-wide signal, or
 market-wide demand proof.
+
+Example repo-local destination path:
+
+```text
+configs/entities.yaml
+```
+
+The entity pack only changes local entity matching. It does not add sources,
+does not add ingestion, does not add live collection, does not prove demand,
+does not rank brands, and does not verify platform coverage.
 
 ## Lint The Pack
 
