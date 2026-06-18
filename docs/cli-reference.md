@@ -79,6 +79,15 @@ validates deterministic sample output content, not only command execution.
 
 ## Local Import And Community Handoff
 
+External tool import uses existing local commands only. For a user-controlled external export directory
+that already contains a sanitized CSV/JSON local file handoff, use
+[community-signal-import.md](community-signal-import.md) and follow:
+`external-tool-adapters -> external-tool-readiness -> external-tool-workflow ->
+community-signal-lint-dir -> community-candidates-dir ->
+community-handoff-check-dir -> import-signals-dir -> imported-review-workflow`.
+This route does not run upstream tools, does not search platforms, does not
+scrape, does not call platform APIs, and does not add connectors.
+
 - `import-signals` PATH: import one local CSV or JSON signal file. The
   `--format csv|json` flag selects the input format. Supports `--data-dir`,
   `--source-name`, `--imported-at`, and `--dry-run`.

@@ -55,6 +55,24 @@ install hints, and Fashion Radar next-step handoff commands before using
 user-controlled external/community tools to produce sanitized CSV/JSON local
 file handoff rows.
 
+## External Tool Import Roadmap
+
+Use this route when a user-controlled external export directory already contains
+sanitized CSV/JSON local file handoff rows. The route uses existing local
+commands only:
+
+| Phase | Existing Commands | Purpose |
+| --- | --- | --- |
+| Discover | `external-tool-adapters`, `external-tool-template` | Inspect adapter labels, field mappings, example rows, and local handoff commands. |
+| Prepare | `external-tool-readiness`, `external-tool-workflow` | Check local command availability and print the producer-facing workflow without running upstream tools. |
+| Validate | `community-signal-lint-dir`, `community-candidates-dir`, `community-handoff-check-dir` | Lint matched files, preview candidate phrases, and review local handoff readiness before import. |
+| Import | `import-signals-dir --dry-run`, `import-signals-dir` | Dry-run every matched local file, then import accepted local rows into SQLite. |
+| Review | `imported-signals`, `candidates`, `trends`, `imported-review-workflow` | Review retained imported rows, local candidates, local trend deltas, and post-import review guidance. |
+
+This roadmap does not run upstream tools, does not search platforms, does not
+scrape, does not call platform APIs, does not add connectors, does not prove
+demand, does not rank brands, and does not verify platform coverage.
+
 ## External Tool Handoff Templates
 
 The external tool handoff templates are sanitized CSV/JSON local file handoff

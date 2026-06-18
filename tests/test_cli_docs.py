@@ -515,6 +515,41 @@ def test_cli_reference_has_beginner_roadmap_with_existing_commands() -> None:
         assert term in normalized
 
 
+def test_cli_reference_local_import_section_has_external_tool_route() -> None:
+    text = _read(CLI_REFERENCE)
+    normalized = _normalized_doc_text(CLI_REFERENCE).casefold()
+
+    section = text.split("## Local Import And Community Handoff", 1)[1].split(
+        "Print adapter registry examples:",
+        1,
+    )[0]
+    normalized_section = _normalized_text(section)
+
+    for term in (
+        "External tool import uses existing local commands only",
+        "[community-signal-import.md](community-signal-import.md)",
+        "user-controlled external export directory",
+        "sanitized CSV/JSON local file handoff",
+    ):
+        assert term in section
+
+    for term in (
+        "external-tool-adapters -> external-tool-readiness -> external-tool-workflow",
+        "community-signal-lint-dir -> community-candidates-dir -> community-handoff-check-dir",
+        "import-signals-dir -> imported-review-workflow",
+    ):
+        assert term in normalized_section
+
+    for term in (
+        "does not run upstream tools",
+        "does not search platforms",
+        "does not scrape",
+        "does not call platform apis",
+        "does not add connectors",
+    ):
+        assert term in normalized
+
+
 def test_upload_checklist_help_loop_matches_documented_commands() -> None:
     assert _upload_checklist_help_loop_commands() == _documented_public_cli_commands()
 
@@ -716,6 +751,39 @@ def test_readme_start_here_points_to_recommended_first_run_path() -> None:
         "local-first",
         "does not add live platform collection",
         "does not add social connectors",
+    ):
+        assert term in normalized
+
+
+def test_readme_external_tool_import_path_points_to_local_handoff_route() -> None:
+    text = _read(README)
+    normalized = _normalized_doc_text(README).casefold()
+
+    for term in (
+        "External Tool Import Path",
+        "user-controlled external export directory",
+        "sanitized CSV/JSON local file handoff",
+        "external-tool-adapters",
+        "external-tool-readiness",
+        "external-tool-workflow",
+        "community-signal-lint-dir",
+        "community-candidates-dir",
+        "community-handoff-check-dir",
+        "import-signals-dir",
+        "imported-review-workflow",
+        "[docs/community-signal-import.md](docs/community-signal-import.md)",
+    ):
+        assert term in text
+
+    for term in (
+        "does not run upstream tools",
+        "does not search platforms",
+        "does not scrape",
+        "does not call platform apis",
+        "does not add connectors",
+        "does not prove demand",
+        "does not rank brands",
+        "does not verify platform coverage",
     ):
         assert term in normalized
 
@@ -1067,6 +1135,45 @@ def test_community_signal_import_docs_describe_external_tool_contract_parity() -
         "does not add connectors",
         "does not prove demand",
         "does not rank sources",
+        "does not verify platform coverage",
+    ):
+        assert term in normalized
+
+
+def test_community_signal_import_docs_have_external_tool_import_roadmap() -> None:
+    text = _read(COMMUNITY_SIGNAL_IMPORT_DOC)
+    normalized = _normalized_doc_text(COMMUNITY_SIGNAL_IMPORT_DOC).casefold()
+
+    roadmap = text.split("## External Tool Import Roadmap", 1)[1].split(
+        "## External Tool Handoff Templates",
+        1,
+    )[0]
+
+    for term in (
+        "| Phase | Existing Commands | Purpose |",
+        "Discover",
+        "`external-tool-adapters`, `external-tool-template`",
+        "Prepare",
+        "`external-tool-readiness`, `external-tool-workflow`",
+        "Validate",
+        "`community-signal-lint-dir`, `community-candidates-dir`, `community-handoff-check-dir`",
+        "Import",
+        "`import-signals-dir --dry-run`, `import-signals-dir`",
+        "Review",
+        "`imported-signals`, `candidates`, `trends`, `imported-review-workflow`",
+        "user-controlled external export directory",
+        "sanitized CSV/JSON local file handoff",
+    ):
+        assert term in roadmap
+
+    for term in (
+        "does not run upstream tools",
+        "does not search platforms",
+        "does not scrape",
+        "does not call platform apis",
+        "does not add connectors",
+        "does not prove demand",
+        "does not rank brands",
         "does not verify platform coverage",
     ):
         assert term in normalized

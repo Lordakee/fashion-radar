@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 80 external tool import onboarding docs for the local route from a
+  user-controlled external export directory to sanitized CSV/JSON handoff,
+  directory lint, candidate preview, readiness review, import, and post-import
+  review. This is docs/test-only and adds no upstream tool execution, platform
+  search, scraping, platform APIs, connectors, demand proof, ranking, or
+  platform coverage verification.
 - Python package foundation with Typer CLI.
 - YAML source, entity, and scoring configuration.
 - RSS/Atom, RSSHub-compatible, and GDELT collector support.

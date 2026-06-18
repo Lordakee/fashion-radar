@@ -176,6 +176,21 @@ uv run fashion-radar external-tool-workflow --adapter instaloader --format table
 uv run fashion-radar external-tool-workflow --adapter instaloader --format json
 ```
 
+### External Tool Import Path
+
+When a user-controlled external export directory already contains sanitized
+CSV/JSON rows, use [docs/community-signal-import.md](docs/community-signal-import.md)
+for the local handoff route. The path is:
+`external-tool-adapters -> external-tool-readiness -> external-tool-workflow ->
+community-signal-lint-dir -> community-candidates-dir ->
+community-handoff-check-dir -> import-signals-dir -> imported-review-workflow`.
+
+Fashion Radar treats this as a sanitized CSV/JSON local file handoff from a
+user-controlled external export directory. It does not run upstream tools, does
+not search platforms, does not scrape, does not call platform APIs, does not add
+connectors, does not prove demand, does not rank brands, and does not verify
+platform coverage.
+
 `external-tool-readiness` provides external tool readiness guidance and is local
 read-only, not print-only, because it checks command availability only with
 local PATH lookup (`shutil.which`) for known free external/community tools such
