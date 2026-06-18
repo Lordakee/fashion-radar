@@ -1536,6 +1536,32 @@ def test_external_tool_adapter_registry_docs_are_linked_and_bounded() -> None:
         assert term.casefold() in normalized_changelog
 
 
+def test_external_tool_adapter_platform_label_docs_are_advisory() -> None:
+    readme_section = _markdown_section(_read(README), "## What It Does Not Do")
+    cli_section = _markdown_section(
+        _read(CLI_REFERENCE),
+        "## Local Import And Community Handoff",
+    )
+
+    for label, section in (
+        ("README.md", readme_section),
+        ("docs/cli-reference.md", cli_section),
+    ):
+        normalized = _normalized_text(section).casefold()
+        assert "known adapter ids:" in normalized
+        for term in (
+            "platform label column",
+            "suggested_platform_labels",
+            "advisory local provenance label guidance",
+            "optional handoff `platform` field",
+            "not a schema enum",
+            "not a linter restriction",
+            "not platform coverage",
+            "not demand proof",
+        ):
+            assert term.casefold() in normalized, f"{label} missing {term!r}"
+
+
 def test_external_tool_template_docs_are_linked_and_bounded() -> None:
     readme = _read(README)
     import_doc = _read(ROOT / "docs" / "community-signal-import.md")

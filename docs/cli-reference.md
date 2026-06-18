@@ -126,6 +126,11 @@ scrape, does not call platform APIs, and does not add connectors.
 
   The Display/source name column reflects the current registry `display_name`
   and `suggested_source_name` values, which are identical for these adapters.
+
+  The Platform label column reflects `suggested_platform_labels` as advisory local
+  provenance label guidance for the optional handoff `platform` field. These
+  labels are local provenance suggestions only: they are not a schema enum, not a
+  linter restriction, not platform coverage, and not demand proof.
 - `external-tool-template`: print local adapter-specific template rows for
   user-controlled external/community tools that need sanitized CSV/JSON local
   file handoff examples. Supports `--adapter`, `--directory`, `--config-dir`,
