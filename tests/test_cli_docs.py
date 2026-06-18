@@ -405,6 +405,20 @@ def _markdown_section_matching_heading(text: str, heading_pattern: str) -> str:
     return text[heading.start() : end]
 
 
+def _markdown_section_exact_heading(text: str, heading_text: str) -> str:
+    heading = re.search(
+        rf"^(?P<marker>#+)\s+{re.escape(heading_text)}\s*$",
+        text,
+        flags=re.MULTILINE,
+    )
+    assert heading is not None, f"Missing markdown heading {heading_text!r}"
+    level = len(heading.group("marker"))
+    rest = text[heading.end() :]
+    next_heading = re.search(rf"^#{{1,{level}}}\s+", rest, flags=re.MULTILINE)
+    end = heading.end() + next_heading.start() if next_heading is not None else len(text)
+    return text[heading.start() : end]
+
+
 def _heat_movers_section(path: Path) -> str:
     return _markdown_section_matching_heading(_read(path), r"heat[- ]movers?")
 
@@ -517,9 +531,8 @@ def test_cli_reference_has_beginner_roadmap_with_existing_commands() -> None:
 
 def test_cli_reference_local_import_section_has_external_tool_route() -> None:
     text = _read(CLI_REFERENCE)
-    normalized = _normalized_doc_text(CLI_REFERENCE).casefold()
 
-    section = text.split("## Local Import And Community Handoff", 1)[1].split(
+    section = _markdown_section_exact_heading(text, "Local Import And Community Handoff").split(
         "Print adapter registry examples:",
         1,
     )[0]
@@ -547,7 +560,7 @@ def test_cli_reference_local_import_section_has_external_tool_route() -> None:
         "does not call platform apis",
         "does not add connectors",
     ):
-        assert term in normalized
+        assert term in normalized_section.casefold()
 
 
 def test_upload_checklist_help_loop_matches_documented_commands() -> None:
@@ -757,7 +770,8 @@ def test_readme_start_here_points_to_recommended_first_run_path() -> None:
 
 def test_readme_external_tool_import_path_points_to_local_handoff_route() -> None:
     text = _read(README)
-    normalized = _normalized_doc_text(README).casefold()
+    section = _markdown_section_exact_heading(text, "External Tool Import Path")
+    normalized_section = _normalized_text(section).casefold()
 
     for term in (
         "External Tool Import Path",
@@ -773,7 +787,7 @@ def test_readme_external_tool_import_path_points_to_local_handoff_route() -> Non
         "imported-review-workflow",
         "[docs/community-signal-import.md](docs/community-signal-import.md)",
     ):
-        assert term in text
+        assert term in section
 
     for term in (
         "does not run upstream tools",
@@ -785,7 +799,7 @@ def test_readme_external_tool_import_path_points_to_local_handoff_route() -> Non
         "does not rank brands",
         "does not verify platform coverage",
     ):
-        assert term in normalized
+        assert term in normalized_section
 
 
 def test_readme_documents_manual_sample_flow_and_automated_smoke_boundary() -> None:
