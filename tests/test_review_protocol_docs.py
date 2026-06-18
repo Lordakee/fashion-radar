@@ -26,6 +26,10 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _section(text: str, heading: str) -> str:
+    return text.split(f"## {heading}", 1)[1].split("\n## ", 1)[0]
+
+
 def test_active_review_docs_use_claude_code_not_opencode() -> None:
     failures: list[str] = []
 
@@ -41,11 +45,39 @@ def test_active_review_docs_use_claude_code_not_opencode() -> None:
 def test_active_review_protocol_documents_claude_code_gate() -> None:
     agents_text = _read(AGENTS)
     protocol_text = _read(REVIEW_PROTOCOL)
+    naming_section = _section(protocol_text, "Review Record Naming")
     checklist_text = _read(UPLOAD_CHECKLIST)
 
     assert "Claude Code" in agents_text
     assert "--effort max" in agents_text
     assert "claude --effort max --permission-mode plan --no-session-persistence" in protocol_text
-    assert "claude-code-stage-N-plan-review.md" in protocol_text
-    assert "claude-code-stage-N-release-review.md" in protocol_text
+
+    review_record_names = (
+        "claude-code-stage-N-plan-review.md",
+        "claude-code-stage-N-code-review.md",
+        "claude-code-stage-N-release-review.md",
+    )
+    for record_name in review_record_names:
+        assert record_name in naming_section
+
+    assert (
+        naming_section.index(review_record_names[0])
+        < naming_section.index(review_record_names[1])
+        < naming_section.index(review_record_names[2])
+    )
+
+    rereview_record_names = (
+        "claude-code-stage-N-plan-rereview.md",
+        "claude-code-stage-N-code-rereview.md",
+        "claude-code-stage-N-release-rereview.md",
+    )
+    for record_name in rereview_record_names:
+        assert record_name in naming_section
+
+    assert (
+        naming_section.index(rereview_record_names[0])
+        < naming_section.index(rereview_record_names[1])
+        < naming_section.index(rereview_record_names[2])
+    )
+
     assert "claude --effort max --permission-mode plan --no-session-persistence" in checklist_text

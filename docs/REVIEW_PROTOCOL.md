@@ -23,7 +23,8 @@ claude --effort max --permission-mode plan --no-session-persistence \
 Each implementation stage must end with:
 
 1. Fresh tests and lint checks.
-2. Local Claude Code review of newly added code.
+2. Local Claude Code review of newly added code
+   (`docs/reviews/claude-code-stage-N-code-review.md`).
 3. Fixes for critical and important findings.
 4. Local Claude Code review of the next-stage plan.
 
@@ -55,6 +56,7 @@ Use this convention:
 
 ```text
 docs/reviews/claude-code-stage-N-plan-review.md
+docs/reviews/claude-code-stage-N-code-review.md
 docs/reviews/claude-code-stage-N-release-review.md
 ```
 
@@ -62,6 +64,7 @@ For follow-up reviews after fixes:
 
 ```text
 docs/reviews/claude-code-stage-N-plan-rereview.md
+docs/reviews/claude-code-stage-N-code-rereview.md
 docs/reviews/claude-code-stage-N-release-rereview.md
 ```
 
