@@ -1191,12 +1191,12 @@ def test_community_signal_import_docs_describe_external_tool_contract_parity() -
 
 def test_community_signal_import_docs_have_external_tool_import_roadmap() -> None:
     text = _read(COMMUNITY_SIGNAL_IMPORT_DOC)
-    normalized = _normalized_doc_text(COMMUNITY_SIGNAL_IMPORT_DOC).casefold()
 
     roadmap = text.split("## External Tool Import Roadmap", 1)[1].split(
         "## External Tool Handoff Templates",
         1,
     )[0]
+    normalized_roadmap = _normalized_text(roadmap).casefold()
 
     for term in (
         "| Phase | Existing Commands | Purpose |",
@@ -1225,7 +1225,7 @@ def test_community_signal_import_docs_have_external_tool_import_roadmap() -> Non
         "does not rank brands",
         "does not verify platform coverage",
     ):
-        assert term in normalized
+        assert term in normalized_roadmap
 
 
 def test_community_signal_profile_docs_are_linked() -> None:
