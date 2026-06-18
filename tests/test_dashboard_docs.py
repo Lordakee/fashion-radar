@@ -52,3 +52,20 @@ def test_dashboard_docs_keep_local_security_boundary() -> None:
         "no account or cookie work",
     ):
         assert phrase in normalized
+
+
+def test_dashboard_docs_keep_warning_and_staleness_boundary() -> None:
+    normalized = _normalized(_read_dashboard_doc())
+
+    for phrase in (
+        "Invalid or missing trend config shows a concise dashboard warning without "
+        "creating the data directory or database.",
+        "If the local database has not been initialized or has no retained items, "
+        "the tab shows an empty-state message without creating the data directory "
+        "or database.",
+        "Reads candidate signals from the latest report JSON when that file is available.",
+        "The Candidate Signals tab reads the latest generated report JSON.",
+        "If the latest report was generated before the latest collection, local "
+        "import, or matching run, the tab may be stale until a new report is written.",
+    ):
+        assert phrase.casefold() in normalized
