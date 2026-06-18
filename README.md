@@ -93,6 +93,12 @@ Stored imported `platform` labels are local provenance metadata only; they are
 not scraping, crawling, social connectors, source acquisition, platform
 coverage, or demand proof.
 
+The public MVP non-goals stay aligned with the project brief: no paid API
+requirement, no account pool, no proxy pool, no high-frequency scraping, no
+automated posting, no private user data collection, no full-platform
+Instagram, TikTok, X, or Xiaohongshu coverage claim, and no default connector
+that needs login cookies, proxy pools, CAPTCHA bypass, or paywall bypass.
+
 The external tool handoff templates are sanitized CSV/JSON local file handoff
 templates for user-controlled external/community tools:
 [examples/community-tool-handoff.example.csv](examples/community-tool-handoff.example.csv)
