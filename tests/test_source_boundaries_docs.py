@@ -83,3 +83,27 @@ def test_source_boundaries_docs_keep_output_boundary() -> None:
         "This celebrity caused the trend",
     ):
         assert phrase.casefold() in normalized
+
+
+def test_source_boundaries_docs_keep_quality_boundary() -> None:
+    quality_boundaries = _section(
+        _read_source_boundaries_doc(),
+        "Quality Boundaries",
+    )
+    normalized = _normalized(quality_boundaries)
+
+    for phrase in (
+        "Heat scores are local metrics based on configured sources and imported local signals.",
+        "They are not rankings outside that local source set.",
+        "Candidate signals are observed phrases from configured sources and imported "
+        "local signals and need review.",
+        "They should not be presented as validated entities.",
+        "The dashboard should show:",
+        "Source count.",
+        "Representative links.",
+        "Time window.",
+        "Failed source runs.",
+        "Missing data warnings.",
+        "Whether a source is core, opt-in, or experimental.",
+    ):
+        assert phrase.casefold() in normalized
