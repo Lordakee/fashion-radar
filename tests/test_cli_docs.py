@@ -1641,10 +1641,11 @@ def test_external_tool_readiness_upload_checklist_help_loop_and_smoke() -> None:
 
     assert "external-tool-readiness" in _upload_checklist_help_loop_commands()
     assert '"$tmp_env/venv/bin/fashion-radar" external-tool-readiness --help' in checklist
-    assert (
-        '"$tmp_env/venv/bin/fashion-radar" external-tool-readiness '
-        "--adapter instaloader --format json"
-    ) in checklist
+    for format_name in ("table", "json"):
+        assert (
+            '"$tmp_env/venv/bin/fashion-radar" external-tool-readiness '
+            f"--adapter instaloader --format {format_name}"
+        ) in checklist
     assert (
         '"$tmp_env/venv/bin/fashion-radar" external-tool-readiness --adapter rednote_mcp'
     ) in checklist

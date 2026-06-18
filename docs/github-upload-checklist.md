@@ -425,6 +425,7 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" external-tool-workflow --adapter instaloader --format table
 "$tmp_env/venv/bin/fashion-radar" external-tool-workflow --adapter instaloader --format json
 "$tmp_env/venv/bin/fashion-radar" external-tool-readiness --help
+"$tmp_env/venv/bin/fashion-radar" external-tool-readiness --adapter instaloader --format table
 "$tmp_env/venv/bin/fashion-radar" external-tool-readiness --adapter instaloader --format json
 "$tmp_env/venv/bin/fashion-radar" external-tool-readiness --adapter rednote_mcp --format json
 "$tmp_env/venv/bin/fashion-radar" imported-signals --data-dir "$tmp_run/data" --as-of "2026-06-12T12:00:00Z" --format json
