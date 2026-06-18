@@ -42,3 +42,22 @@ def test_source_boundaries_docs_keep_storage_boundary() -> None:
         "permitted metadata.",
     ):
         assert phrase.casefold() in normalized
+
+
+def test_source_boundaries_docs_keep_readme_requirements_boundary() -> None:
+    readme_requirements = _section(
+        _read_source_boundaries_doc(),
+        "README Requirements",
+    )
+    normalized = _normalized(readme_requirements)
+
+    for phrase in (
+        "The public README must explain:",
+        "The project does not provide full social-platform coverage.",
+        "Users are responsible for respecting source terms, robots rules, and API terms.",
+        "The default workflow avoids account-based collection and access-control bypasses.",
+        "Manual signal import is a local input path, not a platform connector or "
+        "instructions for obtaining platform exports.",
+        "Community handoff check directory reports are local-only handoff readiness reports.",
+    ):
+        assert phrase.casefold() in normalized
