@@ -205,6 +205,26 @@ def _round_optional(value: float | None) -> float | None:
     return round(value, 3) if value is not None else None
 
 
+def candidate_report_stale_warning(
+    *,
+    latest_collected_at: str | datetime | None,
+    report_generated_at: str | datetime | None,
+) -> str | None:
+    if latest_collected_at is None or report_generated_at is None:
+        return None
+
+    latest_collected = parse_datetime_utc(latest_collected_at)
+    report_generated = parse_datetime_utc(report_generated_at)
+    if latest_collected <= report_generated:
+        return None
+
+    return (
+        "Candidate Signals may be stale: the latest fashion-radar report predates "
+        "the newest local collected item. Run `fashion-radar report` to refresh "
+        "candidate signals."
+    )
+
+
 def main() -> None:
     import streamlit as st
 
@@ -238,6 +258,14 @@ def main() -> None:
         st.caption(f"Report date: {candidate_report['report_date'] or 'n/a'}")
         if "error" in candidate_report:
             st.warning(candidate_report["error"])
+        warning = candidate_report_stale_warning(
+            latest_collected_at=summary["latest_collected_at"],
+            report_generated_at=(
+                candidate_report.get("generated_at") or candidate_report["report_date"]
+            ),
+        )
+        if warning is not None:
+            st.warning(warning)
         rows = candidate_report["rows"]
         if rows:
             st.dataframe(rows, use_container_width=True)

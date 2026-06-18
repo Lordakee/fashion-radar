@@ -38,18 +38,26 @@ def latest_candidate_rows(reports_dir: Path) -> list[dict[str, Any]]:
 def latest_candidate_report(reports_dir: Path) -> dict[str, Any]:
     path = latest_report_path(reports_dir)
     if path is None:
-        return {"report_date": None, "candidate_count": 0, "rows": []}
+        return {
+            "report_date": None,
+            "generated_at": None,
+            "candidate_count": 0,
+            "rows": [],
+        }
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return {
             "report_date": None,
+            "generated_at": None,
             "candidate_count": 0,
             "rows": [],
             "error": f"Could not parse latest report JSON {path.name}: {exc}",
         }
 
-    report_date = payload.get("metadata", {}).get("report_date")
+    metadata = payload.get("metadata", {})
+    report_date = metadata.get("report_date")
+    generated_at = metadata.get("generated_at")
     rows = []
     for candidate in payload.get("candidates", []):
         rows.append(
@@ -64,7 +72,12 @@ def latest_candidate_report(reports_dir: Path) -> dict[str, Any]:
                 "report_date": report_date,
             }
         )
-    return {"report_date": report_date, "candidate_count": len(rows), "rows": rows}
+    return {
+        "report_date": report_date,
+        "generated_at": generated_at,
+        "candidate_count": len(rows),
+        "rows": rows,
+    }
 
 
 def dashboard_summary(data_dir: Path) -> dict[str, Any]:

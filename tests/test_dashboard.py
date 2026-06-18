@@ -713,6 +713,56 @@ class FakeStreamlit:
         self.dataframes.append(rows)
 
 
+class FakeDashboardMainTab:
+    def __init__(self, owner: FakeDashboardMainStreamlit, label: str) -> None:
+        self.owner = owner
+        self.label = label
+
+    def __enter__(self) -> FakeDashboardMainTab:
+        self.owner.current_tab_label = self.label
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.owner.current_tab_label = None
+
+
+class FakeDashboardMainStreamlit:
+    def __init__(self) -> None:
+        self.labels: list[str] = []
+        self.current_tab_label: str | None = None
+        self.captions: list[str] = []
+        self.warnings: list[str] = []
+        self.infos: list[str] = []
+        self.dataframes: list[list[dict[str, object]]] = []
+        self.metrics: list[tuple[str, object]] = []
+
+    def set_page_config(self, **kwargs: object) -> None:
+        pass
+
+    def title(self, message: str) -> None:
+        pass
+
+    def info(self, message: str) -> None:
+        self.infos.append(message)
+
+    def caption(self, message: str) -> None:
+        self.captions.append(message)
+
+    def warning(self, message: str) -> None:
+        self.warnings.append(message)
+
+    def metric(self, label: str, value: object) -> None:
+        self.metrics.append((label, value))
+
+    def dataframe(self, rows: list[dict[str, object]], use_container_width: bool) -> None:
+        assert use_container_width is True
+        self.dataframes.append(rows)
+
+    def tabs(self, labels: list[str]) -> list[FakeDashboardMainTab]:
+        self.labels = labels
+        return [FakeDashboardMainTab(self, label) for label in labels]
+
+
 def test_render_heat_movers_warns_for_missing_scoring_without_data_dir_creation(
     tmp_path: Path,
 ) -> None:
@@ -912,47 +962,7 @@ def test_dashboard_main_routes_heat_movers_and_trend_deltas_by_label(
     reports_dir = tmp_path / "reports"
     heat_calls: list[str | None] = []
     trend_calls: list[str | None] = []
-
-    class FakeTab:
-        def __init__(self, owner: FakeMainStreamlit, label: str) -> None:
-            self.owner = owner
-            self.label = label
-
-        def __enter__(self) -> FakeTab:
-            self.owner.current_tab_label = self.label
-            return self
-
-        def __exit__(self, *exc_info: object) -> None:
-            self.owner.current_tab_label = None
-
-    class FakeMainStreamlit:
-        def __init__(self) -> None:
-            self.labels: list[str] = []
-            self.current_tab_label: str | None = None
-
-        def set_page_config(self, **kwargs: object) -> None:
-            pass
-
-        def title(self, message: str) -> None:
-            pass
-
-        def info(self, message: str) -> None:
-            pass
-
-        def caption(self, message: str) -> None:
-            pass
-
-        def metric(self, label: str, value: object) -> None:
-            pass
-
-        def dataframe(self, rows: list[dict[str, object]], use_container_width: bool) -> None:
-            assert use_container_width is True
-
-        def tabs(self, labels: list[str]) -> list[FakeTab]:
-            self.labels = labels
-            return [FakeTab(self, label) for label in labels]
-
-    fake_streamlit = FakeMainStreamlit()
+    fake_streamlit = FakeDashboardMainStreamlit()
 
     monkeypatch.setitem(sys.modules, "streamlit", fake_streamlit)
     monkeypatch.setattr(
@@ -988,7 +998,7 @@ def test_dashboard_main_routes_heat_movers_and_trend_deltas_by_label(
     monkeypatch.setattr(dashboard_app, "source_health_rows", lambda data_dir: [])
 
     def fake_render_heat_movers(
-        st: FakeMainStreamlit,
+        st: FakeDashboardMainStreamlit,
         *,
         config_dir: Path,
         data_dir: Path,
@@ -996,7 +1006,7 @@ def test_dashboard_main_routes_heat_movers_and_trend_deltas_by_label(
         heat_calls.append(st.current_tab_label)
 
     def fake_render_trend_deltas(
-        st: FakeMainStreamlit,
+        st: FakeDashboardMainStreamlit,
         *,
         config_dir: Path,
         data_dir: Path,
@@ -1017,6 +1027,187 @@ def test_dashboard_main_routes_heat_movers_and_trend_deltas_by_label(
     assert heat_calls == ["Heat Movers"]
     assert trend_calls == ["Trend Deltas"]
     assert len(dashboard_app.DASHBOARD_TAB_LABELS) == len(dashboard_app.ENTITY_MENTION_TABS) + 5
+
+
+def test_candidate_report_stale_warning_returns_none_without_both_timestamps() -> None:
+    assert (
+        dashboard_app.candidate_report_stale_warning(
+            latest_collected_at=None,
+            report_generated_at="2026-06-11T00:00:00Z",
+        )
+        is None
+    )
+    assert (
+        dashboard_app.candidate_report_stale_warning(
+            latest_collected_at="2026-06-12T09:00:00Z",
+            report_generated_at=None,
+        )
+        is None
+    )
+
+
+def test_candidate_report_stale_warning_returns_warning_when_collection_is_newer() -> None:
+    warning = dashboard_app.candidate_report_stale_warning(
+        latest_collected_at="2026-06-12T09:00:00Z",
+        report_generated_at="2026-06-11T00:00:00Z",
+    )
+
+    assert warning is not None
+    assert "stale" in warning.lower()
+    assert "fashion-radar report" in warning
+
+
+def test_candidate_report_stale_warning_returns_none_when_report_is_current() -> None:
+    assert (
+        dashboard_app.candidate_report_stale_warning(
+            latest_collected_at="2026-06-12T09:00:00Z",
+            report_generated_at="2026-06-12T09:00:00Z",
+        )
+        is None
+    )
+    assert (
+        dashboard_app.candidate_report_stale_warning(
+            latest_collected_at="2026-06-12T09:00:00Z",
+            report_generated_at="2026-06-12T10:00:00Z",
+        )
+        is None
+    )
+
+
+def test_candidate_report_stale_warning_normalizes_naive_and_offset_datetimes() -> None:
+    assert (
+        dashboard_app.candidate_report_stale_warning(
+            latest_collected_at="2026-06-12T12:00:00Z",
+            report_generated_at="2026-06-12T08:00:00-04:00",
+        )
+        is None
+    )
+    assert (
+        dashboard_app.candidate_report_stale_warning(
+            latest_collected_at="2026-06-12T12:00:00",
+            report_generated_at="2026-06-12T12:00:00Z",
+        )
+        is None
+    )
+
+
+def test_dashboard_main_warns_when_candidate_report_is_stale(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    fake_streamlit = FakeDashboardMainStreamlit()
+    candidate_rows = [
+        {
+            "phrase": "Le Teckel bag",
+            "candidate_type": "bag",
+            "label": "new_candidate",
+            "score": 3.0,
+            "current_mentions": 2,
+            "baseline_mentions": 0,
+            "distinct_sources": 2,
+            "report_date": "2026-06-11T00:00:00Z",
+        }
+    ]
+
+    monkeypatch.setitem(sys.modules, "streamlit", fake_streamlit)
+    monkeypatch.setattr(
+        dashboard_app,
+        "parse_args",
+        lambda: dashboard_app.argparse.Namespace(
+            config_dir=config_dir,
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+        ),
+    )
+    monkeypatch.setattr(
+        dashboard_app,
+        "dashboard_summary",
+        lambda data_dir: {
+            "database_exists": True,
+            "item_count": 1,
+            "match_count": 1,
+            "latest_collected_at": "2026-06-12T09:00:00Z",
+        },
+    )
+    monkeypatch.setattr(
+        dashboard_app,
+        "latest_candidate_report",
+        lambda reports_dir: {
+            "report_date": "2026-06-11T00:00:00Z",
+            "generated_at": None,
+            "candidate_count": 1,
+            "rows": candidate_rows,
+        },
+    )
+    monkeypatch.setattr(dashboard_app, "recent_signals", lambda data_dir: [])
+    monkeypatch.setattr(dashboard_app, "top_entities", lambda data_dir, *, entity_type: [])
+    monkeypatch.setattr(dashboard_app, "source_health_rows", lambda data_dir: [])
+    monkeypatch.setattr(dashboard_app, "render_heat_movers", lambda *args, **kwargs: None)
+    monkeypatch.setattr(dashboard_app, "render_trend_deltas", lambda *args, **kwargs: None)
+
+    dashboard_app.main()
+
+    assert len(fake_streamlit.warnings) == 1
+    assert "stale" in fake_streamlit.warnings[0].lower()
+    assert "fashion-radar report" in fake_streamlit.warnings[0]
+    assert candidate_rows in fake_streamlit.dataframes
+
+
+def test_dashboard_main_parse_error_does_not_emit_extra_stale_warning(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    fake_streamlit = FakeDashboardMainStreamlit()
+
+    monkeypatch.setitem(sys.modules, "streamlit", fake_streamlit)
+    monkeypatch.setattr(
+        dashboard_app,
+        "parse_args",
+        lambda: dashboard_app.argparse.Namespace(
+            config_dir=config_dir,
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+        ),
+    )
+    monkeypatch.setattr(
+        dashboard_app,
+        "dashboard_summary",
+        lambda data_dir: {
+            "database_exists": True,
+            "item_count": 1,
+            "match_count": 1,
+            "latest_collected_at": "2026-06-12T09:00:00Z",
+        },
+    )
+    monkeypatch.setattr(
+        dashboard_app,
+        "latest_candidate_report",
+        lambda reports_dir: {
+            "report_date": None,
+            "generated_at": None,
+            "candidate_count": 0,
+            "rows": [],
+            "error": "Could not parse latest report JSON fashion-radar-2026-06-11.json: bad json",
+        },
+    )
+    monkeypatch.setattr(dashboard_app, "recent_signals", lambda data_dir: [])
+    monkeypatch.setattr(dashboard_app, "top_entities", lambda data_dir, *, entity_type: [])
+    monkeypatch.setattr(dashboard_app, "source_health_rows", lambda data_dir: [])
+    monkeypatch.setattr(dashboard_app, "render_heat_movers", lambda *args, **kwargs: None)
+    monkeypatch.setattr(dashboard_app, "render_trend_deltas", lambda *args, **kwargs: None)
+
+    dashboard_app.main()
+
+    assert fake_streamlit.warnings == [
+        "Could not parse latest report JSON fashion-radar-2026-06-11.json: bad json"
+    ]
+    assert "No untracked candidate signals in the latest report." in fake_streamlit.infos
 
 
 def test_render_trend_deltas_warns_for_missing_scoring_without_data_dir_creation(
@@ -1120,7 +1311,10 @@ def test_latest_candidate_rows_reads_latest_report(tmp_path: Path) -> None:
     (reports_dir / "fashion-radar-2026-06-11.json").write_text(
         json.dumps(
             {
-                "metadata": {"report_date": "2026-06-11T00:00:00Z"},
+                "metadata": {
+                    "generated_at": "2026-06-11T00:15:00Z",
+                    "report_date": "2026-06-11T00:00:00Z",
+                },
                 "candidates": [
                     {
                         "phrase": "Le Teckel bag",
@@ -1153,6 +1347,7 @@ def test_latest_candidate_rows_reads_latest_report(tmp_path: Path) -> None:
         }
     ]
     assert report["report_date"] == "2026-06-11T00:00:00Z"
+    assert report["generated_at"] == "2026-06-11T00:15:00Z"
     assert report["candidate_count"] == 1
 
 
@@ -1160,6 +1355,7 @@ def test_latest_candidate_rows_returns_empty_for_missing_reports(tmp_path: Path)
     assert latest_candidate_rows(tmp_path / "reports") == []
     assert latest_candidate_report(tmp_path / "reports") == {
         "report_date": None,
+        "generated_at": None,
         "candidate_count": 0,
         "rows": [],
     }
@@ -1175,6 +1371,7 @@ def test_latest_candidate_report_preserves_date_when_no_candidates(tmp_path: Pat
 
     assert latest_candidate_report(reports_dir) == {
         "report_date": "2026-06-11T00:00:00Z",
+        "generated_at": None,
         "candidate_count": 0,
         "rows": [],
     }
