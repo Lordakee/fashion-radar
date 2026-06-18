@@ -1255,6 +1255,26 @@ def test_community_signal_profile_docs_are_linked() -> None:
         assert term in quality_doc
 
 
+def test_community_signal_import_platform_field_keeps_suggested_labels_advisory() -> None:
+    section = _markdown_section_exact_heading(
+        _read(COMMUNITY_SIGNAL_IMPORT_DOC),
+        "Optional Fields",
+    )
+    normalized = _normalized_text(section).casefold()
+
+    for term in (
+        "`platform`: short local provenance label",
+        "not platform coverage",
+        "source acquisition",
+        "demand proof",
+        "claim of complete platform/community visibility",
+        "suggested_platform_labels",
+        "advisory metadata only",
+        "do not make `platform` required",
+    ):
+        assert term.casefold() in normalized
+
+
 def test_community_handoff_manifest_docs_are_linked_and_warn_about_storage() -> None:
     readme = _read(README)
     cli_reference = _read(CLI_REFERENCE)

@@ -75,6 +75,15 @@ def test_profile_contract_matches_schema_csv_header_and_constants() -> None:
     assert profile.json_envelopes == ["top_level_array", "object_with_items_only"]
     assert profile.suggested_platform_labels == COMMUNITY_SIGNAL_SUGGESTED_PLATFORM_LABELS
     assert "suggested_platform_labels" not in profile.allowed_fields
+    assert "suggested_platform_labels" not in profile.required_fields
+    assert "suggested_platform_labels" not in profile.optional_fields
+    assert "suggested_platform_labels" not in profile.prohibited_fields
+    assert "suggested_platform_labels" not in signal["properties"]
+
+    platform_schema = signal["properties"]["platform"]
+    assert platform_schema["type"] == "string"
+    assert "enum" not in platform_schema
+    assert "const" not in platform_schema
     assert profile.field_rules["source_weight"] == {
         "exclusive_minimum": 0,
         "maximum": 5,

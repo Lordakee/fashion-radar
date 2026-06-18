@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 import shlex
 from pathlib import Path
@@ -143,6 +145,7 @@ def test_every_template_json_and_csv_output_lints_cleanly(registry, tmp_path: Pa
         assert list(payload) == ["items"]
         assert len(payload["items"]) == 2
         assert all(set(item) == profile_fields for item in payload["items"])
+        assert all("suggested_platform_labels" not in item for item in payload["items"])
 
         json_path = tmp_path / f"{adapter.id}.json"
         json_path.write_text(render_external_tool_template_json(template), encoding="utf-8")
@@ -151,7 +154,10 @@ def test_every_template_json_and_csv_output_lints_cleanly(registry, tmp_path: Pa
         assert json_result.valid_row_count == 2
 
         csv_path = tmp_path / f"{adapter.id}.csv"
-        csv_path.write_text(render_external_tool_template_csv(template), encoding="utf-8")
+        csv_text = render_external_tool_template_csv(template)
+        csv_header = next(csv.reader(io.StringIO(csv_text)))
+        assert "suggested_platform_labels" not in csv_header
+        csv_path.write_text(csv_text, encoding="utf-8")
         csv_result = lint_community_signal_file(csv_path, input_format="csv")
         assert csv_result.ok is True
         assert csv_result.valid_row_count == 2
