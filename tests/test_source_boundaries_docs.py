@@ -107,3 +107,22 @@ def test_source_boundaries_docs_keep_quality_boundary() -> None:
         "Whether a source is core, opt-in, or experimental.",
     ):
         assert phrase.casefold() in normalized
+
+
+def test_source_boundaries_docs_keep_robots_and_fetching_boundary() -> None:
+    robots_fetching = _section(
+        _read_source_boundaries_doc(),
+        "Robots And Fetching",
+    )
+    normalized = _normalized(robots_fetching)
+
+    for phrase in (
+        "Before fetching an article page for extraction, collectors must check robots.txt.",
+        "Default fetch behavior:",
+        "Use source-specific rate limits where configured.",
+        "Record skipped URLs with reasons.",
+        "GDELT fetch behavior:",
+        "Use bounded exponential backoff.",
+        "Store GDELT-provided metadata and links, not republished article bodies.",
+    ):
+        assert phrase.casefold() in normalized
