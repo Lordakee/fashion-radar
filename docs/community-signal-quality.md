@@ -17,6 +17,9 @@ Run `external-tool-adapters --format json` when a local producer needs the
 external social/community tool adapter registry and local producer-discovery
 registry before choosing a sanitized CSV/JSON local file handoff target for
 user-controlled external/community tools.
+`suggested_platform_labels` is advisory local provenance label guidance for
+the optional handoff `platform` field. It is not a schema enum, not a linter restriction,
+not platform coverage, and not demand proof.
 Each adapter command list includes `external-tool-readiness` as an optional
 local read-only preflight command, while `external-tool-adapters` itself
 remains print-only and does not run readiness or perform PATH lookup.

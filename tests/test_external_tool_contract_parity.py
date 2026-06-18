@@ -94,6 +94,10 @@ def test_every_adapter_field_mapping_matches_community_signal_profile(registry) 
             profile.required_fields
         )
         assert all(mapping["note"].strip() for mapping in mappings)
+        assert adapter.platform_label in profile.suggested_platform_labels
+
+    assert "suggested_platform_labels" not in profile.allowed_fields
+    assert "suggested_platform_labels" not in set(profile.csv_header)
 
 
 def test_every_template_model_mirrors_adapter_contract(registry) -> None:

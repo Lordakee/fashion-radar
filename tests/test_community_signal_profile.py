@@ -9,6 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from fashion_radar.community_signal_profile import (
+    COMMUNITY_SIGNAL_SUGGESTED_PLATFORM_LABELS,
     CommunitySignalProducerProfile,
     build_community_signal_profile,
     render_community_signal_profile_table,
@@ -72,6 +73,8 @@ def test_profile_contract_matches_schema_csv_header_and_constants() -> None:
     assert set(profile.prohibited_fields).isdisjoint(profile.allowed_fields)
     assert set(profile.prohibited_fields).isdisjoint(signal["properties"])
     assert profile.json_envelopes == ["top_level_array", "object_with_items_only"]
+    assert profile.suggested_platform_labels == COMMUNITY_SIGNAL_SUGGESTED_PLATFORM_LABELS
+    assert "suggested_platform_labels" not in profile.allowed_fields
     assert profile.field_rules["source_weight"] == {
         "exclusive_minimum": 0,
         "maximum": 5,
@@ -124,6 +127,7 @@ def test_profile_has_stable_json_key_order() -> None:
         "allowed_fields",
         "prohibited_fields",
         "json_envelopes",
+        "suggested_platform_labels",
         "field_notes",
         "field_rules",
         "unsupported_capabilities",
@@ -263,6 +267,9 @@ def test_profile_table_includes_contract_commands_and_boundaries() -> None:
     assert "Required fields: url, title, published_at" in text
     assert "Optional fields: summary, source_name, platform, source_weight, collected_at" in text
     assert "JSON envelopes: top_level_array, object_with_items_only" in text
+    assert (
+        "Suggested platform labels: rednote, xiaohongshu, instagram, tiktok, media, x, community"
+    ) in text
     assert "Source weight: >0 and <=5, default 1" in text
     assert "Unsupported capabilities: scraping, browser_automation" in text
     assert "Prohibited fields:" in text

@@ -8,6 +8,7 @@ from fashion_radar.community_handoff_manifest import (
     build_community_handoff_manifest,
     render_community_handoff_manifest_table,
 )
+from fashion_radar.community_signal_profile import build_community_signal_profile
 
 DIRECTORY_EXAMPLE_PATHS = [
     "examples/community-tool-handoff-directory.example/README.md",
@@ -19,6 +20,7 @@ DIRECTORY_EXAMPLE_PATHS = [
 
 
 def test_build_community_handoff_manifest_has_stable_directory_contract() -> None:
+    profile = build_community_signal_profile()
     manifest = build_community_handoff_manifest(
         directory=Path("./exports"),
         config_dir=Path("./configs"),
@@ -43,6 +45,7 @@ def test_build_community_handoff_manifest_has_stable_directory_contract() -> Non
         "producer_profile_command",
         "producer_contract_version",
         "supported_input_formats",
+        "suggested_platform_labels",
         "suggested_filename",
         "matched_file_rule",
         "manifest_storage_note",
@@ -74,6 +77,7 @@ def test_build_community_handoff_manifest_has_stable_directory_contract() -> Non
     )
     assert manifest.producer_contract_version == "community-signals/v1"
     assert manifest.supported_input_formats == ["csv", "json"]
+    assert manifest.suggested_platform_labels == profile.suggested_platform_labels
     assert manifest.suggested_filename == "community-signals.csv"
     assert manifest.matched_file_rule == (
         "Downstream lint, preview, and import commands treat matching regular "
@@ -199,6 +203,7 @@ def test_render_community_handoff_manifest_table_sanitizes_cells() -> None:
         producer_profile_command="fashion-radar community-signal-profile --format json",
         producer_contract_version="community-signals/v1",
         supported_input_formats=["csv", "json"],
+        suggested_platform_labels=["community", "x"],
         suggested_filename="community-signals.csv",
         matched_file_rule="Direct | child\nfiles only.",
         manifest_storage_note="Keep manifest | outside\nmatched exports.",
@@ -256,6 +261,7 @@ def test_render_community_handoff_manifest_table_sanitizes_cells() -> None:
         "Producer profile command: fashion-radar community-signal-profile --format json",
         "Producer contract version: community-signals/v1",
         "Supported input formats: csv, json",
+        "Suggested platform labels: community, x",
         "Schema path: schemas/community-signals.schema.json",
         "Example paths: examples/community-signals.example.csv",
         "Directory example paths: examples/community-tool-handoff-directory.example/README.md",

@@ -69,6 +69,15 @@
     "top_level_array",
     "object_with_items_only"
   ],
+  "suggested_platform_labels": [
+    "rednote",
+    "xiaohongshu",
+    "instagram",
+    "tiktok",
+    "media",
+    "x",
+    "community"
+  ],
   "field_notes": {
     "url": "Source URL or stable reference URL for the observed item.",
     "title": "Short observed text, headline, or normalized signal phrase.",

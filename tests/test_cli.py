@@ -511,6 +511,7 @@ def test_community_signal_profile_prints_json() -> None:
         "allowed_fields",
         "prohibited_fields",
         "json_envelopes",
+        "suggested_platform_labels",
         "field_notes",
         "field_rules",
         "unsupported_capabilities",
@@ -528,6 +529,15 @@ def test_community_signal_profile_prints_json() -> None:
     ]
     assert payload["directory_example_paths"] == DIRECTORY_EXAMPLE_PATHS
     assert payload["supported_input_formats"] == ["csv", "json"]
+    assert payload["suggested_platform_labels"] == [
+        "rednote",
+        "xiaohongshu",
+        "instagram",
+        "tiktok",
+        "media",
+        "x",
+        "community",
+    ]
     assert payload["csv_header"] == payload["allowed_fields"]
     assert payload["required_fields"] == ["url", "title", "published_at"]
     assert payload["unsupported_capabilities"][0] == "scraping"
@@ -5118,6 +5128,7 @@ def test_community_handoff_manifest_command_prints_json_with_stable_keys(
         "producer_profile_command",
         "producer_contract_version",
         "supported_input_formats",
+        "suggested_platform_labels",
         "suggested_filename",
         "matched_file_rule",
         "manifest_storage_note",
@@ -5150,6 +5161,15 @@ def test_community_handoff_manifest_command_prints_json_with_stable_keys(
     )
     assert payload["producer_contract_version"] == "community-signals/v1"
     assert payload["supported_input_formats"] == ["csv", "json"]
+    assert payload["suggested_platform_labels"] == [
+        "rednote",
+        "xiaohongshu",
+        "instagram",
+        "tiktok",
+        "media",
+        "x",
+        "community",
+    ]
     assert payload["suggested_filename"] == "community-signals.csv"
     assert 'using --pattern "*.json"' in payload["manifest_storage_note"]
     assert "author_handle" in payload["prohibited_fields"]

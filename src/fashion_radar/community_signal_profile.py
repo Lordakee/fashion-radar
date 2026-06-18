@@ -36,6 +36,15 @@ COMMUNITY_SIGNAL_CSV_HEADER = [
 ]
 COMMUNITY_SIGNAL_REQUIRED_FIELDS = ["url", "title", "published_at"]
 COMMUNITY_SIGNAL_JSON_ENVELOPES = ["top_level_array", "object_with_items_only"]
+COMMUNITY_SIGNAL_SUGGESTED_PLATFORM_LABELS = [
+    "rednote",
+    "xiaohongshu",
+    "instagram",
+    "tiktok",
+    "media",
+    "x",
+    "community",
+]
 COMMUNITY_SIGNAL_UNSUPPORTED_CAPABILITIES = [
     "scraping",
     "browser_automation",
@@ -65,6 +74,7 @@ class CommunitySignalProducerProfile(BaseModel):
     allowed_fields: list[str]
     prohibited_fields: list[str]
     json_envelopes: list[str]
+    suggested_platform_labels: list[str]
     field_notes: dict[str, str] = Field(default_factory=dict)
     field_rules: dict[str, dict[str, int | float]] = Field(default_factory=dict)
     unsupported_capabilities: list[str]
@@ -89,6 +99,7 @@ def build_community_signal_profile() -> CommunitySignalProducerProfile:
         allowed_fields=allowed_fields,
         prohibited_fields=sorted(PROHIBITED_COMMUNITY_SIGNAL_FIELDS),
         json_envelopes=[*COMMUNITY_SIGNAL_JSON_ENVELOPES],
+        suggested_platform_labels=[*COMMUNITY_SIGNAL_SUGGESTED_PLATFORM_LABELS],
         field_notes={
             "url": "Source URL or stable reference URL for the observed item.",
             "title": "Short observed text, headline, or normalized signal phrase.",
@@ -177,6 +188,7 @@ def render_community_signal_profile_table(
         f"Allowed fields: {', '.join(profile.allowed_fields)}",
         f"Prohibited fields: {', '.join(profile.prohibited_fields)}",
         f"JSON envelopes: {', '.join(profile.json_envelopes)}",
+        f"Suggested platform labels: {', '.join(profile.suggested_platform_labels)}",
         (
             f"Source weight: >{source_weight_rules['exclusive_minimum']:g} and "
             f"<={source_weight_rules['maximum']:g}, default "

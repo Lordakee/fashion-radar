@@ -264,7 +264,8 @@ uv run fashion-radar community-signal-profile --format json
 
 The profile includes the contract version, supported input formats, canonical
 CSV header, required fields, optional fields, allowed fields, excluded fields,
-accepted JSON envelope shapes, field notes, source-weight bounds,
+accepted JSON envelope shapes, advisory `suggested_platform_labels`, field
+notes, source-weight bounds,
 `directory_example_paths`, unsupported capabilities, and the recommended local
 lint/preview/dry-run/import/review command sequence. A checked-in example is
 available at
@@ -283,6 +284,10 @@ producer-facing and do not include `community-handoff-check-dir`;
 `community-handoff-workflow` adds `review_handoff_readiness` when printing the
 local operator sequence with a local-only handoff readiness report before
 importing rows.
+
+`suggested_platform_labels` is advisory local provenance label guidance for
+the optional handoff `platform` field. It is not a schema enum, not a linter restriction,
+not platform coverage, and not demand proof.
 
 ## Directory Manifest
 
@@ -313,6 +318,15 @@ Example JSON fields:
   "producer_profile_command": "fashion-radar community-signal-profile --format json",
   "producer_contract_version": "community-signals/v1",
   "supported_input_formats": ["csv", "json"],
+  "suggested_platform_labels": [
+    "rednote",
+    "xiaohongshu",
+    "instagram",
+    "tiktok",
+    "media",
+    "x",
+    "community"
+  ],
   "suggested_filename": "community-signals.json",
   "matched_file_rule": "Downstream lint, preview, and import commands treat matching regular files directly under the supplied directory as handoff files; they do not recurse into subdirectories.",
   "manifest_storage_note": "Do not save this manifest as a matched handoff file. For example, when using --pattern \"*.json\", do not save the manifest as a .json file inside the handoff directory; save it outside the directory or use an excluded filename/pattern.",
@@ -393,9 +407,10 @@ Example JSON fields:
 
 The manifest describes the target directory, matched file pattern, suggested
 filename (`community-signals.csv` or `community-signals.json`), producer profile
-fields and pointers, schema/example paths, `directory_example_paths`, field
-notes and rules, prohibited fields, unsupported capabilities, storage guidance,
-and workflow commands. The workflow includes `review_handoff_readiness`, which
+fields and pointers, schema/example paths, `directory_example_paths`, advisory
+`suggested_platform_labels`, field notes and rules, prohibited fields,
+unsupported capabilities, storage guidance, and workflow commands. The workflow
+includes `review_handoff_readiness`, which
 prints the `community-handoff-check-dir` local-only handoff readiness report
 before importing rows. It is local and print-only: it does not execute commands,
 read the supplied directory, validate files, import rows, open SQLite, create
@@ -421,7 +436,9 @@ for JSON export directories using `--pattern "*.json"`. Otherwise
 - `platform`: short local provenance label. When present, it is preserved on
   retained `manual_import` rows in SQLite and may appear in imported review
   output. It is not platform coverage, source acquisition, demand proof, or a
-  claim of complete platform/community visibility.
+  claim of complete platform/community visibility. `suggested_platform_labels`
+  can help producers choose this local value, but the labels are advisory
+  metadata only and do not make `platform` required.
 - `source_weight`: local score weight in `(0, 5]`.
 - `collected_at`: timestamp for when the external tool produced the row.
 

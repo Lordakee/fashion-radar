@@ -57,6 +57,7 @@ class CommunityHandoffManifest(BaseModel):
     producer_profile_command: str
     producer_contract_version: str
     supported_input_formats: list[str]
+    suggested_platform_labels: list[str]
     suggested_filename: str
     matched_file_rule: str
     manifest_storage_note: str
@@ -108,6 +109,7 @@ def build_community_handoff_manifest(
         producer_profile_command=COMMUNITY_HANDOFF_MANIFEST_PROFILE_COMMAND,
         producer_contract_version=profile.contract_version,
         supported_input_formats=[*profile.supported_input_formats],
+        suggested_platform_labels=[*profile.suggested_platform_labels],
         suggested_filename=_suggested_filename(input_format),
         matched_file_rule=COMMUNITY_HANDOFF_MANIFEST_MATCHED_FILE_RULE,
         manifest_storage_note=COMMUNITY_HANDOFF_MANIFEST_STORAGE_NOTE,
@@ -148,6 +150,7 @@ def render_community_handoff_manifest_table(
         f"Producer profile command: {_table_cell(manifest.producer_profile_command)}",
         f"Producer contract version: {manifest.producer_contract_version}",
         f"Supported input formats: {', '.join(manifest.supported_input_formats)}",
+        f"Suggested platform labels: {', '.join(manifest.suggested_platform_labels)}",
         f"Schema path: {manifest.schema_path}",
         f"Example paths: {', '.join(manifest.example_paths)}",
         f"Directory example paths: {', '.join(manifest.directory_example_paths)}",

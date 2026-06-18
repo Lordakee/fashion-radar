@@ -1242,6 +1242,17 @@ def test_community_signal_profile_docs_are_linked() -> None:
     assert "producer contract" in import_doc
     assert "does not read handoff files or directories" in import_doc
     assert "does not read handoff files or directories" in boundaries
+    for term in (
+        "suggested_platform_labels",
+        "advisory local provenance label guidance",
+        "optional handoff `platform` field",
+        "not a schema enum",
+        "not a linter restriction",
+        "not platform coverage",
+        "not demand proof",
+    ):
+        assert term in import_doc
+        assert term in quality_doc
 
 
 def test_community_handoff_manifest_docs_are_linked_and_warn_about_storage() -> None:
