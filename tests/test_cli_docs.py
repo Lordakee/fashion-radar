@@ -21,6 +21,7 @@ TREND_DELTAS_DOC = ROOT / "docs" / "trend-deltas.md"
 DASHBOARD_DOC = ROOT / "docs" / "dashboard.md"
 ARCHITECTURE_DOC = ROOT / "docs" / "architecture.md"
 SOURCE_BOUNDARIES_DOC = ROOT / "docs" / "source-boundaries.md"
+ENTITY_PACKS_DOC = ROOT / "docs" / "entity-packs.md"
 AGENTS_DOC = ROOT / "AGENTS.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 FIRST_RUN_DOC = ROOT / "docs" / "first-run.md"
@@ -774,6 +775,104 @@ def test_first_run_guide_documents_paths_outputs_dashboard_reset_and_boundaries(
     assert manual_flow.index("uv run fashion-radar match --config-dir") < manual_flow.index(
         "uv run fashion-radar imported-signals --data-dir"
     )
+
+
+def test_readme_documents_optional_watchlist_local_sample() -> None:
+    text = _read(README)
+    normalized = _normalized_doc_text(README)
+
+    for term in (
+        "Optional Expanded Watchlist Sample",
+        "examples/community-signals.watchlist.example.csv",
+        "Community Watchlist Sample",
+        (
+            "cp configs/entity-packs/fashion-watchlist.example.yaml "
+            '"$tmp_watchlist/configs/entities.yaml"'
+        ),
+        "community-signal-lint examples/community-signals.watchlist.example.csv",
+        "import-signals examples/community-signals.watchlist.example.csv",
+        'uv run fashion-radar match --config-dir "$tmp_watchlist/configs"',
+        'uv run fashion-radar report --config-dir "$tmp_watchlist/configs"',
+        'uv run fashion-radar trends --config-dir "$tmp_watchlist/configs"',
+    ):
+        assert term in text
+
+    for term in (
+        "optional local sample does not fetch URLs",
+        "does not collect platform data",
+        "does not prove demand",
+        "does not rank brands",
+        "does not verify platform coverage",
+        "does not add connectors",
+    ):
+        assert term in normalized
+
+
+def test_first_run_guide_documents_optional_watchlist_local_sample() -> None:
+    text = _read(FIRST_RUN_DOC)
+    normalized = _normalized_doc_text(FIRST_RUN_DOC)
+
+    for term in (
+        "Optional Expanded Watchlist Sample",
+        "examples/community-signals.watchlist.example.csv",
+        "Community Watchlist Sample",
+        "fashion-watchlist.example.yaml",
+        "Khaite",
+        "Alaia Le Teckel",
+        "Miu Miu Arcadie",
+        "Mary Jane Shoes",
+        "Boho Revival",
+    ):
+        assert term in text
+
+    for term in (
+        "optional local sample does not fetch URLs",
+        "does not collect platform data",
+        "does not prove demand",
+        "does not rank brands",
+        "does not verify platform coverage",
+        "does not add connectors",
+    ):
+        assert term in normalized
+
+
+def test_entity_pack_docs_link_optional_watchlist_sample_to_local_pack() -> None:
+    text = _read(ENTITY_PACKS_DOC)
+    normalized = _normalized_doc_text(ENTITY_PACKS_DOC)
+
+    for term in (
+        "Try The Optional Local Sample",
+        "examples/community-signals.watchlist.example.csv",
+        "Community Watchlist Sample",
+        (
+            "cp configs/entity-packs/fashion-watchlist.example.yaml "
+            '"$tmp_watchlist/configs/entities.yaml"'
+        ),
+        "uv run fashion-radar entity-pack-lint configs/entity-packs/fashion-watchlist.example.yaml",
+        (
+            "uv run fashion-radar community-signal-lint "
+            "examples/community-signals.watchlist.example.csv"
+        ),
+    ):
+        assert term in text
+
+    for term in (
+        "local sample rows are synthetic",
+        "not a hot-list",
+        "not a ranking",
+        "not demand proof",
+        "not platform coverage verification",
+    ):
+        assert term in normalized
+
+
+def test_github_upload_checklist_mentions_watchlist_sample_archive_guard() -> None:
+    text = _read(UPLOAD_CHECKLIST)
+    normalized = _normalized_doc_text(UPLOAD_CHECKLIST)
+
+    assert "examples/community-signals.watchlist.example.csv" in text
+    assert "Package archive checks require" in text
+    assert "optional watchlist sample" in normalized
 
 
 def test_upload_checklist_documents_first_run_smoke_boundary() -> None:

@@ -2,11 +2,13 @@ from pathlib import Path
 
 from fashion_radar.extract.entities import evaluate_entity_matches, match_entities
 from fashion_radar.extract.text import normalize_alias_key
+from fashion_radar.importers.manual_signals import load_manual_signal_rows
 from fashion_radar.models.entity import EntityDefinition, EntityType
 from fashion_radar.settings import UNSAFE_COMMON_ALIASES, load_entity_config
 
 PACK_PATH = Path("configs/entity-packs/fashion-watchlist.example.yaml")
 DOC_PATH = Path("docs/entity-packs.md")
+WATCHLIST_SIGNAL_PATH = Path("examples/community-signals.watchlist.example.csv")
 
 
 def _entities() -> list[EntityDefinition]:
@@ -130,6 +132,34 @@ def test_fashion_watchlist_matcher_accepts_parent_brand_or_fashion_context() -> 
         "Mary Jane Shoes",
         "Boat Shoes",
     } <= accepted_names
+
+
+def test_fashion_watchlist_sample_matches_expected_entities_and_types() -> None:
+    entities = _entities()
+    rows = load_manual_signal_rows(
+        WATCHLIST_SIGNAL_PATH,
+        input_format="csv",
+        default_source_name="Community Watchlist Sample",
+    )
+    text = " ".join(f"{row.title} {row.summary}" for row in rows)
+
+    accepted = match_entities(text, entities)
+    matched_names = {decision.entity_name for decision in accepted}
+    matched_types = {decision.entity_type for decision in accepted}
+
+    assert {
+        "Khaite",
+        "Khaite Lotus Bag",
+        "Loewe",
+        "Loewe Puzzle Bag",
+        "Jonathan Anderson",
+        "Bella Hadid",
+        "Alaia Le Teckel",
+        "Miu Miu Arcadie",
+        "Mary Jane Shoes",
+        "Boho Revival",
+    } <= matched_names
+    assert {"brand", "product", "designer", "celebrity", "category", "trend"} <= matched_types
 
 
 def test_default_packaged_entity_config_stays_small_and_loadable() -> None:

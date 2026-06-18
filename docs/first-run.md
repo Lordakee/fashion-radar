@@ -144,6 +144,37 @@ The automated first-run smoke also validates the external-tool adapter registry
 JSON contract from `external-tool-adapters --format json` across all seven
 adapters.
 
+## Optional Expanded Watchlist Sample
+
+Use this optional local sample when you want to see the broader
+`fashion-watchlist` entity pack match designer brands, named products,
+categories, designers, celebrity style, and trend terms against checked-in
+synthetic local rows. It is separate from the deterministic first-run sample
+and does not change generated starter configs.
+
+```bash
+tmp_watchlist="$(mktemp -d)"
+AS_OF="2026-06-13T12:00:00Z"
+mkdir -p "$tmp_watchlist/configs" "$tmp_watchlist/data" "$tmp_watchlist/reports"
+cp configs/entity-packs/fashion-watchlist.example.yaml "$tmp_watchlist/configs/entities.yaml"
+cp configs/scoring.example.yaml "$tmp_watchlist/configs/scoring.yaml"
+
+uv run fashion-radar entity-pack-lint configs/entity-packs/fashion-watchlist.example.yaml
+uv run fashion-radar community-signal-lint examples/community-signals.watchlist.example.csv --input-format csv --source-name "Community Watchlist Sample"
+uv run fashion-radar import-signals examples/community-signals.watchlist.example.csv --format csv --source-name "Community Watchlist Sample" --imported-at "$AS_OF" --data-dir "$tmp_watchlist/data"
+uv run fashion-radar match --config-dir "$tmp_watchlist/configs" --data-dir "$tmp_watchlist/data"
+uv run fashion-radar report --config-dir "$tmp_watchlist/configs" --data-dir "$tmp_watchlist/data" --reports-dir "$tmp_watchlist/reports" --as-of "$AS_OF"
+uv run fashion-radar trends --config-dir "$tmp_watchlist/configs" --data-dir "$tmp_watchlist/data" --as-of "$AS_OF" --format json
+```
+
+Expected local matches include `Khaite`, `Khaite Lotus Bag`, `Loewe`,
+`Loewe Puzzle Bag`, `Jonathan Anderson`, `Bella Hadid`, `Alaia Le Teckel`,
+`Miu Miu Arcadie`, `Mary Jane Shoes`, and `Boho Revival`.
+
+The optional local sample does not fetch URLs, does not collect platform data,
+does not prove demand, does not rank brands, does not verify platform coverage,
+and does not add connectors.
+
 ## Reset The Repo-Local Sample
 
 Review or copy edits to generated config files before deleting them. The setup

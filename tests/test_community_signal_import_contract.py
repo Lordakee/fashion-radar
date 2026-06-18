@@ -17,6 +17,8 @@ CSV_EXAMPLE = ROOT / "examples" / "community-signals.example.csv"
 JSON_EXAMPLE = ROOT / "examples" / "community-signals.example.json"
 TOOL_HANDOFF_CSV_EXAMPLE = ROOT / "examples" / "community-tool-handoff.example.csv"
 TOOL_HANDOFF_JSON_EXAMPLE = ROOT / "examples" / "community-tool-handoff.example.json"
+WATCHLIST_CSV_EXAMPLE = ROOT / "examples" / "community-signals.watchlist.example.csv"
+WATCHLIST_EXPECTED_ROWS = 8
 COMMUNITY_SIGNAL_EXAMPLES = (
     (CSV_EXAMPLE, "csv", "Community Tool Export"),
     (JSON_EXAMPLE, "json", "Community Tool Export"),
@@ -106,6 +108,21 @@ def test_community_examples_load_through_manual_importer(
     assert {row.platform for row in rows} == {"community"}
 
 
+def test_watchlist_community_signal_csv_example_loads_expected_rows() -> None:
+    rows = load_manual_signal_rows(
+        WATCHLIST_CSV_EXAMPLE,
+        input_format="csv",
+        default_source_name="Community Watchlist Sample",
+    )
+
+    assert len(rows) == 8
+    assert rows[0].url == "https://example.com/community-watchlist/khaite-lotus-bag"
+    assert rows[0].title == "Khaite Lotus Bag local watchlist note"
+    assert rows[0].source_name == "Community Watchlist Sample"
+    assert rows[0].platform == "community"
+    assert rows[-1].title == "Boho Revival styling watchlist note"
+
+
 @pytest.mark.parametrize(
     ("path", "input_format", "source_name"),
     TOOL_HANDOFF_EXAMPLES,
@@ -175,6 +192,12 @@ def test_community_examples_use_same_allowed_contract_fields() -> None:
 
     for path, input_format, _source_name in COMMUNITY_SIGNAL_EXAMPLES:
         assert _example_fields(path, input_format) <= allowed
+
+
+def test_watchlist_community_signal_csv_example_uses_allowed_fields() -> None:
+    fields = _example_fields(WATCHLIST_CSV_EXAMPLE, "csv")
+
+    assert fields <= ALLOWED_COMMUNITY_SIGNAL_FIELDS
 
 
 def test_community_signal_linter_allowed_fields_match_schema() -> None:
@@ -248,3 +271,40 @@ def test_import_signals_dry_run_validates_community_examples_without_artifacts(
     assert not list(tmp_path.rglob("fashion-radar-*.md"))
     assert not list(tmp_path.rglob("latest.*"))
     assert not list(tmp_path.rglob("report-index.json"))
+
+
+def test_import_signals_dry_run_validates_watchlist_sample_without_artifacts(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "import-signals",
+            str(WATCHLIST_CSV_EXAMPLE),
+            "--format",
+            "csv",
+            "--source-name",
+            "Community Watchlist Sample",
+            "--data-dir",
+            str(data_dir),
+            "--dry-run",
+        ],
+        env={"FASHION_RADAR_REPORTS_DIR": str(reports_dir)},
+    )
+
+    assert result.exit_code == 0
+    assert f"Validated {WATCHLIST_EXPECTED_ROWS} manual signal rows" in result.output
+    assert "Dry run: no rows imported" in result.output
+    assert not data_dir.exists()
+    assert not reports_dir.exists()
+    assert list(tmp_path.rglob("*.sqlite")) == []
+    assert list(tmp_path.rglob("*.sqlite*")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.json")) == []
+    assert list(tmp_path.rglob("fashion-radar-*.md")) == []
+    assert list(tmp_path.rglob("*digest*")) == []
+    assert list(tmp_path.rglob("*.eml")) == []
+    assert list(tmp_path.rglob("latest.*")) == []
+    assert list(tmp_path.rglob("report-index.json")) == []

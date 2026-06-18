@@ -52,6 +52,7 @@ SDIST_FILES = [
     "configs/entity-packs/fashion-watchlist.example.yaml",
     "examples/community-signals.example.csv",
     "examples/community-signals.example.json",
+    "examples/community-signals.watchlist.example.csv",
     "examples/community-signal-profile.example.json",
     "examples/community-tool-handoff.example.csv",
     "examples/community-tool-handoff.example.json",
@@ -307,6 +308,29 @@ def test_rejects_sdist_without_community_signal_profile_example(tmp_path: Path) 
     assert result.returncode == 1
     assert (
         "sdist archive missing required file: examples/community-signal-profile.example.json"
+    ) in result.stderr
+
+
+def test_rejects_sdist_without_watchlist_community_signal_sample(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(
+        build_dir,
+        files=[
+            path
+            for path in SDIST_FILES
+            if path != "examples/community-signals.watchlist.example.csv"
+        ],
+    )
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "sdist archive missing required file: examples/community-signals.watchlist.example.csv"
     ) in result.stderr
 
 

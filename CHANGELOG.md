@@ -186,6 +186,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `README.md` and `docs/cli-reference.md`, guarded by CLI docs tests. This is
   documentation/test-only and adds no runtime adapter or external-platform
   behavior.
+- Stage 77 optional expanded watchlist community-signal sample for local
+  `fashion-watchlist` import, match, report, and trend walkthroughs using
+  synthetic checked-in rows. It does not fetch URLs, collect platform data,
+  prove demand, rank brands, verify platform coverage, or add connectors.
 - Stage 53 community handoff guardrail tests for prohibited-field lint
   coverage, producer-profile command order, docs drift, and parser rejection.
 - Optional fashion entity watchlist pack for broader local matching coverage

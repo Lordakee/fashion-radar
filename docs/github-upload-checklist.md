@@ -172,6 +172,12 @@ External community tool export directory examples docs check:
       directory layout pointers as `directory_example_paths`.
 - [ ] Package archive checks require the directory README plus the two CSV and
       two JSON handoff files.
+- [ ] Package archive checks require the optional watchlist sample
+      [examples/community-signals.watchlist.example.csv](../examples/community-signals.watchlist.example.csv)
+      as a sanitized synthetic local community-signal file for exercising the
+      optional entity pack. It adds no fetching URLs, no platform data
+      collection, no connectors, no demand proof, no ranking, and no platform
+      coverage verification.
 
 External social/community tool adapter registry docs check:
 

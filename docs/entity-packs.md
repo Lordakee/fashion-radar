@@ -61,6 +61,30 @@ The entity pack only changes local entity matching. It does not add sources,
 source setup, collection workflows, platform or community ingestion, scraping,
 social monitoring, current-hotness detection, or ranking semantics.
 
+## Try The Optional Local Sample
+
+Use the optional local sample when you want to exercise the broader
+`fashion-watchlist` pack against checked-in synthetic community-signal rows.
+
+```bash
+tmp_watchlist="$(mktemp -d)"
+AS_OF="2026-06-13T12:00:00Z"
+mkdir -p "$tmp_watchlist/configs" "$tmp_watchlist/data" "$tmp_watchlist/reports"
+cp configs/entity-packs/fashion-watchlist.example.yaml "$tmp_watchlist/configs/entities.yaml"
+cp configs/scoring.example.yaml "$tmp_watchlist/configs/scoring.yaml"
+
+uv run fashion-radar entity-pack-lint configs/entity-packs/fashion-watchlist.example.yaml
+uv run fashion-radar community-signal-lint examples/community-signals.watchlist.example.csv --input-format csv --source-name "Community Watchlist Sample"
+uv run fashion-radar import-signals examples/community-signals.watchlist.example.csv --format csv --source-name "Community Watchlist Sample" --imported-at "$AS_OF" --data-dir "$tmp_watchlist/data"
+uv run fashion-radar match --config-dir "$tmp_watchlist/configs" --data-dir "$tmp_watchlist/data"
+uv run fashion-radar report --config-dir "$tmp_watchlist/configs" --data-dir "$tmp_watchlist/data" --reports-dir "$tmp_watchlist/reports" --as-of "$AS_OF"
+uv run fashion-radar trends --config-dir "$tmp_watchlist/configs" --data-dir "$tmp_watchlist/data" --as-of "$AS_OF" --format json
+```
+
+The local sample rows are synthetic. They are not a hot-list, not a ranking,
+not demand proof, and not platform coverage verification. The flow uses local
+files only: no fetching URLs, no platform data collection, and no connectors.
+
 ## Edit The Pack
 
 Treat the pack as a starting point:

@@ -19,6 +19,8 @@ CSV_EXAMPLE = ROOT / "examples" / "community-signals.example.csv"
 JSON_EXAMPLE = ROOT / "examples" / "community-signals.example.json"
 TOOL_HANDOFF_CSV_EXAMPLE = ROOT / "examples" / "community-tool-handoff.example.csv"
 TOOL_HANDOFF_JSON_EXAMPLE = ROOT / "examples" / "community-tool-handoff.example.json"
+WATCHLIST_CSV_EXAMPLE = ROOT / "examples" / "community-signals.watchlist.example.csv"
+WATCHLIST_EXPECTED_ROWS = 8
 COMMUNITY_SIGNAL_EXAMPLES = (
     (CSV_EXAMPLE, "csv", "Community Tool Export"),
     (JSON_EXAMPLE, "json", "Community Tool Export"),
@@ -64,6 +66,20 @@ def test_repository_examples_lint_cleanly(
     assert result.valid_row_count == 2
     assert result.source_name_counts == {source_name: 2}
     assert result.platform_counts == {"community": 2}
+
+
+def test_watchlist_community_signal_example_lints_cleanly() -> None:
+    result = lint_community_signal_file(WATCHLIST_CSV_EXAMPLE, input_format="csv")
+
+    assert WATCHLIST_CSV_EXAMPLE.is_file()
+    assert result.ok is True
+    assert result.findings == []
+    assert result.error_count == 0
+    assert result.warning_count == 0
+    assert result.row_count == WATCHLIST_EXPECTED_ROWS
+    assert result.valid_row_count == WATCHLIST_EXPECTED_ROWS
+    assert result.source_name_counts == {"Community Watchlist Sample": WATCHLIST_EXPECTED_ROWS}
+    assert result.platform_counts == {"community": WATCHLIST_EXPECTED_ROWS}
 
 
 def test_unknown_and_prohibited_csv_fields_are_errors(tmp_path: Path) -> None:

@@ -53,6 +53,7 @@ SDIST_REQUIRED_PATHS = [
     "configs/entity-packs/fashion-watchlist.example.yaml",
     "examples/community-signals.example.csv",
     "examples/community-signals.example.json",
+    "examples/community-signals.watchlist.example.csv",
     "examples/community-signal-profile.example.json",
     "examples/community-tool-handoff.example.csv",
     "examples/community-tool-handoff.example.json",
