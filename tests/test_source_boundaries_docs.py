@@ -61,3 +61,25 @@ def test_source_boundaries_docs_keep_readme_requirements_boundary() -> None:
         "Community handoff check directory reports are local-only handoff readiness reports.",
     ):
         assert phrase.casefold() in normalized
+
+
+def test_source_boundaries_docs_keep_output_boundary() -> None:
+    output_boundaries = _section(
+        _read_source_boundaries_doc(),
+        "Output Boundaries",
+    )
+    normalized = _normalized(output_boundaries)
+
+    for phrase in (
+        "Reports and dashboards should describe signals, not assert certainty.",
+        "Preferred wording:",
+        "Mention count increased in this configured source set",
+        "Needs human review",
+        "Signal changed within this configured local source set",
+        "Imported row platform provenance label",
+        "Stored local provenance label, not platform coverage",
+        "Avoid wording that implies complete market truth:",
+        "This source-set signal proves external demand",
+        "This celebrity caused the trend",
+    ):
+        assert phrase.casefold() in normalized
