@@ -14,8 +14,12 @@ opencode with `zhipuai-coding-plan/glm-5.2 --variant max`.
 Use this command form for plan reviews:
 
 ```bash
+tmp_review="$(mktemp)"
 opencode run --model zhipuai-coding-plan/glm-5.2 --variant max \
-  --dir /home/ubuntu/fashion-radar "$(cat docs/reviews/opencode-stage-N-plan-review-prompt.md)" > docs/reviews/opencode-stage-N-plan-review.md
+  --dir /home/ubuntu/fashion-radar "$(cat docs/reviews/opencode-stage-N-plan-review-prompt.md)" > "$tmp_review"
+sed -n '1,260p' "$tmp_review"
+cp "$tmp_review" docs/reviews/opencode-stage-N-plan-review.md
+rm -f "$tmp_review"
 ```
 
 ## During Development
@@ -46,8 +50,12 @@ Before pushing to GitHub:
 Use the same local opencode command form for release reviews:
 
 ```bash
+tmp_review="$(mktemp)"
 opencode run --model zhipuai-coding-plan/glm-5.2 --variant max \
-  --dir /home/ubuntu/fashion-radar "$(cat docs/reviews/opencode-stage-N-release-review-prompt.md)" > docs/reviews/opencode-stage-N-release-review.md
+  --dir /home/ubuntu/fashion-radar "$(cat docs/reviews/opencode-stage-N-release-review-prompt.md)" > "$tmp_review"
+sed -n '1,260p' "$tmp_review"
+cp "$tmp_review" docs/reviews/opencode-stage-N-release-review.md
+rm -f "$tmp_review"
 ```
 
 ## Review Record Naming
@@ -70,6 +78,21 @@ docs/reviews/opencode-stage-N-release-rereview.md
 
 Keep existing review records in place; do not rename old artifacts just because
 the active review engine changes.
+
+## Review Capture Hygiene
+
+This review capture hygiene rule applies to
+`docs/reviews/opencode-stage-N-plan-review.md`,
+`docs/reviews/opencode-stage-N-code-review.md`, and
+`docs/reviews/opencode-stage-N-release-review.md`. Capture the completed
+reviewer output to a temporary file first, inspect it, and then copy only one
+coherent review body directly into the target review record.
+
+Do not commit live-capture stubs, duplicated or truncated text, empty output,
+multiple top-level review drafts, or more than one verdict. Do not commit tool
+status lines such as `Wrote`, and do not duplicate approval phrases. If the
+review times out, record the timeout honestly instead of presenting partial
+output as approval.
 
 ## Optional Alternate Route
 

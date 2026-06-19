@@ -529,3 +529,12 @@ Follow `docs/REVIEW_PROTOCOL.md` for review record naming and record the final
 review as `docs/reviews/opencode-stage-N-release-review.md`. Claude Code
 `--effort max` remains an optional alternate route only when a stage explicitly
 requests it.
+
+Before upload, confirm the final local opencode release-review artifact contains
+review capture hygiene notes. Capture the completed reviewer output into a
+temporary file first, inspect it, and copy one coherent review body directly
+into the target review record. Do not commit live-capture stubs, duplicated or
+truncated text, empty output, multiple top-level review drafts, more than one
+verdict, or partial output as approval. Do not commit tool status lines such as
+`Wrote`, and do not duplicate approval phrases. If the review times out, record
+the timeout honestly instead of treating partial output as approval.

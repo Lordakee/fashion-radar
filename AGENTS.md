@@ -14,6 +14,9 @@ paywall bypass, or fragile full social-platform scraping.
   local opencode review of the new code before moving to the next stage.
 - Record active plan, code, release, and rereview artifacts under
   `docs/reviews/opencode-stage-N-...`.
+- Before committing review artifacts, ensure each local opencode record contains
+  completed review output and no live-capture stubs, duplicated or truncated
+  text, tool-status messages, or empty output.
 - Fix critical and important review findings before continuing.
 
 ## Agent Runtime Settings

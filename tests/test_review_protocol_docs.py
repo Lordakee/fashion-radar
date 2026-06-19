@@ -15,6 +15,17 @@ ACTIVE_REVIEW_DOCS = [
 
 ACTIVE_OPENCODE_COMMAND = "opencode run --model zhipuai-coding-plan/glm-5.2 --variant max"
 OPTIONAL_CLAUDE_CODE_COMMAND = "claude --effort max --permission-mode plan --no-session-persistence"
+REVIEW_CAPTURE_HYGIENE_REQUIRED_PHRASES = (
+    "review capture hygiene",
+    "capture the completed reviewer output",
+    "directly into the target review record",
+    "do not commit live-capture stubs",
+    "do not commit tool status lines such as `Wrote`",
+    "one coherent review body",
+    "one verdict",
+    "do not duplicate approval phrases",
+    "if the review times out, record the timeout honestly",
+)
 
 
 def _read(path: Path) -> str:
@@ -103,3 +114,40 @@ def test_active_review_protocol_documents_opencode_gate_and_claude_alternate() -
     )
     for record_name in optional_claude_names:
         assert record_name in protocol_text
+
+
+def test_review_protocol_docs_document_capture_hygiene() -> None:
+    agents_text = _read(AGENTS)
+    protocol_text = _read(REVIEW_PROTOCOL)
+    checklist_text = _read(UPLOAD_CHECKLIST)
+    agents_section = _section(agents_text, "Review Gates")
+    assert "## Review Capture Hygiene" in protocol_text
+    protocol_section = _section(protocol_text, "Review Capture Hygiene")
+    checklist_section = _section(checklist_text, "Final Review")
+    failures: list[str] = []
+
+    for label, text in (
+        ("docs/REVIEW_PROTOCOL.md##Review Capture Hygiene", protocol_section),
+        ("docs/github-upload-checklist.md##Final Review", checklist_section),
+    ):
+        normalized = _normalized_text(text).casefold()
+        for phrase in REVIEW_CAPTURE_HYGIENE_REQUIRED_PHRASES:
+            if phrase.casefold() not in normalized:
+                failures.append(f"{label} is missing {phrase!r}")
+
+    assert "opencode-stage-N-plan-review.md" in protocol_section
+    assert "opencode-stage-N-code-review.md" in protocol_section
+    assert "opencode-stage-N-release-review.md" in protocol_section
+    assert "opencode-stage-N-release-review.md" in checklist_section
+    assert "> docs/reviews/opencode-stage-N-plan-review.md" not in protocol_text
+    assert "> docs/reviews/opencode-stage-N-release-review.md" not in protocol_text
+    normalized_agents = _normalized_text(agents_section).casefold()
+    for phrase in (
+        "completed review output",
+        "live-capture stubs",
+        "duplicated or truncated text",
+        "tool-status messages",
+        "empty output",
+    ):
+        assert phrase.casefold() in normalized_agents
+    assert not failures, "\n".join(failures)
