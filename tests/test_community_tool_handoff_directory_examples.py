@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,8 @@ from typer.testing import CliRunner
 from fashion_radar.cli import app
 from fashion_radar.community_signal_profile import build_community_signal_profile
 from fashion_radar.community_signals import lint_community_signal_file
+from fashion_radar.external_tool_readiness import build_external_tool_readiness
+from fashion_radar.external_tool_workflow import build_external_tool_workflow
 from fashion_radar.importers.manual_signals import load_manual_signal_rows
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -141,6 +144,87 @@ def test_directory_example_signal_files_lint_and_load_cleanly(
     assert all(row.url.startswith("https://example.com/") for row in rows)
     assert {row.source_name for row in rows} == {"External Community Tool"}
     assert {row.platform for row in rows} == {"community"}
+
+
+@pytest.mark.parametrize(
+    ("directory", "expected_names", "input_format", "pattern"),
+    DIRECTORY_EXAMPLES,
+    ids=_example_ids(),
+)
+def test_directory_examples_build_external_tool_readiness_and_workflow_with_overrides(
+    directory: Path,
+    expected_names: tuple[str, ...],
+    input_format: str,
+    pattern: str,
+) -> None:
+    source_name = "External Community Tool"
+
+    def flag_value(tokens: list[str], flag: str) -> str:
+        assert tokens.count(flag) == 1, f"Expected exactly one {flag!r} in {tokens!r}"
+        return tokens[tokens.index(flag) + 1]
+
+    assert sorted(path.name for path in directory.glob(pattern)) == sorted(expected_names)
+
+    readiness = build_external_tool_readiness(
+        adapter_id="generic_community_export",
+        directory=directory,
+        input_format=input_format,
+        pattern=pattern,
+        source_name=source_name,
+        which=lambda _command: None,
+    )
+    workflow = build_external_tool_workflow(
+        adapter_id="generic_community_export",
+        directory=directory,
+        input_format=input_format,
+        pattern=pattern,
+        source_name=source_name,
+    )
+
+    for payload in (readiness, workflow):
+        assert payload.adapter_id == "generic_community_export"
+        assert payload.display_name == "Generic Community Export"
+        assert payload.platform_label == "community"
+        assert payload.directory == str(directory)
+        assert payload.input_format == input_format
+        assert payload.pattern == pattern
+        assert payload.source_name == source_name
+        assert payload.step_count == len(payload.steps)
+
+    assert readiness.execution_mode == "local_read_only"
+    assert readiness.checks[0].status == "not_applicable"
+    assert readiness.checks[0].command is None
+    assert workflow.execution_mode == "print_only"
+
+    readiness_commands = {step.name: shlex.split(step.command) for step in readiness.steps}
+    workflow_commands = {step.name: shlex.split(step.command) for step in workflow.steps}
+
+    readiness_workflow = readiness_commands["print_external_tool_workflow"]
+    assert readiness_workflow[:2] == ["fashion-radar", "external-tool-workflow"]
+    assert flag_value(readiness_workflow, "--adapter") == "generic_community_export"
+    assert flag_value(readiness_workflow, "--directory") == str(directory)
+    assert flag_value(readiness_workflow, "--input-format") == input_format
+    assert flag_value(readiness_workflow, "--pattern") == pattern
+    assert flag_value(readiness_workflow, "--source-name") == source_name
+
+    workflow_readiness = workflow_commands["check_external_tool_readiness"]
+    assert workflow_readiness[:2] == ["fashion-radar", "external-tool-readiness"]
+    assert flag_value(workflow_readiness, "--adapter") == "generic_community_export"
+    assert flag_value(workflow_readiness, "--directory") == str(directory)
+    assert flag_value(workflow_readiness, "--input-format") == input_format
+    assert flag_value(workflow_readiness, "--pattern") == pattern
+    assert flag_value(workflow_readiness, "--source-name") == source_name
+
+    for commands in (readiness_commands, workflow_commands):
+        lint_tokens = commands["lint_export_directory"]
+        assert lint_tokens[:3] == [
+            "fashion-radar",
+            "community-signal-lint-dir",
+            str(directory),
+        ]
+        assert flag_value(lint_tokens, "--input-format") == input_format
+        assert flag_value(lint_tokens, "--pattern") == pattern
+        assert flag_value(lint_tokens, "--source-name") == source_name
 
 
 @pytest.mark.parametrize(

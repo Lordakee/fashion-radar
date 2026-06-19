@@ -164,8 +164,16 @@ these directory-layout pointers in `community-signal-profile --format json` and
 `community-handoff-manifest --format json`, while `example_paths` remains the
 single-file import examples.
 
+Run `external-tool-readiness` and `external-tool-workflow` first when you want
+a local preflight for the checked-in CSV or JSON example directory; both
+commands remain local guidance and do not run upstream tools.
+
 ```bash
+uv run fashion-radar external-tool-readiness --adapter generic_community_export --directory examples/community-tool-handoff-directory.example/csv --input-format csv --pattern "*.csv" --source-name "External Community Tool" --format table
+uv run fashion-radar external-tool-workflow --adapter generic_community_export --directory examples/community-tool-handoff-directory.example/csv --input-format csv --pattern "*.csv" --source-name "External Community Tool" --format table
 uv run fashion-radar community-signal-lint-dir examples/community-tool-handoff-directory.example/csv --input-format csv --pattern "*.csv" --source-name "External Community Tool" --strict
+uv run fashion-radar external-tool-readiness --adapter generic_community_export --directory examples/community-tool-handoff-directory.example/json --input-format json --pattern "*.json" --source-name "External Community Tool" --format table
+uv run fashion-radar external-tool-workflow --adapter generic_community_export --directory examples/community-tool-handoff-directory.example/json --input-format json --pattern "*.json" --source-name "External Community Tool" --format table
 uv run fashion-radar import-signals-dir examples/community-tool-handoff-directory.example/json --format json --pattern "*.json" --source-name "External Community Tool" --data-dir "$PWD/data" --dry-run --output-format json
 ```
 

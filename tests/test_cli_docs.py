@@ -1443,6 +1443,9 @@ def test_external_community_tool_handoff_template_docs_are_linked_and_bounded() 
 def test_external_community_tool_directory_example_docs_are_linked_and_bounded() -> None:
     readme = _read(README)
     import_doc = _read(ROOT / "docs" / "community-signal-import.md")
+    example_readme = _read(
+        ROOT / "examples" / "community-tool-handoff-directory.example" / "README.md"
+    )
     checklist = _read(UPLOAD_CHECKLIST)
     boundaries = _read(ROOT / "docs" / "source-boundaries.md")
     architecture = _read(ROOT / "docs" / "architecture.md")
@@ -1452,6 +1455,135 @@ def test_external_community_tool_directory_example_docs_are_linked_and_bounded()
     for text in (readme, import_doc, checklist):
         for path in COMMUNITY_TOOL_HANDOFF_DIRECTORY_PATHS:
             _assert_markdown_link_to_path(text, path)
+
+    directory_preflight_cases = (
+        ("examples/community-tool-handoff-directory.example/csv", "csv", "*.csv"),
+        ("examples/community-tool-handoff-directory.example/json", "json", "*.json"),
+    )
+
+    def _fashion_radar_command_tokens(text: str) -> list[tuple[str, list[str]]]:
+        commands: list[tuple[str, list[str]]] = []
+        for block in _bash_blocks(text):
+            for command in _shell_commands(block):
+                match = FASHION_RADAR_COMMAND_RE.search(command)
+                if match is not None:
+                    commands.append((match.group("name"), shlex.split(command)))
+        return commands
+
+    def _flag_value(tokens: list[str], flag: str) -> str:
+        assert tokens.count(flag) == 1, f"Expected exactly one {flag!r} in {tokens!r}"
+        return tokens[tokens.index(flag) + 1]
+
+    def _assert_command_has_flags(
+        tokens: list[str],
+        *,
+        directory: str,
+        input_format: str,
+        pattern: str,
+    ) -> None:
+        assert tokens[:3] == ["uv", "run", "fashion-radar"]
+        assert tokens[3] in {"external-tool-readiness", "external-tool-workflow"}
+        assert _flag_value(tokens, "--adapter") == "generic_community_export"
+        assert _flag_value(tokens, "--directory") == directory
+        assert _flag_value(tokens, "--input-format") == input_format
+        assert _flag_value(tokens, "--pattern") == pattern
+        assert _flag_value(tokens, "--source-name") == "External Community Tool"
+        assert _flag_value(tokens, "--format") == "table"
+
+    expected_preflight_keys = (
+        (
+            "external-tool-readiness",
+            "examples/community-tool-handoff-directory.example/csv",
+            "csv",
+            "*.csv",
+        ),
+        (
+            "external-tool-workflow",
+            "examples/community-tool-handoff-directory.example/csv",
+            "csv",
+            "*.csv",
+        ),
+        (
+            "external-tool-readiness",
+            "examples/community-tool-handoff-directory.example/json",
+            "json",
+            "*.json",
+        ),
+        (
+            "external-tool-workflow",
+            "examples/community-tool-handoff-directory.example/json",
+            "json",
+            "*.json",
+        ),
+    )
+
+    for label, _doc_text, scope_text in (
+        (
+            "examples/community-tool-handoff-directory.example/README.md",
+            example_readme,
+            example_readme,
+        ),
+        (
+            "docs/community-signal-import.md",
+            import_doc,
+            _markdown_section(import_doc, "## External Tool Export Directory Examples"),
+        ),
+    ):
+        command_tokens = _fashion_radar_command_tokens(scope_text)
+        preflight_commands = [
+            (name, tokens)
+            for name, tokens in command_tokens
+            if name in {"external-tool-readiness", "external-tool-workflow"}
+        ]
+        preflight_keys = tuple(
+            (
+                name,
+                _flag_value(tokens, "--directory"),
+                _flag_value(tokens, "--input-format"),
+                _flag_value(tokens, "--pattern"),
+            )
+            for name, tokens in preflight_commands
+        )
+        assert preflight_keys == expected_preflight_keys, (
+            f"{label} has unexpected readiness/workflow commands"
+        )
+
+        for directory, input_format, pattern in directory_preflight_cases:
+            matching = [
+                (name, tokens)
+                for name, tokens in preflight_commands
+                if _flag_value(tokens, "--directory") == directory
+                and _flag_value(tokens, "--input-format") == input_format
+                and _flag_value(tokens, "--pattern") == pattern
+            ]
+            assert len(matching) == 2, f"{label} missing command pair for {directory}"
+
+            readiness_index = next(
+                i
+                for i, (name, _tokens) in enumerate(preflight_commands)
+                if name == "external-tool-readiness"
+                and _flag_value(_tokens, "--directory") == directory
+                and _flag_value(_tokens, "--input-format") == input_format
+                and _flag_value(_tokens, "--pattern") == pattern
+            )
+            workflow_index = next(
+                i
+                for i, (name, _tokens) in enumerate(preflight_commands)
+                if name == "external-tool-workflow"
+                and _flag_value(_tokens, "--directory") == directory
+                and _flag_value(_tokens, "--input-format") == input_format
+                and _flag_value(_tokens, "--pattern") == pattern
+            )
+            assert readiness_index < workflow_index, (
+                f"{label} has workflow before readiness for {directory}"
+            )
+            for _name, tokens in matching:
+                _assert_command_has_flags(
+                    tokens,
+                    directory=directory,
+                    input_format=input_format,
+                    pattern=pattern,
+                )
 
     boundary_terms = (
         "external community tool export directory examples",
