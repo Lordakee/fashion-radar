@@ -34,6 +34,15 @@ def test_package_script_and_wheel_package_are_declared() -> None:
     assert data["tool"]["hatch"]["build"]["targets"]["wheel"]["packages"] == ["src/fashion_radar"]
 
 
+def test_sdist_excludes_internal_agent_artifacts() -> None:
+    data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+
+    assert data["tool"]["hatch"]["build"]["targets"]["sdist"]["exclude"] == [
+        "/docs/reviews/**",
+        "/docs/superpowers/**",
+    ]
+
+
 def test_public_package_metadata_is_complete() -> None:
     project = _project_metadata()
 

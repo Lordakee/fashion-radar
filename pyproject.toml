@@ -80,6 +80,12 @@ default-groups = ["dev"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/fashion_radar"]
 
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/docs/reviews/**",
+  "/docs/superpowers/**",
+]
+
 [project.scripts]
 fashion-radar = "fashion_radar.cli:app"
 

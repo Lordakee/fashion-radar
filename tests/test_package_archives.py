@@ -435,6 +435,32 @@ def test_rejects_sdist_with_env_local(tmp_path: Path) -> None:
     assert "sdist archive contains forbidden release member: .env.local" in result.stderr
 
 
+@pytest.mark.parametrize(
+    "forbidden_path",
+    [
+        "docs/reviews/",
+        "docs/reviews/opencode-stage-1-code-review.md",
+        "docs/superpowers/",
+        "docs/superpowers/plans/2026-06-20-stage-122-plan.md",
+        "docs/superpowers/specs/2026-06-20-stage-122-design.md",
+    ],
+)
+def test_rejects_sdist_with_internal_review_or_plan_artifacts(
+    tmp_path: Path,
+    forbidden_path: str,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(build_dir, files=SDIST_FILES + [forbidden_path])
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    expected_path = forbidden_path.rstrip("/")
+    assert f"sdist archive contains forbidden release member: {expected_path}" in result.stderr
+
+
 def test_rejects_sdist_with_local_sqlite_database(tmp_path: Path) -> None:
     build_dir = tmp_path / "dist"
     build_dir.mkdir()

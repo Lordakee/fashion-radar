@@ -85,6 +85,11 @@ FORBIDDEN_RELEASE_GENERATED_CONFIGS = {
     "configs/scoring.yaml",
 }
 
+FORBIDDEN_RELEASE_PATH_PREFIXES = (
+    "docs/reviews",
+    "docs/superpowers",
+)
+
 FORBIDDEN_RELEASE_EXACT_NAMES = {
     ".netrc",
     ".npmrc",
@@ -335,6 +340,12 @@ def is_forbidden_release_member(path: str) -> bool:
         return True
 
     if lower_path in FORBIDDEN_RELEASE_GENERATED_CONFIGS:
+        return True
+
+    if any(
+        lower_path == prefix or lower_path.startswith(f"{prefix}/")
+        for prefix in FORBIDDEN_RELEASE_PATH_PREFIXES
+    ):
         return True
 
     if lower_parts[0] in {".codegraph", "data", "reports"}:
