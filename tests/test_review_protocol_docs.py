@@ -13,13 +13,8 @@ ACTIVE_REVIEW_DOCS = [
     UPLOAD_CHECKLIST,
 ]
 
-FORBIDDEN_ACTIVE_REVIEW_TERMS = (
-    "local opencode",
-    "opencode run",
-    "zhipuai-coding-plan/glm-5.2",
-    "GLM 5.2",
-    "docs/reviews/opencode-stage-N",
-)
+ACTIVE_OPENCODE_COMMAND = "opencode run --model zhipuai-coding-plan/glm-5.2 --variant max"
+OPTIONAL_CLAUDE_CODE_COMMAND = "claude --effort max --permission-mode plan --no-session-persistence"
 
 
 def _read(path: Path) -> str:
@@ -30,32 +25,50 @@ def _section(text: str, heading: str) -> str:
     return text.split(f"## {heading}", 1)[1].split("\n## ", 1)[0]
 
 
-def test_active_review_docs_use_claude_code_not_opencode() -> None:
+def _normalized_text(text: str) -> str:
+    return " ".join(text.split())
+
+
+def test_active_review_docs_document_local_opencode_gate() -> None:
     failures: list[str] = []
 
     for path in ACTIVE_REVIEW_DOCS:
-        text = _read(path)
-        for term in FORBIDDEN_ACTIVE_REVIEW_TERMS:
-            if term in text:
-                failures.append(f"{path.relative_to(ROOT)} still contains {term!r}")
+        normalized = _normalized_text(_read(path))
+        normalized_lower = normalized.casefold()
+        for term in (
+            "local opencode",
+            ACTIVE_OPENCODE_COMMAND,
+            "zhipuai-coding-plan/glm-5.2",
+            "--variant max",
+            "docs/reviews/opencode-stage-N",
+        ):
+            if term.casefold() not in normalized_lower:
+                failures.append(f"{path.relative_to(ROOT)} is missing {term!r}")
 
     assert not failures, "\n".join(failures)
 
 
-def test_active_review_protocol_documents_claude_code_gate() -> None:
+def test_active_review_protocol_documents_opencode_gate_and_claude_alternate() -> None:
     agents_text = _read(AGENTS)
     protocol_text = _read(REVIEW_PROTOCOL)
     naming_section = _section(protocol_text, "Review Record Naming")
     checklist_text = _read(UPLOAD_CHECKLIST)
+    normalized_protocol = _normalized_text(protocol_text)
+    normalized_checklist = _normalized_text(checklist_text)
 
-    assert "Claude Code" in agents_text
-    assert "--effort max" in agents_text
-    assert "claude --effort max --permission-mode plan --no-session-persistence" in protocol_text
+    assert ACTIVE_OPENCODE_COMMAND in _normalized_text(agents_text)
+    assert "reasoning effort to `xhigh`" in _normalized_text(agents_text)
+    assert ACTIVE_OPENCODE_COMMAND in normalized_protocol
+    assert ACTIVE_OPENCODE_COMMAND in normalized_checklist
+    assert OPTIONAL_CLAUDE_CODE_COMMAND in normalized_protocol
+    assert "optional alternate" in normalized_protocol.casefold()
+    assert "historical audit records" not in protocol_text
+    assert "older `opencode-*` records" not in protocol_text
 
     review_record_names = (
-        "claude-code-stage-N-plan-review.md",
-        "claude-code-stage-N-code-review.md",
-        "claude-code-stage-N-release-review.md",
+        "opencode-stage-N-plan-review.md",
+        "opencode-stage-N-code-review.md",
+        "opencode-stage-N-release-review.md",
     )
     for record_name in review_record_names:
         assert record_name in naming_section
@@ -67,9 +80,9 @@ def test_active_review_protocol_documents_claude_code_gate() -> None:
     )
 
     rereview_record_names = (
-        "claude-code-stage-N-plan-rereview.md",
-        "claude-code-stage-N-code-rereview.md",
-        "claude-code-stage-N-release-rereview.md",
+        "opencode-stage-N-plan-rereview.md",
+        "opencode-stage-N-code-rereview.md",
+        "opencode-stage-N-release-rereview.md",
     )
     for record_name in rereview_record_names:
         assert record_name in naming_section
@@ -80,4 +93,13 @@ def test_active_review_protocol_documents_claude_code_gate() -> None:
         < naming_section.index(rereview_record_names[2])
     )
 
-    assert "claude --effort max --permission-mode plan --no-session-persistence" in checklist_text
+    optional_claude_names = (
+        "claude-code-stage-N-plan-review.md",
+        "claude-code-stage-N-code-review.md",
+        "claude-code-stage-N-release-review.md",
+        "claude-code-stage-N-plan-rereview.md",
+        "claude-code-stage-N-code-rereview.md",
+        "claude-code-stage-N-release-rereview.md",
+    )
+    for record_name in optional_claude_names:
+        assert record_name in protocol_text

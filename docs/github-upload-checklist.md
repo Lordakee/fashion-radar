@@ -513,15 +513,19 @@ Before upload:
 
 1. Run full verification.
 2. Sync and check CodeGraph if it is being used.
-3. Run a final local Claude Code code and documentation review with
-   `--effort max`.
+3. Run a final local opencode code and documentation review with
+   `zhipuai-coding-plan/glm-5.2 --variant max`.
 4. Fix all Critical and Important findings.
 5. Let the user choose or create the GitHub remote and push.
 
 Use this command form:
 
 ```bash
-claude --effort max --permission-mode plan --no-session-persistence \
-  --tools Read,Grep,Glob,LS,Bash \
-  -p "review prompt..."
+opencode run --model zhipuai-coding-plan/glm-5.2 --variant max \
+  --dir /home/ubuntu/fashion-radar "review prompt..."
 ```
+
+Follow `docs/REVIEW_PROTOCOL.md` for review record naming and record the final
+review as `docs/reviews/opencode-stage-N-release-review.md`. Claude Code
+`--effort max` remains an optional alternate route only when a stage explicitly
+requests it.

@@ -8,18 +8,28 @@ paywall bypass, or fragile full social-platform scraping.
 
 - Follow the staged review workflow in `docs/REVIEW_PROTOCOL.md`.
 - Before starting a new stage, submit the objective, architecture, tech stack,
-  implementation method, and plan to local Claude Code with `--effort max` for
-  review.
+  implementation method, and plan to local opencode with
+  `zhipuai-coding-plan/glm-5.2 --variant max` for review.
 - After completing a development node, run fresh verification and request
-  local Claude Code review of the new code before moving to the next stage.
+  local opencode review of the new code before moving to the next stage.
+- Record active plan, code, release, and rereview artifacts under
+  `docs/reviews/opencode-stage-N-...`.
 - Fix critical and important review findings before continuing.
 
 ## Agent Runtime Settings
 
 - When spawning Codex subagents for this project, set the subagent reasoning
   effort to `xhigh`.
-- When invoking local Claude Code for plan or code review, use `--effort max`
-  and read-only plan mode:
+- When invoking local opencode for plan or code review, use GLM 5.2 with the max
+  variant:
+
+  ```bash
+  opencode run --model zhipuai-coding-plan/glm-5.2 --variant max \
+    --dir /home/ubuntu/fashion-radar "review prompt..."
+  ```
+
+- If a stage explicitly switches review back to local Claude Code, use
+  `--effort max`, read-only plan mode, and no session persistence:
 
   ```bash
   claude --effort max --permission-mode plan --no-session-persistence \
