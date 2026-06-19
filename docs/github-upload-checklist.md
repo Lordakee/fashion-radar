@@ -28,6 +28,11 @@ Mirror install check:
 UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv sync --frozen --dev --check
 ```
 
+For agent-run verification, prefer `uv --no-config run --frozen ...` so
+user-level mirror config cannot rewrite `uv.lock`. Keep mirror-backed local
+operations as frozen mirror install commands, not public test, lockfile, or
+release-regeneration commands.
+
 Do not stage `uv.lock` if mirror-backed local operations changed it. Regenerate
 the lockfile only against the default PyPI registry before publishing.
 

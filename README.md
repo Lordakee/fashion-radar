@@ -881,6 +881,10 @@ For PR/release verification, use [CONTRIBUTING.md](CONTRIBUTING.md) or
 [docs/github-upload-checklist.md](docs/github-upload-checklist.md); public
 lockfile checks should use `UV_NO_CONFIG=1`.
 
+For agent-run verification, prefer `uv --no-config run --frozen ...` so
+user-level mirror config cannot rewrite `uv.lock`; keep mirror-backed commands
+as frozen mirror install commands, not test or lockfile regeneration commands.
+
 Optional article text extraction uses the `article` extra:
 
 ```bash

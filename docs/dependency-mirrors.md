@@ -55,6 +55,10 @@ https://pypi.mirrors.ustc.edu.cn/simple/
 
 - Prefer mirror-based install commands in local development notes.
 - Use `uv sync --frozen --dev` with mirrors for local installs.
+- For agent-run verification, prefer `uv --no-config run --frozen ...` so
+  tests, lint, release hygiene, and scripts ignore user-level mirror config and
+  cannot rewrite `uv.lock`. Keep mirror-backed commands as frozen mirror
+  install commands, not test or lockfile regeneration commands.
 - Use `UV_NO_CONFIG=1 uv lock --check` for public lockfile validation, so
   user-level mirror config cannot rewrite or invalidate the public lockfile.
 - Use `UV_NO_CONFIG=1 uv sync --locked --dev` for fresh CI/release installs,

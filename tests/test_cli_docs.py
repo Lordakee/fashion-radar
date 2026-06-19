@@ -721,6 +721,26 @@ def test_dependency_mirror_docs_explain_lockfile_recovery() -> None:
     assert "[docs/dependency-mirrors.md](docs/dependency-mirrors.md)" in readme
 
 
+def test_agent_verification_docs_prefer_no_config_frozen_uv_run() -> None:
+    agents = _read(AGENTS_DOC)
+    readme = _read(README)
+    mirror_doc = _read(DEPENDENCY_MIRRORS_DOC)
+    checklist = _read(UPLOAD_CHECKLIST)
+
+    agents_section = _markdown_section_exact_heading(agents, "Dependencies And Mirrors")
+    readme_section = _markdown_section_exact_heading(readme, "Development")
+    mirror_section = _markdown_section_exact_heading(mirror_doc, "Project Practice")
+    checklist_section = _markdown_section_exact_heading(checklist, "Before Upload")
+
+    for section in (agents_section, readme_section, mirror_section, checklist_section):
+        normalized = _normalized_text(section).casefold()
+        assert "uv --no-config run --frozen" in normalized
+        assert "agent-run verification" in normalized
+        assert "mirror-backed" in normalized
+        assert "uv.lock" in normalized
+        assert "frozen mirror install" in normalized
+
+
 def test_upload_checklist_mentions_mirror_lockfile_recovery() -> None:
     checklist = _read(UPLOAD_CHECKLIST)
 
