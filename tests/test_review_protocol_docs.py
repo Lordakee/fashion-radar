@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,6 +39,41 @@ def _section(text: str, heading: str) -> str:
 
 def _normalized_text(text: str) -> str:
     return " ".join(text.split())
+
+
+DIRECT_OPENCODE_REVIEW_REDIRECT = re.compile(
+    r"opencode\s+run\b[^\n]*(?:\\\n[^\n]*)*"
+    r"\s(?:&>>|&>|1>>|1>|>>|>)\s*(?:\\\n\s*)?"
+    r"[\"']?(?:\./)?docs/reviews/opencode-stage-N-"
+    r"(?:plan|code|release)-(?:review|rereview)\.md[\"']?",
+    re.IGNORECASE,
+)
+
+
+def _direct_opencode_review_redirect(text: str) -> re.Match[str] | None:
+    return DIRECT_OPENCODE_REVIEW_REDIRECT.search(text)
+
+
+def test_direct_opencode_review_redirect_regex_catches_shell_variants() -> None:
+    command = "opencode run --model zhipuai-coding-plan/glm-5.2 --variant max"
+    unsafe_examples = (
+        f"{command} >docs/reviews/opencode-stage-N-plan-review.md",
+        f"{command} >> docs/reviews/opencode-stage-N-code-rereview.md",
+        f'{command} 1> "./docs/reviews/opencode-stage-N-release-review.md"',
+        f"{command} &> 'docs/reviews/opencode-stage-N-plan-rereview.md'",
+        f'{command} \\\n  --dir /home/ubuntu/fashion-radar "prompt" '
+        "> docs/reviews/opencode-stage-N-release-review.md",
+    )
+    for example in unsafe_examples:
+        assert _direct_opencode_review_redirect(example), example
+
+    safe_example = """tmp_review="$(mktemp)"
+opencode run --model zhipuai-coding-plan/glm-5.2 --variant max \\
+  --dir /home/ubuntu/fashion-radar "prompt" > "$tmp_review"
+sed -n '1,260p' "$tmp_review"
+cp "$tmp_review" docs/reviews/opencode-stage-N-release-review.md
+"""
+    assert not _direct_opencode_review_redirect(safe_example)
 
 
 def test_active_review_docs_document_local_opencode_gate() -> None:
@@ -139,8 +175,16 @@ def test_review_protocol_docs_document_capture_hygiene() -> None:
     assert "opencode-stage-N-code-review.md" in protocol_section
     assert "opencode-stage-N-release-review.md" in protocol_section
     assert "opencode-stage-N-release-review.md" in checklist_section
-    assert "> docs/reviews/opencode-stage-N-plan-review.md" not in protocol_text
-    assert "> docs/reviews/opencode-stage-N-release-review.md" not in protocol_text
+    redirect_failures: list[str] = []
+    for path in ACTIVE_REVIEW_DOCS:
+        text = _read(path)
+        if match := _direct_opencode_review_redirect(text):
+            redirect_failures.append(
+                f"{path.relative_to(ROOT)} documents direct opencode final-file "
+                f"redirection: {match.group(0)!r}"
+            )
+
+    assert not redirect_failures, "\n".join(redirect_failures)
     normalized_agents = _normalized_text(agents_section).casefold()
     for phrase in (
         "completed review output",
