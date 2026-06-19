@@ -1611,6 +1611,62 @@ def test_external_community_tool_directory_example_docs_are_linked_and_bounded()
         assert path.casefold() in normalized_changelog
 
 
+def test_external_community_tool_directory_preflight_examples_are_discoverable() -> None:
+    readme = _read(README)
+    cli_reference = _read(CLI_REFERENCE)
+    first_run = _read(FIRST_RUN_DOC)
+    upload_checklist = _read(UPLOAD_CHECKLIST)
+
+    def between(text: str, start: str, end: str) -> str:
+        assert start in text
+        tail = text.split(start, 1)[1]
+        assert end in tail
+        return tail.split(end, 1)[0]
+
+    readme_section = between(
+        readme,
+        "The external community tool export directory examples are",
+        "`external-tool-adapters` is a local",
+    )
+    cli_reference_section = between(
+        cli_reference,
+        "For local/external tools that need machine-readable example discovery",
+        "Print adapter registry examples:",
+    )
+    first_run_section = between(
+        first_run,
+        "The community handoff commands are also available for local directory-based",
+        "## Inspect The Sample In The Dashboard",
+    )
+    checklist_section = between(
+        upload_checklist,
+        "External community tool export directory examples docs check:",
+        "External social/community tool adapter registry docs check:",
+    )
+
+    for section in (
+        readme_section,
+        cli_reference_section,
+        first_run_section,
+        checklist_section,
+    ):
+        normalized = _normalized_text(section).casefold()
+        assert "examples/community-tool-handoff-directory.example/readme.md" in normalized
+        assert "external-tool-readiness" in normalized
+        assert "external-tool-workflow" in normalized
+        assert "generic_community_export" in normalized
+        assert "preflight examples" in normalized
+        assert "checked-in" in normalized
+        assert "csv" in normalized
+        assert "json" in normalized
+        assert "community-signal-import.md#external-tool-export-directory-examples" in normalized
+
+    assert (
+        "community-signal-import.md#external-tool-export-directory-examples"
+        in _normalized_text(cli_reference_section).casefold()
+    )
+
+
 def test_external_tool_adapter_registry_docs_are_linked_and_bounded() -> None:
     readme = _read(README)
     import_doc = _read(ROOT / "docs" / "community-signal-import.md")

@@ -228,6 +228,11 @@ For local/external tools that need machine-readable example discovery,
 - `examples/community-tool-handoff-directory.example/json/community-tool-a.json`
 - `examples/community-tool-handoff-directory.example/json/community-tool-b.json`
 
+For copyable `generic_community_export` CSV/JSON `external-tool-readiness` /
+`external-tool-workflow` preflight examples against the checked-in directory
+examples, see
+[community-signal-import.md#external-tool-export-directory-examples](community-signal-import.md#external-tool-export-directory-examples).
+
 Print adapter registry examples:
 
 ```bash

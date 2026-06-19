@@ -98,6 +98,12 @@ handoffs: `community-handoff-workflow`, `community-signal-lint-dir`,
 `review_handoff_readiness`, a `community-handoff-check-dir` local-only handoff
 readiness report before importing rows, and does not execute commands.
 
+The checked-in `generic_community_export` CSV/JSON directory preflight examples live in
+[examples/community-tool-handoff-directory.example/README.md](../examples/community-tool-handoff-directory.example/README.md)
+and the concrete `external-tool-readiness` / `external-tool-workflow` command
+pairs for `External Community Tool` are documented in
+[community-signal-import.md#external-tool-export-directory-examples](community-signal-import.md#external-tool-export-directory-examples).
+
 ## Inspect The Sample In The Dashboard
 
 Install the dashboard extra and start the read-only local dashboard against the

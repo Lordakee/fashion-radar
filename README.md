@@ -116,6 +116,11 @@ local export directory examples for user-controlled external/community tools:
 [examples/community-tool-handoff-directory.example/json/community-tool-a.json](examples/community-tool-handoff-directory.example/json/community-tool-a.json),
 and
 [examples/community-tool-handoff-directory.example/json/community-tool-b.json](examples/community-tool-handoff-directory.example/json/community-tool-b.json).
+The example README includes `external-tool-readiness` and
+`external-tool-workflow` preflight examples for the checked-in
+`generic_community_export` CSV and JSON directories, and the concrete command
+block lives in
+[docs/community-signal-import.md#external-tool-export-directory-examples](docs/community-signal-import.md#external-tool-export-directory-examples).
 `community-signal-profile --format json` and
 `community-handoff-manifest --format json` expose these same checked-in
 directory layout pointers as `directory_example_paths` for local/external tool

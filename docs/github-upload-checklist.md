@@ -168,6 +168,12 @@ External community tool export directory examples docs check:
       [examples/community-tool-handoff-directory.example/json/community-tool-b.json](../examples/community-tool-handoff-directory.example/json/community-tool-b.json)
       as sanitized CSV/JSON local export directory examples for
       user-controlled external/community tools.
+- [ ] Docs point to
+      [examples/community-tool-handoff-directory.example/README.md](../examples/community-tool-handoff-directory.example/README.md)
+      as the checked-in `generic_community_export` CSV/JSON
+      `external-tool-readiness` / `external-tool-workflow` preflight examples,
+      and link the concrete command block in
+      [community-signal-import.md#external-tool-export-directory-examples](community-signal-import.md#external-tool-export-directory-examples).
 - [ ] Boundary text says the external community tool export directory examples
       are not platform collection and do not add connectors, scraping, browser
       automation, platform APIs, monitoring, scheduling, source acquisition,
