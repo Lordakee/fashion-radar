@@ -84,6 +84,13 @@ _UPSTREAM_COMMAND_SPECS: dict[str, dict[str, str | None]] = {
         ),
         "detail": "No upstream CLI command is required for sanitized X/search handoff rows.",
     },
+    "xpoz_mcp": {
+        "command": None,
+        "install_hint": (
+            "Use XPOZ MCP / Social Data API docs to create a sanitized local JSON export."
+        ),
+        "detail": "No upstream CLI command is required for sanitized XPOZ handoff rows.",
+    },
     "generic_community_export": {
         "command": None,
         "install_hint": "Provide a sanitized local export in the community signal row shape.",

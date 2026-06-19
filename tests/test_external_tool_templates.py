@@ -140,9 +140,10 @@ def test_template_collection_includes_two_rows_per_adapter_when_unfiltered() -> 
         "tiktok_api",
         "yt_dlp",
         "x_search_export",
+        "xpoz_mcp",
         "generic_community_export",
     ]
-    assert len(collection.items) == 14
+    assert len(collection.items) == 16
 
 
 def test_template_csv_renderer_uses_header_order_and_quotes_cells() -> None:
@@ -229,7 +230,7 @@ def test_template_collection_table_renderer_includes_each_full_template() -> Non
     lines = render_external_tool_template_table(collection)
 
     assert lines[0] == "External tool templates."
-    assert "Templates: 7" in lines
+    assert "Templates: 8" in lines
     assert "Adapter 1:" in lines
     assert "Adapter: rednote_mcp" in lines
     assert "Contract version: external-tool-template/v1" in lines
@@ -241,7 +242,7 @@ def test_template_collection_table_renderer_includes_each_full_template() -> Non
     assert "Field mappings:" in lines
     assert "Recommended commands:" in lines
     assert "Boundaries:" in lines
-    assert "Adapter 7:" in lines
+    assert "Adapter 8:" in lines
     assert "Adapter: generic_community_export" in lines
 
 

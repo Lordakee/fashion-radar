@@ -147,6 +147,7 @@ Known adapter ids:
 | `tiktok_api` | TikTok-Api Export | `tiktok` | `json` | `*.json` |
 | `yt_dlp` | yt-dlp Metadata Export | `media` | `json` | `*.json` |
 | `x_search_export` | X Search Export | `x` | `csv` | `*.csv` |
+| `xpoz_mcp` | XPOZ MCP Export | `community` | `json` | `*.json` |
 | `generic_community_export` | Generic Community Export | `community` | `csv` | `*.csv` |
 
 The Display/source name column reflects the current registry `display_name` and
@@ -341,7 +342,7 @@ match the starter entities `The Row`, `The Row Margaux`, and `Ballet Flats`,
 appear in the dated report, produce matching entity trend deltas, and keep
 untracked candidates empty under starter config.
 The automated first-run smoke also validates the external-tool adapter registry
-JSON contract from `external-tool-adapters --format json` across all seven
+JSON contract from `external-tool-adapters --format json` across all eight
 adapters.
 Temporary smokes do not leave dashboard-inspectable repo-local reports; use the
 manual repo-local sample flow when you want dashboard output under

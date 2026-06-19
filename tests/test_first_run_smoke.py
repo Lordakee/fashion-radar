@@ -125,6 +125,18 @@ EXTERNAL_TOOL_ADAPTER_CASES = (
         ("AnySearch X export", "snscrape export"),
     ),
     (
+        "xpoz_mcp",
+        "community",
+        "json",
+        "*.json",
+        "XPOZ MCP Export",
+        (
+            "Metadata target for sanitized XPOZ MCP / Social Data API exports "
+            "created outside Fashion Radar."
+        ),
+        ("XPOZ MCP", "XPOZ Social Data API"),
+    ),
+    (
         "generic_community_export",
         "community",
         "csv",

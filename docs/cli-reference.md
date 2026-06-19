@@ -122,6 +122,7 @@ scrape, does not call platform APIs, and does not add connectors.
   | `tiktok_api` | TikTok-Api Export | `tiktok` | `json` | `*.json` |
   | `yt_dlp` | yt-dlp Metadata Export | `media` | `json` | `*.json` |
   | `x_search_export` | X Search Export | `x` | `csv` | `*.csv` |
+  | `xpoz_mcp` | XPOZ MCP Export | `community` | `json` | `*.json` |
   | `generic_community_export` | Generic Community Export | `community` | `csv` | `*.csv` |
 
   The Display/source name column reflects the current registry `display_name`

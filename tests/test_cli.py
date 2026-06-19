@@ -560,6 +560,7 @@ def test_external_tool_adapters_command_prints_json() -> None:
         "tiktok_api": ("tiktok", "TikTok-Api Export", "json", "*.json"),
         "yt_dlp": ("media", "yt-dlp Metadata Export", "json", "*.json"),
         "x_search_export": ("x", "X Search Export", "csv", "*.csv"),
+        "xpoz_mcp": ("community", "XPOZ MCP Export", "json", "*.json"),
         "generic_community_export": (
             "community",
             "Generic Community Export",
@@ -741,7 +742,7 @@ def test_external_tool_template_command_prints_all_adapters_when_unfiltered() ->
     assert result.exit_code == 0
     payload = json.loads(result.output)
     assert list(payload) == ["items"]
-    assert len(payload["items"]) == 14
+    assert len(payload["items"]) == 16
     assert {item["platform"] for item in payload["items"]} >= {"rednote", "instagram", "tiktok"}
 
 

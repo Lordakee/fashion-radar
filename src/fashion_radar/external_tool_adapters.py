@@ -214,6 +214,24 @@ def build_external_tool_adapter_registry(
             field_mappings=field_mappings,
         ),
         _adapter(
+            adapter_id="xpoz_mcp",
+            display_name="XPOZ MCP Export",
+            platform_label="community",
+            source_name="XPOZ MCP Export",
+            input_format="json",
+            pattern="*.json",
+            directory_text=directory_text,
+            config_text=config_text,
+            data_text=data_text,
+            as_of_text=as_of_text,
+            description=(
+                "Metadata target for sanitized XPOZ MCP / Social Data API exports "
+                "created outside Fashion Radar."
+            ),
+            upstream_tool_examples=["XPOZ MCP", "XPOZ Social Data API"],
+            field_mappings=field_mappings,
+        ),
+        _adapter(
             adapter_id="generic_community_export",
             display_name="Generic Community Export",
             platform_label="community",

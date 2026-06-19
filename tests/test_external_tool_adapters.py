@@ -21,6 +21,7 @@ EXPECTED_ADAPTER_IDS = [
     "tiktok_api",
     "yt_dlp",
     "x_search_export",
+    "xpoz_mcp",
     "generic_community_export",
 ]
 
@@ -39,7 +40,7 @@ def test_registry_has_stable_contract_and_adapter_ids() -> None:
     assert registry.contract_version == "external-tool-adapters/v1"
     assert registry.execution_mode == "print_only"
     assert [adapter.id for adapter in registry.adapters] == EXPECTED_ADAPTER_IDS
-    assert len(registry.adapters) == 7
+    assert len(registry.adapters) == 8
     assert "Does not run adapters." in registry.boundaries
 
 
@@ -104,6 +105,50 @@ def test_instaloader_adapter_has_expected_mapping_and_commands() -> None:
     assert commands[2][commands[2].index("--as-of") + 1] == "2026-06-13T12:00:00+00:00"
     assert "--dry-run" in commands[6]
     assert "--dry-run" not in commands[7]
+
+
+def test_xpoz_mcp_adapter_has_expected_mapping_and_commands() -> None:
+    registry = build_external_tool_adapter_registry(
+        directory=Path("./exports"),
+        config_dir=Path("./configs"),
+        data_dir=Path("./data"),
+        as_of="2026-06-13T12:00:00Z",
+    )
+
+    adapter = registry.adapter_by_id("xpoz_mcp")
+    commands = [shlex.split(command) for command in adapter.recommended_commands]
+
+    assert adapter.display_name == "XPOZ MCP Export"
+    assert adapter.platform_label == "community"
+    assert adapter.suggested_source_name == "XPOZ MCP Export"
+    assert adapter.recommended_input_format == "json"
+    assert adapter.recommended_pattern == "*.json"
+    assert adapter.suggested_export_directory == "exports"
+    assert adapter.upstream_tool_examples == ["XPOZ MCP", "XPOZ Social Data API"]
+    assert "XPOZ MCP / Social Data API" in adapter.description
+    assert [command[:2] for command in commands] == [
+        ["fashion-radar", "community-signal-profile"],
+        ["fashion-radar", "external-tool-readiness"],
+        ["fashion-radar", "community-handoff-manifest"],
+        ["fashion-radar", "community-handoff-workflow"],
+        ["fashion-radar", "community-signal-lint-dir"],
+        ["fashion-radar", "community-handoff-check-dir"],
+        ["fashion-radar", "import-signals-dir"],
+        ["fashion-radar", "import-signals-dir"],
+        ["fashion-radar", "imported-review-workflow"],
+    ]
+    readiness_command = commands[1]
+    assert readiness_command[readiness_command.index("--adapter") + 1] == "xpoz_mcp"
+    assert readiness_command[readiness_command.index("--directory") + 1] == "exports"
+    assert readiness_command[readiness_command.index("--config-dir") + 1] == "configs"
+    assert readiness_command[readiness_command.index("--data-dir") + 1] == "data"
+    assert readiness_command[readiness_command.index("--input-format") + 1] == "json"
+    assert readiness_command[readiness_command.index("--pattern") + 1] == "*.json"
+    assert readiness_command[readiness_command.index("--source-name") + 1] == ("XPOZ MCP Export")
+    assert readiness_command[readiness_command.index("--as-of") + 1] == (
+        "2026-06-13T12:00:00+00:00"
+    )
+    assert readiness_command[readiness_command.index("--format") + 1] == "table"
 
 
 def test_adapter_field_mappings_match_community_signal_contract() -> None:

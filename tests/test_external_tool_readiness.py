@@ -159,6 +159,7 @@ def test_readiness_uses_lazy_shutil_which_lookup(monkeypatch: pytest.MonkeyPatch
         ("tiktok_api", None, "not_applicable", "TikTokApi"),
         ("yt_dlp", "yt-dlp", "missing", "https://pypi.tuna.tsinghua.edu.cn/simple yt-dlp"),
         ("x_search_export", None, "not_applicable", "AnySearch/snscrape"),
+        ("xpoz_mcp", None, "not_applicable", "XPOZ MCP"),
         ("generic_community_export", None, "not_applicable", "sanitized local export"),
     ],
 )

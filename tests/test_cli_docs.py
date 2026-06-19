@@ -277,13 +277,14 @@ EXTERNAL_TOOL_ADAPTER_DOC_ROWS = (
     "| `tiktok_api` | TikTok-Api Export | `tiktok` | `json` | `*.json` |",
     "| `yt_dlp` | yt-dlp Metadata Export | `media` | `json` | `*.json` |",
     "| `x_search_export` | X Search Export | `x` | `csv` | `*.csv` |",
+    "| `xpoz_mcp` | XPOZ MCP Export | `community` | `json` | `*.json` |",
     ("| `generic_community_export` | Generic Community Export | `community` | `csv` | `*.csv` |"),
 )
 
 FIRST_RUN_EXTERNAL_ADAPTER_SMOKE_PHRASE = (
     "The automated first-run smoke also validates the external-tool adapter "
     "registry JSON contract from `external-tool-adapters --format json` across "
-    "all seven adapters."
+    "all eight adapters."
 )
 
 FASHION_RADAR_COMMAND_RE = re.compile(

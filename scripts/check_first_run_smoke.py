@@ -111,6 +111,7 @@ EXPECTED_EXTERNAL_TOOL_ADAPTERS = {
     "tiktok_api": ("tiktok", "json", "*.json", "TikTok-Api Export"),
     "yt_dlp": ("media", "json", "*.json", "yt-dlp Metadata Export"),
     "x_search_export": ("x", "csv", "*.csv", "X Search Export"),
+    "xpoz_mcp": ("community", "json", "*.json", "XPOZ MCP Export"),
     "generic_community_export": ("community", "csv", "*.csv", "Generic Community Export"),
 }
 EXPECTED_EXTERNAL_TOOL_COMMAND_NAMES = (
@@ -185,6 +186,13 @@ EXPECTED_EXTERNAL_TOOL_ADAPTER_DETAILS = {
             "Metadata target for sanitized X/search exports created outside Fashion Radar."
         ),
         "upstream_tool_examples": ["AnySearch X export", "snscrape export"],
+    },
+    "xpoz_mcp": {
+        "description": (
+            "Metadata target for sanitized XPOZ MCP / Social Data API exports "
+            "created outside Fashion Radar."
+        ),
+        "upstream_tool_examples": ["XPOZ MCP", "XPOZ Social Data API"],
     },
     "generic_community_export": {
         "description": (

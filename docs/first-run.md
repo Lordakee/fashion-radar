@@ -152,7 +152,7 @@ match the starter entities `The Row`, `The Row Margaux`, and `Ballet Flats`,
 appear in the dated report, produce matching entity trend deltas, and keep
 untracked candidates empty under starter config.
 The automated first-run smoke also validates the external-tool adapter registry
-JSON contract from `external-tool-adapters --format json` across all seven
+JSON contract from `external-tool-adapters --format json` across all eight
 adapters.
 
 ## Optional Expanded Watchlist Sample

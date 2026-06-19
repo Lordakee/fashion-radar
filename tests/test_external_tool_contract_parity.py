@@ -33,6 +33,7 @@ EXPECTED_ADAPTER_IDS = [
     "tiktok_api",
     "yt_dlp",
     "x_search_export",
+    "xpoz_mcp",
     "generic_community_export",
 ]
 
