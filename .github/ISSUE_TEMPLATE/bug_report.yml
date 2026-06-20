@@ -94,9 +94,9 @@ body:
       description: Mention doctor/tests/ruff/lock/build/dashboard smoke checks if relevant.
       placeholder: |
         uv run fashion-radar doctor
-        uv run pytest
-        uv run ruff check .
-        uv run ruff format --check .
+        uv --no-config run --frozen pytest
+        uv --no-config run --frozen ruff check .
+        uv --no-config run --frozen ruff format --check .
         UV_NO_CONFIG=1 uv lock --check
   - type: checkboxes
     id: boundaries

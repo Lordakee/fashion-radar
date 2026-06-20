@@ -30,6 +30,7 @@ FIRST_RUN_DOC = ROOT / "docs" / "first-run.md"
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 CONTRIBUTING_DOC = ROOT / "CONTRIBUTING.md"
 PULL_REQUEST_TEMPLATE = ROOT / ".github" / "pull_request_template.md"
+BUG_REPORT_TEMPLATE = ROOT / ".github" / "ISSUE_TEMPLATE" / "bug_report.yml"
 COMMUNITY_TOOL_HANDOFF_TEMPLATE_PATHS = (
     "examples/community-tool-handoff.example.csv",
     "examples/community-tool-handoff.example.json",
@@ -754,6 +755,7 @@ def test_github_verification_surfaces_use_no_config_frozen_uv_run() -> None:
     readme = _read(README)
     contributing = _read(CONTRIBUTING_DOC)
     pull_request_template = _read(PULL_REQUEST_TEMPLATE)
+    bug_report_template = _read(BUG_REPORT_TEMPLATE)
     checklist = _read(UPLOAD_CHECKLIST)
     first_run_doc = _read(FIRST_RUN_DOC)
 
@@ -776,7 +778,14 @@ def test_github_verification_surfaces_use_no_config_frozen_uv_run() -> None:
         elif "build --out-dir" in command:
             surfaces = (ci_workflow, checklist, readme, first_run_doc)
         else:
-            surfaces = (ci_workflow, readme, contributing, pull_request_template, checklist)
+            surfaces = (
+                ci_workflow,
+                readme,
+                contributing,
+                pull_request_template,
+                bug_report_template,
+                checklist,
+            )
         for surface in surfaces:
             assert command in surface
 
@@ -803,12 +812,15 @@ def test_github_verification_surfaces_use_no_config_frozen_uv_run() -> None:
         readme,
         contributing,
         pull_request_template,
+        bug_report_template,
         checklist,
         first_run_doc,
     ):
         for command in stale_verification_commands:
             assert command not in surface
 
+    assert "uv run fashion-radar doctor" in bug_report_template
+    assert "UV_NO_CONFIG=1 uv lock --check" in bug_report_template
     assert "uv run fashion-radar init" in contributing
     assert "uv run fashion-radar dashboard" in contributing
 
