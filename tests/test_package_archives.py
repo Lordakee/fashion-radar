@@ -142,6 +142,87 @@ def test_accepts_archives_with_required_files_and_metadata(tmp_path: Path) -> No
     assert result.stderr == ""
 
 
+def test_accepts_uv_build_gitignore_marker(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(build_dir)
+    (build_dir / ".gitignore").write_text("*\n", encoding="utf-8")
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 0
+    assert result.stdout == "Package archives contain required files.\n"
+    assert result.stderr == ""
+
+
+def test_rejects_build_directory_with_unexpected_direct_file(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(build_dir)
+    (build_dir / "build.log").write_text("local build output\n", encoding="utf-8")
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert "build directory contains unexpected direct child: build.log" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_rejects_build_directory_with_unexpected_direct_directory(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(build_dir)
+    (build_dir / "metadata").mkdir()
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert "build directory contains unexpected direct child: metadata" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_reports_all_unexpected_build_directory_direct_children(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(build_dir)
+    (build_dir / "build.log").write_text("local build output\n", encoding="utf-8")
+    (build_dir / "metadata").mkdir()
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert "build directory contains unexpected direct child: build.log" in result.stderr
+    assert "build directory contains unexpected direct child: metadata" in result.stderr
+    assert result.stderr.index("build.log") < result.stderr.index("metadata")
+    assert "Traceback" not in result.stderr
+
+
+def test_allowed_gitignore_marker_does_not_hide_unexpected_direct_child(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(build_dir)
+    (build_dir / ".gitignore").write_text("*\n", encoding="utf-8")
+    (build_dir / "build.log").write_text("local build output\n", encoding="utf-8")
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert "build directory contains unexpected direct child: .gitignore" not in result.stderr
+    assert "build directory contains unexpected direct child: build.log" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
 @pytest.mark.parametrize(
     ("unsafe_path", "expected_path"),
     [

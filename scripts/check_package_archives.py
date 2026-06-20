@@ -127,6 +127,8 @@ FORBIDDEN_RELEASE_SUFFIXES = (
     ".pyo",
 )
 
+ALLOWED_BUILD_DIR_DIRECT_CHILD_NAMES = frozenset({".gitignore"})
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -167,7 +169,23 @@ def validate_build_dir(build_dir: Path) -> list[str]:
     if wheel_path is None or sdist_path is None:
         return ["internal archive selection error"]
 
-    return validate_wheel(wheel_path) + validate_sdist(sdist_path)
+    build_dir_errors = unexpected_build_dir_child_errors(
+        build_dir,
+        expected_paths={wheel_path, sdist_path},
+    )
+    return build_dir_errors + validate_wheel(wheel_path) + validate_sdist(sdist_path)
+
+
+def unexpected_build_dir_child_errors(
+    build_dir: Path,
+    *,
+    expected_paths: set[Path],
+) -> list[str]:
+    errors: list[str] = []
+    for path in sorted(build_dir.iterdir(), key=lambda item: item.name):
+        if path not in expected_paths and path.name not in ALLOWED_BUILD_DIR_DIRECT_CHILD_NAMES:
+            errors.append(f"build directory contains unexpected direct child: {path.name}")
+    return errors
 
 
 def select_single_archive(
