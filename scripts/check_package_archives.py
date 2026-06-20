@@ -188,11 +188,15 @@ def select_single_archive(
 def validate_wheel(wheel_path: Path) -> list[str]:
     try:
         with zipfile.ZipFile(wheel_path) as archive:
-            paths = clean_archive_paths(archive.namelist())
-            errors = missing_required_paths(
-                paths,
-                exact_paths=WHEEL_REQUIRED_PATHS,
-                archive_label="wheel archive",
+            raw_paths = archive.namelist()
+            errors = unsafe_archive_member_errors(raw_paths, "wheel archive")
+            paths = clean_archive_paths(raw_paths)
+            errors.extend(
+                missing_required_paths(
+                    paths,
+                    exact_paths=WHEEL_REQUIRED_PATHS,
+                    archive_label="wheel archive",
+                )
             )
             errors.extend(forbidden_release_member_errors(paths, "wheel archive"))
             dist_info_dir, dist_info_errors = select_wheel_dist_info_dir(paths)
@@ -259,17 +263,36 @@ def read_zip_text(archive: zipfile.ZipFile, path: str) -> str:
 def validate_sdist(sdist_path: Path) -> list[str]:
     try:
         with tarfile.open(sdist_path, "r:gz") as archive:
-            paths = normalize_sdist_paths(member.name for member in archive.getmembers())
+            raw_paths = [member.name for member in archive.getmembers()]
+            unsafe_errors = unsafe_archive_member_errors(raw_paths, "sdist archive")
+            paths = normalize_sdist_paths(raw_paths)
     except tarfile.TarError as exc:
         return [f"could not read sdist archive {sdist_path.name}: {exc}"]
 
-    errors = missing_required_paths(
+    errors = unsafe_errors + missing_required_paths(
         paths,
         exact_paths=SDIST_REQUIRED_PATHS,
         archive_label="sdist archive",
     )
     errors.extend(forbidden_release_member_errors(paths, "sdist archive"))
     return errors
+
+
+def unsafe_archive_member_errors(paths: Iterable[object], archive_label: str) -> list[str]:
+    errors = []
+    for raw_path in paths:
+        path = clean_archive_path(raw_path)
+        if path and is_unsafe_archive_path(path):
+            errors.append(f"{archive_label} contains unsafe archive member path: {path}")
+    return errors
+
+
+def is_unsafe_archive_path(path: str) -> bool:
+    if path.startswith("/"):
+        return True
+    if re.match(r"^[A-Za-z]:", path) is not None:
+        return True
+    return any(part == ".." for part in path.split("/"))
 
 
 def clean_archive_paths(paths: Iterable[object]) -> set[str]:

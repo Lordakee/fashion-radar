@@ -111,6 +111,24 @@ def write_sdist(build_dir: Path, *, files: list[str] | None = None) -> Path:
     return path
 
 
+def write_sdist_with_raw_member(build_dir: Path, raw_member: str) -> Path:
+    path = build_dir / "fashion_radar-0.1.0.tar.gz"
+
+    with tarfile.open(path, "w:gz") as archive:
+        for relative_path in SDIST_FILES:
+            data = b"fixture\n"
+            info = tarfile.TarInfo(f"fashion_radar-0.1.0/{relative_path}")
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+
+        data = b"unsafe\n"
+        info = tarfile.TarInfo(raw_member)
+        info.size = len(data)
+        archive.addfile(info, io.BytesIO(data))
+
+    return path
+
+
 def test_accepts_archives_with_required_files_and_metadata(tmp_path: Path) -> None:
     build_dir = tmp_path / "dist"
     build_dir.mkdir()
@@ -122,6 +140,67 @@ def test_accepts_archives_with_required_files_and_metadata(tmp_path: Path) -> No
     assert result.returncode == 0
     assert result.stdout == "Package archives contain required files.\n"
     assert result.stderr == ""
+
+
+@pytest.mark.parametrize(
+    ("unsafe_path", "expected_path"),
+    [
+        ("../outside.txt", "../outside.txt"),
+        ("/absolute.txt", "/absolute.txt"),
+        ("fashion_radar/../outside.txt", "fashion_radar/../outside.txt"),
+        ("C:/outside.txt", "C:/outside.txt"),
+        ("C:outside.txt", "C:outside.txt"),
+        ("//server/share/outside.txt", "//server/share/outside.txt"),
+        (r"fashion_radar\..\outside.txt", "fashion_radar/../outside.txt"),
+    ],
+)
+def test_rejects_wheel_with_unsafe_archive_member_path(
+    tmp_path: Path,
+    unsafe_path: str,
+    expected_path: str,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir, files=WHEEL_FILES | {unsafe_path: "unsafe\n"})
+    write_sdist(build_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (f"wheel archive contains unsafe archive member path: {expected_path}") in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("unsafe_path", "expected_path"),
+    [
+        ("../outside.txt", "../outside.txt"),
+        ("/absolute.txt", "/absolute.txt"),
+        ("fashion_radar-0.1.0/../outside.txt", "fashion_radar-0.1.0/../outside.txt"),
+        ("C:/outside.txt", "C:/outside.txt"),
+        ("C:outside.txt", "C:outside.txt"),
+        ("//server/share/outside.txt", "//server/share/outside.txt"),
+        (
+            r"fashion_radar-0.1.0\..\outside.txt",
+            "fashion_radar-0.1.0/../outside.txt",
+        ),
+    ],
+)
+def test_rejects_sdist_with_unsafe_archive_member_path(
+    tmp_path: Path,
+    unsafe_path: str,
+    expected_path: str,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist_with_raw_member(build_dir, unsafe_path)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (f"sdist archive contains unsafe archive member path: {expected_path}") in result.stderr
+    assert "Traceback" not in result.stderr
 
 
 def test_rejects_build_directory_without_wheel(tmp_path: Path) -> None:
