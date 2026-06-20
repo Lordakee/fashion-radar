@@ -122,6 +122,7 @@ Recommended order:
 ```bash
 uv run fashion-radar community-signal-lint-dir ./exports --input-format csv --pattern "*.csv" --source-name "Community Tool Export" --strict
 uv run fashion-radar community-candidates-dir ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export"
+uv run fashion-radar community-handoff-check-dir ./exports --input-format csv --pattern "*.csv" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Community Tool Export" --format json
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --data-dir "$PWD/data" --dry-run
 uv run fashion-radar import-signals-dir ./exports --format csv --pattern "*.csv" --source-name "Community Tool Export" --imported-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --data-dir "$PWD/data"
 uv run fashion-radar imported-review-workflow --data-dir "$PWD/data" --config-dir "$PWD/configs" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -137,8 +138,12 @@ uv run fashion-radar import-signals ./community-signals.csv --format csv --sourc
 ```
 
 Use `community-signal-lint-dir` first for strict community handoff quality.
-Use `community-handoff-workflow` when you want that directory sequence printed
-as copyable local commands without executing anything.
+Use `community-candidates-dir` next to preview aggregate candidate phrases.
+Use `community-handoff-check-dir` after preview and before importer dry-run
+when you want the local readiness summary across lint, candidate preview, and
+import dry-run checks. Use `community-handoff-workflow` when you want that
+directory sequence printed as copyable local commands without executing
+anything.
 Use `import-signals-dir --dry-run` next when you want the broader manual
 importer model to validate matched local files without writing rows. Then use
 `import-signals-dir` without `--dry-run` to import the same local files only

@@ -16,6 +16,7 @@ from fashion_radar.dashboard.app import DASHBOARD_TAB_LABELS
 ROOT = Path(__file__).resolve().parents[1]
 CLI_REFERENCE = ROOT / "docs" / "cli-reference.md"
 COMMUNITY_SIGNAL_IMPORT_DOC = ROOT / "docs" / "community-signal-import.md"
+COMMUNITY_SIGNAL_QUALITY_DOC = ROOT / "docs" / "community-signal-quality.md"
 UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
 DEPENDENCY_MIRRORS_DOC = ROOT / "docs" / "dependency-mirrors.md"
 README = ROOT / "README.md"
@@ -372,6 +373,20 @@ def _fashion_radar_commands(path: Path) -> list[str]:
             if FASHION_RADAR_COMMAND_RE.search(command):
                 commands.append(command)
     return commands
+
+
+def _fashion_radar_command_names_from_text(
+    text: str,
+    *,
+    allowed_names: set[str],
+) -> list[str]:
+    names: list[str] = []
+    for block in _bash_blocks(text):
+        for command in _shell_commands(block):
+            match = FASHION_RADAR_COMMAND_RE.search(command)
+            if match is not None and match.group("name") in allowed_names:
+                names.append(match.group("name"))
+    return names
 
 
 def _readme_quickstart_commands() -> list[str]:
@@ -2143,6 +2158,112 @@ def test_community_signal_import_doc_keeps_profile_recommended_command_order() -
             f"{expected!r} from profile recommended_commands is missing or out of order"
         )
         position += 1
+
+
+def test_user_docs_keep_community_handoff_readiness_after_preview_before_import() -> None:
+    relevant = {
+        "community-signal-lint-dir",
+        "community-candidates-dir",
+        "community-handoff-check-dir",
+        "import-signals-dir",
+        "imported-review-workflow",
+    }
+
+    def assert_subsequence(
+        label: str,
+        section: str,
+        expected: tuple[str, ...],
+    ) -> None:
+        actual = _fashion_radar_command_names_from_text(section, allowed_names=relevant)
+        position = 0
+        for name in expected:
+            while position < len(actual) and actual[position] != name:
+                position += 1
+            assert position < len(actual), (
+                f"{label}: {name!r} missing or out of order in {actual!r}"
+            )
+            position += 1
+
+    readme = _read(README)
+    quality_doc = _read(COMMUNITY_SIGNAL_QUALITY_DOC)
+    import_doc = _read(COMMUNITY_SIGNAL_IMPORT_DOC)
+    architecture_doc = _read(ARCHITECTURE_DOC)
+
+    cases = (
+        (
+            "README external community tools sample",
+            readme.split("External community tools can target", 1)[1].split(
+                "Inspect retained imported rows",
+                1,
+            )[0],
+            (
+                "community-signal-lint-dir",
+                "community-candidates-dir",
+                "community-handoff-check-dir",
+                "import-signals-dir",
+                "import-signals-dir",
+            ),
+        ),
+        (
+            "README configuration directory handoff sample",
+            readme.split("Check a directory of community signal handoff files", 1)[1].split(
+                "The linters are local",
+                1,
+            )[0],
+            (
+                "community-signal-lint-dir",
+                "community-candidates-dir",
+                "community-handoff-check-dir",
+                "import-signals-dir",
+                "import-signals-dir",
+            ),
+        ),
+        (
+            "community-signal-quality recommended order",
+            quality_doc.split("Recommended order:", 1)[1].split(
+                "Use `community-signal-lint-dir` first",
+                1,
+            )[0],
+            (
+                "community-signal-lint-dir",
+                "community-candidates-dir",
+                "community-handoff-check-dir",
+                "import-signals-dir",
+                "import-signals-dir",
+                "imported-review-workflow",
+            ),
+        ),
+        (
+            "community-signal-import canonical flow",
+            import_doc.split("## Preflight Lint", 1)[1].split("## Boundary", 1)[0],
+            (
+                "community-signal-lint-dir",
+                "community-candidates-dir",
+                "community-handoff-check-dir",
+                "import-signals-dir",
+                "import-signals-dir",
+                "imported-review-workflow",
+            ),
+        ),
+        (
+            "architecture command flow",
+            architecture_doc.split("## Command Flow", 1)[1].split(
+                "## Source-Pack Quality Boundary",
+                1,
+            )[0],
+            (
+                "community-signal-lint-dir",
+                "community-candidates-dir",
+                "community-handoff-check-dir",
+                "import-signals-dir",
+                "import-signals-dir",
+                "imported-review-workflow",
+            ),
+        ),
+    )
+
+    for label, section, expected in cases:
+        assert_subsequence(label, section, expected)
 
 
 def test_readme_quickstart_setup_commands_use_repo_local_paths() -> None:
