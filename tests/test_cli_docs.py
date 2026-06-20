@@ -323,6 +323,17 @@ def _normalized_text(text: str) -> str:
     return " ".join(text.split())
 
 
+def _cli_reference_command_entry(command: str) -> str:
+    text = _read(CLI_REFERENCE)
+    match = re.search(
+        rf"^- `{re.escape(command)}`:.*?(?=^- `|\n## |\Z)",
+        text,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    assert match is not None, command
+    return match.group(0)
+
+
 def _assert_markdown_link_to_path(text: str, path: str) -> None:
     assert re.search(
         rf"\[[^\]]+\]\((?:\.\./)?{re.escape(path)}\)",
@@ -1989,6 +2000,47 @@ def test_external_tool_workflow_docs_include_examples_and_steps() -> None:
 
     for step_name in EXTERNAL_TOOL_WORKFLOW_STEP_NAMES:
         assert step_name in import_doc
+
+
+def test_cli_reference_external_tool_option_parity() -> None:
+    expected_options = {
+        "external-tool-workflow": (
+            "--adapter",
+            "--directory",
+            "--config-dir",
+            "--data-dir",
+            "--as-of",
+            "--input-format csv|json",
+            "--pattern",
+            "--source-name",
+            "--format table|json",
+        ),
+        "external-tool-readiness": (
+            "--adapter",
+            "--directory",
+            "--config-dir",
+            "--data-dir",
+            "--as-of",
+            "--input-format csv|json",
+            "--pattern",
+            "--source-name",
+            "--format table|json",
+        ),
+    }
+
+    for command, options in expected_options.items():
+        entry = _cli_reference_command_entry(command)
+        help_result = CliRunner().invoke(
+            app,
+            [command, "--help"],
+            env={"COLUMNS": "120"},
+        )
+        assert help_result.exit_code == 0
+
+        for option in options:
+            option_name = option.split()[0]
+            assert option_name in help_result.output
+            assert option in entry
 
 
 def test_external_tool_readiness_docs_are_linked_and_bounded() -> None:

@@ -149,7 +149,8 @@ scrape, does not call platform APIs, and does not add connectors.
   external/community tools that need a producer-facing wrapper around existing
   local commands before writing sanitized CSV/JSON local file handoff rows.
   Supports `--adapter`, `--directory`, `--config-dir`, `--data-dir`, `--as-of`,
-  and `--format table|json`. It is local and print-only: JSON output is
+  `--input-format csv|json`, `--pattern`, `--source-name`, and
+  `--format table|json`. It is local and print-only: JSON output is
   workflow metadata, not importable handoff rows, table output may include
   metadata and copyable commands, and the printed steps include
   `check_external_tool_readiness`, an optional preflight command that points to
@@ -163,9 +164,10 @@ scrape, does not call platform APIs, and does not add connectors.
 - `external-tool-readiness`: report external tool readiness and local command
   readiness for known free external/community tools such as Rednote MCP,
   Xiaohongshu crawler, Instaloader, TikTok-Api, yt-dlp, and X/search exports.
-  Supports `--adapter` and `--format table|json`. It is local read-only, not
-  print-only, because it performs command availability only with local PATH
-  lookup (`shutil.which`).
+  Supports `--adapter`, `--directory`, `--config-dir`, `--data-dir`, `--as-of`,
+  `--input-format csv|json`, `--pattern`, `--source-name`, and
+  `--format table|json`. It is local read-only, not print-only, because it
+  performs command availability only with local PATH lookup (`shutil.which`).
   It prints readiness guidance, mirror-friendly install hints, and Fashion
   Radar next-step handoff commands for user-controlled external/community tools
   producing sanitized CSV/JSON local file handoff rows. It does not install
