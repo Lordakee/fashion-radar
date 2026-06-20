@@ -55,6 +55,8 @@ Run before opening a pull request:
 UV_NO_CONFIG=1 uv lock --check
 UV_NO_CONFIG=1 uv sync --locked --dev
 UV_NO_CONFIG=1 uv sync --locked --dev --check
+uv --no-config run --frozen python scripts/check_release_hygiene.py --repo-root .
+uv --no-config run --frozen python scripts/check_first_run_smoke.py --repo-root .
 uv --no-config run --frozen ruff check .
 uv --no-config run --frozen ruff format --check .
 uv --no-config run --frozen pytest

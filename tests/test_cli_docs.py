@@ -725,6 +725,23 @@ def test_pull_request_template_package_smoke_uses_temp_build_archive_checker() -
     assert "`uv --no-config build` plus installed-wheel smoke" not in verification
 
 
+def test_contributing_and_pr_template_include_release_hygiene_and_source_smoke() -> None:
+    contributing = _markdown_section_exact_heading(_read(CONTRIBUTING_DOC), "Verification")
+    pull_request_template = _markdown_section_exact_heading(
+        _read(PULL_REQUEST_TEMPLATE), "Verification"
+    )
+
+    for section in (contributing, pull_request_template):
+        assert (
+            "uv --no-config run --frozen python scripts/check_release_hygiene.py --repo-root ."
+            in section
+        )
+        assert (
+            "uv --no-config run --frozen python scripts/check_first_run_smoke.py --repo-root ."
+            in section
+        )
+
+
 def test_first_run_smoke_command_is_documented_and_in_ci() -> None:
     checklist = _read(UPLOAD_CHECKLIST)
     ci_workflow = _read(CI_WORKFLOW)
@@ -809,9 +826,16 @@ def test_github_verification_surfaces_use_no_config_frozen_uv_run() -> None:
     )
     for command in no_config_commands:
         if "check_release_hygiene.py" in command:
-            surfaces = (ci_workflow, checklist)
+            surfaces = (ci_workflow, contributing, pull_request_template, checklist)
         elif "check_first_run_smoke.py" in command:
-            surfaces = (ci_workflow, checklist, readme, first_run_doc)
+            surfaces = (
+                ci_workflow,
+                contributing,
+                pull_request_template,
+                checklist,
+                readme,
+                first_run_doc,
+            )
         elif "check_package_archives.py" in command:
             surfaces = (ci_workflow, checklist, pull_request_template)
         elif "build --out-dir" in command:
