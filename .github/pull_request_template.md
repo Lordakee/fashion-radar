@@ -53,7 +53,11 @@ Describe CLI/config/report/dashboard behavior changes.
 - [ ] `uv --no-config run --frozen ruff check .`
 - [ ] `uv --no-config run --frozen ruff format --check .`
 - [ ] `uv --no-config run --frozen pytest`
-- [ ] If packaging/templates changed: `uv --no-config build` plus installed-wheel smoke for `fashion-radar --help`, `init`, `doctor`, and `fashion_radar.templates/daily_report.md`.
+- [ ] If packaging/templates changed:
+  - `tmp_build="$(mktemp -d)"`
+  - `uv --no-config build --out-dir "$tmp_build"`
+  - `uv --no-config run --frozen python scripts/check_package_archives.py "$tmp_build"`
+  - Installed-wheel smoke from `"$tmp_build"/*.whl` for `fashion-radar --help`, `init`, `doctor`, and `fashion_radar.templates/daily_report.md`.
 - [ ] If dashboard/dependencies changed: install/resolve `dashboard` extra and import `fashion_radar.dashboard.app` plus `fashion_radar.dashboard.queries` without launching Streamlit.
 
 ## Docs

@@ -712,6 +712,19 @@ def test_package_archive_smoke_command_is_documented_and_in_ci() -> None:
         assert "scripts/check_package_archives.py" in text
 
 
+def test_pull_request_template_package_smoke_uses_temp_build_archive_checker() -> None:
+    template = _read(PULL_REQUEST_TEMPLATE)
+    verification = _markdown_section_exact_heading(template, "Verification")
+
+    assert 'tmp_build="$(mktemp -d)"' in verification
+    assert 'uv --no-config build --out-dir "$tmp_build"' in verification
+    assert (
+        'uv --no-config run --frozen python scripts/check_package_archives.py "$tmp_build"'
+    ) in verification
+    assert '"$tmp_build"/*.whl' in verification
+    assert "`uv --no-config build` plus installed-wheel smoke" not in verification
+
+
 def test_first_run_smoke_command_is_documented_and_in_ci() -> None:
     checklist = _read(UPLOAD_CHECKLIST)
     ci_workflow = _read(CI_WORKFLOW)
@@ -800,9 +813,9 @@ def test_github_verification_surfaces_use_no_config_frozen_uv_run() -> None:
         elif "check_first_run_smoke.py" in command:
             surfaces = (ci_workflow, checklist, readme, first_run_doc)
         elif "check_package_archives.py" in command:
-            surfaces = (ci_workflow, checklist)
+            surfaces = (ci_workflow, checklist, pull_request_template)
         elif "build --out-dir" in command:
-            surfaces = (ci_workflow, checklist, readme, first_run_doc)
+            surfaces = (ci_workflow, checklist, readme, first_run_doc, pull_request_template)
         else:
             surfaces = (
                 ci_workflow,
