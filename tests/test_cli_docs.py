@@ -28,6 +28,8 @@ AGENTS_DOC = ROOT / "AGENTS.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 FIRST_RUN_DOC = ROOT / "docs" / "first-run.md"
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
+CONTRIBUTING_DOC = ROOT / "CONTRIBUTING.md"
+PULL_REQUEST_TEMPLATE = ROOT / ".github" / "pull_request_template.md"
 COMMUNITY_TOOL_HANDOFF_TEMPLATE_PATHS = (
     "examples/community-tool-handoff.example.csv",
     "examples/community-tool-handoff.example.json",
@@ -665,9 +667,13 @@ def test_upload_checklist_installed_workflow_json_check_uses_installed_python() 
 def test_package_archive_smoke_command_is_documented_and_in_ci() -> None:
     checklist = _read(UPLOAD_CHECKLIST)
     ci_workflow = _read(CI_WORKFLOW)
-    hygiene_command = "UV_NO_CONFIG=1 uv run python scripts/check_release_hygiene.py --repo-root ."
-    build_command = 'UV_NO_CONFIG=1 uv build --out-dir "$tmp_build"'
-    archive_command = 'UV_NO_CONFIG=1 uv run python scripts/check_package_archives.py "$tmp_build"'
+    hygiene_command = (
+        "uv --no-config run --frozen python scripts/check_release_hygiene.py --repo-root ."
+    )
+    build_command = 'uv --no-config build --out-dir "$tmp_build"'
+    archive_command = (
+        'uv --no-config run --frozen python scripts/check_package_archives.py "$tmp_build"'
+    )
     module_help_command = '"$tmp_env/venv/bin/python" -m fashion_radar --help'
 
     for text in (checklist, ci_workflow):
@@ -684,7 +690,9 @@ def test_first_run_smoke_command_is_documented_and_in_ci() -> None:
     ci_workflow = _read(CI_WORKFLOW)
     readme = _read(README)
     first_run_doc = _read(FIRST_RUN_DOC)
-    source_command = "UV_NO_CONFIG=1 uv run python scripts/check_first_run_smoke.py --repo-root ."
+    source_command = (
+        "uv --no-config run --frozen python scripts/check_first_run_smoke.py --repo-root ."
+    )
     installed_command = (
         '"$tmp_env/venv/bin/python" scripts/check_first_run_smoke.py --repo-root . '
         '--python "$tmp_env/venv/bin/python" --installed'
@@ -739,6 +747,70 @@ def test_agent_verification_docs_prefer_no_config_frozen_uv_run() -> None:
         assert "mirror-backed" in normalized
         assert "uv.lock" in normalized
         assert "frozen mirror install" in normalized
+
+
+def test_github_verification_surfaces_use_no_config_frozen_uv_run() -> None:
+    ci_workflow = _read(CI_WORKFLOW)
+    readme = _read(README)
+    contributing = _read(CONTRIBUTING_DOC)
+    pull_request_template = _read(PULL_REQUEST_TEMPLATE)
+    checklist = _read(UPLOAD_CHECKLIST)
+    first_run_doc = _read(FIRST_RUN_DOC)
+
+    no_config_commands = (
+        "uv --no-config run --frozen ruff check .",
+        "uv --no-config run --frozen ruff format --check .",
+        "uv --no-config run --frozen pytest",
+        "uv --no-config run --frozen python scripts/check_release_hygiene.py --repo-root .",
+        "uv --no-config run --frozen python scripts/check_first_run_smoke.py --repo-root .",
+        'uv --no-config run --frozen python scripts/check_package_archives.py "$tmp_build"',
+        'uv --no-config build --out-dir "$tmp_build"',
+    )
+    for command in no_config_commands:
+        if "check_release_hygiene.py" in command:
+            surfaces = (ci_workflow, checklist)
+        elif "check_first_run_smoke.py" in command:
+            surfaces = (ci_workflow, checklist, readme, first_run_doc)
+        elif "check_package_archives.py" in command:
+            surfaces = (ci_workflow, checklist)
+        elif "build --out-dir" in command:
+            surfaces = (ci_workflow, checklist, readme, first_run_doc)
+        else:
+            surfaces = (ci_workflow, readme, contributing, pull_request_template, checklist)
+        for surface in surfaces:
+            assert command in surface
+
+    isolated_lock_and_sync_commands = (
+        "UV_NO_CONFIG=1 uv lock --check",
+        "UV_NO_CONFIG=1 uv sync --locked --dev",
+        "UV_NO_CONFIG=1 uv sync --locked --dev --check",
+    )
+    for surface in (contributing, pull_request_template, checklist):
+        for command in isolated_lock_and_sync_commands:
+            assert command in surface
+
+    stale_verification_commands = (
+        "uv run ruff check .",
+        "uv run ruff format --check .",
+        "uv run pytest",
+        "UV_NO_CONFIG=1 uv run python scripts/check_release_hygiene.py --repo-root .",
+        "UV_NO_CONFIG=1 uv run python scripts/check_first_run_smoke.py --repo-root .",
+        'UV_NO_CONFIG=1 uv run python scripts/check_package_archives.py "$tmp_build"',
+        'UV_NO_CONFIG=1 uv build --out-dir "$tmp_build"',
+    )
+    for surface in (
+        ci_workflow,
+        readme,
+        contributing,
+        pull_request_template,
+        checklist,
+        first_run_doc,
+    ):
+        for command in stale_verification_commands:
+            assert command not in surface
+
+    assert "uv run fashion-radar init" in contributing
+    assert "uv run fashion-radar dashboard" in contributing
 
 
 def test_upload_checklist_mentions_mirror_lockfile_recovery() -> None:

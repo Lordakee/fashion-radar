@@ -322,7 +322,7 @@ report, and export directories, then verifies generated report artifacts there.
 It should not create files under repo `data/` or `reports/`:
 
 ```bash
-UV_NO_CONFIG=1 uv run python scripts/check_first_run_smoke.py --repo-root .
+uv --no-config run --frozen python scripts/check_first_run_smoke.py --repo-root .
 ```
 
 Source checkout mode prepends the checkout `src/` directory so it exercises the
@@ -332,7 +332,7 @@ wheel Python environment and `--installed`; use it to check release packaging:
 
 ```bash
 tmp_build="$(mktemp -d)"
-UV_NO_CONFIG=1 uv build --out-dir "$tmp_build"
+uv --no-config build --out-dir "$tmp_build"
 tmp_env="$(mktemp -d)"
 uv venv "$tmp_env/venv"
 uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
@@ -872,9 +872,9 @@ See [docs/data-retention.md](docs/data-retention.md).
 
 ```bash
 uv sync --locked --dev
-uv run ruff check .
-uv run ruff format --check .
-uv run pytest
+uv --no-config run --frozen ruff check .
+uv --no-config run --frozen ruff format --check .
+uv --no-config run --frozen pytest
 ```
 
 For PR/release verification, use [CONTRIBUTING.md](CONTRIBUTING.md) or

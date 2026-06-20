@@ -50,10 +50,10 @@ Describe CLI/config/report/dashboard behavior changes.
 - [ ] `UV_NO_CONFIG=1 uv lock --check`
 - [ ] `UV_NO_CONFIG=1 uv sync --locked --dev`
 - [ ] `UV_NO_CONFIG=1 uv sync --locked --dev --check`
-- [ ] `uv run ruff check .`
-- [ ] `uv run ruff format --check .`
-- [ ] `uv run pytest`
-- [ ] If packaging/templates changed: `uv build` plus installed-wheel smoke for `fashion-radar --help`, `init`, `doctor`, and `fashion_radar.templates/daily_report.md`.
+- [ ] `uv --no-config run --frozen ruff check .`
+- [ ] `uv --no-config run --frozen ruff format --check .`
+- [ ] `uv --no-config run --frozen pytest`
+- [ ] If packaging/templates changed: `uv --no-config build` plus installed-wheel smoke for `fashion-radar --help`, `init`, `doctor`, and `fashion_radar.templates/daily_report.md`.
 - [ ] If dashboard/dependencies changed: install/resolve `dashboard` extra and import `fashion_radar.dashboard.app` plus `fashion_radar.dashboard.queries` without launching Streamlit.
 
 ## Docs

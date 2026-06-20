@@ -17,9 +17,9 @@ git diff --check
 UV_NO_CONFIG=1 uv lock --check
 UV_NO_CONFIG=1 uv sync --locked --dev
 UV_NO_CONFIG=1 uv sync --locked --dev --check
-uv run ruff check .
-uv run ruff format --check .
-uv run pytest
+uv --no-config run --frozen ruff check .
+uv --no-config run --frozen ruff format --check .
+uv --no-config run --frozen pytest
 ```
 
 Mirror install check:
@@ -352,7 +352,7 @@ project config uses `"--path", "."`.
 Run the release hygiene gate before building archives:
 
 ```bash
-UV_NO_CONFIG=1 uv run python scripts/check_release_hygiene.py --repo-root .
+uv --no-config run --frozen python scripts/check_release_hygiene.py --repo-root .
 ```
 
 Run the deterministic first-run sample smoke. It uses checked-in community
@@ -360,7 +360,7 @@ signal examples and temporary config/data/report directories; it does not run
 live collection or launch the dashboard server:
 
 ```bash
-UV_NO_CONFIG=1 uv run python scripts/check_first_run_smoke.py --repo-root .
+uv --no-config run --frozen python scripts/check_first_run_smoke.py --repo-root .
 ```
 
 Both first-run smokes use checked-in sample files and temporary config, data,
@@ -376,8 +376,8 @@ Use `/tmp` for build artifacts:
 
 ```bash
 tmp_build="$(mktemp -d)"
-UV_NO_CONFIG=1 uv build --out-dir "$tmp_build"
-UV_NO_CONFIG=1 uv run python scripts/check_package_archives.py "$tmp_build"
+uv --no-config build --out-dir "$tmp_build"
+uv --no-config run --frozen python scripts/check_package_archives.py "$tmp_build"
 ```
 
 Installed-wheel smoke:
