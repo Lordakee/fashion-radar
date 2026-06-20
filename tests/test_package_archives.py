@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import io
 import subprocess
 import sys
@@ -11,6 +12,12 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "check_package_archives.py"
+
+spec = importlib.util.spec_from_file_location("check_package_archives", SCRIPT)
+check_package_archives = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+sys.modules[spec.name] = check_package_archives
+spec.loader.exec_module(check_package_archives)
 
 WHEEL_FILES = {
     "fashion_radar/cli.py": "",
@@ -70,6 +77,42 @@ SDIST_FILES = [
     "src/fashion_radar/templates/configs/entities.example.yaml",
     "src/fashion_radar/templates/configs/scoring.example.yaml",
 ]
+
+
+def test_expected_archive_metadata_is_derived_from_pyproject() -> None:
+    metadata = check_package_archives.load_expected_project_metadata()
+
+    assert metadata.name == "fashion-radar"
+    assert metadata.version == "0.1.0"
+    assert metadata.console_script_lines == frozenset({"fashion-radar = fashion_radar.cli:app"})
+
+
+def test_expected_archive_metadata_loader_uses_supplied_pyproject(tmp_path: Path) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        "\n".join(
+            [
+                "[project]",
+                'name = "example-package"',
+                'version = "9.8.7"',
+                "[project.scripts]",
+                'example-cli = "example.cli:app"',
+                'example-admin = "example.admin:main"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    metadata = check_package_archives.load_expected_project_metadata(pyproject)
+
+    assert metadata.name == "example-package"
+    assert metadata.version == "9.8.7"
+    assert metadata.console_script_lines == frozenset(
+        {
+            "example-cli = example.cli:app",
+            "example-admin = example.admin:main",
+        }
+    )
 
 
 def run_checker(build_dir: Path) -> subprocess.CompletedProcess[str]:

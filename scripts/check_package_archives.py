@@ -5,14 +5,37 @@ import argparse
 import re
 import sys
 import tarfile
+import tomllib
 import zipfile
 from collections.abc import Iterable
+from dataclasses import dataclass
 from email.parser import Parser
 from pathlib import Path
 
-PROJECT_NAME = "fashion-radar"
-PROJECT_VERSION = "0.1.0"
-ENTRY_POINT = "fashion-radar = fashion_radar.cli:app"
+PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
+
+
+@dataclass(frozen=True)
+class ExpectedProjectMetadata:
+    name: str
+    version: str
+    console_script_lines: frozenset[str]
+
+
+def load_expected_project_metadata(
+    pyproject_path: Path = PYPROJECT,
+) -> ExpectedProjectMetadata:
+    data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    project = data["project"]
+    scripts = project.get("scripts", {})
+    return ExpectedProjectMetadata(
+        name=str(project["name"]),
+        version=str(project["version"]),
+        console_script_lines=frozenset(
+            f"{script_name} = {target}" for script_name, target in scripts.items()
+        ),
+    )
+
 
 WHEEL_REQUIRED_PATHS = [
     "fashion_radar/cli.py",
@@ -160,6 +183,7 @@ def validate_build_dir(build_dir: Path) -> list[str]:
     if not build_dir.is_dir():
         return [f"build directory does not exist: {build_dir}"]
 
+    expected_metadata = load_expected_project_metadata()
     wheel_path, wheel_errors = select_single_archive(build_dir, "*.whl", "wheel")
     sdist_path, sdist_errors = select_single_archive(build_dir, "*.tar.gz", "sdist")
     errors = wheel_errors + sdist_errors
@@ -173,7 +197,11 @@ def validate_build_dir(build_dir: Path) -> list[str]:
         build_dir,
         expected_paths={wheel_path, sdist_path},
     )
-    return build_dir_errors + validate_wheel(wheel_path) + validate_sdist(sdist_path)
+    return (
+        build_dir_errors
+        + validate_wheel(wheel_path, expected_metadata)
+        + validate_sdist(sdist_path)
+    )
 
 
 def unexpected_build_dir_child_errors(
@@ -203,7 +231,10 @@ def select_single_archive(
     return archives[0], []
 
 
-def validate_wheel(wheel_path: Path) -> list[str]:
+def validate_wheel(
+    wheel_path: Path,
+    expected_metadata: ExpectedProjectMetadata,
+) -> list[str]:
     try:
         with zipfile.ZipFile(wheel_path) as archive:
             raw_paths = archive.namelist()
@@ -222,9 +253,13 @@ def validate_wheel(wheel_path: Path) -> list[str]:
             if dist_info_dir is not None:
                 errors.extend(validate_wheel_dist_info_files(paths, dist_info_dir))
                 if f"{dist_info_dir}/METADATA" in paths:
-                    errors.extend(validate_wheel_metadata(archive, dist_info_dir))
+                    errors.extend(
+                        validate_wheel_metadata(archive, dist_info_dir, expected_metadata)
+                    )
                 if f"{dist_info_dir}/entry_points.txt" in paths:
-                    errors.extend(validate_wheel_entry_points(archive, dist_info_dir))
+                    errors.extend(
+                        validate_wheel_entry_points(archive, dist_info_dir, expected_metadata)
+                    )
             return errors
     except zipfile.BadZipFile as exc:
         return [f"could not read wheel archive {wheel_path.name}: {exc}"]
@@ -253,25 +288,35 @@ def validate_wheel_dist_info_files(paths: set[str], dist_info_dir: str) -> list[
     return errors
 
 
-def validate_wheel_metadata(archive: zipfile.ZipFile, dist_info_dir: str) -> list[str]:
+def validate_wheel_metadata(
+    archive: zipfile.ZipFile,
+    dist_info_dir: str,
+    expected_metadata: ExpectedProjectMetadata,
+) -> list[str]:
     metadata_path = f"{dist_info_dir}/METADATA"
     metadata = read_zip_text(archive, metadata_path)
     parsed_metadata = Parser().parsestr(metadata)
     errors = []
-    if parsed_metadata.get("Name") != PROJECT_NAME:
-        errors.append(f"METADATA is missing Name: {PROJECT_NAME}")
-    if parsed_metadata.get("Version") != PROJECT_VERSION:
-        errors.append(f"METADATA is missing Version: {PROJECT_VERSION}")
+    if parsed_metadata.get("Name") != expected_metadata.name:
+        errors.append(f"METADATA is missing Name: {expected_metadata.name}")
+    if parsed_metadata.get("Version") != expected_metadata.version:
+        errors.append(f"METADATA is missing Version: {expected_metadata.version}")
     return errors
 
 
-def validate_wheel_entry_points(archive: zipfile.ZipFile, dist_info_dir: str) -> list[str]:
+def validate_wheel_entry_points(
+    archive: zipfile.ZipFile,
+    dist_info_dir: str,
+    expected_metadata: ExpectedProjectMetadata,
+) -> list[str]:
     entry_points_path = f"{dist_info_dir}/entry_points.txt"
     entry_points = read_zip_text(archive, entry_points_path)
     entry_point_lines = {line.strip() for line in entry_points.splitlines()}
-    if ENTRY_POINT not in entry_point_lines:
-        return [f"entry_points.txt is missing {ENTRY_POINT}"]
-    return []
+    return [
+        f"entry_points.txt is missing {entry_point}"
+        for entry_point in sorted(expected_metadata.console_script_lines)
+        if entry_point not in entry_point_lines
+    ]
 
 
 def read_zip_text(archive: zipfile.ZipFile, path: str) -> str:
