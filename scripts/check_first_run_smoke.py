@@ -1086,7 +1086,14 @@ def validate_imported_review_workflow(command_name: str, payload: Any) -> None:
     assert_equal(f"{command_name} final step", heat_step.get("name"), "review_local_heat_movers")
 
 
-def validate_community_handoff_workflow(command_name: str, payload: Any) -> None:
+def validate_community_handoff_workflow(
+    command_name: str,
+    payload: Any,
+    *,
+    expected_directory: str = "/tmp/export",
+    expected_config_dir: str = "configs",
+    expected_data_dir: str = "data",
+) -> None:
     if not isinstance(payload, dict):
         raise SmokeError(f"{command_name} output must be a JSON object")
     assert_equal(f"{command_name} execution_mode", payload.get("execution_mode"), "print_only")
@@ -1116,20 +1123,20 @@ def validate_community_handoff_workflow(command_name: str, payload: Any) -> None
     assert_equal(f"{command_name} pattern", payload.get("pattern"), DIR_PATTERN)
     assert_equal(f"{command_name} as_of", payload.get("as_of"), EXPECTED_WORKFLOW_AS_OF)
     assert_equal(f"{command_name} source_name", payload.get("source_name"), SOURCE_NAME)
-    directory = str(payload.get("directory", ""))
+    assert_equal(f"{command_name} directory", payload.get("directory"), expected_directory)
+    assert_equal(f"{command_name} config_dir", payload.get("config_dir"), expected_config_dir)
+    assert_equal(f"{command_name} data_dir", payload.get("data_dir"), expected_data_dir)
     input_format = EXPECTED_COMMUNITY_HANDOFF_INPUT_FORMAT
     pattern = DIR_PATTERN
-    config_dir = str(payload.get("config_dir", ""))
-    data_dir = str(payload.get("data_dir", ""))
     as_of = EXPECTED_WORKFLOW_AS_OF
     source_name = SOURCE_NAME
 
     expected_commands = expected_community_handoff_workflow_command_parts(
-        directory=directory,
+        directory=expected_directory,
         input_format=input_format,
         pattern=pattern,
-        config_dir=config_dir,
-        data_dir=data_dir,
+        config_dir=expected_config_dir,
+        data_dir=expected_data_dir,
         as_of=as_of,
         source_name=source_name,
     )
@@ -2495,6 +2502,9 @@ def run_first_run_flow(context: SmokeContext) -> None:
     validate_community_handoff_workflow(
         "community-handoff-workflow",
         community_handoff_workflow,
+        expected_directory=str(context.exports_dir),
+        expected_config_dir=str(context.config_dir),
+        expected_data_dir=str(context.data_dir),
     )
     run_cli(
         context,

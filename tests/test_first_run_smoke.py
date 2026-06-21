@@ -2134,6 +2134,42 @@ def test_validate_community_handoff_workflow_rejects_coordinated_metadata_comman
         smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
 
 
+def test_validate_community_handoff_workflow_rejects_directory_drift() -> None:
+    payload = community_handoff_workflow_payload()
+    payload["directory"] = "/tmp/other-export"
+    replace_workflow_command_fragments(
+        payload,
+        {"/tmp/export": "/tmp/other-export"},
+    )
+
+    with pytest.raises(smoke.SmokeError, match="community-handoff-workflow directory"):
+        smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
+def test_validate_community_handoff_workflow_rejects_config_dir_drift() -> None:
+    payload = community_handoff_workflow_payload()
+    payload["config_dir"] = "other-configs"
+    replace_workflow_command_fragments(
+        payload,
+        {"--config-dir configs": "--config-dir other-configs"},
+    )
+
+    with pytest.raises(smoke.SmokeError, match="community-handoff-workflow config_dir"):
+        smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
+def test_validate_community_handoff_workflow_rejects_data_dir_drift() -> None:
+    payload = community_handoff_workflow_payload()
+    payload["data_dir"] = "other-data"
+    replace_workflow_command_fragments(
+        payload,
+        {"--data-dir data": "--data-dir other-data"},
+    )
+
+    with pytest.raises(smoke.SmokeError, match="community-handoff-workflow data_dir"):
+        smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
 @pytest.mark.parametrize(
     ("step_name", "replacement_command", "expected_message"),
     [
@@ -3533,7 +3569,15 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         stdout_by_command = {
             "community-candidates": json.dumps(community_candidates_payload()),
             "imported-review-workflow": json.dumps(imported_review_workflow_payload()),
-            "community-handoff-workflow": json.dumps(community_handoff_workflow_payload()),
+            "community-handoff-workflow": build_community_handoff_workflow(
+                directory=context.exports_dir,
+                config_dir=context.config_dir,
+                data_dir=context.data_dir,
+                input_format="csv",
+                pattern=smoke.DIR_PATTERN,
+                as_of=smoke.AS_OF,
+                source_name=smoke.SOURCE_NAME,
+            ).model_dump_json(),
             "external-tool-adapters": json.dumps(external_tool_adapters_payload()),
             "external-tool-template": json.dumps(external_tool_template_payload()),
             "external-tool-workflow": json.dumps(external_tool_workflow_payload()),
