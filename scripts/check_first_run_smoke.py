@@ -105,6 +105,9 @@ EXPECTED_EXTERNAL_TOOL_READINESS_STEPS = (
 EXPECTED_EXTERNAL_TOOL_READINESS_INSTALL_HINT = (
     "npm config set registry https://registry.npmmirror.com && npm install -g rednote-mcp"
 )
+EXPECTED_EXTERNAL_TOOL_READINESS_DETAIL = (
+    "Checks whether the Rednote MCP command is discoverable locally."
+)
 # Pinned independently from the runtime registry so first-run smoke catches
 # adapter registry drift instead of importing the code under test.
 EXPECTED_EXTERNAL_TOOL_ADAPTERS = {
@@ -286,31 +289,23 @@ EXPECTED_EXTERNAL_TOOL_REGISTRY_BOUNDARIES = [
     ),
     "Does not provide a compliance-review workflow.",
 ]
-REQUIRED_EXTERNAL_TOOL_READINESS_BOUNDARY_PHRASES = (
-    "local read-only",
-    "availability only",
-    "Does not run adapters",
-    "Does not inspect",
-    "Does not read handoff files",
-    "no scraping",
-    "no browser automation",
-    "no platform APIs",
-    "no account/session/cookie/token behavior",
-    "no monitoring",
-    "no scheduling",
-    "no source acquisition",
-    "no demand proof",
-    "no ranking",
-    "no coverage verification",
-    "compliance-review",
-)
-FORBIDDEN_EXTERNAL_TOOL_READINESS_SCOPE_PHRASES = (
-    "runs source acquisition",
-    "opens platform apis",
-    "calls platform apis",
-    "runs upstream tools",
-    "runs adapters",
-    "creates artifacts",
+EXPECTED_EXTERNAL_TOOL_READINESS_BOUNDARIES = (
+    "Prints local read-only external/community tool readiness guidance only.",
+    "Checks PATH availability only through shutil.which for mapped upstream commands.",
+    "Commands were not executed.",
+    "Does not run generated commands.",
+    "Does not run adapters or upstream tools.",
+    "Does not import upstream tools.",
+    "Does not inspect the supplied directory.",
+    "Does not read handoff files, validate files, import rows, or open SQLite.",
+    "Does not write config, data, report, dashboard, or workflow artifacts.",
+    (
+        "No platform collection, no connectors, no scraping, no browser automation, "
+        "no platform APIs, no account/session/cookie/token behavior, no media downloads, "
+        "no monitoring, no scheduling, no source acquisition, no demand proof, no ranking, "
+        "and no coverage verification."
+    ),
+    "Does not provide a compliance-review product feature.",
 )
 
 
@@ -1689,6 +1684,11 @@ def validate_external_tool_readiness(command_name: str, payload: Any) -> None:
     detail = check.get("detail")
     if not isinstance(detail, str) or not detail:
         raise SmokeError(f"{command_name} check detail must be populated")
+    assert_equal(
+        f"{command_name} check detail",
+        detail,
+        EXPECTED_EXTERNAL_TOOL_READINESS_DETAIL,
+    )
     install_hint = check.get("install_hint")
     if not isinstance(install_hint, str) or not install_hint:
         raise SmokeError(f"{command_name} check install_hint must be populated")
@@ -1885,28 +1885,11 @@ def validate_external_tool_readiness(command_name: str, payload: Any) -> None:
     boundaries = payload.get("boundaries")
     if not isinstance(boundaries, list) or not boundaries:
         raise SmokeError(f"{command_name} boundaries must be a non-empty list")
-    boundary_text = " ".join(str(boundary) for boundary in boundaries)
-    normalized_boundaries = boundary_text.casefold()
-    if (
-        "user-controlled external/community tools" not in normalized_boundaries
-        and "external/community tool" not in normalized_boundaries
-    ):
-        raise SmokeError(
-            f"{command_name} boundaries missing 'user-controlled external/community tools'"
-        )
-    if (
-        "sanitized csv/json local file handoff" not in normalized_boundaries
-        and "handoff files" not in normalized_boundaries
-    ):
-        raise SmokeError(
-            f"{command_name} boundaries missing 'sanitized CSV/JSON local file handoff'"
-        )
-    for expected in REQUIRED_EXTERNAL_TOOL_READINESS_BOUNDARY_PHRASES:
-        if expected.casefold() not in normalized_boundaries:
-            raise SmokeError(f"{command_name} boundaries missing {expected!r}")
-    for forbidden in FORBIDDEN_EXTERNAL_TOOL_READINESS_SCOPE_PHRASES:
-        if forbidden in normalized_boundaries:
-            raise SmokeError(f"{command_name} boundaries contain forbidden scope: {forbidden!r}")
+    assert_equal(
+        f"{command_name} boundaries",
+        boundaries,
+        list(EXPECTED_EXTERNAL_TOOL_READINESS_BOUNDARIES),
+    )
 
 
 def validate_report_outputs(json_payload: Any, markdown_text: str) -> None:

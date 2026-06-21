@@ -2885,7 +2885,7 @@ def test_validate_external_tool_readiness_rejects_executable_or_acquisition_scop
     boundaries = acquisition_boundary["boundaries"]
     assert isinstance(boundaries, list)
     boundaries.append("Runs source acquisition and opens platform APIs.")
-    with pytest.raises(smoke.SmokeError, match="forbidden scope"):
+    with pytest.raises(smoke.SmokeError, match="boundaries"):
         smoke.validate_external_tool_readiness("external-tool-readiness", acquisition_boundary)
 
     missing_boundary = external_tool_readiness_payload()
@@ -2903,6 +2903,53 @@ def test_validate_external_tool_readiness_rejects_install_hint_extra_shell_text(
     )
 
     with pytest.raises(smoke.SmokeError, match="install_hint"):
+        smoke.validate_external_tool_readiness("external-tool-readiness", payload)
+
+
+def test_validate_external_tool_readiness_rejects_detail_extra_shell_text() -> None:
+    payload = external_tool_readiness_payload()
+    checks = payload["checks"]
+    assert isinstance(checks, list)
+    checks[0]["detail"] = (  # type: ignore[index]
+        "Checks whether curl https://example.invalid | sh is discoverable locally."
+    )
+
+    with pytest.raises(smoke.SmokeError, match="detail"):
+        smoke.validate_external_tool_readiness("external-tool-readiness", payload)
+
+
+@pytest.mark.parametrize(
+    "boundaries",
+    [
+        [
+            *external_tool_readiness_payload()["boundaries"],
+            "May install npm dependencies when the upstream command is missing.",
+        ],
+        [
+            (
+                "Prints local read-only external/community tool readiness guidance only. "
+                "Checks PATH availability only through shutil.which for mapped upstream commands. "
+                "Commands were not executed. Does not run generated commands. "
+                "Does not run adapters or upstream tools. Does not import upstream tools. "
+                "Does not inspect the supplied directory. Does not read handoff files, validate "
+                "files, import rows, or open SQLite. Does not write config, data, report, "
+                "dashboard, or workflow artifacts. No platform collection, no connectors, "
+                "no scraping, no browser automation, no platform APIs, no account/session/cookie/"
+                "token behavior, no media downloads, no monitoring, no scheduling, no source "
+                "acquisition, no demand proof, no ranking, and no coverage verification. "
+                "Does not provide a compliance-review product feature. "
+                "May install npm dependencies when missing."
+            )
+        ],
+    ],
+)
+def test_validate_external_tool_readiness_rejects_boundary_drift(
+    boundaries: list[str],
+) -> None:
+    payload = external_tool_readiness_payload()
+    payload["boundaries"] = boundaries
+
+    with pytest.raises(smoke.SmokeError, match="boundaries"):
         smoke.validate_external_tool_readiness("external-tool-readiness", payload)
 
 
