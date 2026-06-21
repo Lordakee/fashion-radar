@@ -1914,6 +1914,76 @@ def test_validate_external_tool_workflow_requires_print_only_workflow_contract()
         smoke.validate_external_tool_workflow("external-tool-workflow", executable_import)
 
 
+def test_validate_external_tool_workflow_rejects_extra_readiness_command_flag() -> None:
+    payload = external_tool_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    readiness_step = steps[1]
+    assert isinstance(readiness_step, dict)
+    readiness_step["command"] = str(readiness_step["command"]) + " --verbose"
+
+    with pytest.raises(smoke.SmokeError, match="readiness command"):
+        smoke.validate_external_tool_workflow("external-tool-workflow", payload)
+
+
+def test_validate_external_tool_readiness_rejects_wrong_workflow_output_format() -> None:
+    payload = external_tool_readiness_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    workflow_step = steps[2]
+    assert isinstance(workflow_step, dict)
+    workflow_step["command"] = external_tool_command(
+        "external-tool-workflow",
+        "--adapter",
+        "rednote_mcp",
+        "--directory",
+        "exports",
+        "--config-dir",
+        "configs",
+        "--data-dir",
+        "data",
+        "--as-of",
+        "2026-06-13T12:00:00+00:00",
+        "--input-format",
+        "json",
+        "--pattern",
+        "*.json",
+        "--source-name",
+        "Rednote MCP Export",
+        "--format",
+        "json",
+    )
+
+    with pytest.raises(smoke.SmokeError, match="workflow command"):
+        smoke.validate_external_tool_readiness("external-tool-readiness", payload)
+
+
+def test_validate_external_tool_readiness_rejects_wrong_dry_run_input_format() -> None:
+    payload = external_tool_readiness_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    dry_run_step = steps[-1]
+    assert isinstance(dry_run_step, dict)
+    dry_run_step["command"] = external_tool_command(
+        "import-signals-dir",
+        "exports",
+        "--format",
+        "csv",
+        "--pattern",
+        "*.json",
+        "--source-name",
+        "Rednote MCP Export",
+        "--data-dir",
+        "data",
+        "--imported-at",
+        "2026-06-13T12:00:00+00:00",
+        "--dry-run",
+    )
+
+    with pytest.raises(smoke.SmokeError, match="dry-run command"):
+        smoke.validate_external_tool_readiness("external-tool-readiness", payload)
+
+
 def test_validate_external_tool_readiness_requires_local_read_only_contract() -> None:
     smoke.validate_external_tool_readiness(
         "external-tool-readiness",

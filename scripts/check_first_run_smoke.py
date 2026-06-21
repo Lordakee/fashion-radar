@@ -373,6 +373,23 @@ def expected_external_tool_command(*parts: str) -> str:
     return shlex.join(("fashion-radar", *parts))
 
 
+def validate_expected_external_tool_command(
+    command_name: str,
+    label: str,
+    command: object,
+    *parts: str,
+) -> None:
+    try:
+        actual_parts = shlex.split(str(command))
+    except ValueError as exc:
+        raise SmokeError(f"{command_name} {label} command is not shell-parseable: {exc}") from exc
+    assert_equal(
+        f"{command_name} {label} command",
+        actual_parts,
+        ["fashion-radar", *parts],
+    )
+
+
 def expected_external_tool_adapter_commands(
     *,
     adapter_id: str,
@@ -1042,6 +1059,14 @@ def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
         value = payload.get(field)
         if not isinstance(value, str) or not value:
             raise SmokeError(f"{command_name} {field} must be populated")
+    adapter_id = str(payload["adapter_id"])
+    directory = str(payload["directory"])
+    config_dir = str(payload["config_dir"])
+    data_dir = str(payload["data_dir"])
+    as_of = str(payload["as_of"])
+    input_format = str(payload["input_format"])
+    pattern = str(payload["pattern"])
+    source_name = str(payload["source_name"])
 
     steps = payload.get("steps")
     if not isinstance(steps, list):
@@ -1090,51 +1115,92 @@ def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
     registry_step = steps[0]
     if not isinstance(registry_step, dict):
         raise SmokeError(f"{command_name} registry step must be a JSON object")
-    registry_command = str(registry_step.get("command", ""))
-    for expected in ("fashion-radar external-tool-adapters", "--adapter", "rednote_mcp"):
-        if expected not in registry_command:
-            raise SmokeError(f"{command_name} registry command missing {expected!r}")
+    validate_expected_external_tool_command(
+        command_name,
+        "registry",
+        registry_step.get("command", ""),
+        "external-tool-adapters",
+        "--adapter",
+        adapter_id,
+        "--directory",
+        directory,
+        "--config-dir",
+        config_dir,
+        "--data-dir",
+        data_dir,
+        "--as-of",
+        as_of,
+        "--format",
+        "table",
+    )
 
     readiness_step = steps[1]
     if not isinstance(readiness_step, dict):
         raise SmokeError(f"{command_name} readiness step must be a JSON object")
-    readiness_command = str(readiness_step.get("command", ""))
-    for expected in (
-        "fashion-radar external-tool-readiness",
+    validate_expected_external_tool_command(
+        command_name,
+        "readiness",
+        readiness_step.get("command", ""),
+        "external-tool-readiness",
         "--adapter",
-        "rednote_mcp",
+        adapter_id,
+        "--directory",
+        directory,
+        "--config-dir",
+        config_dir,
+        "--data-dir",
+        data_dir,
+        "--as-of",
+        as_of,
         "--input-format",
-        "json",
+        input_format,
         "--pattern",
-        "*.json",
+        pattern,
         "--source-name",
+        source_name,
         "--format",
         "table",
-    ):
-        if expected not in readiness_command:
-            raise SmokeError(f"{command_name} readiness command missing {expected!r}")
+    )
 
     template_step = steps[2]
     if not isinstance(template_step, dict):
         raise SmokeError(f"{command_name} template step must be a JSON object")
-    template_command = str(template_step.get("command", ""))
-    for expected in (
-        "fashion-radar external-tool-template",
+    validate_expected_external_tool_command(
+        command_name,
+        "template",
+        template_step.get("command", ""),
+        "external-tool-template",
         "--adapter",
-        "rednote_mcp",
+        adapter_id,
+        "--directory",
+        directory,
+        "--config-dir",
+        config_dir,
+        "--data-dir",
+        data_dir,
+        "--as-of",
+        as_of,
         "--format",
         "json",
-    ):
-        if expected not in template_command:
-            raise SmokeError(f"{command_name} template command missing {expected!r}")
+    )
 
     lint_step = steps[6]
     if not isinstance(lint_step, dict):
         raise SmokeError(f"{command_name} lint step must be a JSON object")
-    lint_command = str(lint_step.get("command", ""))
-    for expected in ("fashion-radar community-signal-lint-dir", "--source-name", "--strict"):
-        if expected not in lint_command:
-            raise SmokeError(f"{command_name} lint command missing {expected!r}")
+    validate_expected_external_tool_command(
+        command_name,
+        "lint",
+        lint_step.get("command", ""),
+        "community-signal-lint-dir",
+        directory,
+        "--input-format",
+        input_format,
+        "--pattern",
+        pattern,
+        "--source-name",
+        source_name,
+        "--strict",
+    )
 
     boundaries = payload.get("boundaries")
     if not isinstance(boundaries, list) or not boundaries:
@@ -1187,6 +1253,14 @@ def validate_external_tool_readiness(command_name: str, payload: Any) -> None:
         value = payload.get(field)
         if not isinstance(value, str) or not value:
             raise SmokeError(f"{command_name} {field} must be populated")
+    adapter_id = str(payload["adapter_id"])
+    directory = str(payload["directory"])
+    config_dir = str(payload["config_dir"])
+    data_dir = str(payload["data_dir"])
+    as_of = str(payload["as_of"])
+    input_format = str(payload["input_format"])
+    pattern = str(payload["pattern"])
+    source_name = str(payload["source_name"])
 
     checks = payload.get("checks")
     if not isinstance(checks, list) or len(checks) != 1:
@@ -1252,28 +1326,52 @@ def validate_external_tool_readiness(command_name: str, payload: Any) -> None:
     workflow_step = steps[2]
     if not isinstance(workflow_step, dict):
         raise SmokeError(f"{command_name} workflow step must be a JSON object")
-    workflow_command = str(workflow_step.get("command", ""))
-    for expected in (
-        "fashion-radar external-tool-workflow",
+    validate_expected_external_tool_command(
+        command_name,
+        "workflow",
+        workflow_step.get("command", ""),
+        "external-tool-workflow",
         "--adapter",
-        "rednote_mcp",
+        adapter_id,
+        "--directory",
+        directory,
+        "--config-dir",
+        config_dir,
+        "--data-dir",
+        data_dir,
+        "--as-of",
+        as_of,
+        "--input-format",
+        input_format,
+        "--pattern",
+        pattern,
+        "--source-name",
+        source_name,
         "--format",
-    ):
-        if expected not in workflow_command:
-            raise SmokeError(f"{command_name} workflow command missing {expected!r}")
+        "table",
+    )
 
     dry_run_step = steps[-1]
     if not isinstance(dry_run_step, dict):
         raise SmokeError(f"{command_name} dry-run step must be a JSON object")
-    dry_run_command = str(dry_run_step.get("command", ""))
-    for expected in (
-        "fashion-radar import-signals-dir",
+    validate_expected_external_tool_command(
+        command_name,
+        "dry-run",
+        dry_run_step.get("command", ""),
+        "import-signals-dir",
+        directory,
+        "--format",
+        input_format,
+        "--pattern",
+        pattern,
+        "--source-name",
+        source_name,
         "--data-dir",
+        data_dir,
         "--imported-at",
+        as_of,
         "--dry-run",
-    ):
-        if expected not in dry_run_command:
-            raise SmokeError(f"{command_name} dry-run command missing {expected!r}")
+    )
 
     boundaries = payload.get("boundaries")
     if not isinstance(boundaries, list) or not boundaries:
