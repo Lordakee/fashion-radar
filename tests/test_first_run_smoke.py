@@ -2049,6 +2049,30 @@ def test_validate_imported_review_workflow_rejects_coordinated_metadata_command_
         smoke.validate_imported_review_workflow("imported-review-workflow", payload)
 
 
+def test_validate_imported_review_workflow_rejects_config_dir_drift() -> None:
+    payload = imported_review_workflow_payload()
+    payload["config_dir"] = "other-configs"
+    replace_workflow_command_fragments(
+        payload,
+        {"--config-dir configs": "--config-dir other-configs"},
+    )
+
+    with pytest.raises(smoke.SmokeError, match="imported-review-workflow config_dir"):
+        smoke.validate_imported_review_workflow("imported-review-workflow", payload)
+
+
+def test_validate_imported_review_workflow_rejects_data_dir_drift() -> None:
+    payload = imported_review_workflow_payload()
+    payload["data_dir"] = "other-data"
+    replace_workflow_command_fragments(
+        payload,
+        {"--data-dir data": "--data-dir other-data"},
+    )
+
+    with pytest.raises(smoke.SmokeError, match="imported-review-workflow data_dir"):
+        smoke.validate_imported_review_workflow("imported-review-workflow", payload)
+
+
 def test_validate_community_handoff_workflow_requires_readiness_step() -> None:
     smoke.validate_community_handoff_workflow(
         "community-handoff-workflow",
@@ -3568,7 +3592,12 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
 
         stdout_by_command = {
             "community-candidates": json.dumps(community_candidates_payload()),
-            "imported-review-workflow": json.dumps(imported_review_workflow_payload()),
+            "imported-review-workflow": build_imported_review_workflow(
+                config_dir=context.config_dir,
+                data_dir=context.data_dir,
+                as_of=smoke.AS_OF,
+                source_name=smoke.SOURCE_NAME,
+            ).model_dump_json(),
             "community-handoff-workflow": build_community_handoff_workflow(
                 directory=context.exports_dir,
                 config_dir=context.config_dir,

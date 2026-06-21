@@ -1004,7 +1004,13 @@ def validate_imported_signals(command_name: str, payload: Any) -> None:
             raise SmokeError(f"{command_name} missing {expected_entity} match")
 
 
-def validate_imported_review_workflow(command_name: str, payload: Any) -> None:
+def validate_imported_review_workflow(
+    command_name: str,
+    payload: Any,
+    *,
+    expected_config_dir: str = "configs",
+    expected_data_dir: str = "data",
+) -> None:
     if not isinstance(payload, dict):
         raise SmokeError(f"{command_name} output must be a JSON object")
     assert_equal(f"{command_name} execution_mode", payload.get("execution_mode"), "print_only")
@@ -1052,8 +1058,8 @@ def validate_imported_review_workflow(command_name: str, payload: Any) -> None:
         payload.get("baseline_days"),
         EXPECTED_IMPORTED_REVIEW_BASELINE_DAYS,
     )
-    config_dir = str(payload.get("config_dir", ""))
-    data_dir = str(payload.get("data_dir", ""))
+    assert_equal(f"{command_name} config_dir", payload.get("config_dir"), expected_config_dir)
+    assert_equal(f"{command_name} data_dir", payload.get("data_dir"), expected_data_dir)
     as_of = EXPECTED_WORKFLOW_AS_OF
     source_name = SOURCE_NAME
     lookback_days = str(EXPECTED_IMPORTED_REVIEW_LOOKBACK_DAYS)
@@ -1061,8 +1067,8 @@ def validate_imported_review_workflow(command_name: str, payload: Any) -> None:
     baseline_days = str(EXPECTED_IMPORTED_REVIEW_BASELINE_DAYS)
 
     expected_commands = expected_imported_review_workflow_command_parts(
-        config_dir=config_dir,
-        data_dir=data_dir,
+        config_dir=expected_config_dir,
+        data_dir=expected_data_dir,
         as_of=as_of,
         source_name=source_name,
         lookback_days=lookback_days,
@@ -2397,7 +2403,12 @@ def run_first_run_flow(context: SmokeContext) -> None:
             "json",
         ).stdout,
     )
-    validate_imported_review_workflow("imported-review-workflow", imported_review_workflow)
+    validate_imported_review_workflow(
+        "imported-review-workflow",
+        imported_review_workflow,
+        expected_config_dir=str(context.config_dir),
+        expected_data_dir=str(context.data_dir),
+    )
     imported_summary = validate_json_output(
         "imported-signals-summary",
         run_cli(
