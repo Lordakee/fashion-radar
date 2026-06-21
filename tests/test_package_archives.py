@@ -129,8 +129,9 @@ def write_wheel(
     build_dir: Path,
     *,
     files: dict[str, str] | None = None,
+    filename: str = "fashion_radar-0.1.0-py3-none-any.whl",
 ) -> Path:
-    path = build_dir / "fashion_radar-0.1.0-py3-none-any.whl"
+    path = build_dir / filename
     archive_files = WHEEL_FILES if files is None else files
 
     with zipfile.ZipFile(path, "w") as archive:
@@ -140,14 +141,20 @@ def write_wheel(
     return path
 
 
-def write_sdist(build_dir: Path, *, files: list[str] | None = None) -> Path:
-    path = build_dir / "fashion_radar-0.1.0.tar.gz"
+def write_sdist(
+    build_dir: Path,
+    *,
+    files: list[str] | None = None,
+    filename: str = "fashion_radar-0.1.0.tar.gz",
+    root_dir: str = "fashion_radar-0.1.0",
+) -> Path:
+    path = build_dir / filename
     archive_files = SDIST_FILES if files is None else files
 
     with tarfile.open(path, "w:gz") as archive:
         for relative_path in archive_files:
             data = b"fixture\n"
-            info = tarfile.TarInfo(f"fashion_radar-0.1.0/{relative_path}")
+            info = tarfile.TarInfo(f"{root_dir}/{relative_path}")
             info.size = len(data)
             archive.addfile(info, io.BytesIO(data))
 
@@ -263,6 +270,89 @@ def test_allowed_gitignore_marker_does_not_hide_unexpected_direct_child(
     assert result.returncode == 1
     assert "build directory contains unexpected direct child: .gitignore" not in result.stderr
     assert "build directory contains unexpected direct child: build.log" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("wheel_filename", "sdist_filename", "expected_error"),
+    [
+        (
+            "wrong_name-0.1.0-py3-none-any.whl",
+            "fashion_radar-0.1.0.tar.gz",
+            (
+                "wheel archive filename mismatch: expected "
+                "fashion_radar-0.1.0-py3-none-any.whl, "
+                "found wrong_name-0.1.0-py3-none-any.whl"
+            ),
+        ),
+        (
+            "fashion_radar-9.9.9-py3-none-any.whl",
+            "fashion_radar-0.1.0.tar.gz",
+            (
+                "wheel archive filename mismatch: expected "
+                "fashion_radar-0.1.0-py3-none-any.whl, "
+                "found fashion_radar-9.9.9-py3-none-any.whl"
+            ),
+        ),
+        (
+            "fashion_radar-0.1.0-py3-none-any.whl",
+            "wrong_name-0.1.0.tar.gz",
+            (
+                "sdist archive filename mismatch: expected "
+                "fashion_radar-0.1.0.tar.gz, found wrong_name-0.1.0.tar.gz"
+            ),
+        ),
+        (
+            "fashion_radar-0.1.0-py3-none-any.whl",
+            "fashion_radar-9.9.9.tar.gz",
+            (
+                "sdist archive filename mismatch: expected "
+                "fashion_radar-0.1.0.tar.gz, found fashion_radar-9.9.9.tar.gz"
+            ),
+        ),
+    ],
+)
+def test_rejects_package_archives_with_mismatched_filenames(
+    tmp_path: Path,
+    wheel_filename: str,
+    sdist_filename: str,
+    expected_error: str,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir, filename=wheel_filename)
+    write_sdist(build_dir, filename=sdist_filename)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert expected_error in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize(
+    "root_dir",
+    [
+        "wrong_name-0.1.0",
+        "fashion_radar-9.9.9",
+    ],
+)
+def test_rejects_sdist_with_mismatched_root_directory(
+    tmp_path: Path,
+    root_dir: str,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(build_dir, root_dir=root_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        f"sdist archive root directory mismatch: expected fashion_radar-0.1.0, found {root_dir}"
+    ) in result.stderr
+    assert "sdist archive missing required file" not in result.stderr
     assert "Traceback" not in result.stderr
 
 

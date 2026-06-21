@@ -193,14 +193,24 @@ def validate_build_dir(build_dir: Path) -> list[str]:
     if wheel_path is None or sdist_path is None:
         return ["internal archive selection error"]
 
+    filename_errors = validate_archive_filename(
+        wheel_path,
+        "wheel",
+        expected_wheel_archive_name(expected_metadata),
+    ) + validate_archive_filename(
+        sdist_path,
+        "sdist",
+        expected_sdist_archive_name(expected_metadata),
+    )
     build_dir_errors = unexpected_build_dir_child_errors(
         build_dir,
         expected_paths={wheel_path, sdist_path},
     )
     return (
-        build_dir_errors
+        filename_errors
+        + build_dir_errors
         + validate_wheel(wheel_path, expected_metadata)
-        + validate_sdist(sdist_path)
+        + validate_sdist(sdist_path, expected_metadata)
     )
 
 
@@ -284,9 +294,40 @@ def normalize_distribution_name(name: str) -> str:
     return re.sub(r"[-_.]+", "_", name).lower()
 
 
-def expected_wheel_dist_info_dir(expected_metadata: ExpectedProjectMetadata) -> str:
+def expected_archive_base_name(expected_metadata: ExpectedProjectMetadata) -> str:
     normalized_name = normalize_distribution_name(expected_metadata.name)
-    return f"{normalized_name}-{expected_metadata.version}.dist-info"
+    return f"{normalized_name}-{expected_metadata.version}"
+
+
+def expected_wheel_archive_name(expected_metadata: ExpectedProjectMetadata) -> str:
+    return f"{expected_archive_base_name(expected_metadata)}-py3-none-any.whl"
+
+
+def expected_sdist_archive_name(expected_metadata: ExpectedProjectMetadata) -> str:
+    return f"{expected_archive_base_name(expected_metadata)}.tar.gz"
+
+
+def expected_sdist_root_dir(expected_metadata: ExpectedProjectMetadata) -> str:
+    return expected_archive_base_name(expected_metadata)
+
+
+def expected_wheel_dist_info_dir(expected_metadata: ExpectedProjectMetadata) -> str:
+    return f"{expected_archive_base_name(expected_metadata)}.dist-info"
+
+
+def validate_archive_filename(
+    archive_path: Path,
+    archive_label: str,
+    expected_name: str,
+) -> list[str]:
+    if archive_path.name == expected_name:
+        return []
+    return [
+        (
+            f"{archive_label} archive filename mismatch: expected {expected_name}, "
+            f"found {archive_path.name}"
+        )
+    ]
 
 
 def validate_wheel_dist_info_dir(
@@ -346,22 +387,54 @@ def read_zip_text(archive: zipfile.ZipFile, path: str) -> str:
     return archive.read(path).decode("utf-8")
 
 
-def validate_sdist(sdist_path: Path) -> list[str]:
+def validate_sdist(
+    sdist_path: Path,
+    expected_metadata: ExpectedProjectMetadata,
+) -> list[str]:
     try:
         with tarfile.open(sdist_path, "r:gz") as archive:
             raw_paths = [member.name for member in archive.getmembers()]
             unsafe_errors = unsafe_archive_member_errors(raw_paths, "sdist archive")
+            root_errors = validate_sdist_root_dir(raw_paths, expected_metadata)
             paths = normalize_sdist_paths(raw_paths)
     except tarfile.TarError as exc:
         return [f"could not read sdist archive {sdist_path.name}: {exc}"]
 
-    errors = unsafe_errors + missing_required_paths(
-        paths,
-        exact_paths=SDIST_REQUIRED_PATHS,
-        archive_label="sdist archive",
+    errors = (
+        unsafe_errors
+        + root_errors
+        + missing_required_paths(
+            paths,
+            exact_paths=SDIST_REQUIRED_PATHS,
+            archive_label="sdist archive",
+        )
     )
     errors.extend(forbidden_release_member_errors(paths, "sdist archive"))
     return errors
+
+
+def validate_sdist_root_dir(
+    paths: Iterable[object],
+    expected_metadata: ExpectedProjectMetadata,
+) -> list[str]:
+    cleaned_paths = [clean_archive_path(path) for path in paths]
+    cleaned_paths = [path for path in cleaned_paths if path]
+    if not cleaned_paths:
+        return []
+
+    roots = {path.split("/", 1)[0] for path in cleaned_paths}
+    if len(roots) != 1:
+        found = ", ".join(sorted(roots)) or "none"
+        return [
+            "sdist archive root directory mismatch: "
+            f"expected {expected_sdist_root_dir(expected_metadata)}, found {found}"
+        ]
+
+    root = next(iter(roots))
+    expected_root = expected_sdist_root_dir(expected_metadata)
+    if root == expected_root:
+        return []
+    return [f"sdist archive root directory mismatch: expected {expected_root}, found {root}"]
 
 
 def unsafe_archive_member_errors(paths: Iterable[object], archive_label: str) -> list[str]:
