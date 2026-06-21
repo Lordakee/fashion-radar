@@ -1340,6 +1340,234 @@ def test_constants_pin_first_run_sample_inputs() -> None:
     assert smoke.EXAMPLE_CSV == Path("examples/community-signals.example.csv")
 
 
+def expected_first_run_flow_commands(
+    context: smoke.SmokeContext,
+    example_csv: Path,
+) -> list[tuple[str, ...]]:
+    return [
+        (
+            "init",
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--reports-dir",
+            str(context.reports_dir),
+        ),
+        ("migrate-db", "--data-dir", str(context.data_dir)),
+        (
+            "doctor",
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--reports-dir",
+            str(context.reports_dir),
+        ),
+        ("external-tool-adapters", "--format", "json"),
+        ("external-tool-template", "--adapter", "rednote_mcp", "--format", "json"),
+        (
+            "external-tool-workflow",
+            "--adapter",
+            "rednote_mcp",
+            "--directory",
+            str(context.exports_dir),
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--as-of",
+            smoke.AS_OF,
+            "--format",
+            "json",
+        ),
+        (
+            "external-tool-readiness",
+            "--adapter",
+            "rednote_mcp",
+            "--directory",
+            str(context.exports_dir),
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--as-of",
+            smoke.AS_OF,
+            "--format",
+            "json",
+        ),
+        (
+            "community-signal-lint",
+            str(example_csv),
+            "--input-format",
+            "csv",
+            "--source-name",
+            smoke.SOURCE_NAME,
+        ),
+        (
+            "community-candidates",
+            str(example_csv),
+            "--config-dir",
+            str(context.config_dir),
+            "--input-format",
+            "csv",
+            "--as-of",
+            smoke.AS_OF,
+            "--source-name",
+            smoke.SOURCE_NAME,
+            "--format",
+            "json",
+        ),
+        (
+            "import-signals",
+            str(example_csv),
+            "--data-dir",
+            str(context.data_dir),
+            "--format",
+            "csv",
+            "--source-name",
+            smoke.SOURCE_NAME,
+            "--dry-run",
+        ),
+        (
+            "import-signals",
+            str(example_csv),
+            "--data-dir",
+            str(context.data_dir),
+            "--format",
+            "csv",
+            "--source-name",
+            smoke.SOURCE_NAME,
+            "--imported-at",
+            smoke.AS_OF,
+        ),
+        ("match", "--config-dir", str(context.config_dir), "--data-dir", str(context.data_dir)),
+        (
+            "imported-review-workflow",
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--as-of",
+            smoke.AS_OF,
+            "--source-name",
+            smoke.SOURCE_NAME,
+            "--format",
+            "json",
+        ),
+        ("imported-signals-summary", "--data-dir", str(context.data_dir), "--format", "json"),
+        (
+            "imported-signals",
+            "--data-dir",
+            str(context.data_dir),
+            "--as-of",
+            smoke.AS_OF,
+            "--source-name",
+            smoke.SOURCE_NAME,
+            "--format",
+            "json",
+        ),
+        (
+            "report",
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--reports-dir",
+            str(context.reports_dir),
+            "--as-of",
+            smoke.AS_OF,
+        ),
+        (
+            "candidates",
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--as-of",
+            smoke.AS_OF,
+            "--format",
+            "json",
+        ),
+        (
+            "trends",
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--as-of",
+            smoke.AS_OF,
+            "--format",
+            "json",
+        ),
+        (
+            "community-handoff-workflow",
+            str(context.exports_dir),
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--input-format",
+            "csv",
+            "--pattern",
+            smoke.DIR_PATTERN,
+            "--as-of",
+            smoke.AS_OF,
+            "--source-name",
+            smoke.SOURCE_NAME,
+            "--format",
+            "json",
+        ),
+        (
+            "community-signal-lint-dir",
+            str(context.exports_dir),
+            "--input-format",
+            "csv",
+            "--pattern",
+            smoke.DIR_PATTERN,
+            "--source-name",
+            smoke.SOURCE_NAME,
+        ),
+        (
+            "community-candidates-dir",
+            str(context.exports_dir),
+            "--config-dir",
+            str(context.config_dir),
+            "--input-format",
+            "csv",
+            "--pattern",
+            smoke.DIR_PATTERN,
+            "--as-of",
+            smoke.AS_OF,
+            "--source-name",
+            smoke.SOURCE_NAME,
+            "--format",
+            "json",
+        ),
+        (
+            "import-signals-dir",
+            str(context.exports_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--format",
+            "csv",
+            "--pattern",
+            smoke.DIR_PATTERN,
+            "--source-name",
+            smoke.SOURCE_NAME,
+            "--dry-run",
+        ),
+    ]
+
+
+def assert_first_run_flow_commands(
+    captured: list[tuple[str, ...]],
+    context: smoke.SmokeContext,
+    example_csv: Path,
+) -> None:
+    assert captured == expected_first_run_flow_commands(context, example_csv)
+
+
 def test_cli_command_runs_fashion_radar_module(tmp_path: Path) -> None:
     context = make_context(tmp_path, python="/venv/bin/python")
 
@@ -2787,6 +3015,22 @@ def test_main_installed_preflights_before_running_smoke(
     assert calls == [("origin", False), ("assert", False), ("smoke", False)]
 
 
+def test_assert_first_run_flow_commands_rejects_tail_command_extra_args(
+    tmp_path: Path,
+) -> None:
+    context = make_context(tmp_path)
+    example_csv = tmp_path / smoke.EXAMPLE_CSV
+    captured = expected_first_run_flow_commands(context, example_csv)
+    drifted = list(captured)
+    handoff_index = next(
+        index for index, command in enumerate(drifted) if command[0] == "community-handoff-workflow"
+    )
+    drifted[handoff_index] = (*drifted[handoff_index], "--extra")
+
+    with pytest.raises(AssertionError):
+        assert_first_run_flow_commands(drifted, context, example_csv)
+
+
 def test_run_first_run_flow_uses_deterministic_local_command_sequence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2875,154 +3119,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
 
     smoke.run_first_run_flow(context)
 
-    assert [command[0] for command in captured] == [
-        "init",
-        "migrate-db",
-        "doctor",
-        "external-tool-adapters",
-        "external-tool-template",
-        "external-tool-workflow",
-        "external-tool-readiness",
-        "community-signal-lint",
-        "community-candidates",
-        "import-signals",
-        "import-signals",
-        "match",
-        "imported-review-workflow",
-        "imported-signals-summary",
-        "imported-signals",
-        "report",
-        "candidates",
-        "trends",
-        "community-handoff-workflow",
-        "community-signal-lint-dir",
-        "community-candidates-dir",
-        "import-signals-dir",
-    ]
-
-    def commands_named(command_name: str) -> list[tuple[str, ...]]:
-        return [command for command in captured if command[0] == command_name]
-
-    def single_command(command_name: str) -> tuple[str, ...]:
-        commands = commands_named(command_name)
-        assert len(commands) == 1
-        return commands[0]
-
-    assert single_command("init") == (
-        "init",
-        "--config-dir",
-        str(context.config_dir),
-        "--data-dir",
-        str(context.data_dir),
-        "--reports-dir",
-        str(context.reports_dir),
-    )
-    assert single_command("migrate-db") == ("migrate-db", "--data-dir", str(context.data_dir))
-    for command in captured:
-        assert command[0] not in {"collect", "run", "dashboard"}
-        if command[0] in {
-            "doctor",
-            "external-tool-workflow",
-            "match",
-            "imported-review-workflow",
-            "report",
-            "candidates",
-            "trends",
-        }:
-            assert "--config-dir" in command
-            assert str(context.config_dir) in command
-        if command[0] in {
-            "init",
-            "migrate-db",
-            "doctor",
-            "import-signals",
-            "external-tool-workflow",
-            "imported-review-workflow",
-            "imported-signals-summary",
-            "imported-signals",
-            "match",
-            "report",
-            "candidates",
-            "trends",
-            "community-handoff-workflow",
-            "import-signals-dir",
-        }:
-            assert "--data-dir" in command
-            assert str(context.data_dir) in command
-        if command[0] in {
-            "community-signal-lint",
-            "community-candidates",
-            "import-signals",
-            "imported-review-workflow",
-            "imported-signals",
-            "community-handoff-workflow",
-            "community-signal-lint-dir",
-            "community-candidates-dir",
-            "import-signals-dir",
-        }:
-            assert smoke.SOURCE_NAME in command
-        if command[0] in {
-            "community-candidates",
-            "imported-review-workflow",
-            "imported-signals",
-            "external-tool-workflow",
-            "report",
-            "candidates",
-            "trends",
-            "community-handoff-workflow",
-            "community-candidates-dir",
-        } or (command[0] == "import-signals" and "--dry-run" not in command):
-            assert smoke.AS_OF in command
-
-    external_tool_adapters = single_command("external-tool-adapters")
-    assert external_tool_adapters == ("external-tool-adapters", "--format", "json")
-    external_tool_template = single_command("external-tool-template")
-    assert external_tool_template == (
-        "external-tool-template",
-        "--adapter",
-        "rednote_mcp",
-        "--format",
-        "json",
-    )
-    external_tool_workflow = single_command("external-tool-workflow")
-    assert external_tool_workflow == (
-        "external-tool-workflow",
-        "--adapter",
-        "rednote_mcp",
-        "--directory",
-        str(context.exports_dir),
-        "--config-dir",
-        str(context.config_dir),
-        "--data-dir",
-        str(context.data_dir),
-        "--as-of",
-        smoke.AS_OF,
-        "--format",
-        "json",
-    )
-    external_tool_readiness = single_command("external-tool-readiness")
-    assert external_tool_readiness == (
-        "external-tool-readiness",
-        "--adapter",
-        "rednote_mcp",
-        "--directory",
-        str(context.exports_dir),
-        "--config-dir",
-        str(context.config_dir),
-        "--data-dir",
-        str(context.data_dir),
-        "--as-of",
-        smoke.AS_OF,
-        "--format",
-        "json",
-    )
-    community_handoff_workflow = single_command("community-handoff-workflow")
-    assert community_handoff_workflow[1] == str(context.exports_dir)
-    assert "--format" in community_handoff_workflow
-    assert "json" in community_handoff_workflow
-    assert single_command("community-signal-lint-dir")[1] == str(context.exports_dir)
-    assert single_command("community-candidates-dir")[1] == str(context.exports_dir)
-    assert single_command("import-signals-dir")[1] == str(context.exports_dir)
+    assert_first_run_flow_commands(captured, context, example_csv)
     assert (context.exports_dir / smoke.DIR_EXPORT_CSV).read_text(encoding="utf-8") == (
         example_csv.read_text(encoding="utf-8")
     )
