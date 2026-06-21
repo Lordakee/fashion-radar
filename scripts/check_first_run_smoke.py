@@ -692,49 +692,70 @@ def validate_imported_review_workflow(command_name: str, payload: Any) -> None:
         names,
         list(EXPECTED_IMPORTED_REVIEW_WORKFLOW_STEPS),
     )
+    config_dir = str(payload.get("config_dir", ""))
+    data_dir = str(payload.get("data_dir", ""))
+    as_of = str(payload.get("as_of", ""))
+    source_name = str(payload.get("source_name", "") or "")
+    current_days = str(payload.get("current_days", ""))
+    baseline_days = str(payload.get("baseline_days", ""))
+    source_args = ["--source-name", source_name] if source_name else []
 
     evidence_step = steps[3]
     if not isinstance(evidence_step, dict):
         raise SmokeError(f"{command_name} entity evidence step must be a JSON object")
-    evidence_command = str(evidence_step.get("command", ""))
-    for expected in (
-        "fashion-radar imported-entity-evidence",
+    validate_expected_external_tool_command(
+        command_name,
+        "entity evidence",
+        evidence_step.get("command", ""),
+        "imported-entity-evidence",
         "--data-dir",
+        data_dir,
         "--as-of",
+        as_of,
         "--entity-name",
         "The Row",
         "--entity-type",
         "brand",
-        "--source-name",
-        SOURCE_NAME,
-    ):
-        if expected not in evidence_command:
-            raise SmokeError(f"{command_name} entity evidence command missing {expected!r}")
+        "--current-days",
+        current_days,
+        "--baseline-days",
+        baseline_days,
+        *source_args,
+    )
 
     candidate_step = steps[4]
     if not isinstance(candidate_step, dict):
         raise SmokeError(f"{command_name} candidate step must be a JSON object")
-    candidate_command = str(candidate_step.get("command", ""))
-    for expected in (
-        "fashion-radar imported-candidates",
+    validate_expected_external_tool_command(
+        command_name,
+        "candidate",
+        candidate_step.get("command", ""),
+        "imported-candidates",
         "--config-dir",
+        config_dir,
         "--data-dir",
+        data_dir,
         "--as-of",
-        "--source-name",
-        SOURCE_NAME,
-    ):
-        if expected not in candidate_command:
-            raise SmokeError(f"{command_name} candidate command missing {expected!r}")
+        as_of,
+        *source_args,
+    )
 
     heat_step = steps[-1]
     if not isinstance(heat_step, dict):
         raise SmokeError(f"{command_name} heat step must be a JSON object")
     assert_equal(f"{command_name} final step", heat_step.get("name"), "review_local_heat_movers")
-    heat_command = str(heat_step.get("command", ""))
-    if "fashion-radar heat-movers" not in heat_command:
-        raise SmokeError(f"{command_name} final heat command missing heat-movers")
-    if "--source-name" in heat_command:
-        raise SmokeError(f"{command_name} final heat command must not include --source-name")
+    validate_expected_external_tool_command(
+        command_name,
+        "final heat",
+        heat_step.get("command", ""),
+        "heat-movers",
+        "--config-dir",
+        config_dir,
+        "--data-dir",
+        data_dir,
+        "--as-of",
+        as_of,
+    )
 
 
 def validate_community_handoff_workflow(command_name: str, payload: Any) -> None:
@@ -751,23 +772,34 @@ def validate_community_handoff_workflow(command_name: str, payload: Any) -> None
         names,
         list(EXPECTED_COMMUNITY_HANDOFF_WORKFLOW_STEPS),
     )
+    directory = str(payload.get("directory", ""))
+    input_format = str(payload.get("input_format", ""))
+    pattern = str(payload.get("pattern", ""))
+    config_dir = str(payload.get("config_dir", ""))
+    as_of = str(payload.get("as_of", ""))
+    source_name = str(payload.get("source_name", ""))
 
     readiness_step = steps[2]
     if not isinstance(readiness_step, dict):
         raise SmokeError(f"{command_name} readiness step must be a JSON object")
-    readiness_command = str(readiness_step.get("command", ""))
-    for expected in (
-        "fashion-radar community-handoff-check-dir",
+    validate_expected_external_tool_command(
+        command_name,
+        "readiness",
+        readiness_step.get("command", ""),
+        "community-handoff-check-dir",
+        directory,
         "--input-format",
+        input_format,
         "--pattern",
+        pattern,
         "--config-dir",
+        config_dir,
         "--as-of",
+        as_of,
         "--source-name",
-        SOURCE_NAME,
+        source_name,
         "--strict",
-    ):
-        if expected not in readiness_command:
-            raise SmokeError(f"{command_name} readiness command missing {expected!r}")
+    )
 
     import_step = steps[4]
     if not isinstance(import_step, dict):

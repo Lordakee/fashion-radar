@@ -561,6 +561,13 @@ def trends_payload() -> dict[str, object]:
 
 def imported_review_workflow_payload() -> dict[str, object]:
     return {
+        "as_of": "2026-06-13T12:00:00+00:00",
+        "config_dir": "configs",
+        "data_dir": "data",
+        "source_name": "Community Tool Export",
+        "lookback_days": 7,
+        "current_days": 7,
+        "baseline_days": 7,
         "execution_mode": "print_only",
         "step_count": 7,
         "steps": [
@@ -577,6 +584,7 @@ def imported_review_workflow_payload() -> dict[str, object]:
                 "command": (
                     "fashion-radar imported-entity-deltas --data-dir data "
                     "--as-of 2026-06-13T12:00:00+00:00 "
+                    "--current-days 7 --baseline-days 7 "
                     "--source-name 'Community Tool Export'"
                 ),
             },
@@ -585,7 +593,8 @@ def imported_review_workflow_payload() -> dict[str, object]:
                 "command": (
                     "fashion-radar imported-entity-evidence --data-dir data "
                     "--as-of 2026-06-13T12:00:00+00:00 --entity-name 'The Row' "
-                    "--entity-type brand --source-name 'Community Tool Export'"
+                    "--entity-type brand --current-days 7 --baseline-days 7 "
+                    "--source-name 'Community Tool Export'"
                 ),
             },
             {
@@ -1592,6 +1601,58 @@ def test_validate_imported_review_workflow_rejects_heat_movers_not_final() -> No
         smoke.validate_imported_review_workflow("imported-review-workflow", payload)
 
 
+@pytest.mark.parametrize(
+    ("step_name", "replacement_command", "expected_message"),
+    [
+        (
+            "review_imported_entity_evidence",
+            (
+                "fashion-radar imported-entity-evidence --data-dir data "
+                "--as-of 2026-06-13T12:00:00+00:00 --entity-name 'The Row' "
+                "--entity-type brand --current-days 14 --baseline-days 7 "
+                "--source-name 'Community Tool Export'"
+            ),
+            "entity evidence command",
+        ),
+        (
+            "review_imported_candidate_phrases",
+            (
+                "fashion-radar imported-candidates --config-dir configsets "
+                "--data-dir data --as-of 2026-06-13T12:00:00+00:00 "
+                "--source-name 'Community Tool Export'"
+            ),
+            "candidate command",
+        ),
+        (
+            "review_local_heat_movers",
+            (
+                "fashion-radar heat-movers-extra --config-dir configs --data-dir data "
+                "--as-of 2026-06-13T12:00:00+00:00"
+            ),
+            "final heat command",
+        ),
+    ],
+)
+def test_validate_imported_review_workflow_rejects_command_argv_drift(
+    step_name: str,
+    replacement_command: str,
+    expected_message: str,
+) -> None:
+    payload = imported_review_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    for step in steps:
+        assert isinstance(step, dict)
+        if step.get("name") == step_name:
+            step["command"] = replacement_command
+            break
+    else:
+        pytest.fail(f"missing step {step_name}")
+
+    with pytest.raises(smoke.SmokeError, match=expected_message):
+        smoke.validate_imported_review_workflow("imported-review-workflow", payload)
+
+
 def test_validate_community_handoff_workflow_requires_readiness_step() -> None:
     smoke.validate_community_handoff_workflow(
         "community-handoff-workflow",
@@ -1623,6 +1684,23 @@ def test_validate_community_handoff_workflow_rejects_incomplete_readiness_comman
     )
 
     with pytest.raises(smoke.SmokeError, match="--strict"):
+        smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
+def test_validate_community_handoff_workflow_rejects_wrong_readiness_command_argv() -> None:
+    payload = community_handoff_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    readiness_step = steps[2]
+    assert isinstance(readiness_step, dict)
+    readiness_step["command"] = (
+        "fashion-radar community-handoff-check-dir-extra /tmp/export "
+        "--input-format csv --pattern '*.csv' --config-dir configs "
+        "--as-of 2026-06-13T12:00:00+00:00 "
+        "--source-name 'Community Tool Export' --strict"
+    )
+
+    with pytest.raises(smoke.SmokeError, match="readiness command"):
         smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
 
 
