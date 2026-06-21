@@ -149,6 +149,7 @@ def collect_findings(repo_root: Path) -> list[str]:
     findings.extend(find_forbidden_path_findings(tracked_paths, "tracked"))
     findings.extend(find_forbidden_path_findings(untracked_paths, "untracked"))
     findings.extend(find_secret_findings(repo_root, tracked_paths, "tracked"))
+    findings.extend(find_secret_findings(repo_root, untracked_paths, "untracked"))
     findings.extend(find_remote_credential_findings(repo_root))
     findings.extend(find_extraheader_findings(repo_root))
 
@@ -256,6 +257,9 @@ def find_secret_findings(
     for path in paths:
         normalized = normalize_git_path(path)
         if not normalized:
+            continue
+
+        if path_status == "untracked" and (repo_root / normalized).is_symlink():
             continue
 
         file_path = safe_repo_path(repo_root, normalized)

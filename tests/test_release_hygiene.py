@@ -255,6 +255,38 @@ def test_tracked_file_with_valid_github_token_is_redacted_and_reports_line(
     assert "<redacted>" in result.stderr
 
 
+def test_untracked_file_with_valid_github_token_is_redacted_and_reports_line(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    write_file(repo_root, "notes.md", f"# Scratch\nleaked = {GITHUB_TOKEN}\n")
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert "forbidden secret in untracked file: notes.md:2: GitHub token" in result.stderr
+    assert GITHUB_TOKEN not in result.stderr
+    assert "<redacted>" in result.stderr
+
+
+def test_untracked_symlink_target_is_not_scanned_for_secret(tmp_path: Path) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(repo_root, ".gitignore", "ignored-secret.txt\n")
+    git(repo_root, "commit", "-m", "ignore secret fixture")
+    write_file(repo_root, "ignored-secret.txt", f"leaked = {GITHUB_TOKEN}\n")
+    symlink = repo_root / "notes.md"
+    try:
+        symlink.symlink_to("ignored-secret.txt")
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"symlink unavailable: {exc}")
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 0
+    assert result.stdout == "Release hygiene checks passed.\n"
+    assert result.stderr == ""
+
+
 def test_prefix_only_github_token_examples_do_not_fail(tmp_path: Path) -> None:
     repo_root = init_repo(tmp_path)
     write_tracked(repo_root, "docs/github-token-examples.md", "Do not paste a ghp_ token.\n")
