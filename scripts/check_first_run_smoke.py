@@ -97,6 +97,9 @@ EXPECTED_EXTERNAL_TOOL_READINESS_STEPS = (
     "review_handoff_readiness",
     "dry_run_directory_import",
 )
+EXPECTED_EXTERNAL_TOOL_READINESS_INSTALL_HINT = (
+    "npm config set registry https://registry.npmmirror.com && npm install -g rednote-mcp"
+)
 # Pinned independently from the runtime registry so first-run smoke catches
 # adapter registry drift instead of importing the code under test.
 EXPECTED_EXTERNAL_TOOL_ADAPTERS = {
@@ -1474,9 +1477,11 @@ def validate_external_tool_readiness(command_name: str, payload: Any) -> None:
     install_hint = check.get("install_hint")
     if not isinstance(install_hint, str) or not install_hint:
         raise SmokeError(f"{command_name} check install_hint must be populated")
-    for expected in ("registry.npmmirror.com", "npm install -g rednote-mcp"):
-        if expected not in install_hint:
-            raise SmokeError(f"{command_name} check install_hint missing {expected!r}")
+    assert_equal(
+        f"{command_name} check install_hint",
+        install_hint,
+        EXPECTED_EXTERNAL_TOOL_READINESS_INSTALL_HINT,
+    )
     status = check.get("status")
     if status not in {"found", "missing"}:
         raise SmokeError(f"{command_name} check status must be found or missing, got {status!r}")

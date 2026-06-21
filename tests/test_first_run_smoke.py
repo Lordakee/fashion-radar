@@ -2693,6 +2693,18 @@ def test_validate_external_tool_readiness_rejects_executable_or_acquisition_scop
         smoke.validate_external_tool_readiness("external-tool-readiness", missing_boundary)
 
 
+def test_validate_external_tool_readiness_rejects_install_hint_extra_shell_text() -> None:
+    payload = external_tool_readiness_payload()
+    checks = payload["checks"]
+    assert isinstance(checks, list)
+    checks[0]["install_hint"] = (  # type: ignore[index]
+        "npm install -g rednote-mcp using registry.npmmirror.com; do not set the npm registry first"
+    )
+
+    with pytest.raises(smoke.SmokeError, match="install_hint"):
+        smoke.validate_external_tool_readiness("external-tool-readiness", payload)
+
+
 def test_validate_report_requires_expected_first_run_entity_sections() -> None:
     smoke.validate_report_outputs(report_payload(), report_markdown())
 
