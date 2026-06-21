@@ -21,6 +21,11 @@ SOURCE_NAME = "Community Tool Export"
 EXAMPLE_CSV = Path("examples/community-signals.example.csv")
 DIR_EXPORT_CSV = "community-signals.csv"
 DIR_PATTERN = "*.csv"
+EXPECTED_WORKFLOW_AS_OF = "2026-06-13T12:00:00+00:00"
+EXPECTED_COMMUNITY_HANDOFF_INPUT_FORMAT = "csv"
+EXPECTED_IMPORTED_REVIEW_LOOKBACK_DAYS = 7
+EXPECTED_IMPORTED_REVIEW_CURRENT_DAYS = 7
+EXPECTED_IMPORTED_REVIEW_BASELINE_DAYS = 7
 EXPECTED_SAMPLE_ROWS = (
     {
         "url": "https://example.com/community/the-row-margaux-tote",
@@ -889,13 +894,30 @@ def validate_imported_review_workflow(command_name: str, payload: Any) -> None:
         names,
         list(EXPECTED_IMPORTED_REVIEW_WORKFLOW_STEPS),
     )
+    assert_equal(f"{command_name} as_of", payload.get("as_of"), EXPECTED_WORKFLOW_AS_OF)
+    assert_equal(f"{command_name} source_name", payload.get("source_name"), SOURCE_NAME)
+    assert_equal(
+        f"{command_name} lookback_days",
+        payload.get("lookback_days"),
+        EXPECTED_IMPORTED_REVIEW_LOOKBACK_DAYS,
+    )
+    assert_equal(
+        f"{command_name} current_days",
+        payload.get("current_days"),
+        EXPECTED_IMPORTED_REVIEW_CURRENT_DAYS,
+    )
+    assert_equal(
+        f"{command_name} baseline_days",
+        payload.get("baseline_days"),
+        EXPECTED_IMPORTED_REVIEW_BASELINE_DAYS,
+    )
     config_dir = str(payload.get("config_dir", ""))
     data_dir = str(payload.get("data_dir", ""))
-    as_of = str(payload.get("as_of", ""))
-    source_name = str(payload.get("source_name", "") or "")
-    lookback_days = str(payload.get("lookback_days", ""))
-    current_days = str(payload.get("current_days", ""))
-    baseline_days = str(payload.get("baseline_days", ""))
+    as_of = EXPECTED_WORKFLOW_AS_OF
+    source_name = SOURCE_NAME
+    lookback_days = str(EXPECTED_IMPORTED_REVIEW_LOOKBACK_DAYS)
+    current_days = str(EXPECTED_IMPORTED_REVIEW_CURRENT_DAYS)
+    baseline_days = str(EXPECTED_IMPORTED_REVIEW_BASELINE_DAYS)
 
     expected_commands = expected_imported_review_workflow_command_parts(
         config_dir=config_dir,
@@ -945,13 +967,21 @@ def validate_community_handoff_workflow(command_name: str, payload: Any) -> None
         names,
         list(EXPECTED_COMMUNITY_HANDOFF_WORKFLOW_STEPS),
     )
+    assert_equal(
+        f"{command_name} input_format",
+        payload.get("input_format"),
+        EXPECTED_COMMUNITY_HANDOFF_INPUT_FORMAT,
+    )
+    assert_equal(f"{command_name} pattern", payload.get("pattern"), DIR_PATTERN)
+    assert_equal(f"{command_name} as_of", payload.get("as_of"), EXPECTED_WORKFLOW_AS_OF)
+    assert_equal(f"{command_name} source_name", payload.get("source_name"), SOURCE_NAME)
     directory = str(payload.get("directory", ""))
-    input_format = str(payload.get("input_format", ""))
-    pattern = str(payload.get("pattern", ""))
+    input_format = EXPECTED_COMMUNITY_HANDOFF_INPUT_FORMAT
+    pattern = DIR_PATTERN
     config_dir = str(payload.get("config_dir", ""))
     data_dir = str(payload.get("data_dir", ""))
-    as_of = str(payload.get("as_of", ""))
-    source_name = str(payload.get("source_name", ""))
+    as_of = EXPECTED_WORKFLOW_AS_OF
+    source_name = SOURCE_NAME
 
     expected_commands = expected_community_handoff_workflow_command_parts(
         directory=directory,

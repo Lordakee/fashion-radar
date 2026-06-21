@@ -738,6 +738,21 @@ def community_handoff_workflow_payload() -> dict[str, object]:
     }
 
 
+def replace_workflow_command_fragments(
+    payload: dict[str, object],
+    replacements: dict[str, str],
+) -> None:
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    for step in steps:
+        assert isinstance(step, dict)
+        command = step.get("command")
+        assert isinstance(command, str)
+        for old, new in replacements.items():
+            command = command.replace(old, new)
+        step["command"] = command
+
+
 def external_tool_adapters_payload() -> dict[str, object]:
     return {
         "contract_version": "external-tool-adapters/v1",
@@ -1979,6 +1994,31 @@ def test_validate_imported_review_workflow_rejects_command_argv_drift(
         smoke.validate_imported_review_workflow("imported-review-workflow", payload)
 
 
+def test_validate_imported_review_workflow_rejects_coordinated_metadata_command_drift() -> None:
+    payload = imported_review_workflow_payload()
+    payload["source_name"] = "Other Source"
+    payload["as_of"] = "2026-06-14T12:00:00+00:00"
+    payload["lookback_days"] = 14
+    payload["current_days"] = 14
+    payload["baseline_days"] = 21
+    replace_workflow_command_fragments(
+        payload,
+        {
+            "2026-06-13T12:00:00+00:00": "2026-06-14T12:00:00+00:00",
+            "'Community Tool Export'": "'Other Source'",
+            "--lookback-days 7": "--lookback-days 14",
+            "--current-days 7": "--current-days 14",
+            "--baseline-days 7": "--baseline-days 21",
+        },
+    )
+
+    with pytest.raises(
+        smoke.SmokeError,
+        match="source_name|as_of|lookback_days|current_days|baseline_days",
+    ):
+        smoke.validate_imported_review_workflow("imported-review-workflow", payload)
+
+
 def test_validate_community_handoff_workflow_requires_readiness_step() -> None:
     smoke.validate_community_handoff_workflow(
         "community-handoff-workflow",
@@ -2037,6 +2077,30 @@ def test_validate_community_handoff_workflow_rejects_extra_command_like_tail_ste
     steps.append("fashion-radar live-collect --platform rednote")
 
     with pytest.raises(smoke.SmokeError, match="step_count|step 7|JSON object"):
+        smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
+def test_validate_community_handoff_workflow_rejects_coordinated_metadata_command_drift() -> None:
+    payload = community_handoff_workflow_payload()
+    payload["source_name"] = "Other Source"
+    payload["as_of"] = "2026-06-14T12:00:00+00:00"
+    payload["input_format"] = "json"
+    payload["pattern"] = "*.json"
+    replace_workflow_command_fragments(
+        payload,
+        {
+            "2026-06-13T12:00:00+00:00": "2026-06-14T12:00:00+00:00",
+            "'Community Tool Export'": "'Other Source'",
+            "--input-format csv": "--input-format json",
+            "--format csv": "--format json",
+            "'*.csv'": "'*.json'",
+        },
+    )
+
+    with pytest.raises(
+        smoke.SmokeError,
+        match="source_name|as_of|input_format|pattern",
+    ):
         smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
 
 
