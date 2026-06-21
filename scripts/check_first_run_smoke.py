@@ -1184,6 +1184,66 @@ def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
         "json",
     )
 
+    signal_profile_step = steps[3]
+    if not isinstance(signal_profile_step, dict):
+        raise SmokeError(f"{command_name} signal profile step must be a JSON object")
+    validate_expected_external_tool_command(
+        command_name,
+        "signal profile",
+        signal_profile_step.get("command", ""),
+        "community-signal-profile",
+        "--format",
+        "json",
+    )
+
+    handoff_manifest_step = steps[4]
+    if not isinstance(handoff_manifest_step, dict):
+        raise SmokeError(f"{command_name} handoff manifest step must be a JSON object")
+    validate_expected_external_tool_command(
+        command_name,
+        "handoff manifest",
+        handoff_manifest_step.get("command", ""),
+        "community-handoff-manifest",
+        directory,
+        "--input-format",
+        input_format,
+        "--pattern",
+        pattern,
+        "--config-dir",
+        config_dir,
+        "--data-dir",
+        data_dir,
+        "--as-of",
+        as_of,
+        "--source-name",
+        source_name,
+        "--format",
+        "json",
+    )
+
+    handoff_workflow_step = steps[5]
+    if not isinstance(handoff_workflow_step, dict):
+        raise SmokeError(f"{command_name} handoff workflow step must be a JSON object")
+    validate_expected_external_tool_command(
+        command_name,
+        "handoff workflow",
+        handoff_workflow_step.get("command", ""),
+        "community-handoff-workflow",
+        directory,
+        "--input-format",
+        input_format,
+        "--pattern",
+        pattern,
+        "--config-dir",
+        config_dir,
+        "--data-dir",
+        data_dir,
+        "--as-of",
+        as_of,
+        "--source-name",
+        source_name,
+    )
+
     lint_step = steps[6]
     if not isinstance(lint_step, dict):
         raise SmokeError(f"{command_name} lint step must be a JSON object")
@@ -1200,6 +1260,107 @@ def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
         "--source-name",
         source_name,
         "--strict",
+    )
+
+    candidate_preview_step = steps[7]
+    if not isinstance(candidate_preview_step, dict):
+        raise SmokeError(f"{command_name} candidate preview step must be a JSON object")
+    validate_expected_external_tool_command(
+        command_name,
+        "candidate preview",
+        candidate_preview_step.get("command", ""),
+        "community-candidates-dir",
+        directory,
+        "--input-format",
+        input_format,
+        "--pattern",
+        pattern,
+        "--config-dir",
+        config_dir,
+        "--as-of",
+        as_of,
+        "--source-name",
+        source_name,
+    )
+
+    handoff_readiness_step = steps[8]
+    if not isinstance(handoff_readiness_step, dict):
+        raise SmokeError(f"{command_name} handoff readiness step must be a JSON object")
+    validate_expected_external_tool_command(
+        command_name,
+        "handoff readiness",
+        handoff_readiness_step.get("command", ""),
+        "community-handoff-check-dir",
+        directory,
+        "--input-format",
+        input_format,
+        "--pattern",
+        pattern,
+        "--config-dir",
+        config_dir,
+        "--as-of",
+        as_of,
+        "--source-name",
+        source_name,
+        "--strict",
+    )
+
+    dry_run_import_step = steps[9]
+    if not isinstance(dry_run_import_step, dict):
+        raise SmokeError(f"{command_name} dry-run step must be a JSON object")
+    validate_expected_external_tool_command(
+        command_name,
+        "dry-run",
+        dry_run_import_step.get("command", ""),
+        "import-signals-dir",
+        directory,
+        "--format",
+        input_format,
+        "--pattern",
+        pattern,
+        "--source-name",
+        source_name,
+        "--data-dir",
+        data_dir,
+        "--imported-at",
+        as_of,
+        "--dry-run",
+    )
+
+    validate_expected_external_tool_command(
+        command_name,
+        "import",
+        import_step.get("command", ""),
+        "import-signals-dir",
+        directory,
+        "--format",
+        input_format,
+        "--pattern",
+        pattern,
+        "--source-name",
+        source_name,
+        "--data-dir",
+        data_dir,
+        "--imported-at",
+        as_of,
+    )
+
+    post_import_review_step = steps[11]
+    if not isinstance(post_import_review_step, dict):
+        raise SmokeError(f"{command_name} post-import review step must be a JSON object")
+    validate_expected_external_tool_command(
+        command_name,
+        "post-import review",
+        post_import_review_step.get("command", ""),
+        "imported-review-workflow",
+        "--config-dir",
+        config_dir,
+        "--data-dir",
+        data_dir,
+        "--as-of",
+        as_of,
+        "--source-name",
+        source_name,
     )
 
     boundaries = payload.get("boundaries")

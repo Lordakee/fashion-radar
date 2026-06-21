@@ -1926,6 +1926,166 @@ def test_validate_external_tool_workflow_rejects_extra_readiness_command_flag() 
         smoke.validate_external_tool_workflow("external-tool-workflow", payload)
 
 
+@pytest.mark.parametrize(
+    ("step_name", "replacement_command", "expected_error"),
+    [
+        (
+            "print_signal_profile",
+            external_tool_command("community-signal-profile", "--format", "table"),
+            "signal profile command",
+        ),
+        (
+            "print_handoff_manifest",
+            external_tool_command(
+                "community-handoff-manifest",
+                "exports",
+                "--input-format",
+                "json",
+                "--pattern",
+                "*.json",
+                "--config-dir",
+                "configs",
+                "--data-dir",
+                "data",
+                "--as-of",
+                "2026-06-13T12:00:00+00:00",
+                "--source-name",
+                "Rednote MCP Export",
+                "--format",
+                "table",
+            ),
+            "handoff manifest command",
+        ),
+        (
+            "print_handoff_workflow",
+            external_tool_command(
+                "community-handoff-workflow",
+                "exports",
+                "--input-format",
+                "json",
+                "--pattern",
+                "*.json",
+                "--config-dir",
+                "configs",
+                "--data-dir",
+                "data",
+                "--as-of",
+                "2026-06-13T12:00:00+00:00",
+                "--source-name",
+                "Rednote MCP Export",
+                "--format",
+                "json",
+            ),
+            "handoff workflow command",
+        ),
+        (
+            "preview_candidate_phrases",
+            external_tool_command(
+                "community-candidates-dir",
+                "exports",
+                "--input-format",
+                "json",
+                "--pattern",
+                "*.json",
+                "--config-dir",
+                "configs",
+                "--as-of",
+                "2026-06-13T12:00:00+00:00",
+                "--source-name",
+                "Wrong Source",
+            ),
+            "candidate preview command",
+        ),
+        (
+            "review_handoff_readiness",
+            external_tool_command(
+                "community-handoff-check-dir",
+                "exports",
+                "--input-format",
+                "json",
+                "--pattern",
+                "*.json",
+                "--config-dir",
+                "configs",
+                "--as-of",
+                "2026-06-13T12:00:00+00:00",
+                "--source-name",
+                "Rednote MCP Export",
+            ),
+            "handoff readiness command",
+        ),
+        (
+            "dry_run_directory_import",
+            external_tool_command(
+                "import-signals-dir",
+                "exports",
+                "--format",
+                "json",
+                "--pattern",
+                "*.json",
+                "--source-name",
+                "Rednote MCP Export",
+                "--data-dir",
+                "data",
+                "--imported-at",
+                "2026-06-13T12:00:00+00:00",
+            ),
+            "dry-run command",
+        ),
+        (
+            "import_directory_signals",
+            external_tool_command(
+                "import-signals-dir",
+                "exports",
+                "--format",
+                "json",
+                "--pattern",
+                "*.json",
+                "--source-name",
+                "Rednote MCP Export",
+                "--data-dir",
+                "data",
+                "--imported-at",
+                "2026-06-13T12:00:00+00:00",
+                "--dry-run",
+            ),
+            "import command",
+        ),
+        (
+            "print_post_import_review",
+            external_tool_command(
+                "imported-review-workflow",
+                "--config-dir",
+                "configs",
+                "--data-dir",
+                "data",
+                "--as-of",
+                "2026-06-13T12:00:00+00:00",
+                "--source-name",
+                "Wrong Source",
+            ),
+            "post-import review command",
+        ),
+    ],
+)
+def test_validate_external_tool_workflow_rejects_remaining_step_command_argv_drift(
+    step_name: str,
+    replacement_command: str,
+    expected_error: str,
+) -> None:
+    payload = external_tool_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    matching_steps = [
+        step for step in steps if isinstance(step, dict) and step.get("name") == step_name
+    ]
+    assert len(matching_steps) == 1
+    matching_steps[0]["command"] = replacement_command
+
+    with pytest.raises(smoke.SmokeError, match=expected_error):
+        smoke.validate_external_tool_workflow("external-tool-workflow", payload)
+
+
 def test_validate_external_tool_readiness_rejects_wrong_workflow_output_format() -> None:
     payload = external_tool_readiness_payload()
     steps = payload["steps"]
