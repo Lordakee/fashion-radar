@@ -1913,6 +1913,36 @@ def test_validate_imported_review_workflow_rejects_heat_movers_not_final() -> No
         smoke.validate_imported_review_workflow("imported-review-workflow", payload)
 
 
+def test_validate_imported_review_workflow_rejects_step_order_drift() -> None:
+    payload = imported_review_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    steps[0]["order"] = 99  # type: ignore[index]
+
+    with pytest.raises(smoke.SmokeError, match="step metadata"):
+        smoke.validate_imported_review_workflow("imported-review-workflow", payload)
+
+
+def test_validate_imported_review_workflow_rejects_step_purpose_drift() -> None:
+    payload = imported_review_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    steps[3]["purpose"] = "Open a browser and collect fresh platform evidence."  # type: ignore[index]
+
+    with pytest.raises(smoke.SmokeError, match="step metadata"):
+        smoke.validate_imported_review_workflow("imported-review-workflow", payload)
+
+
+def test_validate_imported_review_workflow_rejects_step_effect_drift() -> None:
+    payload = imported_review_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    steps[1]["suggested_effect"] = "read_only"  # type: ignore[index]
+
+    with pytest.raises(smoke.SmokeError, match="step metadata"):
+        smoke.validate_imported_review_workflow("imported-review-workflow", payload)
+
+
 @pytest.mark.parametrize(
     ("step_name", "replacement_command", "expected_message"),
     [

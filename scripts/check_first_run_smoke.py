@@ -99,6 +99,53 @@ EXPECTED_IMPORTED_REVIEW_WORKFLOW_STEPS = (
     "review_unmatched_imported_rows",
     "review_local_heat_movers",
 )
+EXPECTED_IMPORTED_REVIEW_WORKFLOW_STEP_METADATA = [
+    {
+        "order": 1,
+        "name": "summarize_imported_sources",
+        "purpose": "Summarize retained imported source-name labels.",
+        "suggested_effect": "read_only",
+    },
+    {
+        "order": 2,
+        "name": "refresh_stored_matches",
+        "purpose": "Refresh stored local matches using configured entities.",
+        "suggested_effect": "updates_local_matches",
+    },
+    {
+        "order": 3,
+        "name": "compare_imported_entities",
+        "purpose": "Compare stored matched imported entities across collected-at windows.",
+        "suggested_effect": "read_only",
+    },
+    {
+        "order": 4,
+        "name": "review_imported_entity_evidence",
+        "purpose": "Review retained imported rows behind one selected matched entity.",
+        "suggested_effect": "read_only",
+    },
+    {
+        "order": 5,
+        "name": "review_imported_candidate_phrases",
+        "purpose": (
+            "Review observed candidate phrases from retained imported rows after stored "
+            "matches are refreshed."
+        ),
+        "suggested_effect": "read_only",
+    },
+    {
+        "order": 6,
+        "name": "review_unmatched_imported_rows",
+        "purpose": "Review retained imported rows without stored matches.",
+        "suggested_effect": "read_only",
+    },
+    {
+        "order": 7,
+        "name": "review_local_heat_movers",
+        "purpose": "Review local observed heat movement after imported rows are matched.",
+        "suggested_effect": "read_only",
+    },
+]
 EXPECTED_COMMUNITY_HANDOFF_WORKFLOW_STEPS = (
     "lint_handoff_directory",
     "preview_candidate_phrases",
@@ -932,6 +979,23 @@ def validate_imported_review_workflow(command_name: str, payload: Any) -> None:
         f"{command_name} step names",
         names,
         list(EXPECTED_IMPORTED_REVIEW_WORKFLOW_STEPS),
+    )
+    for index, step in enumerate(steps, start=1):
+        if not isinstance(step, dict):
+            raise SmokeError(f"{command_name} step {index} must be a JSON object")
+    step_metadata = [
+        {
+            "order": step.get("order"),
+            "name": step.get("name"),
+            "purpose": step.get("purpose"),
+            "suggested_effect": step.get("suggested_effect"),
+        }
+        for step in steps
+    ]
+    assert_equal(
+        f"{command_name} step metadata",
+        step_metadata,
+        EXPECTED_IMPORTED_REVIEW_WORKFLOW_STEP_METADATA,
     )
     assert_equal(f"{command_name} as_of", payload.get("as_of"), EXPECTED_WORKFLOW_AS_OF)
     assert_equal(f"{command_name} source_name", payload.get("source_name"), SOURCE_NAME)
