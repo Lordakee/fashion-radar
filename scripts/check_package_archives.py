@@ -251,6 +251,7 @@ def validate_wheel(
             dist_info_dir, dist_info_errors = select_wheel_dist_info_dir(paths)
             errors.extend(dist_info_errors)
             if dist_info_dir is not None:
+                errors.extend(validate_wheel_dist_info_dir(dist_info_dir, expected_metadata))
                 errors.extend(validate_wheel_dist_info_files(paths, dist_info_dir))
                 if f"{dist_info_dir}/METADATA" in paths:
                     errors.extend(
@@ -277,6 +278,28 @@ def select_wheel_dist_info_dir(paths: set[str]) -> tuple[str | None, list[str]]:
             f"wheel archive must contain exactly one top-level .dist-info directory; found {dirs}"
         ]
     return dist_info_dirs.pop(), []
+
+
+def normalize_distribution_name(name: str) -> str:
+    return re.sub(r"[-_.]+", "_", name).lower()
+
+
+def expected_wheel_dist_info_dir(expected_metadata: ExpectedProjectMetadata) -> str:
+    normalized_name = normalize_distribution_name(expected_metadata.name)
+    return f"{normalized_name}-{expected_metadata.version}.dist-info"
+
+
+def validate_wheel_dist_info_dir(
+    dist_info_dir: str,
+    expected_metadata: ExpectedProjectMetadata,
+) -> list[str]:
+    expected_dist_info_dir = expected_wheel_dist_info_dir(expected_metadata)
+    if dist_info_dir == expected_dist_info_dir:
+        return []
+    return [
+        "wheel archive dist-info directory mismatch: "
+        f"expected {expected_dist_info_dir}, found {dist_info_dir}"
+    ]
 
 
 def validate_wheel_dist_info_files(paths: set[str], dist_info_dir: str) -> list[str]:

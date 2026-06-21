@@ -480,6 +480,43 @@ def test_rejects_split_wheel_dist_info_files(tmp_path: Path) -> None:
     assert "wheel archive must contain exactly one top-level .dist-info directory" in result.stderr
 
 
+def wheel_files_with_dist_info_dir(dist_info_dir: str) -> dict[str, str]:
+    return {
+        (
+            f"{dist_info_dir}/{path.split('/', 1)[1]}"
+            if path.startswith("fashion_radar-0.1.0.dist-info/")
+            else path
+        ): content
+        for path, content in WHEEL_FILES.items()
+    }
+
+
+@pytest.mark.parametrize(
+    "dist_info_dir",
+    [
+        "wrong_name-0.1.0.dist-info",
+        "fashion_radar-9.9.9.dist-info",
+    ],
+)
+def test_rejects_wheel_with_mismatched_dist_info_directory(
+    tmp_path: Path,
+    dist_info_dir: str,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir, files=wheel_files_with_dist_info_dir(dist_info_dir))
+    write_sdist(build_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "wheel archive dist-info directory mismatch: expected "
+        f"fashion_radar-0.1.0.dist-info, found {dist_info_dir}"
+    ) in result.stderr
+    assert "Traceback" not in result.stderr
+
+
 def test_rejects_sdist_without_public_readiness_doc(tmp_path: Path) -> None:
     build_dir = tmp_path / "dist"
     build_dir.mkdir()
