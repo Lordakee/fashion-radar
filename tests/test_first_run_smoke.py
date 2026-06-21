@@ -12,12 +12,14 @@ from typing import cast
 
 import pytest
 
+from fashion_radar.community_handoff_workflow import build_community_handoff_workflow
 from fashion_radar.external_tool_adapters import build_external_tool_adapter_registry
 from fashion_radar.external_tool_templates import (
     build_external_tool_template,
     render_external_tool_template_json,
 )
 from fashion_radar.external_tool_workflow import build_external_tool_workflow
+from fashion_radar.imported_review_workflow import build_imported_review_workflow
 
 try:
     from fashion_radar.external_tool_readiness import build_external_tool_readiness
@@ -572,53 +574,77 @@ def imported_review_workflow_payload() -> dict[str, object]:
         "step_count": 7,
         "steps": [
             {
+                "order": 1,
                 "name": "summarize_imported_sources",
+                "purpose": "Summarize retained imported source-name labels.",
                 "command": "fashion-radar imported-signals-summary --data-dir data",
+                "suggested_effect": "read_only",
             },
             {
+                "order": 2,
                 "name": "refresh_stored_matches",
+                "purpose": "Refresh stored local matches using configured entities.",
                 "command": "fashion-radar match --config-dir configs --data-dir data",
+                "suggested_effect": "updates_local_matches",
             },
             {
+                "order": 3,
                 "name": "compare_imported_entities",
+                "purpose": "Compare stored matched imported entities across collected-at windows.",
                 "command": (
                     "fashion-radar imported-entity-deltas --data-dir data "
                     "--as-of 2026-06-13T12:00:00+00:00 "
                     "--current-days 7 --baseline-days 7 "
                     "--source-name 'Community Tool Export'"
                 ),
+                "suggested_effect": "read_only",
             },
             {
+                "order": 4,
                 "name": "review_imported_entity_evidence",
+                "purpose": "Review retained imported rows behind one selected matched entity.",
                 "command": (
                     "fashion-radar imported-entity-evidence --data-dir data "
                     "--as-of 2026-06-13T12:00:00+00:00 --entity-name 'The Row' "
                     "--entity-type brand --current-days 7 --baseline-days 7 "
                     "--source-name 'Community Tool Export'"
                 ),
+                "suggested_effect": "read_only",
             },
             {
+                "order": 5,
                 "name": "review_imported_candidate_phrases",
+                "purpose": (
+                    "Review observed candidate phrases from retained imported rows after stored "
+                    "matches are refreshed."
+                ),
                 "command": (
                     "fashion-radar imported-candidates --config-dir configs "
                     "--data-dir data --as-of 2026-06-13T12:00:00+00:00 "
                     "--source-name 'Community Tool Export'"
                 ),
+                "suggested_effect": "read_only",
             },
             {
+                "order": 6,
                 "name": "review_unmatched_imported_rows",
+                "purpose": "Review retained imported rows without stored matches.",
                 "command": (
                     "fashion-radar imported-signals --data-dir data "
                     "--as-of 2026-06-13T12:00:00+00:00 --lookback-days 7 "
                     "--unmatched-only --source-name 'Community Tool Export'"
                 ),
+                "suggested_effect": "read_only",
             },
             {
+                "order": 7,
                 "name": "review_local_heat_movers",
+                "purpose": "Review local observed heat movement after imported rows are matched.",
                 "command": (
                     "fashion-radar heat-movers --config-dir configs --data-dir data "
                     "--as-of 2026-06-13T12:00:00+00:00"
                 ),
+                "suggested_effect": "read_only",
             },
         ],
     }
@@ -637,7 +663,9 @@ def community_handoff_workflow_payload() -> dict[str, object]:
         "step_count": 6,
         "steps": [
             {
+                "order": 1,
                 "name": "lint_handoff_directory",
+                "purpose": "Lint local community handoff files before import.",
                 "command": (
                     "fashion-radar community-signal-lint-dir /tmp/export "
                     "--input-format csv --pattern '*.csv' "
@@ -646,7 +674,9 @@ def community_handoff_workflow_payload() -> dict[str, object]:
                 "suggested_effect": "read_only",
             },
             {
+                "order": 2,
                 "name": "preview_candidate_phrases",
+                "purpose": "Preview aggregate candidate phrases before import.",
                 "command": (
                     "fashion-radar community-candidates-dir /tmp/export "
                     "--input-format csv --pattern '*.csv' --config-dir configs "
@@ -656,7 +686,9 @@ def community_handoff_workflow_payload() -> dict[str, object]:
                 "suggested_effect": "read_only",
             },
             {
+                "order": 3,
                 "name": "review_handoff_readiness",
+                "purpose": "Review local handoff readiness before import.",
                 "command": (
                     "fashion-radar community-handoff-check-dir /tmp/export "
                     "--input-format csv --pattern '*.csv' --config-dir configs "
@@ -666,7 +698,11 @@ def community_handoff_workflow_payload() -> dict[str, object]:
                 "suggested_effect": "read_only",
             },
             {
+                "order": 4,
                 "name": "dry_run_directory_import",
+                "purpose": (
+                    "Validate matched local files through the importer without writing rows."
+                ),
                 "command": (
                     "fashion-radar import-signals-dir /tmp/export --format csv "
                     "--pattern '*.csv' --data-dir data "
@@ -676,7 +712,9 @@ def community_handoff_workflow_payload() -> dict[str, object]:
                 "suggested_effect": "read_only",
             },
             {
+                "order": 5,
                 "name": "import_directory_signals",
+                "purpose": "Import the validated local handoff rows into local SQLite.",
                 "command": (
                     "fashion-radar import-signals-dir /tmp/export --format csv "
                     "--pattern '*.csv' --data-dir data "
@@ -686,7 +724,9 @@ def community_handoff_workflow_payload() -> dict[str, object]:
                 "suggested_effect": "updates_local_imports",
             },
             {
+                "order": 6,
                 "name": "print_post_import_review",
+                "purpose": "Print the local post-import review checklist.",
                 "command": (
                     "fashion-radar imported-review-workflow --config-dir configs "
                     "--data-dir data --as-of 2026-06-13T12:00:00+00:00 "
@@ -1318,6 +1358,35 @@ def test_external_tool_readiness_payload_matches_real_rednote_readiness() -> Non
             which=lambda command: None,
         ).model_dump_json()
     )
+
+
+def test_imported_review_workflow_payload_matches_real_builder() -> None:
+    expected = json.loads(
+        build_imported_review_workflow(
+            config_dir=Path("configs"),
+            data_dir=Path("data"),
+            as_of="2026-06-13T12:00:00Z",
+            source_name="Community Tool Export",
+        ).model_dump_json()
+    )
+
+    assert imported_review_workflow_payload() == expected
+
+
+def test_community_handoff_workflow_payload_matches_real_builder() -> None:
+    expected = json.loads(
+        build_community_handoff_workflow(
+            directory=Path("/tmp/export"),
+            config_dir=Path("configs"),
+            data_dir=Path("data"),
+            input_format="csv",
+            pattern="*.csv",
+            as_of="2026-06-13T12:00:00Z",
+            source_name="Community Tool Export",
+        ).model_dump_json()
+    )
+
+    assert community_handoff_workflow_payload() == expected
 
 
 def make_context(tmp_path: Path, *, python: str = "python-test"):
