@@ -1902,6 +1902,26 @@ def test_validate_imported_review_workflow_rejects_heat_movers_not_final() -> No
     ("step_name", "replacement_command", "expected_message"),
     [
         (
+            "summarize_imported_sources",
+            "fashion-radar imported-signals-summary --data-dir other-data",
+            "summary command",
+        ),
+        (
+            "refresh_stored_matches",
+            "fashion-radar match --config-dir configs",
+            "match refresh command",
+        ),
+        (
+            "compare_imported_entities",
+            (
+                "fashion-radar imported-entity-deltas --data-dir data "
+                "--as-of 2026-06-13T12:00:00+00:00 "
+                "--current-days 14 --baseline-days 7 "
+                "--source-name 'Community Tool Export'"
+            ),
+            "entity delta command",
+        ),
+        (
             "review_imported_entity_evidence",
             (
                 "fashion-radar imported-entity-evidence --data-dir data "
@@ -1919,6 +1939,15 @@ def test_validate_imported_review_workflow_rejects_heat_movers_not_final() -> No
                 "--source-name 'Community Tool Export'"
             ),
             "candidate command",
+        ),
+        (
+            "review_unmatched_imported_rows",
+            (
+                "fashion-radar imported-signals --data-dir data "
+                "--as-of 2026-06-13T12:00:00+00:00 --lookback-days 7 "
+                "--source-name 'Community Tool Export'"
+            ),
+            "unmatched rows command",
         ),
         (
             "review_local_heat_movers",

@@ -393,6 +393,88 @@ def validate_expected_external_tool_command(
     )
 
 
+def expected_imported_review_workflow_command_parts(
+    *,
+    config_dir: str,
+    data_dir: str,
+    as_of: str,
+    source_name: str,
+    lookback_days: str,
+    current_days: str,
+    baseline_days: str,
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    source_args = ("--source-name", source_name) if source_name else ()
+    return (
+        ("summary", ("imported-signals-summary", "--data-dir", data_dir)),
+        ("match refresh", ("match", "--config-dir", config_dir, "--data-dir", data_dir)),
+        (
+            "entity delta",
+            (
+                "imported-entity-deltas",
+                "--data-dir",
+                data_dir,
+                "--as-of",
+                as_of,
+                "--current-days",
+                current_days,
+                "--baseline-days",
+                baseline_days,
+                *source_args,
+            ),
+        ),
+        (
+            "entity evidence",
+            (
+                "imported-entity-evidence",
+                "--data-dir",
+                data_dir,
+                "--as-of",
+                as_of,
+                "--entity-name",
+                "The Row",
+                "--entity-type",
+                "brand",
+                "--current-days",
+                current_days,
+                "--baseline-days",
+                baseline_days,
+                *source_args,
+            ),
+        ),
+        (
+            "candidate",
+            (
+                "imported-candidates",
+                "--config-dir",
+                config_dir,
+                "--data-dir",
+                data_dir,
+                "--as-of",
+                as_of,
+                *source_args,
+            ),
+        ),
+        (
+            "unmatched rows",
+            (
+                "imported-signals",
+                "--data-dir",
+                data_dir,
+                "--as-of",
+                as_of,
+                "--lookback-days",
+                lookback_days,
+                "--unmatched-only",
+                *source_args,
+            ),
+        ),
+        (
+            "final heat",
+            ("heat-movers", "--config-dir", config_dir, "--data-dir", data_dir, "--as-of", as_of),
+        ),
+    )
+
+
 def expected_community_handoff_workflow_command_parts(
     *,
     directory: str,
@@ -811,66 +893,34 @@ def validate_imported_review_workflow(command_name: str, payload: Any) -> None:
     data_dir = str(payload.get("data_dir", ""))
     as_of = str(payload.get("as_of", ""))
     source_name = str(payload.get("source_name", "") or "")
+    lookback_days = str(payload.get("lookback_days", ""))
     current_days = str(payload.get("current_days", ""))
     baseline_days = str(payload.get("baseline_days", ""))
-    source_args = ["--source-name", source_name] if source_name else []
 
-    evidence_step = steps[3]
-    if not isinstance(evidence_step, dict):
-        raise SmokeError(f"{command_name} entity evidence step must be a JSON object")
-    validate_expected_external_tool_command(
-        command_name,
-        "entity evidence",
-        evidence_step.get("command", ""),
-        "imported-entity-evidence",
-        "--data-dir",
-        data_dir,
-        "--as-of",
-        as_of,
-        "--entity-name",
-        "The Row",
-        "--entity-type",
-        "brand",
-        "--current-days",
-        current_days,
-        "--baseline-days",
-        baseline_days,
-        *source_args,
+    expected_commands = expected_imported_review_workflow_command_parts(
+        config_dir=config_dir,
+        data_dir=data_dir,
+        as_of=as_of,
+        source_name=source_name,
+        lookback_days=lookback_days,
+        current_days=current_days,
+        baseline_days=baseline_days,
     )
-
-    candidate_step = steps[4]
-    if not isinstance(candidate_step, dict):
-        raise SmokeError(f"{command_name} candidate step must be a JSON object")
-    validate_expected_external_tool_command(
-        command_name,
-        "candidate",
-        candidate_step.get("command", ""),
-        "imported-candidates",
-        "--config-dir",
-        config_dir,
-        "--data-dir",
-        data_dir,
-        "--as-of",
-        as_of,
-        *source_args,
-    )
+    for index, (label, expected_parts) in enumerate(expected_commands):
+        step = steps[index]
+        if not isinstance(step, dict):
+            raise SmokeError(f"{command_name} {label} step must be a JSON object")
+        validate_expected_external_tool_command(
+            command_name,
+            label,
+            step.get("command", ""),
+            *expected_parts,
+        )
 
     heat_step = steps[-1]
     if not isinstance(heat_step, dict):
         raise SmokeError(f"{command_name} heat step must be a JSON object")
     assert_equal(f"{command_name} final step", heat_step.get("name"), "review_local_heat_movers")
-    validate_expected_external_tool_command(
-        command_name,
-        "final heat",
-        heat_step.get("command", ""),
-        "heat-movers",
-        "--config-dir",
-        config_dir,
-        "--data-dir",
-        data_dir,
-        "--as-of",
-        as_of,
-    )
 
 
 def validate_community_handoff_workflow(command_name: str, payload: Any) -> None:
