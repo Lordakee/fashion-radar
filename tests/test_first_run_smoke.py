@@ -2478,6 +2478,31 @@ def test_validate_external_tool_workflow_rejects_extra_readiness_command_flag() 
 
 
 @pytest.mark.parametrize(
+    "boundaries",
+    [
+        [
+            *external_tool_workflow_payload()["boundaries"],
+            "Runs source acquisition and opens platform APIs.",
+        ],
+        [
+            (
+                "Does not run generated commands. No platform collection, no scraping, "
+                "no platform APIs. Runs source acquisition and opens platform APIs."
+            )
+        ],
+    ],
+)
+def test_validate_external_tool_workflow_rejects_boundary_drift(
+    boundaries: list[str],
+) -> None:
+    payload = external_tool_workflow_payload()
+    payload["boundaries"] = boundaries
+
+    with pytest.raises(smoke.SmokeError, match="boundaries"):
+        smoke.validate_external_tool_workflow("external-tool-workflow", payload)
+
+
+@pytest.mark.parametrize(
     ("step_name", "replacement_command", "expected_error"),
     [
         (

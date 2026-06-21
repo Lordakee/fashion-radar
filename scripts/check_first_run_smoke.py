@@ -139,6 +139,21 @@ EXPECTED_EXTERNAL_TOOL_REGISTRY_KEYS = (
     "adapters",
     "boundaries",
 )
+EXPECTED_EXTERNAL_TOOL_WORKFLOW_BOUNDARIES = (
+    "Prints local external/community tool handoff workflow commands only.",
+    "Does not run generated commands.",
+    "Does not run adapters or upstream tools.",
+    "Does not inspect the supplied directory.",
+    "Does not read handoff files, validate files, import rows, or open SQLite.",
+    "Does not write config, data, report, dashboard, or workflow artifacts.",
+    (
+        "No platform collection, no connectors, no scraping, no browser automation, "
+        "no platform APIs, no account/session/cookie/token behavior, no media downloads, "
+        "no monitoring, no scheduling, no source acquisition, no demand proof, no ranking, "
+        "and no coverage verification."
+    ),
+    "Does not provide a compliance-review workflow.",
+)
 EXPECTED_EXTERNAL_TOOL_ADAPTER_KEYS = (
     "id",
     "display_name",
@@ -1600,10 +1615,11 @@ def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
     boundaries = payload.get("boundaries")
     if not isinstance(boundaries, list) or not boundaries:
         raise SmokeError(f"{command_name} boundaries must be a non-empty list")
-    boundary_text = " ".join(str(boundary) for boundary in boundaries)
-    for expected in ("Does not run", "No platform collection", "no scraping", "no platform APIs"):
-        if expected not in boundary_text:
-            raise SmokeError(f"{command_name} boundaries missing {expected!r}")
+    assert_equal(
+        f"{command_name} boundaries",
+        boundaries,
+        list(EXPECTED_EXTERNAL_TOOL_WORKFLOW_BOUNDARIES),
+    )
 
 
 def validate_external_tool_readiness(command_name: str, payload: Any) -> None:
