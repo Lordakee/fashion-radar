@@ -19,6 +19,15 @@ assert spec.loader is not None
 sys.modules[spec.name] = check_package_archives
 spec.loader.exec_module(check_package_archives)
 
+EXPECTED_METADATA = check_package_archives.load_expected_project_metadata()
+EXPECTED_ARCHIVE_BASE_NAME = check_package_archives.expected_archive_base_name(EXPECTED_METADATA)
+EXPECTED_WHEEL_ARCHIVE_NAME = check_package_archives.expected_wheel_archive_name(EXPECTED_METADATA)
+EXPECTED_SDIST_ARCHIVE_NAME = check_package_archives.expected_sdist_archive_name(EXPECTED_METADATA)
+EXPECTED_SDIST_ROOT_DIR = check_package_archives.expected_sdist_root_dir(EXPECTED_METADATA)
+EXPECTED_WHEEL_DIST_INFO_DIR = check_package_archives.expected_wheel_dist_info_dir(
+    EXPECTED_METADATA
+)
+
 WHEEL_FILES = {
     "fashion_radar/cli.py": "",
     "fashion_radar/__main__.py": "",
@@ -26,15 +35,17 @@ WHEEL_FILES = {
     "fashion_radar/templates/configs/sources.example.yaml": "",
     "fashion_radar/templates/configs/entities.example.yaml": "",
     "fashion_radar/templates/configs/scoring.example.yaml": "",
-    "fashion_radar-0.1.0.dist-info/METADATA": (
-        "Metadata-Version: 2.4\nName: fashion-radar\nVersion: 0.1.0\n"
+    f"{EXPECTED_WHEEL_DIST_INFO_DIR}/METADATA": (
+        "Metadata-Version: 2.4\n"
+        f"Name: {EXPECTED_METADATA.name}\n"
+        f"Version: {EXPECTED_METADATA.version}\n"
     ),
-    "fashion_radar-0.1.0.dist-info/WHEEL": "Wheel-Version: 1.0\n",
-    "fashion_radar-0.1.0.dist-info/RECORD": "",
-    "fashion_radar-0.1.0.dist-info/entry_points.txt": (
-        "[console_scripts]\nfashion-radar = fashion_radar.cli:app\n"
+    f"{EXPECTED_WHEEL_DIST_INFO_DIR}/WHEEL": "Wheel-Version: 1.0\n",
+    f"{EXPECTED_WHEEL_DIST_INFO_DIR}/RECORD": "",
+    f"{EXPECTED_WHEEL_DIST_INFO_DIR}/entry_points.txt": (
+        "[console_scripts]\n" + "\n".join(sorted(EXPECTED_METADATA.console_script_lines)) + "\n"
     ),
-    "fashion_radar-0.1.0.dist-info/licenses/LICENSE": "MIT\n",
+    f"{EXPECTED_WHEEL_DIST_INFO_DIR}/licenses/LICENSE": "MIT\n",
 }
 
 SDIST_FILES = [
@@ -79,12 +90,26 @@ SDIST_FILES = [
 ]
 
 
+def test_package_archive_fixture_metadata_matches_current_public_names() -> None:
+    assert f"{EXPECTED_WHEEL_DIST_INFO_DIR}/METADATA" in WHEEL_FILES
+    assert EXPECTED_METADATA.name == "fashion-radar"
+    assert EXPECTED_METADATA.version == "0.1.0"
+    assert EXPECTED_METADATA.console_script_lines == frozenset(
+        {"fashion-radar = fashion_radar.cli:app"}
+    )
+    assert EXPECTED_ARCHIVE_BASE_NAME == "fashion_radar-0.1.0"
+    assert EXPECTED_WHEEL_ARCHIVE_NAME == "fashion_radar-0.1.0-py3-none-any.whl"
+    assert EXPECTED_SDIST_ARCHIVE_NAME == "fashion_radar-0.1.0.tar.gz"
+    assert EXPECTED_SDIST_ROOT_DIR == "fashion_radar-0.1.0"
+    assert EXPECTED_WHEEL_DIST_INFO_DIR == "fashion_radar-0.1.0.dist-info"
+
+
 def test_expected_archive_metadata_is_derived_from_pyproject() -> None:
     metadata = check_package_archives.load_expected_project_metadata()
 
-    assert metadata.name == "fashion-radar"
-    assert metadata.version == "0.1.0"
-    assert metadata.console_script_lines == frozenset({"fashion-radar = fashion_radar.cli:app"})
+    assert metadata.name == EXPECTED_METADATA.name
+    assert metadata.version == EXPECTED_METADATA.version
+    assert metadata.console_script_lines == EXPECTED_METADATA.console_script_lines
 
 
 def test_expected_archive_metadata_loader_uses_supplied_pyproject(tmp_path: Path) -> None:
@@ -129,7 +154,7 @@ def write_wheel(
     build_dir: Path,
     *,
     files: dict[str, str] | None = None,
-    filename: str = "fashion_radar-0.1.0-py3-none-any.whl",
+    filename: str = EXPECTED_WHEEL_ARCHIVE_NAME,
 ) -> Path:
     path = build_dir / filename
     archive_files = WHEEL_FILES if files is None else files
@@ -145,8 +170,8 @@ def write_sdist(
     build_dir: Path,
     *,
     files: list[str] | None = None,
-    filename: str = "fashion_radar-0.1.0.tar.gz",
-    root_dir: str = "fashion_radar-0.1.0",
+    filename: str = EXPECTED_SDIST_ARCHIVE_NAME,
+    root_dir: str = EXPECTED_SDIST_ROOT_DIR,
 ) -> Path:
     path = build_dir / filename
     archive_files = SDIST_FILES if files is None else files
@@ -162,12 +187,12 @@ def write_sdist(
 
 
 def write_sdist_with_raw_member(build_dir: Path, raw_member: str) -> Path:
-    path = build_dir / "fashion_radar-0.1.0.tar.gz"
+    path = build_dir / EXPECTED_SDIST_ARCHIVE_NAME
 
     with tarfile.open(path, "w:gz") as archive:
         for relative_path in SDIST_FILES:
             data = b"fixture\n"
-            info = tarfile.TarInfo(f"fashion_radar-0.1.0/{relative_path}")
+            info = tarfile.TarInfo(f"{EXPECTED_SDIST_ROOT_DIR}/{relative_path}")
             info.size = len(data)
             archive.addfile(info, io.BytesIO(data))
 
@@ -278,36 +303,36 @@ def test_allowed_gitignore_marker_does_not_hide_unexpected_direct_child(
     [
         (
             "wrong_name-0.1.0-py3-none-any.whl",
-            "fashion_radar-0.1.0.tar.gz",
+            EXPECTED_SDIST_ARCHIVE_NAME,
             (
                 "wheel archive filename mismatch: expected "
-                "fashion_radar-0.1.0-py3-none-any.whl, "
+                f"{EXPECTED_WHEEL_ARCHIVE_NAME}, "
                 "found wrong_name-0.1.0-py3-none-any.whl"
             ),
         ),
         (
             "fashion_radar-9.9.9-py3-none-any.whl",
-            "fashion_radar-0.1.0.tar.gz",
+            EXPECTED_SDIST_ARCHIVE_NAME,
             (
                 "wheel archive filename mismatch: expected "
-                "fashion_radar-0.1.0-py3-none-any.whl, "
+                f"{EXPECTED_WHEEL_ARCHIVE_NAME}, "
                 "found fashion_radar-9.9.9-py3-none-any.whl"
             ),
         ),
         (
-            "fashion_radar-0.1.0-py3-none-any.whl",
+            EXPECTED_WHEEL_ARCHIVE_NAME,
             "wrong_name-0.1.0.tar.gz",
             (
                 "sdist archive filename mismatch: expected "
-                "fashion_radar-0.1.0.tar.gz, found wrong_name-0.1.0.tar.gz"
+                f"{EXPECTED_SDIST_ARCHIVE_NAME}, found wrong_name-0.1.0.tar.gz"
             ),
         ),
         (
-            "fashion_radar-0.1.0-py3-none-any.whl",
+            EXPECTED_WHEEL_ARCHIVE_NAME,
             "fashion_radar-9.9.9.tar.gz",
             (
                 "sdist archive filename mismatch: expected "
-                "fashion_radar-0.1.0.tar.gz, found fashion_radar-9.9.9.tar.gz"
+                f"{EXPECTED_SDIST_ARCHIVE_NAME}, found fashion_radar-9.9.9.tar.gz"
             ),
         ),
     ],
@@ -350,7 +375,8 @@ def test_rejects_sdist_with_mismatched_root_directory(
 
     assert result.returncode == 1
     assert (
-        f"sdist archive root directory mismatch: expected fashion_radar-0.1.0, found {root_dir}"
+        "sdist archive root directory mismatch: "
+        f"expected {EXPECTED_SDIST_ROOT_DIR}, found {root_dir}"
     ) in result.stderr
     assert "sdist archive missing required file" not in result.stderr
     assert "Traceback" not in result.stderr
@@ -574,7 +600,7 @@ def wheel_files_with_dist_info_dir(dist_info_dir: str) -> dict[str, str]:
     return {
         (
             f"{dist_info_dir}/{path.split('/', 1)[1]}"
-            if path.startswith("fashion_radar-0.1.0.dist-info/")
+            if path.startswith(f"{EXPECTED_WHEEL_DIST_INFO_DIR}/")
             else path
         ): content
         for path, content in WHEEL_FILES.items()
@@ -602,7 +628,7 @@ def test_rejects_wheel_with_mismatched_dist_info_directory(
     assert result.returncode == 1
     assert (
         "wheel archive dist-info directory mismatch: expected "
-        f"fashion_radar-0.1.0.dist-info, found {dist_info_dir}"
+        f"{EXPECTED_WHEEL_DIST_INFO_DIR}, found {dist_info_dir}"
     ) in result.stderr
     assert "Traceback" not in result.stderr
 
@@ -998,7 +1024,9 @@ def test_rejects_wheel_metadata_without_project_name(tmp_path: Path) -> None:
     build_dir = tmp_path / "dist"
     build_dir.mkdir()
     wheel_files = WHEEL_FILES | {
-        "fashion_radar-0.1.0.dist-info/METADATA": ("Metadata-Version: 2.4\nVersion: 0.1.0\n")
+        f"{EXPECTED_WHEEL_DIST_INFO_DIR}/METADATA": (
+            f"Metadata-Version: 2.4\nVersion: {EXPECTED_METADATA.version}\n"
+        )
     }
     write_wheel(build_dir, files=wheel_files)
     write_sdist(build_dir)
@@ -1006,14 +1034,16 @@ def test_rejects_wheel_metadata_without_project_name(tmp_path: Path) -> None:
     result = run_checker(build_dir)
 
     assert result.returncode == 1
-    assert "METADATA is missing Name: fashion-radar" in result.stderr
+    assert f"METADATA is missing Name: {EXPECTED_METADATA.name}" in result.stderr
 
 
 def test_rejects_wheel_metadata_without_project_version(tmp_path: Path) -> None:
     build_dir = tmp_path / "dist"
     build_dir.mkdir()
     wheel_files = WHEEL_FILES | {
-        "fashion_radar-0.1.0.dist-info/METADATA": ("Metadata-Version: 2.4\nName: fashion-radar\n")
+        f"{EXPECTED_WHEEL_DIST_INFO_DIR}/METADATA": (
+            f"Metadata-Version: 2.4\nName: {EXPECTED_METADATA.name}\n"
+        )
     }
     write_wheel(build_dir, files=wheel_files)
     write_sdist(build_dir)
@@ -1021,14 +1051,14 @@ def test_rejects_wheel_metadata_without_project_version(tmp_path: Path) -> None:
     result = run_checker(build_dir)
 
     assert result.returncode == 1
-    assert "METADATA is missing Version: 0.1.0" in result.stderr
+    assert f"METADATA is missing Version: {EXPECTED_METADATA.version}" in result.stderr
 
 
 def test_rejects_wheel_entry_points_without_console_script(tmp_path: Path) -> None:
     build_dir = tmp_path / "dist"
     build_dir.mkdir()
     wheel_files = WHEEL_FILES | {
-        "fashion_radar-0.1.0.dist-info/entry_points.txt": (
+        f"{EXPECTED_WHEEL_DIST_INFO_DIR}/entry_points.txt": (
             "[console_scripts]\nother-command = fashion_radar.cli:app\n"
         )
     }
@@ -1038,4 +1068,5 @@ def test_rejects_wheel_entry_points_without_console_script(tmp_path: Path) -> No
     result = run_checker(build_dir)
 
     assert result.returncode == 1
-    assert "entry_points.txt is missing fashion-radar = fashion_radar.cli:app" in result.stderr
+    for console_script_line in EXPECTED_METADATA.console_script_lines:
+        assert f"entry_points.txt is missing {console_script_line}" in result.stderr
