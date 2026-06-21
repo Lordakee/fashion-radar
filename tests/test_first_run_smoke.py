@@ -2001,6 +2001,79 @@ def test_validate_community_handoff_workflow_rejects_wrong_readiness_command_arg
         smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
 
 
+@pytest.mark.parametrize(
+    ("step_name", "replacement_command", "expected_message"),
+    [
+        (
+            "lint_handoff_directory",
+            (
+                "fashion-radar community-signal-lint-dir /tmp/export "
+                "--input-format csv --pattern '*.csv' "
+                "--source-name 'Community Tool Export'"
+            ),
+            "lint_handoff_directory command",
+        ),
+        (
+            "preview_candidate_phrases",
+            (
+                "fashion-radar community-candidates-dir-extra /tmp/export "
+                "--input-format csv --pattern '*.csv' --config-dir configs "
+                "--as-of 2026-06-13T12:00:00+00:00 "
+                "--source-name 'Community Tool Export'"
+            ),
+            "preview_candidate_phrases command",
+        ),
+        (
+            "dry_run_directory_import",
+            (
+                "fashion-radar import-signals-dir /tmp/export --format csv "
+                "--pattern '*.csv' --data-dir data "
+                "--source-name 'Community Tool Export' "
+                "--imported-at 2026-06-13T12:00:00+00:00"
+            ),
+            "dry_run_directory_import command",
+        ),
+        (
+            "import_directory_signals",
+            (
+                "fashion-radar import-signals-dir-extra /tmp/export --format csv "
+                "--pattern '*.csv' --data-dir data "
+                "--source-name 'Community Tool Export' "
+                "--imported-at 2026-06-13T12:00:00+00:00"
+            ),
+            "import_directory_signals command",
+        ),
+        (
+            "print_post_import_review",
+            (
+                "fashion-radar imported-review-workflow-extra --config-dir configs "
+                "--data-dir data --as-of 2026-06-13T12:00:00+00:00 "
+                "--source-name 'Community Tool Export'"
+            ),
+            "print_post_import_review command",
+        ),
+    ],
+)
+def test_validate_community_handoff_workflow_rejects_unpinned_command_drift(
+    step_name: str,
+    replacement_command: str,
+    expected_message: str,
+) -> None:
+    payload = community_handoff_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    for step in steps:
+        assert isinstance(step, dict)
+        if step.get("name") == step_name:
+            step["command"] = replacement_command
+            break
+    else:
+        pytest.fail(f"missing step {step_name}")
+
+    with pytest.raises(smoke.SmokeError, match=expected_message):
+        smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
 def test_validate_community_handoff_workflow_requires_import_and_review_effects() -> None:
     payload = community_handoff_workflow_payload()
     steps = payload["steps"]

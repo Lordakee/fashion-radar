@@ -393,6 +393,118 @@ def validate_expected_external_tool_command(
     )
 
 
+def expected_community_handoff_workflow_command_parts(
+    *,
+    directory: str,
+    input_format: str,
+    pattern: str,
+    config_dir: str,
+    data_dir: str,
+    as_of: str,
+    source_name: str,
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    return (
+        (
+            "lint_handoff_directory",
+            (
+                "community-signal-lint-dir",
+                directory,
+                "--input-format",
+                input_format,
+                "--pattern",
+                pattern,
+                "--source-name",
+                source_name,
+                "--strict",
+            ),
+        ),
+        (
+            "preview_candidate_phrases",
+            (
+                "community-candidates-dir",
+                directory,
+                "--input-format",
+                input_format,
+                "--pattern",
+                pattern,
+                "--config-dir",
+                config_dir,
+                "--as-of",
+                as_of,
+                "--source-name",
+                source_name,
+            ),
+        ),
+        (
+            "review_handoff_readiness",
+            (
+                "community-handoff-check-dir",
+                directory,
+                "--input-format",
+                input_format,
+                "--pattern",
+                pattern,
+                "--config-dir",
+                config_dir,
+                "--as-of",
+                as_of,
+                "--source-name",
+                source_name,
+                "--strict",
+            ),
+        ),
+        (
+            "dry_run_directory_import",
+            (
+                "import-signals-dir",
+                directory,
+                "--format",
+                input_format,
+                "--pattern",
+                pattern,
+                "--data-dir",
+                data_dir,
+                "--source-name",
+                source_name,
+                "--imported-at",
+                as_of,
+                "--dry-run",
+            ),
+        ),
+        (
+            "import_directory_signals",
+            (
+                "import-signals-dir",
+                directory,
+                "--format",
+                input_format,
+                "--pattern",
+                pattern,
+                "--data-dir",
+                data_dir,
+                "--source-name",
+                source_name,
+                "--imported-at",
+                as_of,
+            ),
+        ),
+        (
+            "print_post_import_review",
+            (
+                "imported-review-workflow",
+                "--config-dir",
+                config_dir,
+                "--data-dir",
+                data_dir,
+                "--as-of",
+                as_of,
+                "--source-name",
+                source_name,
+            ),
+        ),
+    )
+
+
 def expected_external_tool_adapter_commands(
     *,
     adapter_id: str,
@@ -779,30 +891,29 @@ def validate_community_handoff_workflow(command_name: str, payload: Any) -> None
     input_format = str(payload.get("input_format", ""))
     pattern = str(payload.get("pattern", ""))
     config_dir = str(payload.get("config_dir", ""))
+    data_dir = str(payload.get("data_dir", ""))
     as_of = str(payload.get("as_of", ""))
     source_name = str(payload.get("source_name", ""))
 
-    readiness_step = steps[2]
-    if not isinstance(readiness_step, dict):
-        raise SmokeError(f"{command_name} readiness step must be a JSON object")
-    validate_expected_external_tool_command(
-        command_name,
-        "readiness",
-        readiness_step.get("command", ""),
-        "community-handoff-check-dir",
-        directory,
-        "--input-format",
-        input_format,
-        "--pattern",
-        pattern,
-        "--config-dir",
-        config_dir,
-        "--as-of",
-        as_of,
-        "--source-name",
-        source_name,
-        "--strict",
+    expected_commands = expected_community_handoff_workflow_command_parts(
+        directory=directory,
+        input_format=input_format,
+        pattern=pattern,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        as_of=as_of,
+        source_name=source_name,
     )
+    for index, (label, expected_parts) in enumerate(expected_commands):
+        step = steps[index]
+        if not isinstance(step, dict):
+            raise SmokeError(f"{command_name} {label} step must be a JSON object")
+        validate_expected_external_tool_command(
+            command_name,
+            label,
+            step.get("command", ""),
+            *expected_parts,
+        )
 
     import_step = steps[4]
     if not isinstance(import_step, dict):
