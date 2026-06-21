@@ -2452,6 +2452,33 @@ def test_validate_external_tool_template_rejects_source_weight_drift() -> None:
         smoke.validate_external_tool_template("external-tool-template", payload)
 
 
+@pytest.mark.parametrize(
+    ("payload_fn", "validator", "command_name"),
+    [
+        (
+            external_tool_workflow_payload,
+            smoke.validate_external_tool_workflow,
+            "external-tool-workflow",
+        ),
+        (
+            external_tool_readiness_payload,
+            smoke.validate_external_tool_readiness,
+            "external-tool-readiness",
+        ),
+    ],
+)
+def test_validate_external_tool_surfaces_reject_display_name_drift(
+    payload_fn: Callable[[], dict[str, object]],
+    validator: Callable[[str, object], None],
+    command_name: str,
+) -> None:
+    payload = payload_fn()
+    payload["display_name"] = "Unexpected Export Label"
+
+    with pytest.raises(smoke.SmokeError, match="display_name"):
+        validator(command_name, payload)
+
+
 def test_validate_external_tool_workflow_requires_print_only_workflow_contract() -> None:
     smoke.validate_external_tool_workflow(
         "external-tool-workflow",

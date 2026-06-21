@@ -136,6 +136,7 @@ EXPECTED_EXTERNAL_TOOL_READINESS_INSTALL_HINT = (
 EXPECTED_EXTERNAL_TOOL_READINESS_DETAIL = (
     "Checks whether the Rednote MCP command is discoverable locally."
 )
+EXPECTED_EXTERNAL_TOOL_DISPLAY_NAME = "Rednote MCP Export"
 # Pinned independently from the runtime registry so first-run smoke catches
 # adapter registry drift instead of importing the code under test.
 EXPECTED_EXTERNAL_TOOL_ADAPTERS = {
@@ -1327,6 +1328,11 @@ def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
     assert_equal(f"{command_name} execution_mode", payload.get("execution_mode"), "print_only")
     assert_equal(f"{command_name} adapter_id", payload.get("adapter_id"), "rednote_mcp")
     assert_equal(f"{command_name} platform_label", payload.get("platform_label"), "rednote")
+    assert_equal(
+        f"{command_name} display_name",
+        payload.get("display_name"),
+        EXPECTED_EXTERNAL_TOOL_DISPLAY_NAME,
+    )
     assert_equal(f"{command_name} input_format", payload.get("input_format"), "json")
     assert_equal(f"{command_name} pattern", payload.get("pattern"), "*.json")
     assert_equal(f"{command_name} as_of", payload.get("as_of"), "2026-06-13T12:00:00+00:00")
@@ -1683,6 +1689,11 @@ def validate_external_tool_readiness(command_name: str, payload: Any) -> None:
     assert_equal(f"{command_name} execution_mode", payload.get("execution_mode"), "local_read_only")
     assert_equal(f"{command_name} adapter_id", payload.get("adapter_id"), "rednote_mcp")
     assert_equal(f"{command_name} platform_label", payload.get("platform_label"), "rednote")
+    assert_equal(
+        f"{command_name} display_name",
+        payload.get("display_name"),
+        EXPECTED_EXTERNAL_TOOL_DISPLAY_NAME,
+    )
     assert_equal(f"{command_name} input_format", payload.get("input_format"), "json")
     assert_equal(f"{command_name} pattern", payload.get("pattern"), "*.json")
     assert_equal(f"{command_name} as_of", payload.get("as_of"), "2026-06-13T12:00:00+00:00")
