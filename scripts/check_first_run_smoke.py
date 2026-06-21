@@ -1484,6 +1484,50 @@ def validate_external_tool_readiness(command_name: str, payload: Any) -> None:
         ],
     )
 
+    registry_step = steps[0]
+    if not isinstance(registry_step, dict):
+        raise SmokeError(f"{command_name} registry step must be a JSON object")
+    validate_expected_external_tool_command(
+        command_name,
+        "registry",
+        registry_step.get("command", ""),
+        "external-tool-adapters",
+        "--adapter",
+        adapter_id,
+        "--directory",
+        directory,
+        "--config-dir",
+        config_dir,
+        "--data-dir",
+        data_dir,
+        "--as-of",
+        as_of,
+        "--format",
+        "table",
+    )
+
+    template_step = steps[1]
+    if not isinstance(template_step, dict):
+        raise SmokeError(f"{command_name} template step must be a JSON object")
+    validate_expected_external_tool_command(
+        command_name,
+        "template",
+        template_step.get("command", ""),
+        "external-tool-template",
+        "--adapter",
+        adapter_id,
+        "--directory",
+        directory,
+        "--config-dir",
+        config_dir,
+        "--data-dir",
+        data_dir,
+        "--as-of",
+        as_of,
+        "--format",
+        "json",
+    )
+
     workflow_step = steps[2]
     if not isinstance(workflow_step, dict):
         raise SmokeError(f"{command_name} workflow step must be a JSON object")
@@ -1510,6 +1554,58 @@ def validate_external_tool_readiness(command_name: str, payload: Any) -> None:
         source_name,
         "--format",
         "table",
+    )
+
+    signal_profile_step = steps[3]
+    if not isinstance(signal_profile_step, dict):
+        raise SmokeError(f"{command_name} signal profile step must be a JSON object")
+    validate_expected_external_tool_command(
+        command_name,
+        "signal profile",
+        signal_profile_step.get("command", ""),
+        "community-signal-profile",
+        "--format",
+        "json",
+    )
+
+    lint_step = steps[4]
+    if not isinstance(lint_step, dict):
+        raise SmokeError(f"{command_name} lint step must be a JSON object")
+    validate_expected_external_tool_command(
+        command_name,
+        "lint",
+        lint_step.get("command", ""),
+        "community-signal-lint-dir",
+        directory,
+        "--input-format",
+        input_format,
+        "--pattern",
+        pattern,
+        "--source-name",
+        source_name,
+        "--strict",
+    )
+
+    handoff_readiness_step = steps[5]
+    if not isinstance(handoff_readiness_step, dict):
+        raise SmokeError(f"{command_name} handoff readiness step must be a JSON object")
+    validate_expected_external_tool_command(
+        command_name,
+        "handoff readiness",
+        handoff_readiness_step.get("command", ""),
+        "community-handoff-check-dir",
+        directory,
+        "--input-format",
+        input_format,
+        "--pattern",
+        pattern,
+        "--config-dir",
+        config_dir,
+        "--as-of",
+        as_of,
+        "--source-name",
+        source_name,
+        "--strict",
     )
 
     dry_run_step = steps[-1]

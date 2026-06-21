@@ -2144,6 +2144,104 @@ def test_validate_external_tool_readiness_rejects_wrong_dry_run_input_format() -
         smoke.validate_external_tool_readiness("external-tool-readiness", payload)
 
 
+@pytest.mark.parametrize(
+    ("step_name", "replacement_command", "expected_error"),
+    [
+        (
+            "inspect_adapter_registry",
+            external_tool_command(
+                "external-tool-adapters",
+                "--adapter",
+                "rednote_mcp",
+                "--directory",
+                "exports",
+                "--config-dir",
+                "configs",
+                "--data-dir",
+                "data",
+                "--as-of",
+                "2026-06-13T12:00:00+00:00",
+                "--format",
+                "json",
+            ),
+            "registry command",
+        ),
+        (
+            "print_adapter_template_json",
+            external_tool_command(
+                "external-tool-template",
+                "--adapter",
+                "rednote_mcp",
+                "--directory",
+                "exports",
+                "--config-dir",
+                "configs",
+                "--data-dir",
+                "data",
+                "--as-of",
+                "2026-06-13T12:00:00+00:00",
+                "--format",
+                "table",
+            ),
+            "template command",
+        ),
+        (
+            "print_signal_profile",
+            external_tool_command("community-signal-profile", "--format", "table"),
+            "signal profile command",
+        ),
+        (
+            "lint_export_directory",
+            external_tool_command(
+                "community-signal-lint-dir",
+                "exports",
+                "--input-format",
+                "json",
+                "--pattern",
+                "*.json",
+                "--source-name",
+                "Rednote MCP Export",
+            ),
+            "lint command",
+        ),
+        (
+            "review_handoff_readiness",
+            external_tool_command(
+                "community-handoff-check-dir",
+                "exports",
+                "--input-format",
+                "json",
+                "--pattern",
+                "*.json",
+                "--config-dir",
+                "configs",
+                "--as-of",
+                "2026-06-13T12:00:00+00:00",
+                "--source-name",
+                "Rednote MCP Export",
+            ),
+            "handoff readiness command",
+        ),
+    ],
+)
+def test_validate_external_tool_readiness_rejects_remaining_step_command_argv_drift(
+    step_name: str,
+    replacement_command: str,
+    expected_error: str,
+) -> None:
+    payload = external_tool_readiness_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    matching_steps = [
+        step for step in steps if isinstance(step, dict) and step.get("name") == step_name
+    ]
+    assert len(matching_steps) == 1
+    matching_steps[0]["command"] = replacement_command
+
+    with pytest.raises(smoke.SmokeError, match=expected_error):
+        smoke.validate_external_tool_readiness("external-tool-readiness", payload)
+
+
 def test_validate_external_tool_readiness_requires_local_read_only_contract() -> None:
     smoke.validate_external_tool_readiness(
         "external-tool-readiness",
