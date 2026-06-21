@@ -1428,7 +1428,14 @@ def validate_external_tool_template(command_name: str, payload: Any) -> None:
         )
 
 
-def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
+def validate_external_tool_workflow(
+    command_name: str,
+    payload: Any,
+    *,
+    expected_directory: str = "exports",
+    expected_config_dir: str = "configs",
+    expected_data_dir: str = "data",
+) -> None:
     if not isinstance(payload, dict):
         raise SmokeError(f"{command_name} output must be a JSON object")
     assert_equal(
@@ -1470,14 +1477,13 @@ def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
     assert_equal(f"{command_name} as_of", payload.get("as_of"), "2026-06-13T12:00:00+00:00")
     assert_equal(f"{command_name} source_name", payload.get("source_name"), "Rednote MCP Export")
     assert_equal(f"{command_name} step_count", payload.get("step_count"), 12)
-    for field in ("directory", "config_dir", "data_dir"):
-        value = payload.get(field)
-        if not isinstance(value, str) or not value:
-            raise SmokeError(f"{command_name} {field} must be populated")
+    assert_equal(f"{command_name} directory", payload.get("directory"), expected_directory)
+    assert_equal(f"{command_name} config_dir", payload.get("config_dir"), expected_config_dir)
+    assert_equal(f"{command_name} data_dir", payload.get("data_dir"), expected_data_dir)
     adapter_id = str(payload["adapter_id"])
-    directory = str(payload["directory"])
-    config_dir = str(payload["config_dir"])
-    data_dir = str(payload["data_dir"])
+    directory = expected_directory
+    config_dir = expected_config_dir
+    data_dir = expected_data_dir
     as_of = str(payload["as_of"])
     input_format = str(payload["input_format"])
     pattern = str(payload["pattern"])
@@ -1788,7 +1794,14 @@ def validate_external_tool_workflow(command_name: str, payload: Any) -> None:
     )
 
 
-def validate_external_tool_readiness(command_name: str, payload: Any) -> None:
+def validate_external_tool_readiness(
+    command_name: str,
+    payload: Any,
+    *,
+    expected_directory: str = "exports",
+    expected_config_dir: str = "configs",
+    expected_data_dir: str = "data",
+) -> None:
     if not isinstance(payload, dict):
         raise SmokeError(f"{command_name} output must be a JSON object")
     assert_equal(
@@ -1831,14 +1844,13 @@ def validate_external_tool_readiness(command_name: str, payload: Any) -> None:
     assert_equal(f"{command_name} as_of", payload.get("as_of"), "2026-06-13T12:00:00+00:00")
     assert_equal(f"{command_name} source_name", payload.get("source_name"), "Rednote MCP Export")
     assert_equal(f"{command_name} step_count", payload.get("step_count"), 7)
-    for field in ("directory", "config_dir", "data_dir"):
-        value = payload.get(field)
-        if not isinstance(value, str) or not value:
-            raise SmokeError(f"{command_name} {field} must be populated")
+    assert_equal(f"{command_name} directory", payload.get("directory"), expected_directory)
+    assert_equal(f"{command_name} config_dir", payload.get("config_dir"), expected_config_dir)
+    assert_equal(f"{command_name} data_dir", payload.get("data_dir"), expected_data_dir)
     adapter_id = str(payload["adapter_id"])
-    directory = str(payload["directory"])
-    config_dir = str(payload["config_dir"])
-    data_dir = str(payload["data_dir"])
+    directory = expected_directory
+    config_dir = expected_config_dir
+    data_dir = expected_data_dir
     as_of = str(payload["as_of"])
     input_format = str(payload["input_format"])
     pattern = str(payload["pattern"])
@@ -2300,7 +2312,13 @@ def run_first_run_flow(context: SmokeContext) -> None:
             "json",
         ).stdout,
     )
-    validate_external_tool_workflow("external-tool-workflow", external_tool_workflow)
+    validate_external_tool_workflow(
+        "external-tool-workflow",
+        external_tool_workflow,
+        expected_directory=str(context.exports_dir),
+        expected_config_dir=str(context.config_dir),
+        expected_data_dir=str(context.data_dir),
+    )
     external_tool_readiness = validate_json_output(
         "external-tool-readiness",
         run_cli(
@@ -2320,7 +2338,13 @@ def run_first_run_flow(context: SmokeContext) -> None:
             "json",
         ).stdout,
     )
-    validate_external_tool_readiness("external-tool-readiness", external_tool_readiness)
+    validate_external_tool_readiness(
+        "external-tool-readiness",
+        external_tool_readiness,
+        expected_directory=str(context.exports_dir),
+        expected_config_dir=str(context.config_dir),
+        expected_data_dir=str(context.data_dir),
+    )
     run_cli(
         context,
         "community-signal-lint",

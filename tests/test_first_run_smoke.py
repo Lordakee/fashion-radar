@@ -1287,6 +1287,64 @@ def external_tool_readiness_payload() -> dict[str, object]:
     }
 
 
+def rewrite_external_tool_payload_paths(
+    payload: dict[str, object],
+    *,
+    directory: str = "exports",
+    config_dir: str = "configs",
+    data_dir: str = "data",
+) -> None:
+    payload["directory"] = directory
+    payload["config_dir"] = config_dir
+    payload["data_dir"] = data_dir
+
+    replacements = {
+        "exports": directory,
+        "configs": config_dir,
+        "data": data_dir,
+    }
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    for step in steps:
+        assert isinstance(step, dict)
+        command = step.get("command")
+        assert isinstance(command, str)
+        parts = shlex.split(command)
+        step["command"] = shlex.join(replacements.get(part, part) for part in parts)
+
+
+def external_tool_workflow_payload_for_paths(
+    *,
+    directory: str,
+    config_dir: str,
+    data_dir: str,
+) -> dict[str, object]:
+    payload = external_tool_workflow_payload()
+    rewrite_external_tool_payload_paths(
+        payload,
+        directory=directory,
+        config_dir=config_dir,
+        data_dir=data_dir,
+    )
+    return payload
+
+
+def external_tool_readiness_payload_for_paths(
+    *,
+    directory: str,
+    config_dir: str,
+    data_dir: str,
+) -> dict[str, object]:
+    payload = external_tool_readiness_payload()
+    rewrite_external_tool_payload_paths(
+        payload,
+        directory=directory,
+        config_dir=config_dir,
+        data_dir=data_dir,
+    )
+    return payload
+
+
 def test_external_tool_adapters_payload_matches_real_registry() -> None:
     expected = json.loads(
         build_external_tool_adapter_registry(
@@ -2599,6 +2657,79 @@ def test_validate_external_tool_surfaces_reject_display_name_drift(
         validator(command_name, payload)
 
 
+@pytest.mark.parametrize(
+    ("payload_fn", "validator", "command_name"),
+    [
+        (
+            external_tool_workflow_payload,
+            smoke.validate_external_tool_workflow,
+            "external-tool-workflow",
+        ),
+        (
+            external_tool_readiness_payload,
+            smoke.validate_external_tool_readiness,
+            "external-tool-readiness",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("field", "paths"),
+    [
+        ("directory", {"directory": "runtime/exports"}),
+        ("config_dir", {"config_dir": "runtime/configs"}),
+        ("data_dir", {"data_dir": "runtime/data"}),
+    ],
+)
+def test_external_tool_surfaces_reject_coordinated_top_level_path_drift(
+    payload_fn: Callable[[], dict[str, object]],
+    validator: Callable[[str, object], None],
+    command_name: str,
+    field: str,
+    paths: dict[str, str],
+) -> None:
+    payload = payload_fn()
+    rewrite_external_tool_payload_paths(payload, **paths)
+
+    with pytest.raises(smoke.SmokeError, match=f"{command_name} {field}"):
+        validator(command_name, payload)
+
+
+@pytest.mark.parametrize(
+    ("payload_fn", "validator", "command_name"),
+    [
+        (
+            external_tool_workflow_payload_for_paths,
+            smoke.validate_external_tool_workflow,
+            "external-tool-workflow",
+        ),
+        (
+            external_tool_readiness_payload_for_paths,
+            smoke.validate_external_tool_readiness,
+            "external-tool-readiness",
+        ),
+    ],
+)
+def test_external_tool_surfaces_accept_explicit_runtime_paths(
+    payload_fn: Callable[..., dict[str, object]],
+    validator: Callable[..., None],
+    command_name: str,
+) -> None:
+    runtime_paths = {
+        "directory": "/tmp/fashion-radar/exports",
+        "config_dir": "/tmp/fashion-radar/config",
+        "data_dir": "/tmp/fashion-radar/data",
+    }
+    payload = payload_fn(**runtime_paths)
+
+    validator(
+        command_name,
+        payload,
+        expected_directory=runtime_paths["directory"],
+        expected_config_dir=runtime_paths["config_dir"],
+        expected_data_dir=runtime_paths["data_dir"],
+    )
+
+
 def test_validate_external_tool_workflow_requires_print_only_workflow_contract() -> None:
     smoke.validate_external_tool_workflow(
         "external-tool-workflow",
@@ -3609,8 +3740,20 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             ).model_dump_json(),
             "external-tool-adapters": json.dumps(external_tool_adapters_payload()),
             "external-tool-template": json.dumps(external_tool_template_payload()),
-            "external-tool-workflow": json.dumps(external_tool_workflow_payload()),
-            "external-tool-readiness": json.dumps(external_tool_readiness_payload()),
+            "external-tool-workflow": json.dumps(
+                external_tool_workflow_payload_for_paths(
+                    directory=str(context.exports_dir),
+                    config_dir=str(context.config_dir),
+                    data_dir=str(context.data_dir),
+                )
+            ),
+            "external-tool-readiness": json.dumps(
+                external_tool_readiness_payload_for_paths(
+                    directory=str(context.exports_dir),
+                    config_dir=str(context.config_dir),
+                    data_dir=str(context.data_dir),
+                )
+            ),
             "imported-signals-summary": json.dumps(imported_summary_payload()),
             "imported-signals": json.dumps(imported_signals_payload()),
             "candidates": json.dumps([]),
