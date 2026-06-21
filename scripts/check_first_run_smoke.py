@@ -931,7 +931,15 @@ def validate_community_handoff_workflow(command_name: str, payload: Any) -> None
     steps = payload.get("steps")
     if not isinstance(steps, list):
         raise SmokeError(f"{command_name} steps must be a list")
-    names = [step.get("name") for step in steps if isinstance(step, dict)]
+    if len(steps) != len(EXPECTED_COMMUNITY_HANDOFF_WORKFLOW_STEPS):
+        raise SmokeError(
+            f"{command_name} step_count expected "
+            f"{len(EXPECTED_COMMUNITY_HANDOFF_WORKFLOW_STEPS)!r}, got {len(steps)!r}"
+        )
+    for index, step in enumerate(steps, start=1):
+        if not isinstance(step, dict):
+            raise SmokeError(f"{command_name} step {index} must be a JSON object")
+    names = [step.get("name") for step in steps]
     assert_equal(
         f"{command_name} step names",
         names,

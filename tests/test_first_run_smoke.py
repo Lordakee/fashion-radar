@@ -2030,6 +2030,16 @@ def test_validate_community_handoff_workflow_rejects_wrong_readiness_command_arg
         smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
 
 
+def test_validate_community_handoff_workflow_rejects_extra_command_like_tail_step() -> None:
+    payload = community_handoff_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    steps.append("fashion-radar live-collect --platform rednote")
+
+    with pytest.raises(smoke.SmokeError, match="step_count|step 7|JSON object"):
+        smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
 @pytest.mark.parametrize(
     ("step_name", "replacement_command", "expected_message"),
     [
