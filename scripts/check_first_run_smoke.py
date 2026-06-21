@@ -154,6 +154,44 @@ EXPECTED_COMMUNITY_HANDOFF_WORKFLOW_STEPS = (
     "import_directory_signals",
     "print_post_import_review",
 )
+EXPECTED_COMMUNITY_HANDOFF_WORKFLOW_STEP_METADATA = [
+    {
+        "order": 1,
+        "name": "lint_handoff_directory",
+        "purpose": "Lint local community handoff files before import.",
+        "suggested_effect": "read_only",
+    },
+    {
+        "order": 2,
+        "name": "preview_candidate_phrases",
+        "purpose": "Preview aggregate candidate phrases before import.",
+        "suggested_effect": "read_only",
+    },
+    {
+        "order": 3,
+        "name": "review_handoff_readiness",
+        "purpose": "Review local handoff readiness before import.",
+        "suggested_effect": "read_only",
+    },
+    {
+        "order": 4,
+        "name": "dry_run_directory_import",
+        "purpose": "Validate matched local files through the importer without writing rows.",
+        "suggested_effect": "read_only",
+    },
+    {
+        "order": 5,
+        "name": "import_directory_signals",
+        "purpose": "Import the validated local handoff rows into local SQLite.",
+        "suggested_effect": "updates_local_imports",
+    },
+    {
+        "order": 6,
+        "name": "print_post_import_review",
+        "purpose": "Print the local post-import review checklist.",
+        "suggested_effect": "print_only",
+    },
+]
 EXPECTED_EXTERNAL_TOOL_WORKFLOW_STEPS = (
     "inspect_adapter_registry",
     "check_external_tool_readiness",
@@ -1122,6 +1160,23 @@ def validate_community_handoff_workflow(command_name: str, payload: Any) -> None
         f"{command_name} post-review step effect",
         post_review_step.get("suggested_effect"),
         "print_only",
+    )
+    for index, step in enumerate(steps, start=1):
+        if not isinstance(step, dict):
+            raise SmokeError(f"{command_name} step {index} must be a JSON object")
+    step_metadata = [
+        {
+            "order": step.get("order"),
+            "name": step.get("name"),
+            "purpose": step.get("purpose"),
+            "suggested_effect": step.get("suggested_effect"),
+        }
+        for step in steps
+    ]
+    assert_equal(
+        f"{command_name} step metadata",
+        step_metadata,
+        EXPECTED_COMMUNITY_HANDOFF_WORKFLOW_STEP_METADATA,
     )
 
 

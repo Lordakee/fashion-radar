@@ -2207,6 +2207,36 @@ def test_validate_community_handoff_workflow_rejects_unpinned_command_drift(
         smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
 
 
+def test_validate_community_handoff_workflow_rejects_step_order_drift() -> None:
+    payload = community_handoff_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    steps[0]["order"] = 99  # type: ignore[index]
+
+    with pytest.raises(smoke.SmokeError, match="step metadata"):
+        smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
+def test_validate_community_handoff_workflow_rejects_step_purpose_drift() -> None:
+    payload = community_handoff_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    steps[2]["purpose"] = "Open a browser and collect fresh platform evidence."  # type: ignore[index]
+
+    with pytest.raises(smoke.SmokeError, match="step metadata"):
+        smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
+def test_validate_community_handoff_workflow_rejects_step_effect_drift() -> None:
+    payload = community_handoff_workflow_payload()
+    steps = payload["steps"]
+    assert isinstance(steps, list)
+    steps[1]["suggested_effect"] = "print_only"  # type: ignore[index]
+
+    with pytest.raises(smoke.SmokeError, match="step metadata"):
+        smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
 def test_validate_community_handoff_workflow_requires_import_and_review_effects() -> None:
     payload = community_handoff_workflow_payload()
     steps = payload["steps"]
