@@ -61,6 +61,7 @@ Describe CLI/config/report/dashboard behavior changes.
   - `uv --no-config run --frozen python scripts/check_package_archives.py "$tmp_build"`
   - Installed-wheel smoke from `"$tmp_build"/*.whl` for `fashion-radar --help`, `init`, `doctor`, and `fashion_radar.templates/daily_report.md`.
 - [ ] If dashboard/dependencies changed: install/resolve `dashboard` extra and import `fashion_radar.dashboard.app` plus `fashion_radar.dashboard.queries` without launching Streamlit.
+- [ ] If preparing a GitHub upload or package smoke gate, follow [docs/github-upload-checklist.md](../docs/github-upload-checklist.md).
 
 ## Docs
 

@@ -725,6 +725,16 @@ def test_pull_request_template_package_smoke_uses_temp_build_archive_checker() -
     assert "`uv --no-config build` plus installed-wheel smoke" not in verification
 
 
+def test_pull_request_template_routes_conditional_smokes_to_upload_checklist() -> None:
+    template = _read(PULL_REQUEST_TEMPLATE)
+    verification = _markdown_section_exact_heading(template, "Verification")
+
+    _assert_markdown_link_to_path(verification, "docs/github-upload-checklist.md")
+    normalized = _normalized_text(verification).casefold()
+    assert "github upload" in normalized
+    assert "package smoke gate" in normalized
+
+
 def test_contributing_and_pr_template_include_release_hygiene_and_source_smoke() -> None:
     contributing = _markdown_section_exact_heading(_read(CONTRIBUTING_DOC), "Verification")
     pull_request_template = _markdown_section_exact_heading(
