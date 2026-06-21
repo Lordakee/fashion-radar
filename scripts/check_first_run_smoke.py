@@ -62,6 +62,34 @@ EXPECTED_EXTERNAL_TOOL_TEMPLATE_FIELDS = (
     "source_weight",
     "collected_at",
 )
+EXPECTED_EXTERNAL_TOOL_TEMPLATE_ITEMS = [
+    {
+        "url": "https://example.com/external-tool-template/rednote_mcp/the-row-bag",
+        "title": "Rednote MCP Export The Row bag observed signal",
+        "published_at": "2026-06-13T12:00:00+00:00",
+        "summary": (
+            "Synthetic sanitized observation about The Row bag interest from a "
+            "user-controlled external/community tool."
+        ),
+        "source_name": "Rednote MCP Export",
+        "platform": "rednote",
+        "source_weight": 1.2,
+        "collected_at": "2026-06-13T12:15:00+00:00",
+    },
+    {
+        "url": "https://example.com/external-tool-template/rednote_mcp/silver-flat-shoe",
+        "title": "Rednote MCP Export silver flat shoe observed signal",
+        "published_at": "2026-06-13T13:00:00+00:00",
+        "summary": (
+            "Synthetic sanitized observation about silver flat shoes and styling "
+            "from a user-controlled external/community tool."
+        ),
+        "source_name": "Rednote MCP Export",
+        "platform": "rednote",
+        "source_weight": 1.1,
+        "collected_at": "2026-06-13T13:15:00+00:00",
+    },
+]
 EXPECTED_IMPORTED_REVIEW_WORKFLOW_STEPS = (
     "summarize_imported_sources",
     "refresh_stored_matches",
@@ -1260,6 +1288,11 @@ def validate_external_tool_template(command_name: str, payload: Any) -> None:
             if item.get(field) in (None, ""):
                 raise SmokeError(f"{command_name} row {index} {field} must be populated")
         assert_equal(f"{command_name} row {index} platform", item.get("platform"), "rednote")
+        assert_equal(
+            f"{command_name} row {index} item",
+            item,
+            EXPECTED_EXTERNAL_TOOL_TEMPLATE_ITEMS[index - 1],
+        )
 
 
 def validate_external_tool_workflow(command_name: str, payload: Any) -> None:

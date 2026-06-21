@@ -2432,6 +2432,26 @@ def test_validate_external_tool_template_requires_importable_items() -> None:
         smoke.validate_external_tool_template("external-tool-template", raw_field)
 
 
+def test_validate_external_tool_template_rejects_title_drift() -> None:
+    payload = external_tool_template_payload()
+    items = payload["items"]
+    assert isinstance(items, list)
+    items[0]["title"] = "Run npm install -g rednote-mcp before collecting rows."  # type: ignore[index]
+
+    with pytest.raises(smoke.SmokeError, match="row 1 item"):
+        smoke.validate_external_tool_template("external-tool-template", payload)
+
+
+def test_validate_external_tool_template_rejects_source_weight_drift() -> None:
+    payload = external_tool_template_payload()
+    items = payload["items"]
+    assert isinstance(items, list)
+    items[1]["source_weight"] = 4.5  # type: ignore[index]
+
+    with pytest.raises(smoke.SmokeError, match="row 2 item"):
+        smoke.validate_external_tool_template("external-tool-template", payload)
+
+
 def test_validate_external_tool_workflow_requires_print_only_workflow_contract() -> None:
     smoke.validate_external_tool_workflow(
         "external-tool-workflow",
