@@ -882,6 +882,64 @@ def validate_community_candidates(
         assert_equal(f"{command_name} file_count", payload.get("file_count"), 1)
 
 
+def validate_community_handoff_check_dir(
+    command_name: str,
+    payload: Any,
+    *,
+    expected_directory: str = "/tmp/export",
+    expected_config_dir: str = "configs",
+) -> None:
+    if not isinstance(payload, dict):
+        raise SmokeError(f"{command_name} output must be a JSON object")
+    assert_equal(f"{command_name} execution_mode", payload.get("execution_mode"), "local_read_only")
+    assert_equal(f"{command_name} directory", payload.get("directory"), expected_directory)
+    assert_equal(f"{command_name} config_dir", payload.get("config_dir"), expected_config_dir)
+    assert_equal(f"{command_name} input_format", payload.get("input_format"), "csv")
+    assert_equal(f"{command_name} pattern", payload.get("pattern"), DIR_PATTERN)
+    assert_equal(f"{command_name} as_of", payload.get("as_of"), "2026-06-13T12:00:00+00:00")
+    assert_equal(f"{command_name} source_name", payload.get("source_name"), SOURCE_NAME)
+    assert_equal(f"{command_name} strict", payload.get("strict"), True)
+    assert_equal(f"{command_name} limit", payload.get("limit"), 50)
+    assert_equal(f"{command_name} ok", payload.get("ok"), True)
+    assert_equal(f"{command_name} failed_check_count", payload.get("failed_check_count"), 0)
+    assert_equal(f"{command_name} warning_count", payload.get("warning_count"), 0)
+
+    lint = payload.get("community_signal_lint")
+    if not isinstance(lint, dict):
+        raise SmokeError(f"{command_name} community_signal_lint must be a JSON object")
+    assert_equal(f"{command_name} lint file_count", lint.get("file_count"), 1)
+    assert_equal(f"{command_name} lint row_count", lint.get("row_count"), 2)
+    assert_equal(f"{command_name} lint valid_row_count", lint.get("valid_row_count"), 2)
+    assert_equal(f"{command_name} lint error_count", lint.get("error_count"), 0)
+    assert_equal(f"{command_name} lint warning_count", lint.get("warning_count"), 0)
+
+    candidate_preview = payload.get("candidate_preview")
+    if not isinstance(candidate_preview, dict):
+        raise SmokeError(f"{command_name} candidate_preview must be a JSON object")
+    assert_equal(
+        f"{command_name} candidate_preview candidate_count",
+        candidate_preview.get("candidate_count"),
+        0,
+    )
+    assert_equal(
+        f"{command_name} candidate_preview row_count",
+        candidate_preview.get("row_count"),
+        2,
+    )
+
+    import_dry_run = payload.get("import_dry_run")
+    if not isinstance(import_dry_run, dict):
+        raise SmokeError(f"{command_name} import_dry_run must be a JSON object")
+    assert_equal(f"{command_name} import dry-run file_count", import_dry_run.get("file_count"), 1)
+    assert_equal(
+        f"{command_name} import dry-run valid_file_count",
+        import_dry_run.get("valid_file_count"),
+        1,
+    )
+    assert_equal(f"{command_name} import dry-run row_count", import_dry_run.get("row_count"), 2)
+    assert_equal(f"{command_name} import dry-run error_count", import_dry_run.get("error_count"), 0)
+
+
 def assert_output_contains(command_name: str, output: str, expected_lines: Sequence[str]) -> None:
     output_lines = {line.strip() for line in output.splitlines() if line.strip()}
     for expected in expected_lines:
@@ -2578,21 +2636,32 @@ def run_first_run_flow(context: SmokeContext) -> None:
         community_candidates_dir,
         directory=True,
     )
-    run_cli(
-        context,
+    community_handoff_check_dir = validate_json_output(
         "community-handoff-check-dir",
-        str(context.exports_dir),
-        "--config-dir",
-        str(context.config_dir),
-        "--input-format",
-        "csv",
-        "--pattern",
-        DIR_PATTERN,
-        "--as-of",
-        AS_OF,
-        "--source-name",
-        SOURCE_NAME,
-        "--strict",
+        run_cli(
+            context,
+            "community-handoff-check-dir",
+            str(context.exports_dir),
+            "--config-dir",
+            str(context.config_dir),
+            "--input-format",
+            "csv",
+            "--pattern",
+            DIR_PATTERN,
+            "--as-of",
+            AS_OF,
+            "--source-name",
+            SOURCE_NAME,
+            "--strict",
+            "--format",
+            "json",
+        ).stdout,
+    )
+    validate_community_handoff_check_dir(
+        "community-handoff-check-dir",
+        community_handoff_check_dir,
+        expected_directory=str(context.exports_dir),
+        expected_config_dir=str(context.config_dir),
     )
     validate_import_signals_dir_dry_run(
         run_cli(

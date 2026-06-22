@@ -359,6 +359,80 @@ def community_candidates_payload(*, directory: bool = False) -> dict[str, object
     return payload
 
 
+def community_handoff_check_dir_payload(
+    *,
+    directory: str = "/tmp/export",
+    config_dir: str = "configs",
+) -> dict[str, object]:
+    return {
+        "directory": directory,
+        "input_format": "csv",
+        "pattern": smoke.DIR_PATTERN,
+        "as_of": "2026-06-13T12:00:00+00:00",
+        "config_dir": config_dir,
+        "source_name": smoke.SOURCE_NAME,
+        "execution_mode": "local_read_only",
+        "strict": True,
+        "limit": 50,
+        "ok": True,
+        "failed_check_count": 0,
+        "warning_count": 0,
+        "findings": [],
+        "community_signal_lint": {
+            "directory": directory,
+            "input_format": "csv",
+            "pattern": smoke.DIR_PATTERN,
+            "file_count": 1,
+            "row_count": 2,
+            "valid_row_count": 2,
+            "error_count": 0,
+            "warning_count": 0,
+            "info_count": 0,
+            "field_counts": {
+                "collected_at": 2,
+                "platform": 2,
+                "published_at": 2,
+                "source_name": 2,
+                "source_weight": 2,
+                "summary": 2,
+                "title": 2,
+                "url": 2,
+            },
+            "source_name_counts": {smoke.SOURCE_NAME: 2},
+            "platform_counts": {"community": 2},
+            "files": [],
+            "findings": [],
+        },
+        "candidate_preview": {
+            "input_format": "csv",
+            "as_of": "2026-06-13T12:00:00+00:00",
+            "current_window_start": "2026-06-06T12:00:00+00:00",
+            "baseline_window_start": "2026-05-07T12:00:00+00:00",
+            "current_days": 7,
+            "baseline_days": 30,
+            "source_name": smoke.SOURCE_NAME,
+            "file_count": 1,
+            "row_count": 2,
+            "candidate_count": 0,
+            "limit": 50,
+            "candidates": [],
+        },
+        "import_dry_run": {
+            "directory": directory,
+            "input_format": "csv",
+            "pattern": smoke.DIR_PATTERN,
+            "file_count": 1,
+            "valid_file_count": 1,
+            "row_count": 2,
+            "error_count": 0,
+            "source_name_counts": {smoke.SOURCE_NAME: 2},
+            "platform_counts": {"community": 2},
+            "files": [],
+            "findings": [],
+        },
+    }
+
+
 def imported_summary_payload() -> dict[str, object]:
     return {
         "database": "/tmp/fashion-radar.sqlite",
@@ -1701,6 +1775,8 @@ def expected_first_run_flow_commands(
             "--source-name",
             smoke.SOURCE_NAME,
             "--strict",
+            "--format",
+            "json",
         ),
         (
             "import-signals-dir",
@@ -2198,6 +2274,45 @@ def test_validate_community_handoff_workflow_rejects_wrong_readiness_command_arg
 
     with pytest.raises(smoke.SmokeError, match="readiness command"):
         smoke.validate_community_handoff_workflow("community-handoff-workflow", payload)
+
+
+def test_validate_community_handoff_check_dir_accepts_first_run_payload() -> None:
+    smoke.validate_community_handoff_check_dir(
+        "community-handoff-check-dir",
+        community_handoff_check_dir_payload(),
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "match"),
+    [
+        ("execution_mode", "write_enabled", "execution_mode"),
+        ("ok", False, "ok"),
+        ("failed_check_count", 1, "failed_check_count"),
+        ("warning_count", 1, "warning_count"),
+        ("strict", False, "strict"),
+    ],
+)
+def test_validate_community_handoff_check_dir_rejects_top_level_drift(
+    field: str,
+    value: object,
+    match: str,
+) -> None:
+    payload = community_handoff_check_dir_payload()
+    payload[field] = value
+
+    with pytest.raises(smoke.SmokeError, match=match):
+        smoke.validate_community_handoff_check_dir("community-handoff-check-dir", payload)
+
+
+def test_validate_community_handoff_check_dir_rejects_nested_count_drift() -> None:
+    payload = community_handoff_check_dir_payload()
+    lint = payload["community_signal_lint"]
+    assert isinstance(lint, dict)
+    lint["row_count"] = 5
+
+    with pytest.raises(smoke.SmokeError, match="lint row_count"):
+        smoke.validate_community_handoff_check_dir("community-handoff-check-dir", payload)
 
 
 def test_validate_community_handoff_workflow_rejects_extra_command_like_tail_step() -> None:
@@ -3777,6 +3892,12 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             "candidates": json.dumps([]),
             "trends": json.dumps(trends_payload()),
             "community-candidates-dir": json.dumps(community_candidates_payload(directory=True)),
+            "community-handoff-check-dir": json.dumps(
+                community_handoff_check_dir_payload(
+                    directory=str(context.exports_dir),
+                    config_dir=str(context.config_dir),
+                )
+            ),
         }
         return subprocess.CompletedProcess(
             ["python", "-m", "fashion_radar", *args],
