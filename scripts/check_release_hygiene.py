@@ -67,6 +67,23 @@ PEM_PRIVATE_KEY_PATTERN = re.compile(
     r"-----END [A-Z0-9 ]*PRIVATE KEY-----"
 )
 URL_USERINFO_PATTERN = re.compile(r"://([^/\s@]+)@")
+REVIEW_CAPTURE_MIN_STAGE = 159
+REVIEW_CAPTURE_ARTIFACT_PATTERN = re.compile(
+    r"^docs/reviews/"
+    r"opencode-stage-(?P<stage>[0-9]+)-"
+    r"(?:plan|code|release)-(?:review|rereview(?:-[0-9]+)?)\.md$"
+)
+ANSI_ESCAPE_PATTERN = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|.)")
+REVIEW_CAPTURE_TOOL_STATUS_PREFIXES = (
+    "Review written to ",
+    "Wrote ",
+)
+REVIEW_CAPTURE_PROCESS_PREFIXES = (
+    "I'll ",
+    "I will ",
+    "Let me ",
+    "Now let me ",
+)
 
 SECRET_PATTERNS = [
     ("GitHub token", *GITHUB_TOKEN_PATTERNS),
@@ -150,6 +167,8 @@ def collect_findings(repo_root: Path) -> list[str]:
     findings.extend(find_forbidden_path_findings(untracked_paths, "untracked"))
     findings.extend(find_secret_findings(repo_root, tracked_paths, "tracked"))
     findings.extend(find_secret_findings(repo_root, untracked_paths, "untracked"))
+    findings.extend(find_review_capture_hygiene_findings(repo_root, tracked_paths, "tracked"))
+    findings.extend(find_review_capture_hygiene_findings(repo_root, untracked_paths, "untracked"))
     findings.extend(find_remote_credential_findings(repo_root))
     findings.extend(find_extraheader_findings(repo_root))
 
@@ -311,6 +330,89 @@ def read_text_if_not_binary(path: Path) -> str | None:
 
 def is_binary_sample(sample: bytes) -> bool:
     return b"\0" in sample
+
+
+def find_review_capture_hygiene_findings(
+    repo_root: Path,
+    paths: list[str],
+    path_status: str,
+) -> list[str]:
+    findings = []
+    for path in paths:
+        normalized = normalize_git_path(path)
+        if not normalized or not is_review_capture_artifact_path(normalized):
+            continue
+
+        file_path = safe_repo_path(repo_root, normalized)
+        if file_path is None or file_path.is_symlink() or not file_path.is_file():
+            continue
+
+        text = read_text_if_not_binary(file_path)
+        if text is None:
+            continue
+
+        findings.extend(
+            review_capture_text_findings(
+                normalized,
+                text,
+                path_status,
+            )
+        )
+    return findings
+
+
+def is_review_capture_artifact_path(path: str) -> bool:
+    match = REVIEW_CAPTURE_ARTIFACT_PATTERN.fullmatch(path.lower())
+    if match is None:
+        return False
+    return int(match.group("stage")) >= REVIEW_CAPTURE_MIN_STAGE
+
+
+def review_capture_text_findings(
+    path: str,
+    text: str,
+    path_status: str,
+) -> list[str]:
+    prefix = f"forbidden review capture artifact in {path_status} file: {path}"
+    if not text.strip():
+        return [f"{prefix}: empty output"]
+
+    findings = []
+    first_nonblank: tuple[int, str] | None = None
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if stripped and first_nonblank is None:
+            first_nonblank = (line_number, stripped)
+        if ANSI_ESCAPE_PATTERN.search(line):
+            findings.append(f"{prefix}:{line_number}: ANSI escape sequence")
+        if is_review_tool_status_line(stripped):
+            findings.append(f"{prefix}:{line_number}: tool-status line")
+        if has_review_tool_ui_marker(line):
+            findings.append(f"{prefix}:{line_number}: tool UI marker")
+
+    if first_nonblank is not None:
+        line_number, stripped = first_nonblank
+        if is_review_process_chatter_start(stripped):
+            findings.append(f"{prefix}:{line_number}: process chatter at start")
+
+    return findings
+
+
+def is_review_tool_status_line(line: str) -> bool:
+    return (
+        line == "Review complete"
+        or line.startswith(("Review complete.", "Review complete:"))
+        or any(line.startswith(prefix) for prefix in REVIEW_CAPTURE_TOOL_STATUS_PREFIXES)
+    )
+
+
+def has_review_tool_ui_marker(line: str) -> bool:
+    stripped = line.lstrip()
+    return stripped.startswith(("\u2192", "\u2731")) or stripped.startswith("build \u00b7")
+
+
+def is_review_process_chatter_start(line: str) -> bool:
+    return any(line.startswith(prefix) for prefix in REVIEW_CAPTURE_PROCESS_PREFIXES)
 
 
 def find_remote_credential_findings(repo_root: Path) -> list[str]:

@@ -51,6 +51,16 @@ WILDCARD_LOCAL_SECRET_PATHS = [
     "private-export.csv",
     "xhs-private-export-2026.csv",
 ]
+CLEAN_REVIEW_ARTIFACT = """## Verdict
+
+No critical findings. No important findings.
+
+## Critical
+None.
+
+## Important
+None.
+"""
 
 
 def run_checker(repo_root: Path) -> subprocess.CompletedProcess[str]:
@@ -123,6 +133,194 @@ def test_clean_temp_repo_passes(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert result.stdout == "Release hygiene checks passed.\n"
     assert result.stderr == ""
+
+
+def test_stage_159_review_artifact_with_clean_body_passes(tmp_path: Path) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/opencode-stage-159-code-review.md",
+        CLEAN_REVIEW_ARTIFACT,
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 0
+    assert result.stdout == "Release hygiene checks passed.\n"
+    assert result.stderr == ""
+
+
+def test_stage_159_review_artifact_with_tool_status_line_fails(tmp_path: Path) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/opencode-stage-159-code-review.md",
+        "## Verdict\n\nWrote docs/reviews/opencode-stage-159-code-review.md\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert (
+        "forbidden review capture artifact in tracked file: "
+        "docs/reviews/opencode-stage-159-code-review.md:3: tool-status line"
+    ) in result.stderr
+
+
+def test_stage_159_review_artifact_with_review_completed_prose_passes(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/opencode-stage-159-code-review.md",
+        "## Verdict\n\nReview completed on 2026-06-23 with no blocking findings.\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 0
+    assert result.stdout == "Release hygiene checks passed.\n"
+    assert result.stderr == ""
+
+
+def test_stage_159_review_artifact_prompt_with_tool_status_example_is_ignored(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/opencode-stage-159-code-review-prompt.md",
+        "Review this stage. Reject output containing Wrote lines.\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 0
+    assert result.stdout == "Release hygiene checks passed.\n"
+    assert result.stderr == ""
+
+
+def test_stage_158_legacy_review_artifact_is_not_rechecked(tmp_path: Path) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/opencode-stage-158-code-review.md",
+        "## Verdict\n\nWrote docs/reviews/opencode-stage-158-code-review.md\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 0
+    assert result.stdout == "Release hygiene checks passed.\n"
+    assert result.stderr == ""
+
+
+def test_untracked_stage_159_review_artifact_with_ansi_escape_fails(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    write_file(
+        repo_root,
+        "docs/reviews/opencode-stage-159-release-review.md",
+        "## Verdict\n\n\x1b[32mApproved\x1b[0m\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert (
+        "forbidden review capture artifact in untracked file: "
+        "docs/reviews/opencode-stage-159-release-review.md:3: ANSI escape sequence"
+    ) in result.stderr
+
+
+def test_stage_159_review_artifact_with_process_chatter_start_fails(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/opencode-stage-159-plan-review.md",
+        "I'll inspect the repository first.\n\n## Verdict\nNo blocking findings.\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert (
+        "forbidden review capture artifact in tracked file: "
+        "docs/reviews/opencode-stage-159-plan-review.md:1: process chatter at start"
+    ) in result.stderr
+
+
+def test_stage_159_review_artifact_with_tool_ui_marker_fails(tmp_path: Path) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/opencode-stage-159-release-rereview.md",
+        "## Verdict\n\nbuild \u00b7 running\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert (
+        "forbidden review capture artifact in tracked file: "
+        "docs/reviews/opencode-stage-159-release-rereview.md:3: tool UI marker"
+    ) in result.stderr
+
+
+def test_stage_159_review_artifact_with_inline_arrow_prose_passes(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/opencode-stage-159-code-review.md",
+        "## Verdict\n\n- `pytest -q` \u2192 1300 passed\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 0
+    assert result.stdout == "Release hygiene checks passed.\n"
+    assert result.stderr == ""
+
+
+def test_stage_159_review_artifact_with_empty_output_fails(tmp_path: Path) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/opencode-stage-159-release-review.md",
+        "   \n\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert (
+        "forbidden review capture artifact in tracked file: "
+        "docs/reviews/opencode-stage-159-release-review.md: empty output"
+    ) in result.stderr
+
+
+def test_stage_159_numbered_rereview_artifact_is_checked(tmp_path: Path) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/opencode-stage-159-code-rereview-2.md",
+        "## Verdict\n\nWrote docs/reviews/opencode-stage-159-code-rereview-2.md\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert (
+        "forbidden review capture artifact in tracked file: "
+        "docs/reviews/opencode-stage-159-code-rereview-2.md:3: tool-status line"
+    ) in result.stderr
 
 
 def test_tracked_env_local_fails(tmp_path: Path) -> None:
@@ -351,6 +549,21 @@ def test_current_repository_tracked_file_list_has_no_forbidden_tracked_paths() -
     tracked_paths = result.stdout.splitlines()
 
     assert checker.find_forbidden_path_findings(tracked_paths, "tracked") == []
+
+
+def test_current_repository_tracked_review_artifacts_have_no_capture_findings() -> None:
+    checker = load_checker_module()
+    result = git(REPO_ROOT, "ls-files", "docs/reviews")
+    tracked_paths = result.stdout.splitlines()
+
+    assert (
+        checker.find_review_capture_hygiene_findings(
+            REPO_ROOT,
+            tracked_paths,
+            "tracked",
+        )
+        == []
+    )
 
 
 @pytest.mark.parametrize("filename", CREDENTIAL_FILENAMES)
