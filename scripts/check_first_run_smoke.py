@@ -2551,6 +2551,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
         DIR_PATTERN,
         "--source-name",
         SOURCE_NAME,
+        "--strict",
     )
     community_candidates_dir = validate_json_output(
         "community-candidates-dir",
@@ -2577,6 +2578,22 @@ def run_first_run_flow(context: SmokeContext) -> None:
         community_candidates_dir,
         directory=True,
     )
+    run_cli(
+        context,
+        "community-handoff-check-dir",
+        str(context.exports_dir),
+        "--config-dir",
+        str(context.config_dir),
+        "--input-format",
+        "csv",
+        "--pattern",
+        DIR_PATTERN,
+        "--as-of",
+        AS_OF,
+        "--source-name",
+        SOURCE_NAME,
+        "--strict",
+    )
     validate_import_signals_dir_dry_run(
         run_cli(
             context,
@@ -2590,6 +2607,8 @@ def run_first_run_flow(context: SmokeContext) -> None:
             DIR_PATTERN,
             "--source-name",
             SOURCE_NAME,
+            "--imported-at",
+            AS_OF,
             "--dry-run",
         ).stdout
     )

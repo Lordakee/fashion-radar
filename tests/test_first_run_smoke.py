@@ -1669,6 +1669,7 @@ def expected_first_run_flow_commands(
             smoke.DIR_PATTERN,
             "--source-name",
             smoke.SOURCE_NAME,
+            "--strict",
         ),
         (
             "community-candidates-dir",
@@ -1687,6 +1688,21 @@ def expected_first_run_flow_commands(
             "json",
         ),
         (
+            "community-handoff-check-dir",
+            str(context.exports_dir),
+            "--config-dir",
+            str(context.config_dir),
+            "--input-format",
+            "csv",
+            "--pattern",
+            smoke.DIR_PATTERN,
+            "--as-of",
+            smoke.AS_OF,
+            "--source-name",
+            smoke.SOURCE_NAME,
+            "--strict",
+        ),
+        (
             "import-signals-dir",
             str(context.exports_dir),
             "--data-dir",
@@ -1697,6 +1713,8 @@ def expected_first_run_flow_commands(
             smoke.DIR_PATTERN,
             "--source-name",
             smoke.SOURCE_NAME,
+            "--imported-at",
+            smoke.AS_OF,
             "--dry-run",
         ),
     ]
