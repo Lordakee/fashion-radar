@@ -55,8 +55,28 @@ Example JSON shape:
     "rss": 6
   },
   "tag_counts": {
+    "accessories": 1,
+    "beauty": 1,
+    "brand_news": 2,
+    "celebrity_style": 2,
+    "creative_directors": 1,
+    "culture": 1,
+    "designer_brands": 1,
+    "emerging_designers": 1,
+    "executive_moves": 1,
+    "fashion_media": 2,
+    "fashion_week": 1,
+    "footwear": 1,
+    "gdelt": 10,
     "industry_news": 5,
-    "gdelt": 10
+    "luxury": 2,
+    "products": 1,
+    "resale": 1,
+    "retail": 2,
+    "runway": 1,
+    "shoes": 2,
+    "streetwear": 2,
+    "trade_media": 1
   },
   "findings": []
 }
@@ -102,12 +122,26 @@ robots behavior.
 
 ## GDELT Queries
 
-The GDELT entries are broad starter queries for:
+The GDELT entries are broad starter queries grouped into these current lanes:
 
-- luxury/designer fashion
-- celebrity style/red carpet
-- bags/shoes/products
-- emerging designers
+- `GDELT Luxury Fashion`: luxury/designer fashion and fashion week signals.
+- `GDELT Celebrity Style`: celebrity style and red carpet looks.
+- `GDELT Bags Shoes Products`: designer bags, handbags, sneakers, ballet flats,
+  and loafers.
+- `GDELT Emerging Designers`: emerging and independent designers plus LVMH Prize
+  and ANDAM fashion signals.
+- `GDELT Runway Fashion Week`: runway shows, fashion week schedules, and
+  collection coverage.
+- `GDELT Designer Brand Momentum`: designer brands, quiet luxury, heritage
+  fashion houses, and independent fashion labels.
+- `GDELT Retail Resale Fashion`: fashion retail, luxury retail, resale
+  marketplaces, and consignment signals.
+- `GDELT Footwear Sneakers`: sneakers, footwear, loafers, ballet flats, and
+  boots.
+- `GDELT Creative Director Moves`: creative director, artistic director, and
+  leadership moves at fashion houses and luxury brands.
+- `GDELT Beauty Fashion Crossover`: beauty, fragrance, makeup, and skincare
+  signals tied to fashion brands, designers, and luxury.
 
 Tune the query strings, `max_records`, and source weights for your own research
 needs. Scores only reflect the configured source set.
