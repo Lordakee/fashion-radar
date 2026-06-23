@@ -80,18 +80,30 @@ JSON output contains the same information in a stable shape:
     "rss": 6
   },
   "tag_counts": {
+    "accessories": 1,
+    "beauty": 1,
+    "brand_news": 2,
+    "celebrity_style": 2,
+    "creative_directors": 1,
+    "culture": 1,
+    "designer_brands": 1,
+    "emerging_designers": 1,
+    "executive_moves": 1,
+    "fashion_media": 2,
+    "fashion_week": 1,
+    "footwear": 1,
+    "gdelt": 10,
     "industry_news": 5,
-    "gdelt": 10
+    "luxury": 2,
+    "products": 1,
+    "resale": 1,
+    "retail": 2,
+    "runway": 1,
+    "shoes": 2,
+    "streetwear": 2,
+    "trade_media": 1
   },
-  "findings": [
-    {
-      "severity": "warning",
-      "code": "missing_tags",
-      "message": "Source has no tags.",
-      "source_name": "Example Feed",
-      "field": "tags"
-    }
-  ]
+  "findings": []
 }
 ```
 
