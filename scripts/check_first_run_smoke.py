@@ -2299,6 +2299,13 @@ def file_digest(path: Path) -> str:
     return digest.hexdigest()
 
 
+DEFAULT_GENERATED_CONFIG_ARTIFACT_PATHS = (
+    Path("configs/sources.yaml"),
+    Path("configs/entities.yaml"),
+    Path("configs/scoring.yaml"),
+)
+
+
 def snapshot_default_artifacts(repo_root: Path) -> dict[Path, str]:
     artifacts: dict[Path, str] = {}
     for directory_name in ("data", "reports"):
@@ -2308,6 +2315,11 @@ def snapshot_default_artifacts(repo_root: Path) -> dict[Path, str]:
         for path in directory.rglob("*"):
             if path.is_file():
                 artifacts[path.relative_to(repo_root)] = file_digest(path)
+
+    for relative_path in DEFAULT_GENERATED_CONFIG_ARTIFACT_PATHS:
+        path = repo_root / relative_path
+        if path.is_file():
+            artifacts[relative_path] = file_digest(path)
     return artifacts
 
 
@@ -2328,7 +2340,10 @@ def assert_default_artifacts_unchanged(repo_root: Path, before: dict[Path, str])
         changes.append(f"changed: {format_paths(changed)}")
     if deleted:
         changes.append(f"deleted: {format_paths(deleted)}")
-    raise SmokeError(f"Smoke changed files under default data/reports ({'; '.join(changes)})")
+    raise SmokeError(
+        "Smoke changed files under default data/reports or generated configs "
+        f"({'; '.join(changes)})"
+    )
 
 
 def format_paths(paths: Sequence[Path]) -> str:

@@ -3605,6 +3605,30 @@ def test_default_artifact_guard_detects_deleted_repo_data_or_report_files(
     assert "reports/fashion-radar-2026-06-13.json" in message
 
 
+def test_default_artifact_guard_detects_new_repo_config_files(
+    tmp_path: Path,
+) -> None:
+    before = smoke.snapshot_default_artifacts(tmp_path)
+    generated_config_paths = [
+        tmp_path / "configs" / "sources.yaml",
+        tmp_path / "configs" / "entities.yaml",
+        tmp_path / "configs" / "scoring.yaml",
+    ]
+    for path in generated_config_paths:
+        path.parent.mkdir(exist_ok=True)
+        path.write_text("generated: true\n", encoding="utf-8")
+
+    with pytest.raises(smoke.SmokeError) as exc_info:
+        smoke.assert_default_artifacts_unchanged(tmp_path, before)
+
+    message = str(exc_info.value)
+    assert "default data/reports or generated configs" in message
+    assert "created:" in message
+    assert "configs/sources.yaml" in message
+    assert "configs/entities.yaml" in message
+    assert "configs/scoring.yaml" in message
+
+
 def test_workspace_artifact_assertion_requires_temp_dirs_and_sqlite(tmp_path: Path) -> None:
     context = make_context(tmp_path)
     context.config_dir.mkdir(parents=True)
