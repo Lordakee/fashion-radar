@@ -107,8 +107,10 @@ def render_source_pack_lint_table(result: SourcePackLintResult) -> list[str]:
         f"Types: {_format_counts(result.type_counts)}",
         f"Tags: {_format_counts(result.tag_counts)}",
         (
-            f"Findings: {result.error_count} errors, {result.warning_count} warnings, "
-            f"{result.info_count} info"
+            "Findings: "
+            f"{_format_finding_count(result.error_count, 'error', 'errors')}, "
+            f"{_format_finding_count(result.warning_count, 'warning', 'warnings')}, "
+            f"{_format_finding_count(result.info_count, 'info', 'info')}"
         ),
     ]
     if not result.findings:
@@ -337,3 +339,8 @@ def _format_counts(counts: Mapping[str, int]) -> str:
     if not counts:
         return "none"
     return ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
+
+
+def _format_finding_count(count: int, singular: str, plural: str) -> str:
+    label = singular if count == 1 else plural
+    return f"{count} {label}"

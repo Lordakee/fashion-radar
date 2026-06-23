@@ -3,7 +3,9 @@ from pathlib import Path
 from textwrap import dedent
 
 from fashion_radar.source_packs import (
+    SourcePackFinding,
     SourcePackFindingSeverity,
+    SourcePackLintResult,
     lint_source_pack,
     normalize_source_target,
     render_source_pack_lint_table,
@@ -321,6 +323,85 @@ def test_render_source_pack_lint_table_shows_none_for_empty_tag_counts(
         "Sources: 1 total, 1 enabled, 0 disabled",
         "Types: gdelt=1",
         "Tags: none",
-        "Findings: 0 errors, 1 warnings, 0 info",
+        "Findings: 0 errors, 1 warning, 0 info",
     ]
     assert "warning | missing_tags | GDELT Untagged | tags | Source has no tags." in lines
+
+
+def test_render_source_pack_lint_table_singularizes_one_finding_count() -> None:
+    result = SourcePackLintResult(
+        path="sources.yaml",
+        source_count=1,
+        enabled_count=1,
+        disabled_count=0,
+        type_counts={"gdelt": 1},
+        tag_counts={"gdelt": 1},
+        findings=[
+            SourcePackFinding(
+                severity=SourcePackFindingSeverity.ERROR,
+                code="error_code",
+                message="Error message.",
+            ),
+            SourcePackFinding(
+                severity=SourcePackFindingSeverity.WARNING,
+                code="warning_code",
+                message="Warning message.",
+            ),
+            SourcePackFinding(
+                severity=SourcePackFindingSeverity.INFO,
+                code="info_code",
+                message="Info message.",
+            ),
+        ],
+    )
+
+    lines = render_source_pack_lint_table(result)
+
+    assert "Findings: 1 error, 1 warning, 1 info" in lines
+
+
+def test_render_source_pack_lint_table_keeps_plural_finding_counts() -> None:
+    result = SourcePackLintResult(
+        path="sources.yaml",
+        source_count=1,
+        enabled_count=1,
+        disabled_count=0,
+        type_counts={"gdelt": 1},
+        tag_counts={"gdelt": 1},
+        findings=[
+            SourcePackFinding(
+                severity=SourcePackFindingSeverity.ERROR,
+                code="error_one",
+                message="Error one.",
+            ),
+            SourcePackFinding(
+                severity=SourcePackFindingSeverity.ERROR,
+                code="error_two",
+                message="Error two.",
+            ),
+            SourcePackFinding(
+                severity=SourcePackFindingSeverity.WARNING,
+                code="warning_one",
+                message="Warning one.",
+            ),
+            SourcePackFinding(
+                severity=SourcePackFindingSeverity.WARNING,
+                code="warning_two",
+                message="Warning two.",
+            ),
+            SourcePackFinding(
+                severity=SourcePackFindingSeverity.INFO,
+                code="info_one",
+                message="Info one.",
+            ),
+            SourcePackFinding(
+                severity=SourcePackFindingSeverity.INFO,
+                code="info_two",
+                message="Info two.",
+            ),
+        ],
+    )
+
+    lines = render_source_pack_lint_table(result)
+
+    assert "Findings: 2 errors, 2 warnings, 2 info" in lines
