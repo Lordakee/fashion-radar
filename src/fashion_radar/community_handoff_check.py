@@ -169,6 +169,18 @@ def check_community_handoff_directory(
 def render_community_handoff_directory_check_table(
     result: CommunityHandoffDirectoryCheckResult,
 ) -> list[str]:
+    lint = result.community_signal_lint
+    candidate_preview = result.candidate_preview
+    import_dry_run = result.import_dry_run
+    candidate_preview_text = "unavailable"
+    if candidate_preview is not None:
+        candidate_count_label = format_count_label(
+            candidate_preview.candidate_count,
+            "candidate",
+            "candidates",
+        )
+        candidate_row_label = format_count_label(candidate_preview.row_count, "row", "rows")
+        candidate_preview_text = f"{candidate_count_label} from {candidate_row_label}"
     lines = [
         "Community handoff directory check.",
         f"Execution mode: {result.execution_mode}",
@@ -185,28 +197,18 @@ def render_community_handoff_directory_check_table(
         f"Warnings: {result.warning_count}",
         (
             "Lint: "
-            f"{result.community_signal_lint.file_count} files, "
-            f"{result.community_signal_lint.valid_row_count}/"
-            f"{result.community_signal_lint.row_count} import-ready rows, "
-            f"{format_count_label(result.community_signal_lint.error_count, 'error', 'errors')}"
+            f"{format_count_label(lint.file_count, 'file', 'files')}, "
+            f"{lint.valid_row_count}/"
+            f"{format_count_label(lint.row_count, 'import-ready row', 'import-ready rows')}, "
+            f"{format_count_label(lint.error_count, 'error', 'errors')}"
         ),
-        (
-            "Candidate preview: "
-            + (
-                "unavailable"
-                if result.candidate_preview is None
-                else (
-                    f"{result.candidate_preview.candidate_count} candidates from "
-                    f"{result.candidate_preview.row_count} rows"
-                )
-            )
-        ),
+        f"Candidate preview: {candidate_preview_text}",
         (
             "Import dry-run: "
-            f"{result.import_dry_run.valid_file_count}/"
-            f"{result.import_dry_run.file_count} valid files, "
-            f"{result.import_dry_run.row_count} rows, "
-            f"{format_count_label(result.import_dry_run.error_count, 'error', 'errors')}"
+            f"{import_dry_run.valid_file_count}/"
+            f"{format_count_label(import_dry_run.file_count, 'valid file', 'valid files')}, "
+            f"{format_count_label(import_dry_run.row_count, 'row', 'rows')}, "
+            f"{format_count_label(import_dry_run.error_count, 'error', 'errors')}"
         ),
         "Does not import rows or write SQLite.",
     ]

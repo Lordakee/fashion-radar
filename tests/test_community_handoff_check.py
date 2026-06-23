@@ -331,18 +331,39 @@ def test_render_community_handoff_directory_check_table_uses_singular_error_labe
         strict=False,
         limit=0,
     )
+    assert result.candidate_preview is not None
     result = result.model_copy(
         update={
             "community_signal_lint": result.community_signal_lint.model_copy(
-                update={"error_count": 1}
+                update={
+                    "file_count": 1,
+                    "row_count": 1,
+                    "valid_row_count": 1,
+                    "error_count": 1,
+                }
             ),
-            "import_dry_run": result.import_dry_run.model_copy(update={"error_count": 1}),
+            "candidate_preview": result.candidate_preview.model_copy(
+                update={
+                    "row_count": 1,
+                    "candidate_count": 1,
+                }
+            ),
+            "import_dry_run": result.import_dry_run.model_copy(
+                update={
+                    "file_count": 1,
+                    "valid_file_count": 1,
+                    "row_count": 1,
+                    "error_count": 1,
+                }
+            ),
         }
     )
 
     lines = render_community_handoff_directory_check_table(result)
     lint_line = next(line for line in lines if line.startswith("Lint: "))
+    candidate_line = next(line for line in lines if line.startswith("Candidate preview: "))
     import_line = next(line for line in lines if line.startswith("Import dry-run: "))
 
-    assert lint_line.endswith(", 1 error")
-    assert import_line.endswith(", 1 error")
+    assert lint_line == "Lint: 1 file, 1/1 import-ready row, 1 error"
+    assert candidate_line == "Candidate preview: 1 candidate from 1 row"
+    assert import_line == "Import dry-run: 1/1 valid file, 1 row, 1 error"
