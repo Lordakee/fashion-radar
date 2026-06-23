@@ -309,7 +309,7 @@ def test_render_community_handoff_directory_check_table_sanitizes_cells(
     assert "Does not import rows or write SQLite." in lines
 
 
-def test_render_community_handoff_directory_check_table_uses_singular_error_label(
+def test_render_community_handoff_directory_check_table_uses_singular_count_labels(
     tmp_path: Path,
 ) -> None:
     config_dir = tmp_path / "configs"
@@ -367,3 +367,102 @@ def test_render_community_handoff_directory_check_table_uses_singular_error_labe
     assert lint_line == "Lint: 1 file, 1/1 import-ready row, 1 error"
     assert candidate_line == "Candidate preview: 1 candidate from 1 row"
     assert import_line == "Import dry-run: 1/1 valid file, 1 row, 1 error"
+
+
+def test_render_community_handoff_directory_check_table_uses_plural_count_labels(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "configs"
+    directory = tmp_path / "signals"
+    _write_config(config_dir)
+    _write_csv_directory(directory)
+    scoring, settings, entity_config = _load_candidate_config(config_dir)
+
+    result = check_community_handoff_directory(
+        directory,
+        config_dir=config_dir,
+        input_format="csv",
+        pattern="*.csv",
+        as_of="2026-06-16T00:00:00Z",
+        scoring=scoring,
+        settings=settings,
+        entity_config=entity_config,
+        source_name="Community Tool Export",
+        strict=False,
+        limit=0,
+    )
+    assert result.candidate_preview is not None
+    result = result.model_copy(
+        update={
+            "community_signal_lint": result.community_signal_lint.model_copy(
+                update={
+                    "file_count": 2,
+                    "row_count": 2,
+                    "valid_row_count": 2,
+                    "error_count": 2,
+                }
+            ),
+            "candidate_preview": result.candidate_preview.model_copy(
+                update={
+                    "row_count": 2,
+                    "candidate_count": 2,
+                }
+            ),
+            "import_dry_run": result.import_dry_run.model_copy(
+                update={
+                    "file_count": 2,
+                    "valid_file_count": 2,
+                    "row_count": 2,
+                    "error_count": 2,
+                }
+            ),
+        }
+    )
+
+    lines = render_community_handoff_directory_check_table(result)
+    lint_line = next(line for line in lines if line.startswith("Lint: "))
+    candidate_line = next(line for line in lines if line.startswith("Candidate preview: "))
+    import_line = next(line for line in lines if line.startswith("Import dry-run: "))
+
+    assert lint_line == "Lint: 2 files, 2/2 import-ready rows, 2 errors"
+    assert candidate_line == "Candidate preview: 2 candidates from 2 rows"
+    assert import_line == "Import dry-run: 2/2 valid files, 2 rows, 2 errors"
+
+
+def test_render_community_handoff_directory_check_table_shows_unavailable_candidate_preview(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "configs"
+    directory = tmp_path / "signals"
+    _write_config(config_dir)
+    directory.mkdir()
+    (directory / "bad.csv").write_text(
+        "url,title,published_at,author_handle\n"
+        "https://example.com/check/bad,Bad row,not-a-date,@raw\n",
+        encoding="utf-8",
+    )
+    scoring, settings, entity_config = _load_candidate_config(config_dir)
+
+    result = check_community_handoff_directory(
+        directory,
+        config_dir=config_dir,
+        input_format="csv",
+        pattern="*.csv",
+        as_of="2026-06-16T00:00:00Z",
+        scoring=scoring,
+        settings=settings,
+        entity_config=entity_config,
+        source_name="Community Tool Export",
+        strict=False,
+        limit=50,
+    )
+
+    assert result.candidate_preview is None
+    lines = render_community_handoff_directory_check_table(result)
+    candidate_line = next(line for line in lines if line.startswith("Candidate preview: "))
+
+    assert candidate_line == "Candidate preview: unavailable"
+    assert (
+        "error | candidate_preview | candidate_preview_unavailable | "
+        "Candidate preview could not read or validate the handoff directory."
+    ) in lines
