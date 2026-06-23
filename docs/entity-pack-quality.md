@@ -67,7 +67,10 @@ available, field when available, and a short explanation.
 
 ## JSON Output
 
-JSON output contains the same information in a stable shape:
+JSON output contains the same information in a stable shape. The example below
+is an abbreviated representative excerpt from the checked-in starter watchlist
+pack: scalar counts and count maps match current lint output, while `findings`
+shows one representative finding, not the full findings list:
 
 ```json
 {
@@ -83,12 +86,33 @@ JSON output contains the same information in a stable shape:
     "trend": 3
   },
   "tag_counts": {
+    "accessories": 2,
+    "aesthetic": 3,
+    "american_fashion": 1,
+    "celebrity_style": 2,
+    "consumer_trend": 1,
+    "contemporary_luxury": 2,
+    "creative_director": 2,
     "designer_brand": 9,
-    "luxury": 4
+    "luxury": 4,
+    "lvmh": 1,
+    "minimalism": 2,
+    "new_york": 1,
+    "prada_group": 1,
+    "red_carpet": 1,
+    "street_style": 1,
+    "styling": 2
   },
   "category_tag_counts": {
     "bag": 6,
-    "shoes": 4
+    "flats": 2,
+    "handbag": 4,
+    "mule": 1,
+    "shoe": 1,
+    "shoes": 4,
+    "shoulder_bag": 1,
+    "sneakers": 1,
+    "tote": 2
   },
   "accepted_without_context_aliases": 22,
   "context_gated_aliases": 4,
@@ -97,11 +121,11 @@ JSON output contains the same information in a stable shape:
   "findings": [
     {
       "severity": "warning",
-      "code": "ungated_alias_with_context_terms",
-      "message": "This ordinary multi-word alias is accepted without context by the current matcher.",
-      "entity_name": "Mary Jane Shoes",
-      "alias": "Mary Janes",
-      "field": "aliases"
+      "code": "context_terms_no_effect",
+      "message": "Entity has context_terms, but none of its aliases consult context under current matcher rules.",
+      "entity_name": "Boat Shoes",
+      "alias": null,
+      "field": "context_terms"
     }
   ]
 }
