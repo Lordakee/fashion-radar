@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import configparser
 import re
 import sys
 import tarfile
@@ -375,12 +376,33 @@ def validate_wheel_entry_points(
 ) -> list[str]:
     entry_points_path = f"{dist_info_dir}/entry_points.txt"
     entry_points = read_zip_text(archive, entry_points_path)
-    entry_point_lines = {line.strip() for line in entry_points.splitlines()}
-    return [
-        f"entry_points.txt is missing {entry_point}"
-        for entry_point in sorted(expected_metadata.console_script_lines)
-        if entry_point not in entry_point_lines
-    ]
+    parser = configparser.ConfigParser(interpolation=None)
+    parser.optionxform = str
+    try:
+        parser.read_string(entry_points)
+    except configparser.Error as exc:
+        return [f"entry_points.txt is invalid: {exc}"]
+
+    errors = []
+    console_scripts = parser["console_scripts"] if parser.has_section("console_scripts") else {}
+    for entry_point in sorted(expected_metadata.console_script_lines):
+        script_name, expected_target = split_console_script_line(entry_point)
+        actual_target = console_scripts.get(script_name)
+        if actual_target is None:
+            errors.append(f"entry_points.txt is missing console_scripts entry: {entry_point}")
+        elif actual_target != expected_target:
+            errors.append(
+                "entry_points.txt console_scripts entry mismatch: "
+                f"expected {entry_point}, found {script_name} = {actual_target}"
+            )
+    return errors
+
+
+def split_console_script_line(entry_point: str) -> tuple[str, str]:
+    script_name, separator, target = entry_point.partition(" = ")
+    if not separator:
+        return entry_point, ""
+    return script_name, target
 
 
 def read_zip_text(archive: zipfile.ZipFile, path: str) -> str:

@@ -1069,4 +1069,73 @@ def test_rejects_wheel_entry_points_without_console_script(tmp_path: Path) -> No
 
     assert result.returncode == 1
     for console_script_line in EXPECTED_METADATA.console_script_lines:
-        assert f"entry_points.txt is missing {console_script_line}" in result.stderr
+        assert (
+            f"entry_points.txt is missing console_scripts entry: {console_script_line}"
+            in result.stderr
+        )
+
+
+def test_rejects_wheel_entry_points_console_script_outside_console_scripts_section(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    wheel_files = WHEEL_FILES | {
+        f"{EXPECTED_WHEEL_DIST_INFO_DIR}/entry_points.txt": (
+            "[gui_scripts]\n" + "\n".join(sorted(EXPECTED_METADATA.console_script_lines)) + "\n"
+        )
+    }
+    write_wheel(build_dir, files=wheel_files)
+    write_sdist(build_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    for console_script_line in EXPECTED_METADATA.console_script_lines:
+        assert (
+            f"entry_points.txt is missing console_scripts entry: {console_script_line}"
+            in result.stderr
+        )
+
+
+def test_rejects_wheel_entry_points_console_script_wrong_target(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    wheel_files = WHEEL_FILES | {
+        f"{EXPECTED_WHEEL_DIST_INFO_DIR}/entry_points.txt": (
+            "[console_scripts]\nfashion-radar = fashion_radar.other:app\n"
+        )
+    }
+    write_wheel(build_dir, files=wheel_files)
+    write_sdist(build_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "entry_points.txt console_scripts entry mismatch: "
+        "expected fashion-radar = fashion_radar.cli:app, "
+        "found fashion-radar = fashion_radar.other:app"
+    ) in result.stderr
+
+
+def test_rejects_wheel_entry_points_malformed_without_traceback(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    wheel_files = WHEEL_FILES | {
+        f"{EXPECTED_WHEEL_DIST_INFO_DIR}/entry_points.txt": (
+            "fashion-radar = fashion_radar.cli:app\n"
+        )
+    }
+    write_wheel(build_dir, files=wheel_files)
+    write_sdist(build_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert "entry_points.txt is invalid:" in result.stderr
+    assert "Traceback" not in result.stderr
