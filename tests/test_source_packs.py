@@ -6,6 +6,7 @@ from fashion_radar.source_packs import (
     SourcePackFindingSeverity,
     lint_source_pack,
     normalize_source_target,
+    render_source_pack_lint_table,
 )
 
 
@@ -263,3 +264,63 @@ def test_lint_result_json_shape_is_stable(tmp_path: Path) -> None:
     assert payload["type_counts"] == {"gdelt": 1}
     assert payload["tag_counts"] == {"gdelt": 1}
     assert payload["findings"] == []
+
+
+def test_render_source_pack_lint_table_includes_tag_counts(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: GDELT Runway
+            type: gdelt
+            query: runway
+            weight: 0.8
+            tags: [gdelt, runway]
+          - name: GDELT Shoes
+            type: gdelt
+            query: shoes
+            weight: 0.8
+            tags: [gdelt, shoes]
+        """,
+    )
+
+    result = lint_source_pack(path)
+    lines = render_source_pack_lint_table(result)
+
+    assert lines[:5] == [
+        f"Source pack: {path}",
+        "Sources: 2 total, 2 enabled, 0 disabled",
+        "Types: gdelt=2",
+        "Tags: gdelt=2, runway=1, shoes=1",
+        "Findings: 0 errors, 0 warnings, 0 info",
+    ]
+    assert "No source-pack quality findings." in lines
+
+
+def test_render_source_pack_lint_table_shows_none_for_empty_tag_counts(
+    tmp_path: Path,
+) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: GDELT Untagged
+            type: gdelt
+            query: fashion
+            weight: 0.8
+        """,
+    )
+
+    result = lint_source_pack(path)
+    lines = render_source_pack_lint_table(result)
+
+    assert lines[:5] == [
+        f"Source pack: {path}",
+        "Sources: 1 total, 1 enabled, 0 disabled",
+        "Types: gdelt=1",
+        "Tags: none",
+        "Findings: 0 errors, 1 warnings, 0 info",
+    ]
+    assert "warning | missing_tags | GDELT Untagged | tags | Source has no tags." in lines

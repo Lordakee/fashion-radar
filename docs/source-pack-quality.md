@@ -41,6 +41,7 @@ Table output starts with a compact summary:
 Source pack: configs/source-packs/fashion-public.example.yaml
 Sources: 16 total, 16 enabled, 0 disabled
 Types: gdelt=10, rss=6
+Tags: accessories=1, beauty=1, brand_news=2, celebrity_style=2, creative_directors=1, culture=1, designer_brands=1, emerging_designers=1, executive_moves=1, fashion_media=2, fashion_week=1, footwear=1, gdelt=10, industry_news=5, luxury=2, products=1, resale=1, retail=2, runway=1, shoes=2, streetwear=2, trade_media=1
 Findings: 0 errors, 0 warnings, 0 info
 No source-pack quality findings.
 ```
@@ -51,6 +52,7 @@ The summary shows:
 - `Sources`: total source entries, enabled source entries, and disabled source
   entries.
 - `Types`: source counts by configured source type.
+- `Tags`: source counts by configured source tag.
 - `Findings`: counts by severity.
 
 When findings exist, table output adds one row per finding:

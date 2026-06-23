@@ -9136,6 +9136,7 @@ def test_source_pack_lint_prints_table_for_public_pack() -> None:
     assert result.exit_code == 0
     assert "Source pack: configs/source-packs/fashion-public.example.yaml" in result.output
     assert "Sources:" in result.output
+    assert "Tags:" in result.output
     assert "Findings:" in result.output
     assert "errors" in result.output
 

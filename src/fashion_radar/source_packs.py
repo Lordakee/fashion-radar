@@ -105,6 +105,7 @@ def render_source_pack_lint_table(result: SourcePackLintResult) -> list[str]:
             f"{result.disabled_count} disabled"
         ),
         f"Types: {_format_counts(result.type_counts)}",
+        f"Tags: {_format_counts(result.tag_counts)}",
         (
             f"Findings: {result.error_count} errors, {result.warning_count} warnings, "
             f"{result.info_count} info"
