@@ -1175,3 +1175,25 @@ def test_rejects_wheel_entry_points_with_invalid_utf8_without_traceback(
     assert "entry_points.txt is not valid UTF-8" in result.stderr
     assert "Traceback" not in result.stderr
     assert "UnicodeDecodeError" not in result.stderr
+
+
+def test_rejects_wheel_metadata_and_entry_points_with_invalid_utf8_without_traceback(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    wheel_files = WHEEL_FILES | {
+        f"{EXPECTED_WHEEL_DIST_INFO_DIR}/METADATA": b"\xff\xfe\xfa",
+        f"{EXPECTED_WHEEL_DIST_INFO_DIR}/entry_points.txt": b"\xff\xfe\xfa",
+    }
+    write_wheel(build_dir, files=wheel_files)
+    write_sdist(build_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    stderr_lines = result.stderr.splitlines()
+    assert "METADATA is not valid UTF-8" in stderr_lines
+    assert "entry_points.txt is not valid UTF-8" in stderr_lines
+    assert "Traceback" not in result.stderr
+    assert "UnicodeDecodeError" not in result.stderr
