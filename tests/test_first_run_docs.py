@@ -37,3 +37,20 @@ def test_first_run_docs_keep_local_sample_boundary() -> None:
         "not source ranking",
     ):
         assert phrase in normalized
+
+
+def test_first_run_docs_name_external_tool_smoke_contracts() -> None:
+    installed_smoke = _section(_read_first_run_doc(), "Installed-Wheel Smoke")
+    normalized = _normalized(installed_smoke)
+
+    for phrase in (
+        "automated first-run smoke also validates local external-tool json contracts",
+        "`external-tool-adapters --format json` across all eight adapters",
+        "`external-tool-template --adapter rednote_mcp --format json`",
+        "`external-tool-workflow --adapter rednote_mcp --format json`",
+        "`external-tool-readiness --adapter rednote_mcp --format json`",
+        "do not run adapters or upstream external/community tools",
+        "do not call platform apis",
+        "do not perform source acquisition",
+    ):
+        assert phrase in normalized

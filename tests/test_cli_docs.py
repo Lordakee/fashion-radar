@@ -296,10 +296,16 @@ EXTERNAL_TOOL_ADAPTER_DOC_ROWS = (
     ("| `generic_community_export` | Generic Community Export | `community` | `csv` | `*.csv` |"),
 )
 
-FIRST_RUN_EXTERNAL_ADAPTER_SMOKE_PHRASE = (
-    "The automated first-run smoke also validates the external-tool adapter "
-    "registry JSON contract from `external-tool-adapters --format json` across "
-    "all eight adapters."
+FIRST_RUN_EXTERNAL_TOOL_SMOKE_PHRASES = (
+    "The automated first-run smoke also validates local external-tool JSON contracts",
+    "`external-tool-adapters --format json` across all eight adapters",
+    "`external-tool-template --adapter rednote_mcp --format json`",
+    "`external-tool-workflow --adapter rednote_mcp --format json`",
+    "`external-tool-readiness --adapter rednote_mcp --format json`",
+    "command-output contract checks only",
+    "do not run adapters or upstream external/community tools",
+    "do not call platform APIs",
+    "do not perform source acquisition",
 )
 
 FASHION_RADAR_COMMAND_RE = re.compile(
@@ -1064,7 +1070,7 @@ def test_readme_documents_manual_sample_flow_and_automated_smoke_boundary() -> N
         "appear in the dated report",
         "produce matching entity trend deltas",
         "keep untracked candidates empty under starter config",
-        FIRST_RUN_EXTERNAL_ADAPTER_SMOKE_PHRASE,
+        *FIRST_RUN_EXTERNAL_TOOL_SMOKE_PHRASES,
     ):
         assert term in normalized
     assert manual_flow.index("uv run fashion-radar match --config-dir") < manual_flow.index(
@@ -1172,7 +1178,7 @@ def test_first_run_guide_documents_paths_outputs_dashboard_reset_and_boundaries(
         "appear in the dated report",
         "produce matching entity trend deltas",
         "keep untracked candidates empty under starter config",
-        FIRST_RUN_EXTERNAL_ADAPTER_SMOKE_PHRASE,
+        *FIRST_RUN_EXTERNAL_TOOL_SMOKE_PHRASES,
     ):
         assert term in normalized
     assert manual_flow.index("uv run fashion-radar match --config-dir") < manual_flow.index(

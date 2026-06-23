@@ -348,9 +348,14 @@ The automated smoke validates that sample rows import as community signals,
 match the starter entities `The Row`, `The Row Margaux`, and `Ballet Flats`,
 appear in the dated report, produce matching entity trend deltas, and keep
 untracked candidates empty under starter config.
-The automated first-run smoke also validates the external-tool adapter registry
-JSON contract from `external-tool-adapters --format json` across all eight
-adapters.
+The automated first-run smoke also validates local external-tool JSON
+contracts: `external-tool-adapters --format json` across all eight adapters,
+plus the `external-tool-template --adapter rednote_mcp --format json`,
+`external-tool-workflow --adapter rednote_mcp --format json`, and
+`external-tool-readiness --adapter rednote_mcp --format json` outputs generated
+with the `rednote_mcp` adapter. These are command-output contract checks only;
+they do not run adapters or upstream external/community tools, do not call
+platform APIs, and do not perform source acquisition.
 Temporary smokes do not leave dashboard-inspectable repo-local reports; use the
 manual repo-local sample flow when you want dashboard output under
 `reports/`.
