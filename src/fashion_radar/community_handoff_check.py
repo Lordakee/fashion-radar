@@ -21,6 +21,7 @@ from fashion_radar.importers.manual_signals import (
     ManualSignalImportError,
     dry_run_manual_signal_directory,
 )
+from fashion_radar.lint_formatting import format_count_label
 from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
 from fashion_radar.utils.dates import parse_datetime_utc
 
@@ -187,7 +188,7 @@ def render_community_handoff_directory_check_table(
             f"{result.community_signal_lint.file_count} files, "
             f"{result.community_signal_lint.valid_row_count}/"
             f"{result.community_signal_lint.row_count} import-ready rows, "
-            f"{result.community_signal_lint.error_count} errors"
+            f"{format_count_label(result.community_signal_lint.error_count, 'error', 'errors')}"
         ),
         (
             "Candidate preview: "
@@ -205,7 +206,7 @@ def render_community_handoff_directory_check_table(
             f"{result.import_dry_run.valid_file_count}/"
             f"{result.import_dry_run.file_count} valid files, "
             f"{result.import_dry_run.row_count} rows, "
-            f"{result.import_dry_run.error_count} errors"
+            f"{format_count_label(result.import_dry_run.error_count, 'error', 'errors')}"
         ),
         "Does not import rows or write SQLite.",
     ]

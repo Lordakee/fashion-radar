@@ -307,3 +307,42 @@ def test_render_community_handoff_directory_check_table_sanitizes_cells(
     assert "|" not in lines[2].split("Directory: ", 1)[1]
     assert "Source name: Source / Name Wrapped" in lines
     assert "Does not import rows or write SQLite." in lines
+
+
+def test_render_community_handoff_directory_check_table_uses_singular_error_label(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "configs"
+    directory = tmp_path / "signals"
+    _write_config(config_dir)
+    _write_csv_directory(directory)
+    scoring, settings, entity_config = _load_candidate_config(config_dir)
+
+    result = check_community_handoff_directory(
+        directory,
+        config_dir=config_dir,
+        input_format="csv",
+        pattern="*.csv",
+        as_of="2026-06-16T00:00:00Z",
+        scoring=scoring,
+        settings=settings,
+        entity_config=entity_config,
+        source_name="Community Tool Export",
+        strict=False,
+        limit=0,
+    )
+    result = result.model_copy(
+        update={
+            "community_signal_lint": result.community_signal_lint.model_copy(
+                update={"error_count": 1}
+            ),
+            "import_dry_run": result.import_dry_run.model_copy(update={"error_count": 1}),
+        }
+    )
+
+    lines = render_community_handoff_directory_check_table(result)
+    lint_line = next(line for line in lines if line.startswith("Lint: "))
+    import_line = next(line for line in lines if line.startswith("Import dry-run: "))
+
+    assert lint_line.endswith(", 1 error")
+    assert import_line.endswith(", 1 error")
