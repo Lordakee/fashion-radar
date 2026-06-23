@@ -313,7 +313,7 @@ Platforms: community=2
 Findings: 1 error, 3 warnings, 2 info
 Files:
 - exports/a.csv: 2 rows, 2 import-ready, 0 errors, 0 warnings, 0 info
-- exports/b.csv: 1 rows, 0 import-ready, 1 error, 3 warnings, 2 info
+- exports/b.csv: 1 row, 0 import-ready, 1 error, 3 warnings, 2 info
 Severity | File | Code | Row | Field | Message
 error | exports/b.csv | invalid_row | 2 | row | Row is not import-ready: ...
 ```

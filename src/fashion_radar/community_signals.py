@@ -12,7 +12,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from fashion_radar.importers.manual_signals import ManualSignalFormat, ManualSignalRow
-from fashion_radar.lint_formatting import format_finding_counts
+from fashion_radar.lint_formatting import format_count_label, format_finding_counts
 
 ALLOWED_COMMUNITY_SIGNAL_FIELDS = {
     "url",
@@ -322,7 +322,7 @@ def render_community_signal_directory_lint_table(
         lines.append("Files:")
         for file in result.files:
             lines.append(
-                f"- {file.path}: {file.row_count} rows, "
+                f"- {file.path}: {format_count_label(file.row_count, 'row', 'rows')}, "
                 f"{file.valid_row_count} import-ready, "
                 f"{format_finding_counts(file.error_count, file.warning_count, file.info_count)}"
             )

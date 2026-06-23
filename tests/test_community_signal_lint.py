@@ -756,6 +756,7 @@ def test_render_community_signal_directory_lint_table_singularizes_finding_count
     lines = render_community_signal_directory_lint_table(result)
     file_line = next(line for line in lines if line.startswith("- exports/signals.csv:"))
 
+    assert file_line.startswith("- exports/signals.csv: 1 row, 0 import-ready, ")
     assert "Findings: 1 error, 1 warning, 1 info" in lines
     assert "1 error, 1 warning, 1 info" in file_line
 
