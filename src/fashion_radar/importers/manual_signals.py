@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from sqlalchemy.engine import Engine
 
 from fashion_radar.db.repositories import ItemRepository
+from fashion_radar.lint_formatting import format_count_label
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceType
 from fashion_radar.utils.dates import parse_datetime_utc
@@ -327,7 +328,11 @@ def render_manual_signal_directory_dry_run_table(
     if result.files:
         lines.append("Files:")
         for file in result.files:
-            lines.append(f"- {file.path}: {file.row_count} rows, {file.error_count} errors")
+            lines.append(
+                f"- {file.path}: "
+                f"{format_count_label(file.row_count, 'row', 'rows')}, "
+                f"{format_count_label(file.error_count, 'error', 'errors')}"
+            )
     if not result.findings and all(not file.findings for file in result.files):
         lines.append("No manual signal directory dry-run errors.")
         return lines

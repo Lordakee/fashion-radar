@@ -10,7 +10,9 @@ from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
 from fashion_radar.db.schema import collector_runs, initialize_schema, source_health
 from fashion_radar.importers.manual_signals import (
+    ManualSignalDirectoryDryRunFinding,
     ManualSignalDirectoryImportResult,
+    ManualSignalDryRunFindingSeverity,
     ManualSignalImportError,
     dry_run_manual_signal_directory,
     load_manual_signal_directory_rows,
@@ -749,6 +751,48 @@ def test_render_manual_signal_directory_dry_run_table_includes_summary_and_files
     assert "Rows: 1 import-ready" in lines
     assert any(line.startswith(f"- {tmp_path / 'signals.csv'}:") for line in lines)
     assert "No manual signal directory dry-run errors." in lines
+
+
+def test_render_manual_signal_directory_dry_run_table_uses_singular_file_count_labels(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "signals.csv"
+    path.write_text(
+        "url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00Z\n",
+        encoding="utf-8",
+    )
+
+    result = dry_run_manual_signal_directory(
+        tmp_path,
+        input_format="csv",
+        pattern="*.csv",
+        default_source_name="Fallback Source",
+    )
+    file_finding = ManualSignalDirectoryDryRunFinding(
+        severity=ManualSignalDryRunFindingSeverity.ERROR,
+        code="synthetic_renderer_error",
+        message="Synthetic renderer-only error.",
+        path=str(path),
+    )
+    result = result.model_copy(
+        update={
+            "error_count": 1,
+            "files": [
+                result.files[0].model_copy(
+                    update={
+                        "row_count": 1,
+                        "error_count": 1,
+                        "findings": [file_finding],
+                    }
+                )
+            ],
+        }
+    )
+
+    lines = render_manual_signal_directory_dry_run_table(result)
+    file_line = next(line for line in lines if line.startswith(f"- {path}:"))
+
+    assert file_line.endswith(": 1 row, 1 error")
 
 
 def test_manual_signal_directory_dry_run_does_not_use_path_glob() -> None:
