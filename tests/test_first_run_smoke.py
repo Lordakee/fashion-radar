@@ -14,17 +14,13 @@ import pytest
 
 from fashion_radar.community_handoff_workflow import build_community_handoff_workflow
 from fashion_radar.external_tool_adapters import build_external_tool_adapter_registry
+from fashion_radar.external_tool_readiness import build_external_tool_readiness
 from fashion_radar.external_tool_templates import (
     build_external_tool_template,
     render_external_tool_template_json,
 )
 from fashion_radar.external_tool_workflow import build_external_tool_workflow
 from fashion_radar.imported_review_workflow import build_imported_review_workflow
-
-try:
-    from fashion_radar.external_tool_readiness import build_external_tool_readiness
-except ModuleNotFoundError:  # pragma: no cover - removed once Stage 66 core lands.
-    build_external_tool_readiness = None
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "check_first_run_smoke.py"
@@ -1488,13 +1484,7 @@ def test_external_tool_workflow_payload_matches_real_rednote_workflow() -> None:
     assert external_tool_workflow_payload() == expected
 
 
-@pytest.mark.skipif(
-    build_external_tool_readiness is None,
-    reason="Stage 66 core external_tool_readiness module is not implemented yet.",
-)
 def test_external_tool_readiness_payload_matches_real_rednote_readiness() -> None:
-    assert build_external_tool_readiness is not None
-
     assert external_tool_readiness_payload() == json.loads(
         build_external_tool_readiness(
             adapter_id="rednote_mcp",
@@ -1505,6 +1495,16 @@ def test_external_tool_readiness_payload_matches_real_rednote_readiness() -> Non
             which=lambda command: None,
         ).model_dump_json()
     )
+
+
+def test_external_tool_readiness_payload_parity_is_not_conditionally_skipped() -> None:
+    marks = getattr(
+        test_external_tool_readiness_payload_matches_real_rednote_readiness,
+        "pytestmark",
+        [],
+    )
+
+    assert all(mark.name != "skipif" for mark in marks)
 
 
 def test_imported_review_workflow_payload_matches_real_builder() -> None:
