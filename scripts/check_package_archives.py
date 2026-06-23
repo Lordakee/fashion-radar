@@ -359,7 +359,10 @@ def validate_wheel_metadata(
     expected_metadata: ExpectedProjectMetadata,
 ) -> list[str]:
     metadata_path = f"{dist_info_dir}/METADATA"
-    metadata = read_zip_text(archive, metadata_path)
+    try:
+        metadata = read_zip_text(archive, metadata_path)
+    except UnicodeDecodeError:
+        return ["METADATA is not valid UTF-8"]
     parsed_metadata = Parser().parsestr(metadata)
     errors = []
     if parsed_metadata.get("Name") != expected_metadata.name:
@@ -375,7 +378,10 @@ def validate_wheel_entry_points(
     expected_metadata: ExpectedProjectMetadata,
 ) -> list[str]:
     entry_points_path = f"{dist_info_dir}/entry_points.txt"
-    entry_points = read_zip_text(archive, entry_points_path)
+    try:
+        entry_points = read_zip_text(archive, entry_points_path)
+    except UnicodeDecodeError:
+        return ["entry_points.txt is not valid UTF-8"]
     parser = configparser.ConfigParser(interpolation=None)
     parser.optionxform = str
     try:

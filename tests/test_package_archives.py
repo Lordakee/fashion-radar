@@ -153,7 +153,7 @@ def run_checker(build_dir: Path) -> subprocess.CompletedProcess[str]:
 def write_wheel(
     build_dir: Path,
     *,
-    files: dict[str, str] | None = None,
+    files: dict[str, str | bytes] | None = None,
     filename: str = EXPECTED_WHEEL_ARCHIVE_NAME,
 ) -> Path:
     path = build_dir / filename
@@ -1054,6 +1054,23 @@ def test_rejects_wheel_metadata_without_project_version(tmp_path: Path) -> None:
     assert f"METADATA is missing Version: {EXPECTED_METADATA.version}" in result.stderr
 
 
+def test_rejects_wheel_metadata_with_invalid_utf8_without_traceback(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    wheel_files = WHEEL_FILES | {f"{EXPECTED_WHEEL_DIST_INFO_DIR}/METADATA": b"\xff\xfe\xfa"}
+    write_wheel(build_dir, files=wheel_files)
+    write_sdist(build_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert "METADATA is not valid UTF-8" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert "UnicodeDecodeError" not in result.stderr
+
+
 def test_rejects_wheel_entry_points_without_console_script(tmp_path: Path) -> None:
     build_dir = tmp_path / "dist"
     build_dir.mkdir()
@@ -1139,3 +1156,22 @@ def test_rejects_wheel_entry_points_malformed_without_traceback(
     assert result.returncode == 1
     assert "entry_points.txt is invalid:" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+def test_rejects_wheel_entry_points_with_invalid_utf8_without_traceback(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    wheel_files = WHEEL_FILES | {
+        f"{EXPECTED_WHEEL_DIST_INFO_DIR}/entry_points.txt": b"\xff\xfe\xfa"
+    }
+    write_wheel(build_dir, files=wheel_files)
+    write_sdist(build_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert "entry_points.txt is not valid UTF-8" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert "UnicodeDecodeError" not in result.stderr
