@@ -374,6 +374,14 @@ platform automation, or external services. A successful source-checkout or
 installed-wheel first-run smoke prints `First-run sample smoke passed.`.
 The smoke also validates sample rows, matched starter entities, report content,
 trend deltas, empty untracked candidates, and directory handoff dry-run counts.
+The automated first-run smoke also validates local external-tool JSON
+contracts: `external-tool-adapters --format json` across all eight adapters,
+plus the `external-tool-template --adapter rednote_mcp --format json`,
+`external-tool-workflow --adapter rednote_mcp --format json`, and
+`external-tool-readiness --adapter rednote_mcp --format json` outputs generated
+with the `rednote_mcp` adapter. These are command-output contract checks only;
+they do not run adapters or upstream external/community tools, do not call
+platform APIs, and do not perform source acquisition.
 
 Use `/tmp` for build artifacts:
 

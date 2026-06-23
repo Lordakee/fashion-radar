@@ -1342,6 +1342,8 @@ def test_upload_checklist_documents_first_run_smoke_boundary() -> None:
         "The smoke also validates sample rows, matched starter entities, report content, "
         "trend deltas, empty untracked candidates, and directory handoff dry-run counts."
     ) in normalized
+    for term in FIRST_RUN_EXTERNAL_TOOL_SMOKE_PHRASES:
+        assert term in normalized
 
 
 def test_community_import_docs_promote_checked_in_example_import() -> None:
