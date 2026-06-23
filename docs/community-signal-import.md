@@ -201,6 +201,27 @@ recommended CSV/JSON pattern, and the same local profile, manifest, workflow,
 lint, readiness, dry-run, import, and review commands used elsewhere in this
 guide.
 
+Known adapter ids:
+
+| Adapter id | Display/source name | Platform label | Format | Pattern |
+| --- | --- | --- | --- | --- |
+| `rednote_mcp` | Rednote MCP Export | `rednote` | `json` | `*.json` |
+| `xiaohongshu_crawler` | Xiaohongshu Crawler Export | `xiaohongshu` | `csv` | `*.csv` |
+| `instaloader` | Instaloader Export | `instagram` | `json` | `*.json` |
+| `tiktok_api` | TikTok-Api Export | `tiktok` | `json` | `*.json` |
+| `yt_dlp` | yt-dlp Metadata Export | `media` | `json` | `*.json` |
+| `x_search_export` | X Search Export | `x` | `csv` | `*.csv` |
+| `xpoz_mcp` | XPOZ MCP Export | `community` | `json` | `*.json` |
+| `generic_community_export` | Generic Community Export | `community` | `csv` | `*.csv` |
+
+The Display/source name column reflects the current registry `display_name` and
+`suggested_source_name` values, which are identical for these adapters.
+
+The Platform label column reflects `suggested_platform_labels` as advisory local
+provenance label guidance for the optional handoff `platform` field. These
+labels are local provenance suggestions only: they are not a schema enum, not a
+linter restriction, not platform coverage, and not demand proof.
+
 Each adapter command list includes `external-tool-readiness` as an optional
 local read-only preflight command, while `external-tool-adapters` itself
 remains print-only and does not run readiness or perform PATH lookup.

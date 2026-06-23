@@ -11,6 +11,7 @@ import pytest
 from fashion_radar.community_signal_profile import build_community_signal_profile
 from fashion_radar.community_signals import lint_community_signal_file
 from fashion_radar.external_tool_adapters import (
+    ExternalToolAdapter,
     build_external_tool_adapter_registry,
 )
 from fashion_radar.external_tool_readiness import build_external_tool_readiness
@@ -25,6 +26,11 @@ DIRECTORY = Path("./exports")
 CONFIG_DIR = Path("./configs")
 DATA_DIR = Path("./data")
 AS_OF = "2026-06-13T12:00:00Z"
+ROOT = Path(__file__).resolve().parents[1]
+COMMUNITY_SIGNAL_EXTERNAL_TOOL_DOCS = (
+    ROOT / "docs" / "community-signal-import.md",
+    ROOT / "docs" / "community-signal-quality.md",
+)
 
 EXPECTED_ADAPTER_IDS = [
     "rednote_mcp",
@@ -84,6 +90,14 @@ def registry():
     )
 
 
+def _adapter_catalog_doc_row(adapter: ExternalToolAdapter) -> str:
+    return (
+        f"| `{adapter.id}` | {adapter.display_name} | "
+        f"`{adapter.platform_label}` | `{adapter.recommended_input_format}` | "
+        f"`{adapter.recommended_pattern}` |"
+    )
+
+
 def test_every_adapter_field_mapping_matches_community_signal_profile(registry) -> None:
     profile = build_community_signal_profile()
 
@@ -101,6 +115,31 @@ def test_every_adapter_field_mapping_matches_community_signal_profile(registry) 
 
     assert "suggested_platform_labels" not in profile.allowed_fields
     assert "suggested_platform_labels" not in set(profile.csv_header)
+
+
+def test_community_signal_docs_list_current_external_tool_adapter_catalog(registry) -> None:
+    expected_rows = [_adapter_catalog_doc_row(adapter) for adapter in registry.adapters]
+
+    for doc_path in COMMUNITY_SIGNAL_EXTERNAL_TOOL_DOCS:
+        normalized = " ".join(doc_path.read_text(encoding="utf-8").split())
+
+        assert "Known adapter ids:" in normalized
+        assert (
+            "| Adapter id | Display/source name | Platform label | Format | Pattern |" in normalized
+        )
+        for row in expected_rows:
+            assert row in normalized, f"{doc_path.relative_to(ROOT)} missing {row!r}"
+
+        for phrase in (
+            "Display/source name column",
+            "suggested_platform_labels",
+            "advisory local provenance",
+            "not a schema enum",
+            "not a linter restriction",
+            "not platform coverage",
+            "not demand proof",
+        ):
+            assert phrase in normalized, f"{doc_path.relative_to(ROOT)} missing {phrase!r}"
 
 
 def test_every_template_model_mirrors_adapter_contract(registry) -> None:
