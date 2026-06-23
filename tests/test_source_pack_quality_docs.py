@@ -101,7 +101,9 @@ def test_source_pack_quality_json_sample_matches_public_pack_lint_output() -> No
     payload = _source_pack_quality_json_sample()
     result = lint_source_pack(PUBLIC_SOURCE_PACK)
     documented_path = PUBLIC_SOURCE_PACK.relative_to(ROOT).as_posix()
+    runtime_payload = result.model_dump(mode="json")
 
+    assert set(payload) == set(runtime_payload)
     assert payload["path"] == documented_path
     assert payload["source_count"] == result.source_count
     assert payload["enabled_count"] == result.enabled_count
