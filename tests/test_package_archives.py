@@ -1138,6 +1138,28 @@ def test_rejects_wheel_entry_points_console_script_wrong_target(
     ) in result.stderr
 
 
+def test_rejects_wheel_entry_points_console_script_name_case_mismatch(
+    tmp_path: Path,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    wheel_files = WHEEL_FILES | {
+        f"{EXPECTED_WHEEL_DIST_INFO_DIR}/entry_points.txt": (
+            "[console_scripts]\nFashion-Radar = fashion_radar.cli:app\n"
+        )
+    }
+    write_wheel(build_dir, files=wheel_files)
+    write_sdist(build_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "entry_points.txt is missing console_scripts entry: fashion-radar = fashion_radar.cli:app"
+    ) in result.stderr
+    assert "Traceback" not in result.stderr
+
+
 def test_rejects_wheel_entry_points_malformed_without_traceback(
     tmp_path: Path,
 ) -> None:
