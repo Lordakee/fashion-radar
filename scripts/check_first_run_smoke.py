@@ -903,6 +903,7 @@ def validate_community_handoff_check_dir(
     assert_equal(f"{command_name} ok", payload.get("ok"), True)
     assert_equal(f"{command_name} failed_check_count", payload.get("failed_check_count"), 0)
     assert_equal(f"{command_name} warning_count", payload.get("warning_count"), 0)
+    assert_equal(f"{command_name} findings", payload.get("findings"), [])
 
     lint = payload.get("community_signal_lint")
     if not isinstance(lint, dict):
@@ -912,6 +913,25 @@ def validate_community_handoff_check_dir(
     assert_equal(f"{command_name} lint valid_row_count", lint.get("valid_row_count"), 2)
     assert_equal(f"{command_name} lint error_count", lint.get("error_count"), 0)
     assert_equal(f"{command_name} lint warning_count", lint.get("warning_count"), 0)
+    assert_equal(f"{command_name} lint directory", lint.get("directory"), expected_directory)
+    assert_equal(f"{command_name} lint input_format", lint.get("input_format"), "csv")
+    assert_equal(f"{command_name} lint pattern", lint.get("pattern"), DIR_PATTERN)
+    assert_equal(f"{command_name} lint info_count", lint.get("info_count"), 0)
+    assert_equal(
+        f"{command_name} lint field_counts",
+        lint.get("field_counts"),
+        {field: len(EXPECTED_SAMPLE_ROWS) for field in EXPECTED_EXTERNAL_TOOL_TEMPLATE_FIELDS},
+    )
+    assert_equal(
+        f"{command_name} lint source_name_counts",
+        lint.get("source_name_counts"),
+        EXPECTED_SOURCE_COUNTS,
+    )
+    assert_equal(
+        f"{command_name} lint platform_counts",
+        lint.get("platform_counts"),
+        EXPECTED_PLATFORM_COUNTS,
+    )
 
     candidate_preview = payload.get("candidate_preview")
     if not isinstance(candidate_preview, dict):
@@ -926,6 +946,56 @@ def validate_community_handoff_check_dir(
         candidate_preview.get("row_count"),
         2,
     )
+    assert_equal(
+        f"{command_name} candidate_preview input_format",
+        candidate_preview.get("input_format"),
+        "csv",
+    )
+    assert_equal(
+        f"{command_name} candidate_preview as_of",
+        candidate_preview.get("as_of"),
+        "2026-06-13T12:00:00+00:00",
+    )
+    assert_equal(
+        f"{command_name} candidate_preview current_window_start",
+        candidate_preview.get("current_window_start"),
+        "2026-06-06T12:00:00+00:00",
+    )
+    assert_equal(
+        f"{command_name} candidate_preview baseline_window_start",
+        candidate_preview.get("baseline_window_start"),
+        "2026-05-07T12:00:00+00:00",
+    )
+    assert_equal(
+        f"{command_name} candidate_preview current_days",
+        candidate_preview.get("current_days"),
+        7,
+    )
+    assert_equal(
+        f"{command_name} candidate_preview baseline_days",
+        candidate_preview.get("baseline_days"),
+        30,
+    )
+    assert_equal(
+        f"{command_name} candidate_preview source_name",
+        candidate_preview.get("source_name"),
+        SOURCE_NAME,
+    )
+    assert_equal(
+        f"{command_name} candidate_preview file_count",
+        candidate_preview.get("file_count"),
+        1,
+    )
+    assert_equal(
+        f"{command_name} candidate_preview limit",
+        candidate_preview.get("limit"),
+        50,
+    )
+    assert_equal(
+        f"{command_name} candidate_preview candidates",
+        candidate_preview.get("candidates"),
+        [],
+    )
 
     import_dry_run = payload.get("import_dry_run")
     if not isinstance(import_dry_run, dict):
@@ -938,6 +1008,31 @@ def validate_community_handoff_check_dir(
     )
     assert_equal(f"{command_name} import dry-run row_count", import_dry_run.get("row_count"), 2)
     assert_equal(f"{command_name} import dry-run error_count", import_dry_run.get("error_count"), 0)
+    assert_equal(
+        f"{command_name} import dry-run directory",
+        import_dry_run.get("directory"),
+        expected_directory,
+    )
+    assert_equal(
+        f"{command_name} import dry-run input_format",
+        import_dry_run.get("input_format"),
+        "csv",
+    )
+    assert_equal(
+        f"{command_name} import dry-run pattern",
+        import_dry_run.get("pattern"),
+        DIR_PATTERN,
+    )
+    assert_equal(
+        f"{command_name} import dry-run source_name_counts",
+        import_dry_run.get("source_name_counts"),
+        EXPECTED_SOURCE_COUNTS,
+    )
+    assert_equal(
+        f"{command_name} import dry-run platform_counts",
+        import_dry_run.get("platform_counts"),
+        EXPECTED_PLATFORM_COUNTS,
+    )
 
 
 def assert_output_contains(command_name: str, output: str, expected_lines: Sequence[str]) -> None:

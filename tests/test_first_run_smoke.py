@@ -2291,6 +2291,7 @@ def test_validate_community_handoff_check_dir_accepts_first_run_payload() -> Non
         ("failed_check_count", 1, "failed_check_count"),
         ("warning_count", 1, "warning_count"),
         ("strict", False, "strict"),
+        ("findings", [{"code": "unexpected"}], "findings"),
     ],
 )
 def test_validate_community_handoff_check_dir_rejects_top_level_drift(
@@ -2312,6 +2313,116 @@ def test_validate_community_handoff_check_dir_rejects_nested_count_drift() -> No
     lint["row_count"] = 5
 
     with pytest.raises(smoke.SmokeError, match="lint row_count"):
+        smoke.validate_community_handoff_check_dir("community-handoff-check-dir", payload)
+
+
+@pytest.mark.parametrize(
+    ("section", "field", "value", "match"),
+    [
+        ("community_signal_lint", "directory", "/tmp/other-export", "lint directory"),
+        ("community_signal_lint", "input_format", "json", "lint input_format"),
+        ("community_signal_lint", "pattern", "*.json", "lint pattern"),
+        ("community_signal_lint", "info_count", 1, "lint info_count"),
+        ("import_dry_run", "directory", "/tmp/other-export", "import dry-run directory"),
+        ("import_dry_run", "input_format", "json", "import dry-run input_format"),
+        ("import_dry_run", "pattern", "*.json", "import dry-run pattern"),
+    ],
+)
+def test_validate_community_handoff_check_dir_rejects_nested_identity_drift(
+    section: str,
+    field: str,
+    value: object,
+    match: str,
+) -> None:
+    payload = community_handoff_check_dir_payload()
+    nested = payload[section]
+    assert isinstance(nested, dict)
+    nested[field] = value
+
+    with pytest.raises(smoke.SmokeError, match=match):
+        smoke.validate_community_handoff_check_dir("community-handoff-check-dir", payload)
+
+
+@pytest.mark.parametrize(
+    ("section", "field", "value", "match"),
+    [
+        (
+            "community_signal_lint",
+            "source_name_counts",
+            {"Other Source": 2},
+            "lint source_name_counts",
+        ),
+        ("community_signal_lint", "platform_counts", {"other": 2}, "lint platform_counts"),
+        (
+            "import_dry_run",
+            "source_name_counts",
+            {"Other Source": 2},
+            "import dry-run source_name_counts",
+        ),
+        ("import_dry_run", "platform_counts", {"other": 2}, "import dry-run platform_counts"),
+    ],
+)
+def test_validate_community_handoff_check_dir_rejects_nested_source_platform_count_drift(
+    section: str,
+    field: str,
+    value: object,
+    match: str,
+) -> None:
+    payload = community_handoff_check_dir_payload()
+    nested = payload[section]
+    assert isinstance(nested, dict)
+    nested[field] = value
+
+    with pytest.raises(smoke.SmokeError, match=match):
+        smoke.validate_community_handoff_check_dir("community-handoff-check-dir", payload)
+
+
+def test_validate_community_handoff_check_dir_rejects_lint_field_count_drift() -> None:
+    payload = community_handoff_check_dir_payload()
+    lint = payload["community_signal_lint"]
+    assert isinstance(lint, dict)
+    field_counts = lint["field_counts"]
+    assert isinstance(field_counts, dict)
+    field_counts["url"] = 1
+
+    with pytest.raises(smoke.SmokeError, match="lint field_counts"):
+        smoke.validate_community_handoff_check_dir("community-handoff-check-dir", payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "match"),
+    [
+        ("input_format", "json", "candidate_preview input_format"),
+        ("source_name", "Other Source", "candidate_preview source_name"),
+        ("as_of", "2026-06-14T12:00:00+00:00", "candidate_preview as_of"),
+        (
+            "current_window_start",
+            "2026-06-07T12:00:00+00:00",
+            "candidate_preview current_window_start",
+        ),
+        (
+            "baseline_window_start",
+            "2026-05-08T12:00:00+00:00",
+            "candidate_preview baseline_window_start",
+        ),
+        ("current_days", 8, "candidate_preview current_days"),
+        ("baseline_days", 31, "candidate_preview baseline_days"),
+        ("file_count", 2, "candidate_preview file_count"),
+        ("limit", 99, "candidate_preview limit"),
+        ("candidates", [{"name": "Unexpected"}], "candidate_preview candidates"),
+    ],
+)
+def test_validate_community_handoff_check_dir_rejects_candidate_preview_detail_drift(
+    field: str,
+    value: object,
+    match: str,
+) -> None:
+    payload = community_handoff_check_dir_payload()
+    candidate_preview = payload["candidate_preview"]
+    assert isinstance(candidate_preview, dict)
+    candidate_preview[field] = value
+
+    with pytest.raises(smoke.SmokeError, match=match):
         smoke.validate_community_handoff_check_dir("community-handoff-check-dir", payload)
 
 
