@@ -124,10 +124,11 @@ YAML config
   checks command availability only with local PATH lookup (`shutil.which`) for
   known free
   external/community tools such as Rednote MCP, Xiaohongshu crawler,
-  Instaloader, TikTok-Api, yt-dlp, and X/search exports. It prints
-  mirror-friendly install hints and Fashion Radar next-step handoff commands
-  for user-controlled external/community tools producing sanitized CSV/JSON
-  local file handoff rows. It does not install dependencies automatically, does
+  Instaloader, TikTok-Api, yt-dlp, X/search exports, and XPOZ MCP / Social Data
+  API exports created outside Fashion Radar. It prints mirror-friendly install
+  hints and Fashion Radar next-step handoff commands for user-controlled
+  external/community tools producing sanitized CSV/JSON local file handoff
+  rows. It does not install dependencies automatically, does
   not run adapters, does not run upstream tools, does not inspect directories,
   does not read handoff files, import rows, open or write SQLite, or create
   config/data/report/dashboard/workflow/handoff artifacts. It is not a

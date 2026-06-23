@@ -256,6 +256,17 @@ EXTERNAL_TOOL_READINESS_DOCS = (
     ROOT / "CHANGELOG.md",
 )
 
+EXTERNAL_TOOL_READINESS_XPOZ_DISCOVERABILITY_DOCS = (
+    README,
+    CLI_REFERENCE,
+    COMMUNITY_SIGNAL_IMPORT_DOC,
+    COMMUNITY_SIGNAL_QUALITY_DOC,
+    SOURCE_BOUNDARIES_DOC,
+    ARCHITECTURE_DOC,
+    UPLOAD_CHECKLIST,
+    CHANGELOG,
+)
+
 EXTERNAL_TOOL_READINESS_BOUNDARY_PHRASES = (
     "local read-only",
     "command availability only",
@@ -2107,6 +2118,29 @@ def test_external_tool_readiness_docs_are_linked_and_bounded() -> None:
         assert "external tool readiness" in normalized, path.relative_to(ROOT)
         for phrase in EXTERNAL_TOOL_READINESS_BOUNDARY_PHRASES:
             assert phrase.casefold() in normalized, f"{path.relative_to(ROOT)} missing {phrase!r}"
+
+
+def test_external_tool_readiness_docs_include_xpoz_discoverability() -> None:
+    for path in EXTERNAL_TOOL_READINESS_XPOZ_DISCOVERABILITY_DOCS:
+        normalized = _normalized_doc_text(path).casefold()
+        for phrase in (
+            "xpoz mcp",
+            "social data api",
+            "external-tool-readiness",
+            "sanitized csv/json local file handoff",
+        ):
+            assert phrase.casefold() in normalized, f"{path.relative_to(ROOT)} missing {phrase!r}"
+
+    cli_reference = _read(CLI_REFERENCE)
+    checklist = _read(UPLOAD_CHECKLIST)
+    command = "fashion-radar external-tool-readiness --adapter xpoz_mcp --format json"
+    installed_wheel_command = (
+        '"$tmp_env/venv/bin/fashion-radar" external-tool-readiness --adapter xpoz_mcp --format json'
+    )
+
+    assert command in cli_reference
+    assert command in checklist
+    assert installed_wheel_command in checklist
 
 
 def test_external_tool_readiness_upload_checklist_help_loop_and_smoke() -> None:

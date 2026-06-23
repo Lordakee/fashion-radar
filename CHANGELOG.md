@@ -8,6 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 173 docs/test parity for XPOZ MCP / Social Data API
+  `external-tool-readiness` discoverability for sanitized CSV/JSON local file
+  handoff rows from user-controlled external/community tools. This is
+  docs/test-only and adds no XPOZ API calls, MCP execution, API keys,
+  connectors, scraping, browser automation, platform APIs, login/cookie/token
+  behavior, source acquisition, demand proof, ranking, coverage verification,
+  or compliance-review product feature.
 - Stage 80 external tool import onboarding docs for the local route from a
   user-controlled external export directory to sanitized CSV/JSON handoff,
   directory lint, candidate preview, readiness review, import, and post-import

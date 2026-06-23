@@ -128,10 +128,10 @@ and no coverage verification.
 read-only, not print-only, because it checks command availability only with
 local PATH lookup (`shutil.which`). It reports readiness guidance for known free
 external/community tools such as Rednote MCP, Xiaohongshu crawler, Instaloader,
-TikTok-Api, yt-dlp, and X/search exports, then prints mirror-friendly install
-hints and Fashion Radar next-step handoff commands for user-controlled
-external/community tools that produce sanitized CSV/JSON local file handoff
-rows.
+TikTok-Api, yt-dlp, X/search exports, and XPOZ MCP / Social Data API exports
+created outside Fashion Radar, then prints mirror-friendly install hints and
+Fashion Radar next-step handoff commands for user-controlled external/community
+tools that produce sanitized CSV/JSON local file handoff rows.
 
 ```bash
 uv run fashion-radar external-tool-readiness --adapter instaloader

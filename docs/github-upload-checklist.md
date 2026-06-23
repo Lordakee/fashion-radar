@@ -275,8 +275,9 @@ External tool readiness docs check:
 - [ ] Docs describe `external-tool-readiness` as local read-only, not
       print-only, because it performs command availability only with local PATH
       lookup (`shutil.which`) for known free external/community tools such as
-      Rednote MCP, Xiaohongshu crawler, Instaloader, TikTok-Api, yt-dlp, and
-      X/search exports.
+      Rednote MCP, Xiaohongshu crawler, Instaloader, TikTok-Api, yt-dlp,
+      X/search exports, and XPOZ MCP / Social Data API exports created outside
+      Fashion Radar.
 - [ ] Boundary text says the readiness command prints readiness guidance,
       mirror-friendly install hints, and Fashion Radar next-step handoff
       commands for user-controlled external/community tools producing
@@ -293,11 +294,13 @@ External tool readiness docs check:
 - [ ] CLI reference and installed-wheel smoke include `fashion-radar
       external-tool-readiness --adapter instaloader --format table` and
       `fashion-radar external-tool-readiness --adapter instaloader --format
-      json`.
+      json`, plus
+      `fashion-radar external-tool-readiness --adapter xpoz_mcp --format json`.
 
       ```bash
       fashion-radar external-tool-readiness --adapter instaloader --format table
       fashion-radar external-tool-readiness --adapter instaloader --format json
+      fashion-radar external-tool-readiness --adapter xpoz_mcp --format json
       ```
 
 ## Exclude
@@ -439,6 +442,7 @@ printf 'url,title,published_at\nhttps://example.com/a,Signal,2026-06-12T08:00:00
 "$tmp_env/venv/bin/fashion-radar" external-tool-readiness --adapter instaloader --format table
 "$tmp_env/venv/bin/fashion-radar" external-tool-readiness --adapter instaloader --format json
 "$tmp_env/venv/bin/fashion-radar" external-tool-readiness --adapter rednote_mcp --format json
+"$tmp_env/venv/bin/fashion-radar" external-tool-readiness --adapter xpoz_mcp --format json
 "$tmp_env/venv/bin/fashion-radar" imported-signals --data-dir "$tmp_run/data" --as-of "2026-06-12T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-candidates --data-dir "$tmp_run/data" --config-dir "$tmp_run/config" --as-of "2026-06-13T12:00:00Z" --format json
 "$tmp_env/venv/bin/fashion-radar" imported-entity-evidence --data-dir "$tmp_run/data" --as-of "2026-06-13T12:00:00Z" --entity-name "The Row" --entity-type brand --format json

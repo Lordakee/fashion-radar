@@ -53,9 +53,10 @@ brands, or verify platform coverage.
   local commands before writing sanitized CSV/JSON local file handoff rows.
   JSON output is workflow metadata, not importable handoff rows.
 - Checks `external-tool-readiness` local command availability for known free
-  external/community tools and prints readiness guidance, mirror-friendly
-  install hints, and Fashion Radar next-step handoff commands without
-  installing dependencies or running upstream tools.
+  external/community tools, including XPOZ MCP / Social Data API exports
+  created outside Fashion Radar, and prints readiness guidance,
+  mirror-friendly install hints, and Fashion Radar next-step handoff commands
+  without installing dependencies or running upstream tools.
 - Prints the community signal producer contract for user-controlled local tools
   without reading handoff files, acquiring sources, monitoring platforms, or
   performing compliance review.
@@ -211,10 +212,11 @@ platform coverage.
 `external-tool-readiness` provides external tool readiness guidance and is local
 read-only, not print-only, because it checks command availability only with
 local PATH lookup (`shutil.which`) for known free external/community tools such
-as Rednote MCP, Xiaohongshu crawler, Instaloader, TikTok-Api, yt-dlp, and
-X/search exports. It prints readiness guidance, mirror-friendly install hints,
-and Fashion Radar next-step handoff commands for user-controlled
-external/community tools producing sanitized CSV/JSON local file handoff rows.
+as Rednote MCP, Xiaohongshu crawler, Instaloader, TikTok-Api, yt-dlp, X/search
+exports, and XPOZ MCP / Social Data API exports created outside Fashion Radar.
+It prints readiness guidance, mirror-friendly install hints, and Fashion Radar
+next-step handoff commands for user-controlled external/community tools
+producing sanitized CSV/JSON local file handoff rows.
 It does not install dependencies automatically, does not run
 adapters, does not run upstream tools, does not inspect directories, does not
 read handoff files, import rows, open or write SQLite, or create

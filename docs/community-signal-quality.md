@@ -238,10 +238,11 @@ source acquisition, no demand proof, no ranking, and no coverage verification.
 `external-tool-readiness` reports external tool readiness guidance and is local
 read-only, not print-only, because it checks command availability only with
 local PATH lookup (`shutil.which`) for known free external/community tools such
-as Rednote MCP, Xiaohongshu crawler, Instaloader, TikTok-Api, yt-dlp, and
-X/search exports. It prints readiness guidance, mirror-friendly install hints,
-and Fashion Radar next-step handoff commands for user-controlled
-external/community tools producing sanitized CSV/JSON local file handoff rows.
+as Rednote MCP, Xiaohongshu crawler, Instaloader, TikTok-Api, yt-dlp, X/search
+exports, and XPOZ MCP / Social Data API exports created outside Fashion Radar.
+It prints readiness guidance, mirror-friendly install hints, and Fashion Radar
+next-step handoff commands for user-controlled external/community tools
+producing sanitized CSV/JSON local file handoff rows.
 It does not install dependencies automatically, does not run
 adapters, does not run upstream tools, does not inspect directories, does not
 read handoff files, validate files, import rows, open SQLite, or create

@@ -163,8 +163,9 @@ scrape, does not call platform APIs, and does not add connectors.
   acquisition, no demand proof, no ranking, and no coverage verification.
 - `external-tool-readiness`: report external tool readiness and local command
   readiness for known free external/community tools such as Rednote MCP,
-  Xiaohongshu crawler, Instaloader, TikTok-Api, yt-dlp, and X/search exports.
-  Supports `--adapter`, `--directory`, `--config-dir`, `--data-dir`, `--as-of`,
+  Xiaohongshu crawler, Instaloader, TikTok-Api, yt-dlp, X/search exports, and
+  XPOZ MCP / Social Data API exports created outside Fashion Radar. Supports
+  `--adapter`, `--directory`, `--config-dir`, `--data-dir`, `--as-of`,
   `--input-format csv|json`, `--pattern`, `--source-name`, and
   `--format table|json`. It is local read-only, not print-only, because it
   performs command availability only with local PATH lookup (`shutil.which`).
@@ -247,6 +248,7 @@ fashion-radar external-tool-workflow --adapter instaloader --format table
 fashion-radar external-tool-workflow --adapter instaloader --format json
 fashion-radar external-tool-readiness --adapter instaloader --format table
 fashion-radar external-tool-readiness --adapter instaloader --format json
+fashion-radar external-tool-readiness --adapter xpoz_mcp --format json
 ```
 
 ## Imported Signal Review
