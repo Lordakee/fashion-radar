@@ -6,7 +6,10 @@ import pytest
 
 from fashion_radar.community_signals import (
     PROHIBITED_COMMUNITY_SIGNAL_FIELDS,
+    CommunitySignalDirectoryLintResult,
+    CommunitySignalFinding,
     CommunitySignalFindingSeverity,
+    CommunitySignalLintResult,
     lint_community_signal_directory,
     lint_community_signal_file,
     render_community_signal_directory_lint_table,
@@ -422,6 +425,81 @@ def test_render_community_signal_lint_table_includes_summary_and_findings(
     assert any("missing_source_name" in line for line in lines)
 
 
+def test_render_community_signal_lint_table_singularizes_one_finding_count() -> None:
+    result = CommunitySignalLintResult(
+        path="exports/signals.csv",
+        input_format="csv",
+        row_count=1,
+        valid_row_count=0,
+        findings=[
+            CommunitySignalFinding(
+                severity=CommunitySignalFindingSeverity.ERROR,
+                code="error_code",
+                message="Error message.",
+            ),
+            CommunitySignalFinding(
+                severity=CommunitySignalFindingSeverity.WARNING,
+                code="warning_code",
+                message="Warning message.",
+            ),
+            CommunitySignalFinding(
+                severity=CommunitySignalFindingSeverity.INFO,
+                code="info_code",
+                message="Info message.",
+            ),
+        ],
+    )
+
+    lines = render_community_signal_lint_table(result)
+
+    assert "Findings: 1 error, 1 warning, 1 info" in lines
+
+
+def test_render_community_signal_lint_table_keeps_plural_finding_counts() -> None:
+    result = CommunitySignalLintResult(
+        path="exports/signals.csv",
+        input_format="csv",
+        row_count=1,
+        valid_row_count=0,
+        findings=[
+            CommunitySignalFinding(
+                severity=CommunitySignalFindingSeverity.ERROR,
+                code="error_one",
+                message="Error one.",
+            ),
+            CommunitySignalFinding(
+                severity=CommunitySignalFindingSeverity.ERROR,
+                code="error_two",
+                message="Error two.",
+            ),
+            CommunitySignalFinding(
+                severity=CommunitySignalFindingSeverity.WARNING,
+                code="warning_one",
+                message="Warning one.",
+            ),
+            CommunitySignalFinding(
+                severity=CommunitySignalFindingSeverity.WARNING,
+                code="warning_two",
+                message="Warning two.",
+            ),
+            CommunitySignalFinding(
+                severity=CommunitySignalFindingSeverity.INFO,
+                code="info_one",
+                message="Info one.",
+            ),
+            CommunitySignalFinding(
+                severity=CommunitySignalFindingSeverity.INFO,
+                code="info_two",
+                message="Info two.",
+            ),
+        ],
+    )
+
+    lines = render_community_signal_lint_table(result)
+
+    assert "Findings: 2 errors, 2 warnings, 2 info" in lines
+
+
 def test_directory_lint_aggregates_matched_files_in_sorted_order(
     tmp_path: Path,
 ) -> None:
@@ -636,6 +714,110 @@ def test_render_community_signal_directory_lint_table_includes_aggregate_and_fil
     assert "Files: 1" in lines
     assert any(line.startswith(f"- {tmp_path / 'signals.csv'}:") for line in lines)
     assert "Severity | File | Code | Row | Field | Message" in lines
+
+
+def test_render_community_signal_directory_lint_table_singularizes_finding_counts() -> None:
+    file_result = CommunitySignalLintResult(
+        path="exports/signals.csv",
+        input_format="csv",
+        row_count=1,
+        valid_row_count=0,
+        findings=[
+            CommunitySignalFinding(
+                severity=CommunitySignalFindingSeverity.ERROR,
+                code="error_code",
+                message="Error message.",
+            ),
+            CommunitySignalFinding(
+                severity=CommunitySignalFindingSeverity.WARNING,
+                code="warning_code",
+                message="Warning message.",
+            ),
+            CommunitySignalFinding(
+                severity=CommunitySignalFindingSeverity.INFO,
+                code="info_code",
+                message="Info message.",
+            ),
+        ],
+    )
+    result = CommunitySignalDirectoryLintResult(
+        directory="exports",
+        input_format="csv",
+        pattern="*.csv",
+        file_count=1,
+        row_count=1,
+        valid_row_count=0,
+        error_count=1,
+        warning_count=1,
+        info_count=1,
+        files=[file_result],
+    )
+
+    lines = render_community_signal_directory_lint_table(result)
+    file_line = next(line for line in lines if line.startswith("- exports/signals.csv:"))
+
+    assert "Findings: 1 error, 1 warning, 1 info" in lines
+    assert "1 error, 1 warning, 1 info" in file_line
+
+
+def test_render_community_signal_directory_lint_table_keeps_plural_finding_counts() -> None:
+    findings = [
+        CommunitySignalFinding(
+            severity=CommunitySignalFindingSeverity.ERROR,
+            code="error_one",
+            message="Error one.",
+        ),
+        CommunitySignalFinding(
+            severity=CommunitySignalFindingSeverity.ERROR,
+            code="error_two",
+            message="Error two.",
+        ),
+        CommunitySignalFinding(
+            severity=CommunitySignalFindingSeverity.WARNING,
+            code="warning_one",
+            message="Warning one.",
+        ),
+        CommunitySignalFinding(
+            severity=CommunitySignalFindingSeverity.WARNING,
+            code="warning_two",
+            message="Warning two.",
+        ),
+        CommunitySignalFinding(
+            severity=CommunitySignalFindingSeverity.INFO,
+            code="info_one",
+            message="Info one.",
+        ),
+        CommunitySignalFinding(
+            severity=CommunitySignalFindingSeverity.INFO,
+            code="info_two",
+            message="Info two.",
+        ),
+    ]
+    file_result = CommunitySignalLintResult(
+        path="exports/signals.csv",
+        input_format="csv",
+        row_count=1,
+        valid_row_count=0,
+        findings=findings,
+    )
+    result = CommunitySignalDirectoryLintResult(
+        directory="exports",
+        input_format="csv",
+        pattern="*.csv",
+        file_count=1,
+        row_count=1,
+        valid_row_count=0,
+        error_count=2,
+        warning_count=2,
+        info_count=2,
+        files=[file_result],
+    )
+
+    lines = render_community_signal_directory_lint_table(result)
+    file_line = next(line for line in lines if line.startswith("- exports/signals.csv:"))
+
+    assert "Findings: 2 errors, 2 warnings, 2 info" in lines
+    assert "2 errors, 2 warnings, 2 info" in file_line
 
 
 def test_render_community_signal_directory_lint_table_clean_directory(

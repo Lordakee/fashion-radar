@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from fashion_radar.importers.manual_signals import ManualSignalFormat, ManualSignalRow
+from fashion_radar.lint_formatting import format_finding_counts
 
 ALLOWED_COMMUNITY_SIGNAL_FIELDS = {
     "url",
@@ -283,8 +284,8 @@ def render_community_signal_lint_table(result: CommunitySignalLintResult) -> lis
         f"Sources: {_format_counts(result.source_name_counts)}",
         f"Platforms: {_format_counts(result.platform_counts)}",
         (
-            f"Findings: {result.error_count} errors, {result.warning_count} warnings, "
-            f"{result.info_count} info"
+            "Findings: "
+            f"{format_finding_counts(result.error_count, result.warning_count, result.info_count)}"
         ),
     ]
     if not result.findings:
@@ -313,8 +314,8 @@ def render_community_signal_directory_lint_table(
         f"Sources: {_format_counts(result.source_name_counts)}",
         f"Platforms: {_format_counts(result.platform_counts)}",
         (
-            f"Findings: {result.error_count} errors, {result.warning_count} warnings, "
-            f"{result.info_count} info"
+            "Findings: "
+            f"{format_finding_counts(result.error_count, result.warning_count, result.info_count)}"
         ),
     ]
     if result.files:
@@ -322,8 +323,8 @@ def render_community_signal_directory_lint_table(
         for file in result.files:
             lines.append(
                 f"- {file.path}: {file.row_count} rows, "
-                f"{file.valid_row_count} import-ready, {file.error_count} errors, "
-                f"{file.warning_count} warnings, {file.info_count} info"
+                f"{file.valid_row_count} import-ready, "
+                f"{format_finding_counts(file.error_count, file.warning_count, file.info_count)}"
             )
     if not result.findings and all(not file.findings for file in result.files):
         lines.append("No community-signal directory findings.")

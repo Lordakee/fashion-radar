@@ -10,6 +10,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from fashion_radar.extract.text import normalize_alias_key
+from fashion_radar.lint_formatting import format_finding_counts
 from fashion_radar.models.entity import AliasDefinition, EntityDefinition, EntityType
 from fashion_radar.settings import UNSAFE_COMMON_ALIASES, ConfigError, load_entity_config
 
@@ -121,8 +122,8 @@ def render_entity_pack_lint_table(result: EntityPackLintResult) -> list[str]:
         f"Aliases: {result.alias_count} total",
         f"Types: {_format_counts(result.type_counts)}",
         (
-            f"Findings: {result.error_count} errors, {result.warning_count} warnings, "
-            f"{result.info_count} info"
+            "Findings: "
+            f"{format_finding_counts(result.error_count, result.warning_count, result.info_count)}"
         ),
     ]
     if not result.findings:

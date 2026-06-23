@@ -3,7 +3,9 @@ from pathlib import Path
 from textwrap import dedent
 
 from fashion_radar.entity_packs import (
+    EntityPackFinding,
     EntityPackFindingSeverity,
+    EntityPackLintResult,
     lint_entity_pack,
     render_entity_pack_lint_table,
 )
@@ -632,3 +634,78 @@ def test_render_entity_pack_lint_table_includes_summary_and_findings(tmp_path: P
     assert "Aliases: 1 total" in lines
     assert "Severity | Code | Entity | Alias | Field | Message" in lines
     assert any("missing_tags" in line for line in lines)
+
+
+def test_render_entity_pack_lint_table_singularizes_one_finding_count() -> None:
+    result = EntityPackLintResult(
+        path="entities.yaml",
+        entity_count=1,
+        alias_count=1,
+        type_counts={"brand": 1},
+        findings=[
+            EntityPackFinding(
+                severity=EntityPackFindingSeverity.ERROR,
+                code="error_code",
+                message="Error message.",
+            ),
+            EntityPackFinding(
+                severity=EntityPackFindingSeverity.WARNING,
+                code="warning_code",
+                message="Warning message.",
+            ),
+            EntityPackFinding(
+                severity=EntityPackFindingSeverity.INFO,
+                code="info_code",
+                message="Info message.",
+            ),
+        ],
+    )
+
+    lines = render_entity_pack_lint_table(result)
+
+    assert "Findings: 1 error, 1 warning, 1 info" in lines
+
+
+def test_render_entity_pack_lint_table_keeps_plural_finding_counts() -> None:
+    result = EntityPackLintResult(
+        path="entities.yaml",
+        entity_count=1,
+        alias_count=1,
+        type_counts={"brand": 1},
+        findings=[
+            EntityPackFinding(
+                severity=EntityPackFindingSeverity.ERROR,
+                code="error_one",
+                message="Error one.",
+            ),
+            EntityPackFinding(
+                severity=EntityPackFindingSeverity.ERROR,
+                code="error_two",
+                message="Error two.",
+            ),
+            EntityPackFinding(
+                severity=EntityPackFindingSeverity.WARNING,
+                code="warning_one",
+                message="Warning one.",
+            ),
+            EntityPackFinding(
+                severity=EntityPackFindingSeverity.WARNING,
+                code="warning_two",
+                message="Warning two.",
+            ),
+            EntityPackFinding(
+                severity=EntityPackFindingSeverity.INFO,
+                code="info_one",
+                message="Info one.",
+            ),
+            EntityPackFinding(
+                severity=EntityPackFindingSeverity.INFO,
+                code="info_two",
+                message="Info two.",
+            ),
+        ],
+    )
+
+    lines = render_entity_pack_lint_table(result)
+
+    assert "Findings: 2 errors, 2 warnings, 2 info" in lines

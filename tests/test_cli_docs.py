@@ -1433,6 +1433,15 @@ def test_community_signal_profile_docs_are_linked() -> None:
         assert term in quality_doc
 
 
+def test_community_signal_quality_docs_use_singular_one_finding_count_examples() -> None:
+    text = _read(COMMUNITY_SIGNAL_QUALITY_DOC)
+
+    assert "Findings: 1 error, 3 warnings, 2 info" in text
+    assert "Findings: 1 errors" not in text
+    assert "0 import-ready, 1 error, 3 warnings, 2 info" in text
+    assert "0 import-ready, 1 errors" not in text
+
+
 def test_community_signal_import_platform_field_keeps_suggested_labels_advisory() -> None:
     section = _markdown_section_exact_heading(
         _read(COMMUNITY_SIGNAL_IMPORT_DOC),

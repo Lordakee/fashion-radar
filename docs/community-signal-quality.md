@@ -310,10 +310,10 @@ Rows: 3 total, 2 import-ready
 Fields: platform=2, published_at=3, source_name=2, title=3, url=3
 Sources: Community Tool Export=2
 Platforms: community=2
-Findings: 1 errors, 3 warnings, 2 info
+Findings: 1 error, 3 warnings, 2 info
 Files:
 - exports/a.csv: 2 rows, 2 import-ready, 0 errors, 0 warnings, 0 info
-- exports/b.csv: 1 rows, 0 import-ready, 1 errors, 3 warnings, 2 info
+- exports/b.csv: 1 rows, 0 import-ready, 1 error, 3 warnings, 2 info
 Severity | File | Code | Row | Field | Message
 error | exports/b.csv | invalid_row | 2 | row | Row is not import-ready: ...
 ```

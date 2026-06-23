@@ -10,6 +10,7 @@ from urllib.parse import urlsplit, urlunsplit
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
+from fashion_radar.lint_formatting import format_finding_counts
 from fashion_radar.models.source import SourceDefinition, SourceType
 from fashion_radar.settings import ConfigError, load_source_config
 
@@ -108,9 +109,7 @@ def render_source_pack_lint_table(result: SourcePackLintResult) -> list[str]:
         f"Tags: {_format_counts(result.tag_counts)}",
         (
             "Findings: "
-            f"{_format_finding_count(result.error_count, 'error', 'errors')}, "
-            f"{_format_finding_count(result.warning_count, 'warning', 'warnings')}, "
-            f"{_format_finding_count(result.info_count, 'info', 'info')}"
+            f"{format_finding_counts(result.error_count, result.warning_count, result.info_count)}"
         ),
     ]
     if not result.findings:
@@ -339,8 +338,3 @@ def _format_counts(counts: Mapping[str, int]) -> str:
     if not counts:
         return "none"
     return ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
-
-
-def _format_finding_count(count: int, singular: str, plural: str) -> str:
-    label = singular if count == 1 else plural
-    return f"{count} {label}"
