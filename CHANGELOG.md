@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Stage 192 polish for generated report Daily Brief source caveats, including
+  capped local error fragments, duplicate source-caveat suppression, clearer
+  empty-section Markdown fallback, and updated full-project review follow-up
+  status.
+
 ### Added
 
 - Stage 191 docs/test coverage for generated report Daily Brief Heat Narrative

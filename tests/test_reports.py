@@ -17,6 +17,7 @@ from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.report import (
     REPORT_SNIPPET_MAX_CHARS,
     CandidateReport,
+    CollectorRunReport,
     DailyBrief,
     DailyBriefItem,
     DailyBriefSection,
@@ -24,9 +25,11 @@ from fashion_radar.models.report import (
     EntityReport,
     ReportMetadata,
     RepresentativeItem,
+    SourceHealthReport,
 )
 from fashion_radar.models.source import SourceDefinition, SourceType
 from fashion_radar.reports import (
+    build_daily_brief,
     build_daily_report,
     render_json_report,
     render_markdown_report,
@@ -273,6 +276,61 @@ def test_daily_report_includes_stable_daily_brief_json_shape(tmp_path: Path) -> 
     ]
 
 
+def test_daily_brief_caps_source_caveat_errors_and_deduplicates_recent_runs() -> None:
+    long_error = "Lead error. " + ("detail " * 120) + "TAIL_MARKER"
+
+    brief = build_daily_brief(
+        entities=[],
+        candidates=[],
+        source_health=[
+            SourceHealthReport(
+                source_name="Vogue Business",
+                source_type="rss",
+                consecutive_failures=2,
+                last_error_message=long_error,
+            )
+        ],
+        recent_runs=[
+            CollectorRunReport(
+                source_name="vogue business",
+                source_type="RSS",
+                status="failed",
+                started_at=AS_OF,
+                finished_at=AS_OF,
+                items_seen=0,
+                items_stored=0,
+                error_message=long_error,
+                error_type="ReadTimeout",
+            ),
+            CollectorRunReport(
+                source_name="Fashionista",
+                source_type="rss",
+                status="failed",
+                started_at=AS_OF,
+                finished_at=AS_OF,
+                items_seen=0,
+                items_stored=0,
+                error_message=long_error,
+                error_type="ReadTimeout",
+            ),
+        ],
+        limit_per_section=3,
+    )
+
+    source_items = brief.sections[2].items
+
+    assert [item.title for item in source_items] == ["Vogue Business", "Fashionista"]
+    assert source_items[0].reason_codes == [
+        "source_health_failure",
+        "source_last_error_present",
+    ]
+    assert source_items[1].reason_codes == ["recent_collection_failed"]
+    assert all("Lead error." in item.summary for item in source_items)
+    assert all("Last error:" in item.summary for item in source_items)
+    assert all("TAIL_MARKER" not in item.summary for item in source_items)
+    assert all("..." in item.summary for item in source_items)
+
+
 def test_markdown_report_renders_daily_brief_before_top_signals(tmp_path: Path) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
     initialize_schema(engine)
@@ -307,6 +365,44 @@ def test_markdown_report_renders_daily_brief_before_top_signals(tmp_path: Path) 
         "top social trend",
     ):
         assert forbidden not in markdown.lower()
+
+
+def test_daily_brief_markdown_uses_section_empty_fallback_when_partially_empty() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF, item_count=1),
+        brief=DailyBrief(
+            summary=(
+                "Local observed brief from configured sources and imported local signals: "
+                "1 tracked signal, 0 candidate signals needing review, 0 source caveats. "
+                "It provides no demand proof and no platform coverage verification."
+            ),
+            sections=[
+                DailyBriefSection(
+                    name="tracked_signals",
+                    title="Tracked Signals To Review",
+                    items=[
+                        DailyBriefItem(
+                            kind="tracked_entity",
+                            title="The Row",
+                            summary="Local observed tracked brand signal.",
+                            reason_codes=["current_mentions_observed"],
+                            current_mentions=1,
+                        )
+                    ],
+                ),
+                DailyBriefSection(
+                    name="candidate_signals",
+                    title="Candidate Signals Needing Review",
+                ),
+                DailyBriefSection(name="source_caveats", title="Source Caveats"),
+            ],
+        ),
+    )
+
+    markdown = render_markdown_report(report)
+
+    assert "- No items in this section." in markdown
+    assert "- No daily brief items available." not in markdown
 
 
 def test_markdown_report_includes_entities_attribution_and_source_status(tmp_path) -> None:

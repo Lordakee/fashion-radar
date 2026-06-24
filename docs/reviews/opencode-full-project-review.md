@@ -100,7 +100,11 @@ coverage with evidence.
 ## Current Follow-Up Status
 
 - Stage 188 fixed the proxy-sensitive tests and redirected roadmap docs.
-- Stage 189 is intended to fix review-capture hygiene gaps exposed by this
-  review record and the Stage 188 review chain.
-- The next product node should implement source-liveness diagnostics for
-  configured public sources.
+- Stage 189 fixed review-capture hygiene gaps exposed by this review record and
+  the Stage 188 review chain.
+- Stage 190 added source-liveness diagnostics for configured public sources.
+- Stage 191 added the Daily Brief Heat Narrative to generated daily reports.
+- The next product work should use source-liveness evidence to expand source
+  coverage, improve deterministic matching quality, and add a local trend/heat
+  explanation layer without claiming demand proof or platform coverage
+  verification.

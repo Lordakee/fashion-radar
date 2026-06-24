@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 AGENTS = ROOT / "AGENTS.md"
 REVIEW_PROTOCOL = ROOT / "docs" / "REVIEW_PROTOCOL.md"
 UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
+FULL_PROJECT_REVIEW = ROOT / "docs" / "reviews" / "opencode-full-project-review.md"
 
 ACTIVE_REVIEW_DOCS = [
     AGENTS,
@@ -195,3 +196,23 @@ def test_review_protocol_docs_document_capture_hygiene() -> None:
     ):
         assert phrase.casefold() in normalized_agents
     assert not failures, "\n".join(failures)
+
+
+def test_full_project_review_follow_up_status_tracks_completed_stages() -> None:
+    text = _read(FULL_PROJECT_REVIEW)
+    status = _section(text, "Current Follow-Up Status")
+    normalized = _normalized_text(status).casefold()
+
+    for phrase in (
+        "Stage 188 fixed the proxy-sensitive tests and redirected roadmap docs.",
+        "Stage 189 fixed review-capture hygiene gaps",
+        "Stage 190 added source-liveness diagnostics for configured public sources.",
+        "Stage 191 added the Daily Brief Heat Narrative",
+        "source coverage",
+        "matching quality",
+        "trend/heat explanation",
+    ):
+        assert phrase.casefold() in normalized
+
+    assert "is intended to" not in normalized
+    assert "next product node should implement source-liveness diagnostics" not in normalized

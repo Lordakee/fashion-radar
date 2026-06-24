@@ -21,6 +21,7 @@ from fashion_radar.models.report import (
     ReportMetadata,
     RepresentativeItem,
     SourceHealthReport,
+    report_safe_snippet,
 )
 from fashion_radar.scoring import EntityHeatMetric, score_entities
 from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
@@ -156,7 +157,7 @@ def _render_daily_brief(brief: DailyBrief) -> str:
     for section in brief.sections:
         lines.extend(["", f"### {section.title}"])
         if not section.items:
-            lines.append("- No daily brief items available.")
+            lines.append("- No items in this section.")
             continue
         any_items = True
         for item in section.items:
@@ -295,20 +296,27 @@ def _source_caveat_items(
     if limit == 0:
         return []
 
-    health_items = [
-        _brief_item_for_source_health(source)
+    health_sources = [
+        source
         for source in sorted(
             source_health,
             key=lambda row: (-row.consecutive_failures, row.source_name, row.source_type),
         )
         if _source_health_needs_caveat(source)
     ]
+    health_items = [_brief_item_for_source_health(source) for source in health_sources]
+    represented_health_keys = {
+        _source_caveat_key(source.source_name, source.source_type) for source in health_sources
+    }
     remaining = limit - len(health_items)
     if remaining <= 0:
         return health_items[:limit]
 
     run_items = [
-        _brief_item_for_recent_run(run) for run in recent_runs if run.status.casefold() == "failed"
+        _brief_item_for_recent_run(run)
+        for run in recent_runs
+        if run.status.casefold() == "failed"
+        and _source_caveat_key(run.source_name, run.source_type) not in represented_health_keys
     ]
     return (health_items + run_items[:remaining])[:limit]
 
@@ -331,8 +339,9 @@ def _brief_item_for_source_health(source: SourceHealthReport) -> DailyBriefItem:
         f"Local source caveat: {source.source_name} has {source.consecutive_failures} "
         f"{failure_label}."
     )
-    if source.last_error_message:
-        summary = f"{summary} Last error: {source.last_error_message}."
+    error_message = report_safe_snippet(source.last_error_message)
+    if error_message:
+        summary = f"{summary} Last error: {error_message}."
 
     return DailyBriefItem(
         kind="source_caveat",
@@ -343,16 +352,21 @@ def _brief_item_for_source_health(source: SourceHealthReport) -> DailyBriefItem:
 
 
 def _brief_item_for_recent_run(run: CollectorRunReport) -> DailyBriefItem:
+    error_message = report_safe_snippet(run.error_message)
     return DailyBriefItem(
         kind="collector_run_caveat",
         title=run.source_name,
         summary=(
             f"Local source caveat: {run.source_name} recent collection failed with "
             f"{run.items_stored}/{run.items_seen} stored."
-            + (f" Last error: {run.error_message}." if run.error_message else "")
+            + (f" Last error: {error_message}." if error_message else "")
         ),
         reason_codes=["recent_collection_failed"],
     )
+
+
+def _source_caveat_key(source_name: str, source_type: str) -> tuple[str, str]:
+    return (source_name.casefold(), source_type.casefold())
 
 
 def _source_health_needs_caveat(source: SourceHealthReport) -> bool:
