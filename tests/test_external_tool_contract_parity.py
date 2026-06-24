@@ -98,6 +98,22 @@ def _adapter_catalog_doc_row(adapter: ExternalToolAdapter) -> str:
     )
 
 
+def _known_adapter_catalog_doc_table(text: str) -> list[str]:
+    lines = text.splitlines()
+
+    assert lines.count("Known adapter ids:") == 1
+    marker_index = lines.index("Known adapter ids:")
+    assert lines[marker_index + 1] == ""
+
+    table_lines: list[str] = []
+    for line in lines[marker_index + 2 :]:
+        if not line.startswith("|"):
+            break
+        table_lines.append(line)
+
+    return table_lines
+
+
 def test_every_adapter_field_mapping_matches_community_signal_profile(registry) -> None:
     profile = build_community_signal_profile()
 
@@ -140,6 +156,21 @@ def test_community_signal_docs_list_current_external_tool_adapter_catalog(regist
             "not demand proof",
         ):
             assert phrase in normalized, f"{doc_path.relative_to(ROOT)} missing {phrase!r}"
+
+
+def test_community_signal_docs_have_exact_current_external_tool_adapter_catalog_table(
+    registry,
+) -> None:
+    expected_table = [
+        "| Adapter id | Display/source name | Platform label | Format | Pattern |",
+        "| --- | --- | --- | --- | --- |",
+        *[_adapter_catalog_doc_row(adapter) for adapter in registry.adapters],
+    ]
+
+    for doc_path in COMMUNITY_SIGNAL_EXTERNAL_TOOL_DOCS:
+        actual_table = _known_adapter_catalog_doc_table(doc_path.read_text(encoding="utf-8"))
+
+        assert actual_table == expected_table, doc_path.relative_to(ROOT)
 
 
 def test_every_template_model_mirrors_adapter_contract(registry) -> None:
