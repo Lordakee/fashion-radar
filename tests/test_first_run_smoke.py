@@ -1497,14 +1497,37 @@ def test_external_tool_readiness_payload_matches_real_rednote_readiness() -> Non
     )
 
 
+BLOCKING_READINESS_PARITY_SKIP_MARKS = frozenset({"skipif", "skip"})
+
+
+def has_blocking_readiness_parity_skip_mark(test_func: Callable[..., object]) -> bool:
+    marks = getattr(test_func, "pytestmark", [])
+    return any(mark.name in BLOCKING_READINESS_PARITY_SKIP_MARKS for mark in marks)
+
+
 def test_external_tool_readiness_payload_parity_is_not_conditionally_skipped() -> None:
-    marks = getattr(
-        test_external_tool_readiness_payload_matches_real_rednote_readiness,
-        "pytestmark",
-        [],
+    assert not has_blocking_readiness_parity_skip_mark(
+        test_external_tool_readiness_payload_matches_real_rednote_readiness
     )
 
-    assert all(mark.name != "skipif" for mark in marks)
+
+@pytest.mark.parametrize(
+    ("mark_decorator", "mark_name"),
+    [
+        (pytest.mark.skipif(True, reason="synthetic skipif"), "skipif"),
+        (pytest.mark.skip(reason="synthetic skip"), "skip"),
+    ],
+)
+def test_external_tool_readiness_payload_parity_skip_guard_rejects_skip_marks(
+    mark_decorator: pytest.MarkDecorator,
+    mark_name: str,
+) -> None:
+    def fake_parity_test() -> None:
+        return None
+
+    fake_parity_test.pytestmark = [mark_decorator.mark]  # type: ignore[attr-defined]
+
+    assert has_blocking_readiness_parity_skip_mark(fake_parity_test), mark_name
 
 
 def test_imported_review_workflow_payload_matches_real_builder() -> None:
