@@ -289,6 +289,69 @@ def test_stage_159_review_artifact_with_inline_arrow_prose_passes(
     assert result.stderr == ""
 
 
+def test_non_stage_opencode_review_artifact_with_capture_noise_fails(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/opencode-full-project-review.md",
+        "I'll inspect the repository first.\n\n\x1b[32mApproved\x1b[0m\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert (
+        "forbidden review capture artifact in tracked file: "
+        "docs/reviews/opencode-full-project-review.md:1: process chatter at start"
+    ) in result.stderr
+    assert (
+        "forbidden review capture artifact in tracked file: "
+        "docs/reviews/opencode-full-project-review.md:3: ANSI escape sequence"
+    ) in result.stderr
+
+
+def test_stage_159_review_artifact_with_timeout_stub_fails(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/opencode-stage-159-code-review.md",
+        (
+            "# Stage 159 Code Review\n\n"
+            "opencode code review timed out after 600 seconds. "
+            "No partial output was captured as approval.\n"
+        ),
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert (
+        "forbidden review capture artifact in tracked file: "
+        "docs/reviews/opencode-stage-159-code-review.md:3: timeout stub"
+    ) in result.stderr
+
+
+def test_non_stage_opencode_review_artifact_with_clean_body_passes(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/opencode-full-project-review.md",
+        "# Full Project Review\n\n## Critical\n\nNone.\n\n## Important\n\nNone.\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 0
+    assert result.stdout == "Release hygiene checks passed.\n"
+    assert result.stderr == ""
+
+
 def test_stage_159_review_artifact_with_empty_output_fails(tmp_path: Path) -> None:
     repo_root = init_repo(tmp_path)
     write_tracked(

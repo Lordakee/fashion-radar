@@ -73,6 +73,9 @@ REVIEW_CAPTURE_ARTIFACT_PATTERN = re.compile(
     r"opencode-stage-(?P<stage>[0-9]+)-"
     r"(?:plan|code|release)-(?:review|rereview(?:-[0-9]+)?)\.md$"
 )
+NON_STAGE_OPENCODE_REVIEW_ARTIFACT_PATTERN = re.compile(
+    r"^docs/reviews/opencode-(?!stage-[0-9]+-).+\.md$"
+)
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|.)")
 REVIEW_CAPTURE_TOOL_STATUS_PREFIXES = (
     "Review written to ",
@@ -83,6 +86,11 @@ REVIEW_CAPTURE_PROCESS_PREFIXES = (
     "I will ",
     "Let me ",
     "Now let me ",
+)
+REVIEW_CAPTURE_TIMEOUT_STUB_PREFIXES = (
+    "opencode plan review timed out",
+    "opencode code review timed out",
+    "opencode release review timed out",
 )
 
 SECRET_PATTERNS = [
@@ -362,10 +370,13 @@ def find_review_capture_hygiene_findings(
 
 
 def is_review_capture_artifact_path(path: str) -> bool:
-    match = REVIEW_CAPTURE_ARTIFACT_PATTERN.fullmatch(path.lower())
-    if match is None:
+    lower_path = path.lower()
+    match = REVIEW_CAPTURE_ARTIFACT_PATTERN.fullmatch(lower_path)
+    if match is not None:
+        return int(match.group("stage")) >= REVIEW_CAPTURE_MIN_STAGE
+    if lower_path.endswith("-prompt.md"):
         return False
-    return int(match.group("stage")) >= REVIEW_CAPTURE_MIN_STAGE
+    return NON_STAGE_OPENCODE_REVIEW_ARTIFACT_PATTERN.fullmatch(lower_path) is not None
 
 
 def review_capture_text_findings(
@@ -389,6 +400,8 @@ def review_capture_text_findings(
             findings.append(f"{prefix}:{line_number}: tool-status line")
         if has_review_tool_ui_marker(line):
             findings.append(f"{prefix}:{line_number}: tool UI marker")
+        if is_review_timeout_stub_line(stripped):
+            findings.append(f"{prefix}:{line_number}: timeout stub")
 
     if first_nonblank is not None:
         line_number, stripped = first_nonblank
@@ -413,6 +426,11 @@ def has_review_tool_ui_marker(line: str) -> bool:
 
 def is_review_process_chatter_start(line: str) -> bool:
     return any(line.startswith(prefix) for prefix in REVIEW_CAPTURE_PROCESS_PREFIXES)
+
+
+def is_review_timeout_stub_line(line: str) -> bool:
+    lower_line = line.lower()
+    return any(lower_line.startswith(prefix) for prefix in REVIEW_CAPTURE_TIMEOUT_STUB_PREFIXES)
 
 
 def find_remote_credential_findings(repo_root: Path) -> list[str]:

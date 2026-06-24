@@ -58,10 +58,7 @@ def _store_item(data_dir: Path) -> int:
     )
 
 
-def test_collect_configured_sources_uses_injected_collectors(tmp_path: Path, monkeypatch) -> None:
-    for key in ("ALL_PROXY", "HTTPS_PROXY", "HTTP_PROXY", "http_proxy"):
-        monkeypatch.setenv(key, "socks5h://127.0.0.1:9")
-
+def test_collect_configured_sources_uses_injected_collectors(tmp_path: Path) -> None:
     source = SourceDefinition(
         name="Fixture Feed",
         type=SourceType.RSS,

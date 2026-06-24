@@ -47,7 +47,15 @@ Resolution: replace the stub with completed review output (this document is that
 
 ### I1 — `opencode-stage-188-code-review.md` is not completed review output
 
-`docs/reviews/opencode-stage-188-code-review.md:5-6` reads: *"opencode code review timed out after 600 seconds. No partial output was captured as approval."* followed by a "Self-Verification Performed" section. `AGENTS.md` requires each local opencode review record to "contain completed review output and no live-capture stubs, duplicated or truncated text, tool-status messages, or empty output." A timeout tool-status message plus self-verification is a stub, not a completed review. Re-run the code review with `zhipuai-coding-plan/glm-5.2 --variant max` at a higher timeout (or scope the prompt to the 2 test files + 5 docs so it completes), and replace the file with substantive findings before commit.
+`docs/reviews/opencode-stage-188-code-review.md:5-6` recorded a local opencode
+timeout instead of completed review findings, followed by a self-verification
+section. `AGENTS.md` requires each local opencode review record to "contain
+completed review output and no live-capture stubs, duplicated or truncated text,
+tool-status messages, or empty output." A timeout record plus self-verification
+is a stub, not a completed review. Re-run the code review with
+`zhipuai-coding-plan/glm-5.2 --variant max` at a higher timeout (or scope the
+prompt to the 2 test files + 5 docs so it completes), and replace the file with
+substantive findings before commit.
 
 ### I2 — `docs/reviews/opencode-full-project-review.md` is untracked and absent from the commit list, yet referenced by a committed artifact
 

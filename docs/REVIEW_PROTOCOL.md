@@ -94,15 +94,17 @@ the active review engine changes.
 This review capture hygiene rule applies to
 `docs/reviews/opencode-stage-N-plan-review.md`,
 `docs/reviews/opencode-stage-N-code-review.md`, and
-`docs/reviews/opencode-stage-N-release-review.md`. Capture the completed
-reviewer output to a temporary file first, inspect it, and then copy only one
-coherent review body directly into the target review record.
+`docs/reviews/opencode-stage-N-release-review.md`, as well as non-stage local
+opencode review records under `docs/reviews/` such as full-project reviews.
+Capture the completed reviewer output to a temporary file first, inspect it, and
+then copy only one coherent review body directly into the target review record.
 
 Do not commit live-capture stubs, duplicated or truncated text, empty output,
 multiple top-level review drafts, or more than one verdict. Do not commit tool
 status lines such as `Wrote`, and do not duplicate approval phrases. If the
-review times out, record the timeout honestly instead of presenting partial
-output as approval.
+review times out, record the timeout honestly in a separate scratch location and
+retry with a narrower prompt; committed review artifacts must not be timeout
+stubs or partial output presented as approval.
 
 ## Optional Alternate Route
 

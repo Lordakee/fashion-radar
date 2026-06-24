@@ -226,6 +226,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Stage 189 broadens release-hygiene review-capture checks to non-stage
+  opencode review records and timeout stubs, cleans the full-project review
+  artifact, and adds completed Stage 188 follow-up review records.
 - Stage 188 isolates injected collector/workflow tests from proxy-configured
   host environments and corrects roadmap emphasis toward source coverage,
   source health, matching quality, and optional report summaries over further

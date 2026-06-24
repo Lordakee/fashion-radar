@@ -19,8 +19,8 @@ Verified facts underpinning the review:
 - That path constructs `FashionHttpClient(source.http)`
   (`src/fashion_radar/collectors/runner.py:131`), which builds
   `httpx.Client(...)` (`src/fashion_radar/utils/http.py:30`); under
-  `ALL_PROXY=socks5h://...` this raises the `socksio` ImportError already
-  captured in `docs/reviews/opencode-full-project-review.md:219-238`.
+  `ALL_PROXY=socks5h://...` this raises the proxy-related import error already
+  captured in `docs/reviews/opencode-full-project-review.md:10-27`.
 - The four RED tests named in the design match the four failures in the
   full-project review exactly.
 
