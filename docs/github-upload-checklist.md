@@ -405,7 +405,7 @@ uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 "$tmp_env/venv/bin/python" -m fashion_radar --help
 "$tmp_env/venv/bin/python" scripts/check_first_run_smoke.py --repo-root . --python "$tmp_env/venv/bin/python" --installed
 for cmd in \
-  init migrate-db doctor source-pack-lint entity-pack-lint \
+  init migrate-db doctor source-pack-lint source-liveness entity-pack-lint \
   community-signal-profile \
   external-tool-adapters external-tool-template external-tool-workflow external-tool-readiness \
   community-signal-lint community-signal-lint-dir \

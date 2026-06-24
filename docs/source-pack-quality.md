@@ -228,4 +228,9 @@ sources.
 a feed is live today, whether a GDELT query will return records, or whether a
 source will publish fashion-relevant items in the next run. Treat a clean lint
 result as a local configuration quality signal, not as a source availability
-guarantee.
+guarantee. `source-pack-lint` does not fetch sources; live checks belong to
+`source-liveness`:
+
+```bash
+uv run fashion-radar source-liveness configs/source-packs/fashion-public.example.yaml
+```

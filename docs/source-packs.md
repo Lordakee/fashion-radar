@@ -85,6 +85,21 @@ Example JSON shape:
 See [source-pack-quality.md](source-pack-quality.md) for finding codes,
 severity meanings, and tag/weight tuning guidance.
 
+## Check Source Liveness
+
+After the local YAML lint is clean, run a bounded live diagnostic when you want
+to know whether the configured public RSS/RSSHub feed URLs and GDELT query lanes
+are reachable today:
+
+```bash
+uv run fashion-radar source-liveness configs/source-packs/fashion-public.example.yaml
+uv run fashion-radar source-liveness configs/source-packs/fashion-public.example.yaml --format json
+```
+
+`source-liveness` prints table or JSON diagnostics only. It does not collect
+items, store rows, score entities, write reports, open SQLite, fetch article
+pages, or prove demand or coverage.
+
 ## Use A Pack
 
 Copy the pack into your config directory as `sources.yaml`:

@@ -9127,6 +9127,269 @@ def test_source_pack_lint_help_lists_format_and_strict() -> None:
     assert "without collecting sources" in result.output
 
 
+def test_source_liveness_help_lists_format_strict_and_network_read_only() -> None:
+    result = CliRunner().invoke(app, ["source-liveness", "--help"], env={"COLUMNS": "120"})
+
+    assert result.exit_code == 0
+    assert "--format" in result.output
+    assert "--strict" in result.output
+    assert "bounded network probes" in result.output
+
+
+def test_source_liveness_prints_json_from_builder(monkeypatch, tmp_path: Path) -> None:
+    from fashion_radar.source_liveness import build_source_liveness_report_from_results
+
+    path = tmp_path / "sources.yaml"
+    path.write_text("version: 1\nsources: []\n", encoding="utf-8")
+    report = build_source_liveness_report_from_results(
+        path=str(path),
+        checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
+        source_count=0,
+        enabled_count=0,
+        disabled_count=0,
+        type_counts={},
+        tag_counts={},
+        results=[],
+        findings=[],
+    )
+    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+
+    result = CliRunner().invoke(app, ["source-liveness", str(path), "--format", "json"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["contract_version"] == "source-liveness/v1"
+
+
+def test_source_liveness_default_table_uses_renderer_output(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from fashion_radar.source_liveness import (
+        SourceLivenessResult,
+        SourceLivenessSeverity,
+        SourceLivenessStatus,
+        build_source_liveness_report_from_results,
+    )
+
+    path = tmp_path / "sources.yaml"
+    path.write_text("version: 1\nsources: []\n", encoding="utf-8")
+    report = build_source_liveness_report_from_results(
+        path=str(path),
+        checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
+        source_count=1,
+        enabled_count=1,
+        disabled_count=0,
+        type_counts={"rss": 1},
+        tag_counts={"fashion_media": 1},
+        results=[
+            SourceLivenessResult(
+                source_name="Designer Feed",
+                source_type=SourceType.RSS,
+                enabled=True,
+                target_type="url",
+                target="https://example.com/feed.xml",
+                status=SourceLivenessStatus.LIVE,
+                severity=SourceLivenessSeverity.OK,
+                message="Feed returned 1 entry.",
+                checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
+                elapsed_ms=20,
+                records_seen=1,
+            )
+        ],
+        findings=[],
+    )
+    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+
+    result = CliRunner().invoke(app, ["source-liveness", str(path)])
+
+    assert result.exit_code == 0
+    assert "Sources: 1 total, 1 enabled, 0 disabled, 1 probed" in result.output
+    assert "Designer Feed" in result.output
+    assert "Boundaries:" in result.output
+    assert "Does not collect, store" in result.output
+
+
+def test_source_liveness_warning_only_exits_one_with_strict_but_prints_output(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from fashion_radar.source_liveness import SourceLivenessReport
+
+    path = tmp_path / "sources.yaml"
+    path.write_text("version: 1\nsources: []\n", encoding="utf-8")
+    report = SourceLivenessReport(
+        path=str(path),
+        checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
+        warning_count=1,
+    )
+    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+
+    result = CliRunner().invoke(app, ["source-liveness", str(path), "--strict"])
+
+    assert result.exit_code == 1
+    assert "Source liveness:" in result.output
+
+
+def test_source_liveness_warning_only_exits_zero_without_strict(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from fashion_radar.source_liveness import SourceLivenessReport
+
+    path = tmp_path / "sources.yaml"
+    path.write_text("version: 1\nsources: []\n", encoding="utf-8")
+    report = SourceLivenessReport(
+        path=str(path),
+        checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
+        warning_count=1,
+    )
+    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+
+    result = CliRunner().invoke(app, ["source-liveness", str(path)])
+
+    assert result.exit_code == 0
+    assert "Source liveness:" in result.output
+
+
+def test_source_liveness_warning_only_prints_json_without_strict(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from fashion_radar.source_liveness import SourceLivenessReport
+
+    path = tmp_path / "sources.yaml"
+    path.write_text("version: 1\nsources: []\n", encoding="utf-8")
+    report = SourceLivenessReport(
+        path=str(path),
+        checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
+        warning_count=1,
+    )
+    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+
+    result = CliRunner().invoke(app, ["source-liveness", str(path), "--format", "json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["warning_count"] == 1
+
+
+def test_source_liveness_error_exits_one_but_prints_output(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from fashion_radar.source_liveness import SourceLivenessReport
+
+    path = tmp_path / "sources.yaml"
+    path.write_text("version: 1\nsources: []\n", encoding="utf-8")
+    report = SourceLivenessReport(
+        path=str(path),
+        checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
+        error_count=1,
+    )
+    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+
+    result = CliRunner().invoke(app, ["source-liveness", str(path)])
+
+    assert result.exit_code == 1
+    assert "Source liveness:" in result.output
+
+
+def test_source_liveness_error_prints_json_and_exits_one(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from fashion_radar.source_liveness import SourceLivenessReport
+
+    path = tmp_path / "sources.yaml"
+    path.write_text("version: 1\nsources: []\n", encoding="utf-8")
+    report = SourceLivenessReport(
+        path=str(path),
+        checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
+        error_count=1,
+    )
+    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+
+    result = CliRunner().invoke(app, ["source-liveness", str(path), "--format", "json"])
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["error_count"] == 1
+
+
+def test_source_liveness_invalid_format_does_not_call_builder(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "sources.yaml"
+    path.write_text("version: 1\nsources: []\n", encoding="utf-8")
+    called = False
+
+    def fail_if_called(path: Path):
+        nonlocal called
+        called = True
+        raise AssertionError("builder should not be called")
+
+    monkeypatch.setattr(cli_module, "build_source_liveness_report", fail_if_called)
+
+    result = CliRunner().invoke(app, ["source-liveness", str(path), "--format", "xml"])
+
+    assert result.exit_code != 0
+    assert called is False
+
+
+def test_source_liveness_does_not_create_config_data_report_or_workflow_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.source_liveness import SourceLivenessReport
+
+    path = tmp_path / "sources.yaml"
+    path.write_text("version: 1\nsources: []\n", encoding="utf-8")
+    workdir = tmp_path / "workdir"
+    workdir.mkdir()
+    explicit_config = tmp_path / "explicit-config"
+    explicit_data = tmp_path / "explicit-data"
+    explicit_reports = tmp_path / "explicit-reports"
+    monkeypatch.chdir(workdir)
+    monkeypatch.setattr(
+        cli_module,
+        "build_source_liveness_report",
+        lambda path: SourceLivenessReport(
+            path=str(path),
+            checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
+        ),
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["source-liveness", str(path)],
+        env={
+            "FASHION_RADAR_CONFIG_DIR": str(explicit_config),
+            "FASHION_RADAR_DATA_DIR": str(explicit_data),
+            "FASHION_RADAR_REPORTS_DIR": str(explicit_reports),
+        },
+    )
+
+    assert result.exit_code == 0
+    assert not (workdir / "config").exists()
+    assert not (workdir / "configs").exists()
+    assert not (workdir / "data").exists()
+    assert not (workdir / "reports").exists()
+    assert not explicit_config.exists()
+    assert not explicit_data.exists()
+    assert not explicit_reports.exists()
+    artifact_names = {artifact.name for artifact in workdir.rglob("*")}
+    assert "fashion-radar.sqlite" not in artifact_names
+    assert not any(artifact.match("*.sqlite*") for artifact in workdir.rglob("*"))
+    assert not any(artifact.match("collector-*") for artifact in workdir.rglob("*"))
+    assert not any(artifact.match("collector_runs*") for artifact in workdir.rglob("*"))
+    assert not any(artifact.match("fashion-radar-*.md") for artifact in workdir.rglob("*"))
+    assert not any(artifact.match("fashion-radar-*.json") for artifact in workdir.rglob("*"))
+    assert not (workdir / "latest.md").exists()
+    assert not (workdir / "latest.json").exists()
+    assert not (workdir / "report-index.json").exists()
+
+
 def test_source_pack_lint_prints_table_for_public_pack() -> None:
     result = CliRunner().invoke(
         app,

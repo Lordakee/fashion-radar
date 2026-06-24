@@ -8,6 +8,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 190 `source-liveness` read-only diagnostics for configured RSS/RSSHub
+  feeds and GDELT lanes, with table/JSON output, strict warning exits, and
+  tests that guard no-write behavior and fake-client network seams.
 - Stage 173 docs/test parity for XPOZ MCP / Social Data API
   `external-tool-readiness` discoverability for sanitized CSV/JSON local file
   handoff rows from user-controlled external/community tools. This is

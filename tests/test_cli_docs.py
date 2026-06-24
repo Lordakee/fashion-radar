@@ -541,6 +541,38 @@ def test_cli_reference_lists_every_public_command() -> None:
     assert "validates deterministic sample output content" in normalized
 
 
+def test_cli_reference_documents_source_liveness() -> None:
+    text = _read(CLI_REFERENCE)
+    match = re.search(
+        r"^- `source-liveness` PATH:.*?(?=^- `|\n## |\Z)",
+        text,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    assert match is not None
+    entry = match.group(0)
+    normalized = _normalized_text(entry).casefold()
+
+    assert "bounded network probes" in normalized
+    assert "no writes" in normalized
+    assert "--format table|json" in entry
+    assert "--strict" in entry
+
+
+def test_readme_documents_source_liveness_public_pack_example() -> None:
+    text = _read(README)
+
+    assert "source-liveness" in text
+    assert "configs/source-packs/fashion-public.example.yaml" in text
+
+
+def test_architecture_documents_source_liveness_boundary() -> None:
+    text = _read(ARCHITECTURE_DOC)
+
+    assert "Source Liveness" in text
+    assert "RSS/RSSHub" in text
+    assert "GDELT" in text
+
+
 def test_cli_reference_has_beginner_roadmap_with_existing_commands() -> None:
     text = _read(CLI_REFERENCE)
     normalized = _normalized_doc_text(CLI_REFERENCE).casefold()

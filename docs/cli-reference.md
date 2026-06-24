@@ -62,6 +62,9 @@ validates deterministic sample output content, not only command execution.
   `--config-dir`, `--data-dir`, and `--reports-dir`.
 - `source-pack-lint` PATH: lint one source pack without collecting sources;
   supports `--format table|json` and `--strict`.
+- `source-liveness` PATH: run bounded network probes for configured RSS/RSSHub
+  and GDELT sources with no writes; supports `--format table|json` and
+  `--strict`.
 - `entity-pack-lint` PATH: lint one entity pack without matching or collecting;
   supports `--format table|json` and `--strict`.
 - `collect`: collect configured public sources into local SQLite; supports

@@ -690,6 +690,13 @@ Check a source pack before copying or editing it:
 uv run fashion-radar source-pack-lint configs/source-packs/fashion-public.example.yaml --strict
 ```
 
+Check whether configured public RSS/RSSHub feeds and GDELT lanes are reachable
+today without collecting or writing artifacts:
+
+```bash
+uv run fashion-radar source-liveness configs/source-packs/fashion-public.example.yaml
+```
+
 Check an entity pack before copying or editing it:
 
 ```bash

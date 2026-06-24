@@ -48,6 +48,11 @@ YAML config
   source sets, invalid config, and article extraction settings before
   collection. The linter does not fetch sources, open SQLite, collect items, or
   create config/data/report directories.
+- **Source Liveness:** Read-only network diagnostics probe configured RSS/RSSHub
+  feed URLs and GDELT Doc API query lanes before a user relies on daily reports.
+  The command prints table or JSON diagnostics only: it does not collect, store,
+  score, match, report, open SQLite, update source health, fetch article pages,
+  or prove demand or coverage.
 - **Collectors:** RSS/RSSHub-compatible feeds and GDELT Doc API metadata.
   Collectors return normalized items and do not write directly to SQLite.
 - **Manual Import:** Local CSV/JSON user-provided signal files are parsed as an
@@ -342,6 +347,15 @@ It reads raw YAML for omitted-field checks, validates the same source schema use
 by collection, and prints table or JSON findings. It does not check live source
 availability, run collectors, open the local database, or create workflow
 artifacts.
+
+## Source Liveness Boundary
+
+`source-liveness` is a pre-collection diagnostics command for schema-valid source
+YAML files. It performs bounded network probes for configured RSS/RSSHub feed
+URLs and GDELT Doc API queries, prints deterministic table or JSON output, and
+then exits. It does not collect items, store rows, score entities, match
+entities, generate reports, open SQLite, update `source_health`, fetch article
+pages, or prove demand or coverage.
 
 ## Entity-Pack Quality Boundary
 

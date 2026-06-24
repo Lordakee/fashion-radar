@@ -111,3 +111,15 @@ def test_source_packs_docs_example_json_matches_public_pack_lint_output() -> Non
     assert payload["type_counts"] == result.type_counts
     assert payload["tag_counts"] == result.tag_counts
     assert payload["findings"] == []
+
+
+def test_source_packs_docs_show_source_liveness_command_examples() -> None:
+    text = _read_source_packs_doc()
+
+    assert (
+        "uv run fashion-radar source-liveness configs/source-packs/fashion-public.example.yaml"
+    ) in text
+    assert (
+        "uv run fashion-radar source-liveness "
+        "configs/source-packs/fashion-public.example.yaml --format json"
+    ) in text

@@ -89,6 +89,18 @@ def test_source_pack_quality_docs_keep_availability_and_demand_boundaries() -> N
         assert phrase in normalized
 
 
+def test_source_pack_quality_docs_route_live_checks_to_source_liveness() -> None:
+    normalized = _normalized(_read_source_pack_quality_doc())
+
+    for phrase in (
+        "`source-pack-lint` checks the configured yaml file only",
+        "does not fetch sources",
+        "live checks belong to `source-liveness`",
+        "uv run fashion-radar source-liveness configs/source-packs/fashion-public.example.yaml",
+    ):
+        assert phrase in normalized
+
+
 def test_source_pack_quality_table_sample_matches_public_pack_lint_prefix() -> None:
     sample_lines = _source_pack_quality_table_sample()
     relative_pack_path = PUBLIC_SOURCE_PACK.relative_to(ROOT)

@@ -157,6 +157,11 @@ from fashion_radar.settings import (
     load_scoring_config,
     load_source_config,
 )
+from fashion_radar.source_liveness import (
+    build_source_liveness_report,
+    render_source_liveness_table,
+    source_liveness_should_exit_nonzero,
+)
 from fashion_radar.source_packs import (
     SourcePackFindingSeverity,
     lint_source_pack,
@@ -226,6 +231,7 @@ ExternalToolReadinessOutputFormat = Literal["table", "json"]
 ExternalToolTemplateOutputFormat = Literal["table", "json", "csv"]
 ExternalToolWorkflowOutputFormat = Literal["table", "json"]
 SourcePackLintOutputFormat = Literal["table", "json"]
+SourceLivenessOutputFormat = Literal["table", "json"]
 TrendOutputFormat = Literal["table", "json"]
 HeatMoversOutputFormat = Literal["table", "json"]
 CANDIDATE_FORMAT_OPTION = typer.Option(
@@ -438,6 +444,11 @@ SOURCE_PACK_LINT_FORMAT_OPTION = typer.Option(
     "--format",
     help="Output format.",
 )
+SOURCE_LIVENESS_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format.",
+)
 TREND_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
@@ -635,6 +646,24 @@ def source_pack_lint_command(
         finding.severity == SourcePackFindingSeverity.WARNING for finding in result.findings
     )
     if has_errors or (strict and has_warnings):
+        raise typer.Exit(1)
+
+
+@app.command(name="source-liveness")
+def source_liveness_command(
+    path: Path,
+    output_format: SourceLivenessOutputFormat = SOURCE_LIVENESS_FORMAT_OPTION,
+    strict: bool = typer.Option(False, help="Exit non-zero when warnings are present."),
+) -> None:
+    """Check configured source liveness with bounded network probes and no writes."""
+    report = build_source_liveness_report(path)
+    if output_format == "json":
+        typer.echo(report.model_dump_json(indent=2))
+    else:
+        for line in render_source_liveness_table(report):
+            typer.echo(line)
+
+    if source_liveness_should_exit_nonzero(report, strict=strict):
         raise typer.Exit(1)
 
 
