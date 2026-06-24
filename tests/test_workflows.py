@@ -58,12 +58,44 @@ def _store_item(data_dir: Path) -> int:
     )
 
 
-def test_collect_configured_sources_uses_injected_collectors(tmp_path: Path) -> None:
+def test_collect_configured_sources_uses_injected_collectors(tmp_path: Path, monkeypatch) -> None:
+    for key in ("ALL_PROXY", "HTTPS_PROXY", "HTTP_PROXY", "http_proxy"):
+        monkeypatch.setenv(key, "socks5h://127.0.0.1:9")
+
     source = SourceDefinition(
         name="Fixture Feed",
         type=SourceType.RSS,
         url="https://example.com/feed.xml",
         weight=1.7,
+        article={"enabled": False},
+    )
+
+    results = collect_configured_sources(
+        data_dir=tmp_path / "data",
+        sources=[source],
+        collectors={SourceType.RSS: FakeCollector()},
+        now=datetime(2026, 6, 11, 12, 0, tzinfo=UTC),
+    )
+
+    engine = create_sqlite_engine(default_database_path(tmp_path / "data"))
+    stored = ItemRepository(engine).get_item(1)
+    assert results[0].status.status == "success"
+    assert stored["source_weight"] == 1.7
+    assert stored["collected_at"] == "2026-06-11T12:00:00+00:00"
+
+
+def test_collect_configured_sources_with_injected_collectors_ignores_proxy_env(
+    tmp_path: Path, monkeypatch
+) -> None:
+    for key in ("ALL_PROXY", "HTTPS_PROXY", "HTTP_PROXY", "http_proxy"):
+        monkeypatch.setenv(key, "socks5h://127.0.0.1:9")
+
+    source = SourceDefinition(
+        name="Fixture Feed",
+        type=SourceType.RSS,
+        url="https://example.com/feed.xml",
+        weight=1.7,
+        article={"enabled": False},
     )
 
     results = collect_configured_sources(

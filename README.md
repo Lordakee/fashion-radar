@@ -39,33 +39,9 @@ brands, or verify platform coverage.
   and imported-row review output only.
 - Lints local community signal CSV/JSON files against the handoff contract
   before import, without fetching URLs or importing rows.
-- Documents sanitized CSV/JSON local file handoff templates for
-  user-controlled external/community tools.
-- Prints the `external-tool-adapters` external social/community tool adapter
-  registry as a local producer-discovery registry for mapping
-  user-controlled external/community tools to the sanitized CSV/JSON local file
-  handoff contract.
-- Prints `external-tool-template` adapter-specific template rows for
-  user-controlled external/community tools that need sanitized CSV/JSON local
-  file handoff examples.
-- Prints `external-tool-workflow` workflow metadata for user-controlled
-  external/community tools that need a producer-facing wrapper around existing
-  local commands before writing sanitized CSV/JSON local file handoff rows.
-  JSON output is workflow metadata, not importable handoff rows.
-- Checks `external-tool-readiness` local command availability for known free
-  external/community tools, including XPOZ MCP / Social Data API exports
-  created outside Fashion Radar, and prints readiness guidance,
-  mirror-friendly install hints, and Fashion Radar next-step handoff commands
-  without installing dependencies or running upstream tools.
-- Prints the community signal producer contract for user-controlled local tools
-  without reading handoff files, acquiring sources, monitoring platforms, or
-  performing compliance review.
-- Prints a local community directory handoff checklist with a
-  `review_handoff_readiness` step for the `community-handoff-check-dir`
-  local-only handoff readiness report before importing rows; it does not
-  execute commands, read the supplied directory, or run the generated commands.
-- Prints a local-only community directory handoff readiness report without
-  importing rows or writing SQLite.
+- Supports a documented local CSV/JSON handoff path for user-provided
+  external/community exports, with validation and review commands. This handoff
+  surface is supported as-is and frozen for v0.1.x.
 - Reviews retained `manual_import` rows already stored in local SQLite without
   importing, collecting, matching, scoring, or writing reports.
 - Reviews privacy-safe imported-only entity evidence for one matched entity
@@ -233,6 +209,14 @@ uv run fashion-radar external-tool-readiness --adapter rednote_mcp --format json
 
 Future non-core connectors, if ever added, must be explicit opt-ins with clear
 risk labels. They are not required for the core workflow.
+
+## Current Roadmap Focus
+
+Near-term v0.1.x work is focused on the core pipeline: broader source coverage,
+source-health visibility, stronger deterministic matching, and an optional
+summary layer for reports. No new external-tool, community-handoff, or
+imported-review surface area is planned unless a release-blocking defect
+requires maintenance.
 
 ## Quickstart
 

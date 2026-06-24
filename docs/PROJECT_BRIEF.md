@@ -157,6 +157,22 @@ Version `v0.1.0` should promise only:
 
 Google News RSS, Google Trends, Reddit, static webpage monitoring, and social-platform connectors should be opt-in post-MVP enhancements unless their authorization and access boundaries are clear.
 
+## Current Review-Aligned Priorities
+
+Before expanding any experimental or community handoff surface, the next
+roadmap priorities are:
+
+- expand curated public-source coverage, especially celebrity style, street
+  style, designer/luxury, and emerging-brand monitoring;
+- add read-only source-health/feed-liveness diagnostics for enabled sources;
+- improve deterministic matching quality for case, diacritics, and entity
+  disambiguation;
+- keep summaries optional and post-core, improving reports without becoming a
+  baseline dependency.
+
+Experimental/community handoff expansion is frozen until those core gaps are
+addressed.
+
 ## Required Compliance Defaults
 
 - Fetchers must use a descriptive User-Agent.

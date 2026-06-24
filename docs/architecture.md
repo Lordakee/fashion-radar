@@ -11,23 +11,8 @@ YAML config
   -> optionally lint source-pack quality before collection
   -> optionally lint entity-pack quality before matching
   -> collect public sources
-  -> optionally copy sanitized CSV/JSON external tool handoff template files
-     for a local external tool
-  -> optionally use checked-in external community tool export directory
-     examples for a local external tool
-  -> optionally print the external social/community tool adapter registry
-     as a local producer-discovery registry
-  -> optionally print adapter-specific template rows for sanitized CSV/JSON
-     local file handoff examples
-  -> optionally check local command availability guidance for external/community tools
-     without running adapters or upstream tools
-  -> optionally print the community signal producer profile before a local tool writes files
-     with static directory_example_paths pointers
-  -> optionally print a community directory handoff checklist without executing it
-  -> optionally run a local-only community directory handoff readiness report
-  -> optionally lint one community signal CSV/JSON file or a local directory batch before import
-  -> optionally dry-run matched local signal files in one directory before import
-  -> optionally import user-provided local CSV/JSON signals from one file or one directory
+  -> optionally import user-provided local CSV/JSON signals through the
+     existing documented manual/community handoff path (frozen for v0.1.x)
   -> store items in SQLite
   -> optionally print a post-import review command checklist without executing it
   -> optionally review retained manual_import rows from local SQLite
@@ -92,6 +77,10 @@ YAML config
   `external-tool-readiness` as an optional local read-only preflight command,
   while `external-tool-adapters` itself remains print-only and does not run
   readiness or perform PATH lookup.
+  Current architecture priority is the collect -> match -> score -> report
+  pipeline. The external/community handoff path remains documented and
+  supported, but near-term roadmap work is paused there while source
+  coverage/health, matching quality, and optional summarization are improved.
   `external-tool-template` prints adapter-specific template rows for
   user-controlled external/community tools that need sanitized CSV/JSON local
   file handoff examples. It is local and print-only: JSON and CSV output

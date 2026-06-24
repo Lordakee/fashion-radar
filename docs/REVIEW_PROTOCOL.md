@@ -11,6 +11,9 @@ opencode with `zhipuai-coding-plan/glm-5.2 --variant max`.
 4. Fix critical and important planning issues.
 5. Start implementation only after the plan is acceptable.
 
+Each new stage plan should state which core product gap it closes in the
+collect -> match -> report pipeline.
+
 Use this command form for plan reviews:
 
 ```bash
@@ -31,6 +34,13 @@ Each implementation stage must end with:
    (`docs/reviews/opencode-stage-N-code-review.md`).
 3. Fixes for critical and important findings.
 4. Local opencode review of the next-stage plan.
+
+For the current v0.1.x release track, stage proposals should prioritize source
+coverage/health, matching quality, and optional summary work over new
+external/community handoff surface area. Changes to `external-tool-*`,
+`community-handoff-*`, or `imported-*` commands should be treated as frozen
+unless they fix a release-blocking defect or a correctness issue in existing
+behavior.
 
 ## Before GitHub Upload
 

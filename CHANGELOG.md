@@ -80,6 +80,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   matched entity, plus the print-only `review_imported_entity_evidence`
   workflow step. It adds no scraping, browser automation, platform APIs, or
   account or cookie behavior.
+
 - Local read-only `imported-candidates` command for reviewing candidate phrases
   from retained `manual_import` rows only.
 - Local read-only `imported-candidate-evidence` command for reviewing retained
@@ -222,6 +223,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   weight/confidence review.
 - Stage 38 local schema maintenance documentation for explicit `migrate-db`
   SQLite initialization/upgrades and read-only `doctor` schema status.
+
+### Fixed
+
+- Stage 188 isolates injected collector/workflow tests from proxy-configured
+  host environments and corrects roadmap emphasis toward source coverage,
+  source health, matching quality, and optional report summaries over further
+  external/community handoff expansion.
 
 ### Changed
 

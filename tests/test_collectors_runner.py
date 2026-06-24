@@ -58,12 +58,14 @@ class TimingAwareCollector:
 
 
 def _rss_source(name: str, **overrides: object) -> SourceDefinition:
-    return SourceDefinition(
-        name=name,
-        type=SourceType.RSS,
-        url=f"https://example.com/{name}.xml",
-        **overrides,
-    )
+    payload = {
+        "name": name,
+        "type": SourceType.RSS,
+        "url": f"https://example.com/{name}.xml",
+        "article": {"enabled": False},
+    }
+    payload.update(overrides)
+    return SourceDefinition(**payload)
 
 
 def test_collect_sources_records_failure_and_continues_to_next_source(tmp_path) -> None:
