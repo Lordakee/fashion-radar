@@ -3535,6 +3535,16 @@ def test_validate_candidates_and_trends_pin_expected_first_run_state() -> None:
         smoke.validate_trends("trends", wrong_kind)
 
 
+def test_validate_trends_rejects_non_object_delta_entries() -> None:
+    payload = trends_payload()
+    deltas = payload["deltas"]
+    assert isinstance(deltas, list)
+    deltas.append("not-a-delta")
+
+    with pytest.raises(smoke.SmokeError, match="trends delta 4 must be a JSON object"):
+        smoke.validate_trends("trends", payload)
+
+
 def test_report_paths_derive_date_from_as_of(tmp_path: Path) -> None:
     context = make_context(tmp_path)
 

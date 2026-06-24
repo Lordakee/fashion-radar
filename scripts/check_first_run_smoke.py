@@ -2270,7 +2270,12 @@ def validate_trends(command_name: str, payload: Any) -> None:
         "The Row Margaux": "product",
         "Ballet Flats": "category",
     }
-    deltas_by_name = {str(delta.get("name")): delta for delta in deltas if isinstance(delta, dict)}
+    checked_deltas: list[dict[str, Any]] = []
+    for index, delta in enumerate(deltas, start=1):
+        if not isinstance(delta, dict):
+            raise SmokeError(f"{command_name} delta {index} must be a JSON object")
+        checked_deltas.append(delta)
+    deltas_by_name = {str(delta.get("name")): delta for delta in checked_deltas}
     assert_equal(
         f"{command_name} entity delta names",
         list(deltas_by_name),
