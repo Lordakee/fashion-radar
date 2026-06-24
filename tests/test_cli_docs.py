@@ -133,6 +133,34 @@ HEAT_MOVERS_FORBIDDEN_POSITIVE_CLAIMS = (
     "verified demand",
     "top social trend",
 )
+DAILY_BRIEF_DOCS = (
+    README,
+    CLI_REFERENCE,
+    ARCHITECTURE_DOC,
+    ROOT / "docs" / "daily-digest.md",
+    UPLOAD_CHECKLIST,
+    CHANGELOG,
+)
+DAILY_BRIEF_REQUIRED_PHRASES = (
+    "Daily Brief",
+    "Heat Narrative",
+    "local observed",
+    "configured sources and imported local signals",
+    "needs review",
+    "It provides no demand proof and no platform coverage verification.",
+)
+DAILY_BRIEF_FORBIDDEN_POSITIVE_CLAIMS = (
+    "viral",
+    "market-wide trend",
+    "platform-wide popularity",
+    "verified demand",
+    "top social trend",
+)
+DAILY_BRIEF_NON_COMMAND_NAMES = (
+    "daily-brief",
+    "heat-narrative",
+    "narrative",
+)
 IMPORTED_REVIEW_WORKFLOW_DOCS = (
     README,
     ROOT / "docs" / "community-signal-import.md",
@@ -688,6 +716,37 @@ def test_heat_movers_cli_reference_lists_public_flags() -> None:
 
 def test_heat_movers_upload_checklist_help_loop_includes_command() -> None:
     assert "heat-movers" in _upload_checklist_help_loop_commands()
+
+
+def test_daily_brief_docs_are_bounded_and_discoverable() -> None:
+    for path in DAILY_BRIEF_DOCS:
+        normalized = _normalized_doc_text(path).casefold()
+        for phrase in DAILY_BRIEF_REQUIRED_PHRASES:
+            assert phrase.casefold() in normalized, f"{path.relative_to(ROOT)} missing {phrase!r}"
+
+
+def test_daily_brief_docs_do_not_make_positive_scope_claims() -> None:
+    for path in DAILY_BRIEF_DOCS:
+        normalized = _normalized_doc_text(path).casefold()
+        for claim in DAILY_BRIEF_FORBIDDEN_POSITIVE_CLAIMS:
+            assert claim not in normalized, f"{path.relative_to(ROOT)} uses {claim!r}"
+
+
+def test_daily_brief_docs_do_not_add_public_commands() -> None:
+    public_commands = set(_public_cli_commands())
+    help_loop_commands = set(_upload_checklist_help_loop_commands())
+    cli_reference = _read(CLI_REFERENCE)
+    docs_text = "\n".join(_read(path) for path in DAILY_BRIEF_DOCS)
+    documented_daily_brief_commands = _fashion_radar_command_names_from_text(
+        docs_text,
+        allowed_names=set(DAILY_BRIEF_NON_COMMAND_NAMES),
+    )
+
+    for command in DAILY_BRIEF_NON_COMMAND_NAMES:
+        assert command not in public_commands
+        assert command not in help_loop_commands
+        assert re.search(rf"^- `{re.escape(command)}`:", cli_reference, re.MULTILINE) is None
+        assert command not in documented_daily_brief_commands
 
 
 def test_dashboard_docs_current_tab_order_matches_app_labels() -> None:
@@ -1371,8 +1430,9 @@ def test_upload_checklist_documents_first_run_smoke_boundary() -> None:
     ):
         assert term in text
     assert (
-        "The smoke also validates sample rows, matched starter entities, report content, "
-        "trend deltas, empty untracked candidates, and directory handoff dry-run counts."
+        "The smoke also validates sample rows, matched starter entities, report content "
+        "including Daily Brief, trend deltas, empty untracked candidates, and directory "
+        "handoff dry-run counts."
     ) in normalized
     for term in FIRST_RUN_EXTERNAL_TOOL_SMOKE_PHRASES:
         assert term in normalized

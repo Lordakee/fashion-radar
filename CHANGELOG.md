@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 191 docs/test coverage for generated report Daily Brief Heat Narrative
+  content over local observed tracked signals, candidate phrases, and source
+  caveats from configured sources and imported local signals. The Daily Brief
+  needs review. It provides no demand proof and no platform coverage verification.
 - Stage 190 `source-liveness` read-only diagnostics for configured RSS/RSSHub
   feeds and GDELT lanes, with table/JSON output, strict warning exits, and
   tests that guard no-write behavior and fake-client network seams.

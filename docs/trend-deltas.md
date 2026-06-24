@@ -18,6 +18,14 @@ platform coverage verification.
 uv run fashion-radar heat-movers --as-of 2026-06-12T00:00:00Z --config-dir ./configs --data-dir ./data
 ```
 
+## Heat Narrative
+
+The report Daily Brief can describe local observed movement as a Heat Narrative.
+That wording stays tied to review-oriented movement from configured sources and
+imported local signals, including candidate phrases. The Heat Narrative needs
+review. It provides no demand proof and no platform coverage verification. It
+does not rank the broader market.
+
 ## CLI Usage
 
 Compare the current local snapshot with the default baseline:

@@ -71,11 +71,17 @@ validates deterministic sample output content, not only command execution.
   `--config-dir`, `--data-dir`, and `--now`.
 - `match`: match configured entities against stored items; supports
   `--config-dir` and `--data-dir`.
-- `report`: generate Markdown and JSON reports; requires `--as-of` and supports
-  `--config-dir`, `--data-dir`, `--reports-dir`, `--digest-latest`,
-  `--digest-index`, `--digest-eml`, and `--digest-summary`.
+- `report`: generate Markdown and JSON reports, including a Daily Brief Heat
+  Narrative for local observed tracked signals, candidate phrases that need
+  review, and source caveats from configured sources and imported local
+  signals. It provides no demand proof and no platform coverage verification.
+  Requires `--as-of` and supports `--config-dir`, `--data-dir`,
+  `--reports-dir`, `--digest-latest`, `--digest-index`, `--digest-eml`, and
+  `--digest-summary`.
 - `run`: run `collect -> match -> report` serially; requires `--as-of` and
-  supports the same path and digest options as `report`.
+  supports the same path and digest options as `report`. The generated report
+  includes the same Daily Brief Heat Narrative content, and that content needs
+  review as local report output rather than a separate public CLI command.
 - `schedule-example`: print safe scheduling snippets without installing them.
   Run `fashion-radar schedule-example --help` for current mode, time, project,
   config, data, and reports options.

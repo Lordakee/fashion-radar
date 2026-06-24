@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 from importlib import resources
+from pathlib import Path
 
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import (
@@ -16,6 +17,9 @@ from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.report import (
     REPORT_SNIPPET_MAX_CHARS,
     CandidateReport,
+    DailyBrief,
+    DailyBriefItem,
+    DailyBriefSection,
     DailyReport,
     EntityReport,
     ReportMetadata,
@@ -85,7 +89,10 @@ def test_daily_report_template_is_packaged() -> None:
     template = resources.files("fashion_radar.templates").joinpath("daily_report.md")
 
     assert template.is_file()
-    assert "{entity_sections}" in template.read_text(encoding="utf-8")
+    text = template.read_text(encoding="utf-8")
+    assert "{brief_section}" in text
+    assert "{entity_sections}" in text
+    assert "## Daily Brief" in text
 
 
 def test_representative_item_summary_is_report_safe_snippet() -> None:
@@ -161,6 +168,145 @@ def test_rendered_reports_cap_entity_and_candidate_summaries() -> None:
     assert len(candidate_summary) <= REPORT_SNIPPET_MAX_CHARS
     assert entity_summary.endswith("...")
     assert candidate_summary.endswith("...")
+
+
+def test_daily_report_includes_stable_daily_brief_json_shape(tmp_path: Path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    _store_item(
+        engine,
+        url="https://example.com/the-row",
+        entity_name="The Row",
+        source_name="Vogue Business",
+        source_weight=1.7,
+        collected_at=AS_OF - timedelta(hours=1),
+        summary="The Row gains local observed coverage.",
+    )
+    repository = ItemRepository(engine)
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Fashionista",
+            source_type=SourceType.RSS,
+            url="https://example.com/le-teckel",
+            title="Le Teckel bag signal",
+            published_at=AS_OF - timedelta(hours=2),
+            summary="Le Teckel bag appears in a local observed item.",
+        ),
+        collected_at=AS_OF - timedelta(hours=2),
+    )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="WWD",
+            source_type=SourceType.RSS,
+            url="https://example.com/le-teckel-again",
+            title="Le Teckel bag appears again",
+            published_at=AS_OF - timedelta(hours=3),
+            summary="Le Teckel bag appears again in local observed coverage.",
+        ),
+        collected_at=AS_OF - timedelta(hours=3),
+    )
+
+    report = build_daily_report(
+        engine,
+        scoring=ScoringSettings(),
+        candidate_discovery=CandidateDiscoverySettings(),
+        entity_config=None,
+        as_of=AS_OF,
+        generated_at=AS_OF,
+    )
+    parsed = json.loads(render_json_report(report))
+
+    assert isinstance(report.brief, DailyBrief)
+    assert isinstance(report.brief.sections[0], DailyBriefSection)
+    assert isinstance(report.brief.sections[0].items[0], DailyBriefItem)
+    assert list(parsed) == [
+        "metadata",
+        "brief",
+        "entities",
+        "candidates",
+        "source_health",
+        "recent_runs",
+    ]
+    assert list(parsed["brief"]) == [
+        "contract_version",
+        "execution_mode",
+        "summary",
+        "sections",
+        "boundaries",
+    ]
+    assert parsed["brief"]["contract_version"] == "daily-brief/v1"
+    assert parsed["brief"]["execution_mode"] == "local_report_derived"
+    assert "Local observed brief" in parsed["brief"]["summary"]
+    assert (
+        "It provides no demand proof and no platform coverage verification."
+        in parsed["brief"]["summary"]
+    )
+    assert [section["name"] for section in parsed["brief"]["sections"]] == [
+        "tracked_signals",
+        "candidate_signals",
+        "source_caveats",
+    ]
+    assert parsed["brief"]["sections"][0]["items"][0]["kind"] == "tracked_entity"
+    assert parsed["brief"]["sections"][0]["items"][0]["title"] == "The Row"
+    assert parsed["brief"]["sections"][0]["items"][0]["reason_codes"] == [
+        "new_tracked_entity",
+        "current_mentions_observed",
+        "high_weight_source_observed",
+    ]
+    assert parsed["brief"]["sections"][1]["items"][0]["kind"] == "candidate_phrase"
+    assert parsed["brief"]["sections"][1]["items"][0]["needs_review"] is True
+    assert parsed["brief"]["sections"][1]["items"][0]["reason_codes"] == [
+        "candidate_needs_review",
+        "new_candidate_phrase",
+        "current_mentions_observed",
+        "multiple_sources_observed",
+    ]
+    assert parsed["brief"]["boundaries"] == [
+        (
+            "Daily Brief is derived from local report rows for configured sources "
+            "and imported local signals."
+        ),
+        (
+            "Daily Brief does not collect sources, search platforms, prove demand, "
+            "or verify platform coverage."
+        ),
+    ]
+
+
+def test_markdown_report_renders_daily_brief_before_top_signals(tmp_path: Path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    _store_item(
+        engine,
+        url="https://example.com/the-row",
+        entity_name="The Row",
+        source_name="Vogue Business",
+        source_weight=1.7,
+        collected_at=AS_OF - timedelta(hours=1),
+        summary="The Row local observed signal.",
+    )
+
+    report = build_daily_report(
+        engine,
+        scoring=ScoringSettings(),
+        as_of=AS_OF,
+        generated_at=AS_OF,
+    )
+    markdown = render_markdown_report(report)
+
+    assert markdown.index("## Daily Brief") < markdown.index("## Top Signals")
+    assert "### Tracked Signals To Review" in markdown
+    assert "- The Row:" in markdown
+    assert "Reasons:" in markdown
+    assert "It provides no demand proof and no platform coverage verification." in markdown
+    for forbidden in (
+        "viral",
+        "market-wide trend",
+        "platform-wide popularity",
+        "verified demand",
+        "top social trend",
+    ):
+        assert forbidden not in markdown.lower()
 
 
 def test_markdown_report_includes_entities_attribution_and_source_status(tmp_path) -> None:
@@ -275,7 +421,15 @@ def test_empty_database_produces_useful_empty_report(tmp_path) -> None:
 
     assert report.entities == []
     assert parsed["entities"] == []
+    assert parsed["brief"]["summary"] == (
+        "Local observed brief from configured sources and imported local signals: "
+        "0 tracked signals, 0 candidate signals needing review, 0 source caveats. "
+        "It provides no demand proof and no platform coverage verification."
+    )
+    assert all(section["items"] == [] for section in parsed["brief"]["sections"])
     assert "No entity signals in this window." in markdown
+    assert "## Daily Brief" in markdown
+    assert "- No daily brief items available." in markdown
 
 
 def test_daily_report_includes_untracked_candidate_signals(tmp_path) -> None:

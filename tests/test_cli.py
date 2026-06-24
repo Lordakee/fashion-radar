@@ -7755,6 +7755,7 @@ scoring:
             summary="Short attributed summary.",
         ),
         collected_at=datetime(2026, 6, 11, 11, 0, tzinfo=UTC),
+        source_weight=1.7,
     )
     repository.replace_item_matches(
         item_id,
@@ -7790,8 +7791,19 @@ scoring:
     json_path = reports_dir / "fashion-radar-2026-06-11.json"
     assert markdown_path.exists()
     assert json_path.exists()
-    assert "The Row" in markdown_path.read_text(encoding="utf-8")
-    assert '"entity_name": "The Row"' in json_path.read_text(encoding="utf-8")
+    markdown_text = markdown_path.read_text(encoding="utf-8")
+    json_payload = json.loads(json_path.read_text(encoding="utf-8"))
+    assert "The Row" in markdown_text
+    assert "## Daily Brief" in markdown_text
+    assert "Local observed brief" in markdown_text
+    assert json_payload["brief"]["contract_version"] == "daily-brief/v1"
+    assert json_payload["brief"]["sections"][0]["items"][0]["title"] == "The Row"
+    assert json_payload["brief"]["sections"][0]["items"][0]["reason_codes"] == [
+        "new_tracked_entity",
+        "current_mentions_observed",
+        "high_weight_source_observed",
+    ]
+    assert json_payload["entities"][0]["entity_name"] == "The Row"
 
 
 def _write_report_cli_config(config_dir: Path) -> None:

@@ -13,6 +13,9 @@ from fashion_radar.discovery.candidates import CandidateMetric, discover_candida
 from fashion_radar.models.report import (
     CandidateReport,
     CollectorRunReport,
+    DailyBrief,
+    DailyBriefItem,
+    DailyBriefSection,
     DailyReport,
     EntityReport,
     ReportMetadata,
@@ -22,6 +25,8 @@ from fashion_radar.models.report import (
 from fashion_radar.scoring import EntityHeatMetric, score_entities
 from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
 from fashion_radar.utils.dates import parse_datetime_utc
+
+DAILY_BRIEF_SECTION_LIMIT = 3
 
 
 def build_daily_report(
@@ -59,16 +64,24 @@ def build_daily_report(
             as_of=as_of_utc,
         )
     ]
+    source_health_reports = _source_health_reports(engine)
+    recent_run_reports = _recent_run_reports(engine, limit=recent_runs_limit)
     return DailyReport(
         metadata=ReportMetadata(
             generated_at=generated_at or as_of_utc,
             report_date=as_of_utc,
             item_count=sum(entity.current_mentions for entity in entities),
         ),
+        brief=build_daily_brief(
+            entities=entities,
+            candidates=candidates,
+            source_health=source_health_reports,
+            recent_runs=recent_run_reports,
+        ),
         entities=entities,
         candidates=candidates,
-        source_health=_source_health_reports(engine),
-        recent_runs=_recent_run_reports(engine, limit=recent_runs_limit),
+        source_health=source_health_reports,
+        recent_runs=recent_run_reports,
     )
 
 
@@ -82,6 +95,7 @@ def render_markdown_report(report: DailyReport) -> str:
         generated_at=report.metadata.generated_at.isoformat(),
         report_date=report.metadata.report_date.isoformat(),
         item_count=report.metadata.item_count,
+        brief_section=_render_daily_brief(report.brief),
         entity_sections=_render_entity_sections(report.entities),
         candidate_sections=_render_candidate_sections(report.candidates),
         source_health_section=_render_source_health(report.source_health),
@@ -134,6 +148,263 @@ def _candidate_report(metric: CandidateMetric) -> CandidateReport:
         first_seen_at=metric.first_seen_at,
         representative_items=list(metric.representative_items),
     )
+
+
+def _render_daily_brief(brief: DailyBrief) -> str:
+    lines = [brief.summary]
+    any_items = False
+    for section in brief.sections:
+        lines.extend(["", f"### {section.title}"])
+        if not section.items:
+            lines.append("- No daily brief items available.")
+            continue
+        any_items = True
+        for item in section.items:
+            reasons = ", ".join(item.reason_codes) if item.reason_codes else "none"
+            lines.append(
+                f"- {_table_cell(item.title)}: {_table_cell(item.summary)} "
+                f"Reasons: {_table_cell(reasons)}."
+            )
+    if not any_items:
+        return "\n".join([brief.summary, "", "- No daily brief items available."])
+    return "\n".join(lines)
+
+
+def build_daily_brief(
+    *,
+    entities: list[EntityReport],
+    candidates: list[CandidateReport],
+    source_health: list[SourceHealthReport],
+    recent_runs: list[CollectorRunReport],
+    limit_per_section: int = DAILY_BRIEF_SECTION_LIMIT,
+) -> DailyBrief:
+    if limit_per_section < 0:
+        raise ValueError("limit_per_section must be at least 0")
+
+    tracked_items = [_brief_item_for_entity(entity) for entity in entities[:limit_per_section]]
+    candidate_items = [
+        _brief_item_for_candidate(candidate) for candidate in candidates[:limit_per_section]
+    ]
+    source_items = _source_caveat_items(
+        source_health=source_health,
+        recent_runs=recent_runs,
+        limit=limit_per_section,
+    )
+
+    return DailyBrief(
+        summary=_daily_brief_summary(
+            tracked_count=len(tracked_items),
+            candidate_count=len(candidate_items),
+            source_caveat_count=len(source_items),
+        ),
+        sections=[
+            DailyBriefSection(
+                name="tracked_signals",
+                title="Tracked Signals To Review",
+                items=tracked_items,
+            ),
+            DailyBriefSection(
+                name="candidate_signals",
+                title="Candidate Signals Needing Review",
+                items=candidate_items,
+            ),
+            DailyBriefSection(name="source_caveats", title="Source Caveats", items=source_items),
+        ],
+    )
+
+
+def _daily_brief_summary(
+    *,
+    tracked_count: int,
+    candidate_count: int,
+    source_caveat_count: int,
+) -> str:
+    tracked_label = _count_label(tracked_count, "tracked signal", "tracked signals")
+    candidate_label = _count_label(
+        candidate_count,
+        "candidate signal needing review",
+        "candidate signals needing review",
+    )
+    source_caveat_label = _count_label(
+        source_caveat_count,
+        "source caveat",
+        "source caveats",
+    )
+    return (
+        "Local observed brief from configured sources and imported local signals: "
+        f"{tracked_count} {tracked_label}, "
+        f"{candidate_count} {candidate_label}, "
+        f"{source_caveat_count} {source_caveat_label}. "
+        "It provides no demand proof and no platform coverage verification."
+    )
+
+
+def _brief_item_for_entity(entity: EntityReport) -> DailyBriefItem:
+    return DailyBriefItem(
+        kind="tracked_entity",
+        title=entity.entity_name,
+        summary=(
+            f"Local observed tracked {entity.entity_type} signal from configured sources "
+            f"and imported local signals: {entity.current_mentions} "
+            f"{_count_label(entity.current_mentions, 'current mention', 'current mentions')}, "
+            f"{entity.baseline_mentions} "
+            f"{_count_label(entity.baseline_mentions, 'baseline mention', 'baseline mentions')}, "
+            f"{entity.distinct_sources} "
+            f"{_count_label(entity.distinct_sources, 'distinct source', 'distinct sources')}."
+        ),
+        reason_codes=_entity_reason_codes(entity),
+        current_mentions=entity.current_mentions,
+        baseline_mentions=entity.baseline_mentions,
+        distinct_sources=entity.distinct_sources,
+        score=entity.heat_score,
+    )
+
+
+def _brief_item_for_candidate(candidate: CandidateReport) -> DailyBriefItem:
+    current_label = _count_label(candidate.current_mentions, "current mention", "current mentions")
+    baseline_label = _count_label(
+        candidate.baseline_mentions,
+        "baseline mention",
+        "baseline mentions",
+    )
+    source_label = _count_label(candidate.distinct_sources, "distinct source", "distinct sources")
+    return DailyBriefItem(
+        kind="candidate_phrase",
+        title=candidate.phrase,
+        summary=(
+            "Local observed candidate phrase from configured sources and imported local "
+            f"signals; needs review: {candidate.current_mentions} {current_label}, "
+            f"{candidate.baseline_mentions} {baseline_label}, "
+            f"{candidate.distinct_sources} {source_label}."
+        ),
+        reason_codes=_candidate_reason_codes(candidate),
+        current_mentions=candidate.current_mentions,
+        baseline_mentions=candidate.baseline_mentions,
+        distinct_sources=candidate.distinct_sources,
+        score=candidate.score,
+        needs_review=True,
+    )
+
+
+def _source_caveat_items(
+    *,
+    source_health: list[SourceHealthReport],
+    recent_runs: list[CollectorRunReport],
+    limit: int,
+) -> list[DailyBriefItem]:
+    if limit == 0:
+        return []
+
+    health_items = [
+        _brief_item_for_source_health(source)
+        for source in sorted(
+            source_health,
+            key=lambda row: (-row.consecutive_failures, row.source_name, row.source_type),
+        )
+        if _source_health_needs_caveat(source)
+    ]
+    remaining = limit - len(health_items)
+    if remaining <= 0:
+        return health_items[:limit]
+
+    run_items = [
+        _brief_item_for_recent_run(run) for run in recent_runs if run.status.casefold() == "failed"
+    ]
+    return (health_items + run_items[:remaining])[:limit]
+
+
+def _brief_item_for_source_health(source: SourceHealthReport) -> DailyBriefItem:
+    reasons: list[str] = []
+    if source.consecutive_failures > 0:
+        reasons.append("source_health_failure")
+    if source.unhealthy_until is not None:
+        reasons.append("source_unhealthy_until_set")
+    if source.last_error_message:
+        reasons.append("source_last_error_present")
+
+    failure_label = _count_label(
+        source.consecutive_failures,
+        "consecutive failure",
+        "consecutive failures",
+    )
+    summary = (
+        f"Local source caveat: {source.source_name} has {source.consecutive_failures} "
+        f"{failure_label}."
+    )
+    if source.last_error_message:
+        summary = f"{summary} Last error: {source.last_error_message}."
+
+    return DailyBriefItem(
+        kind="source_caveat",
+        title=source.source_name,
+        summary=summary,
+        reason_codes=reasons,
+    )
+
+
+def _brief_item_for_recent_run(run: CollectorRunReport) -> DailyBriefItem:
+    return DailyBriefItem(
+        kind="collector_run_caveat",
+        title=run.source_name,
+        summary=(
+            f"Local source caveat: {run.source_name} recent collection failed with "
+            f"{run.items_stored}/{run.items_seen} stored."
+            + (f" Last error: {run.error_message}." if run.error_message else "")
+        ),
+        reason_codes=["recent_collection_failed"],
+    )
+
+
+def _source_health_needs_caveat(source: SourceHealthReport) -> bool:
+    return (
+        source.consecutive_failures > 0
+        or source.unhealthy_until is not None
+        or bool(source.last_error_message)
+    )
+
+
+def _entity_reason_codes(entity: EntityReport) -> list[str]:
+    codes: list[str] = []
+    if entity.label == "new":
+        codes.append("new_tracked_entity")
+    if entity.label == "rising":
+        codes.append("rising_tracked_entity")
+    if entity.current_mentions > 0:
+        codes.append("current_mentions_observed")
+    if entity.baseline_mentions > 0:
+        codes.append("baseline_mentions_observed")
+    if entity.distinct_sources > 1:
+        codes.append("multiple_sources_observed")
+    if entity.growth_component > 0:
+        codes.append("growth_component_observed")
+    if entity.high_weight_component > 0:
+        codes.append("high_weight_source_observed")
+    return codes
+
+
+def _candidate_reason_codes(candidate: CandidateReport) -> list[str]:
+    codes = ["candidate_needs_review"]
+    if candidate.label == "new_candidate":
+        codes.append("new_candidate_phrase")
+    if candidate.label == "rising_candidate":
+        codes.append("rising_candidate_phrase")
+    if candidate.current_mentions > 0:
+        codes.append("current_mentions_observed")
+    if candidate.baseline_mentions > 0:
+        codes.append("baseline_mentions_observed")
+    if candidate.distinct_sources > 1:
+        codes.append("multiple_sources_observed")
+    if candidate.growth_ratio is not None:
+        codes.append("growth_ratio_observed")
+    return codes
+
+
+def _count_label(count: int, singular: str, plural: str) -> str:
+    return singular if count == 1 else plural
+
+
+def _table_cell(value: str) -> str:
+    return " ".join(value.replace("|", "/").replace("\r", " ").replace("\n", " ").split())
 
 
 def _representative_items(

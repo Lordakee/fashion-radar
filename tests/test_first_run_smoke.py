@@ -528,6 +528,95 @@ def report_payload() -> dict[str, object]:
             "report_date": "2026-06-13T12:00:00Z",
             "item_count": 3,
         },
+        "brief": {
+            "contract_version": "daily-brief/v1",
+            "execution_mode": "local_report_derived",
+            "summary": (
+                "Local observed brief from configured sources and imported local signals: "
+                "3 tracked signals, 0 candidate signals needing review, 0 source caveats. "
+                "It provides no demand proof and no platform coverage verification."
+            ),
+            "sections": [
+                {
+                    "name": "tracked_signals",
+                    "title": "Tracked Signals To Review",
+                    "items": [
+                        {
+                            "kind": "tracked_entity",
+                            "title": "The Row",
+                            "summary": (
+                                "Local observed tracked brand signal from configured sources "
+                                "and imported local signals: 1 current mention, "
+                                "0 baseline mentions, 1 distinct source."
+                            ),
+                            "reason_codes": [
+                                "new_tracked_entity",
+                                "current_mentions_observed",
+                                "high_weight_source_observed",
+                            ],
+                            "current_mentions": 1,
+                            "baseline_mentions": 0,
+                            "distinct_sources": 1,
+                            "score": 1.8,
+                            "needs_review": False,
+                        },
+                        {
+                            "kind": "tracked_entity",
+                            "title": "The Row Margaux",
+                            "summary": (
+                                "Local observed tracked product signal from configured sources "
+                                "and imported local signals: 1 current mention, "
+                                "0 baseline mentions, 1 distinct source."
+                            ),
+                            "reason_codes": [
+                                "new_tracked_entity",
+                                "current_mentions_observed",
+                                "high_weight_source_observed",
+                            ],
+                            "current_mentions": 1,
+                            "baseline_mentions": 0,
+                            "distinct_sources": 1,
+                            "score": 1.8,
+                            "needs_review": False,
+                        },
+                        {
+                            "kind": "tracked_entity",
+                            "title": "Ballet Flats",
+                            "summary": (
+                                "Local observed tracked category signal from configured sources "
+                                "and imported local signals: 1 current mention, "
+                                "0 baseline mentions, 1 distinct source."
+                            ),
+                            "reason_codes": [
+                                "new_tracked_entity",
+                                "current_mentions_observed",
+                            ],
+                            "current_mentions": 1,
+                            "baseline_mentions": 0,
+                            "distinct_sources": 1,
+                            "score": 1.1,
+                            "needs_review": False,
+                        },
+                    ],
+                },
+                {
+                    "name": "candidate_signals",
+                    "title": "Candidate Signals Needing Review",
+                    "items": [],
+                },
+                {"name": "source_caveats", "title": "Source Caveats", "items": []},
+            ],
+            "boundaries": [
+                (
+                    "Daily Brief is derived from local report rows for configured sources "
+                    "and imported local signals."
+                ),
+                (
+                    "Daily Brief does not collect sources, search platforms, prove demand, "
+                    "or verify platform coverage."
+                ),
+            ],
+        },
         "entities": [
             {
                 "entity_name": "The Row",
@@ -587,6 +676,19 @@ def report_markdown() -> str:
             "# Fashion Radar Daily Report",
             "Window ending: 2026-06-13T12:00:00+00:00",
             "Current-window mentions: 3",
+            "## Daily Brief",
+            (
+                "Local observed brief from configured sources and imported local signals: "
+                "3 tracked signals, 0 candidate signals needing review, 0 source caveats. "
+                "It provides no demand proof and no platform coverage verification."
+            ),
+            "### Tracked Signals To Review",
+            (
+                "- The Row: Local observed tracked brand signal from configured sources "
+                "and imported local signals: 1 current mention, 0 baseline mentions, "
+                "1 distinct source. Reasons: new_tracked_entity, "
+                "current_mentions_observed, high_weight_source_observed."
+            ),
             "## Top Signals",
             "### The Row (new)",
             "### The Row Margaux (new)",
@@ -3536,6 +3638,37 @@ def test_validate_report_requires_expected_first_run_entity_sections() -> None:
             report_payload(),
             report_markdown() + "\nNo entity signals in this window.\n",
         )
+
+    with pytest.raises(smoke.SmokeError, match="Daily Brief"):
+        smoke.validate_report_outputs(
+            report_payload(),
+            report_markdown().replace("## Daily Brief", "## Brief", 1),
+        )
+
+    missing_brief = report_payload()
+    missing_brief.pop("brief")
+    with pytest.raises(smoke.SmokeError, match="brief"):
+        smoke.validate_report_outputs(missing_brief, report_markdown())
+
+    wrong_contract = report_payload()
+    brief = wrong_contract["brief"]
+    assert isinstance(brief, dict)
+    brief["contract_version"] = "other/v1"
+    with pytest.raises(smoke.SmokeError, match="contract_version"):
+        smoke.validate_report_outputs(wrong_contract, report_markdown())
+
+    missing_the_row = report_payload()
+    missing_the_row_brief = missing_the_row["brief"]
+    assert isinstance(missing_the_row_brief, dict)
+    sections = missing_the_row_brief["sections"]
+    assert isinstance(sections, list)
+    tracked_section = sections[0]
+    assert isinstance(tracked_section, dict)
+    items = tracked_section["items"]
+    assert isinstance(items, list)
+    items[0] = {**items[0], "title": "Not The Sample"}
+    with pytest.raises(smoke.SmokeError, match="The Row"):
+        smoke.validate_report_outputs(missing_the_row, report_markdown())
 
 
 def test_validate_candidates_and_trends_pin_expected_first_run_state() -> None:

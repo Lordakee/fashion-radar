@@ -9,6 +9,12 @@ Digest packaging reads only the Markdown and JSON report files that were just
 generated. It does not collect sources, open SQLite, send email, call webhooks,
 open a browser, or install a notification daemon.
 
+Daily Brief is already-generated report content. When present, digest artifacts
+can include the report's Daily Brief Heat Narrative for local observed signals
+from configured sources and imported local signals. That content needs review.
+It provides no demand proof and no platform coverage verification. Digest
+packaging is not a sending or LLM summarization feature.
+
 ## CLI Usage
 
 Write stable latest-report copies and an index:

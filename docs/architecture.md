@@ -207,10 +207,14 @@ YAML config
   schema migrations, persistent trend tables, or database writes.
 - **Heat Movers:** Read-only local observed heat movement review for one
   configured source set. It compares configured sources and imported local
-  signals, and the output needs review. It provides no demand proof or platform
-  coverage verification.
+  signals, and the output needs review. It provides no demand proof and no
+  platform coverage verification.
 - **Reports:** Markdown and JSON daily reports rendered from packaged
-  templates.
+  templates. The Daily Brief Heat Narrative is derived from report-safe rows
+  for configured sources and imported local signals. It summarizes local
+  observed tracked signals, candidate phrases, and source caveats as report
+  content that needs review. It does not collect, search, scrape, call platform
+  APIs, write source health, or prove demand or coverage. It provides no demand proof and no platform coverage verification.
 - **Local Digest:** Optional post-report packaging that writes local
   `latest.md`, `latest.json`, `report-index.json`, `.eml`, or stdout summary
   artifacts from already-generated reports. It does not collect sources or send

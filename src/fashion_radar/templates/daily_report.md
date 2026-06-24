@@ -4,6 +4,10 @@
 - Window ending: {report_date}
 - Current-window mentions: {item_count}
 
+## Daily Brief
+
+{brief_section}
+
 ## Top Signals
 
 {entity_sections}

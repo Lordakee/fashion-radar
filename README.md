@@ -54,7 +54,11 @@ brands, or verify platform coverage.
   sources and imported local signals that need review.
 - Compares local observed entity and candidate signal deltas between scoring
   snapshots.
-- Generates daily Markdown and JSON reports with source attribution.
+- Generates daily Markdown and JSON reports with source attribution plus a
+  Daily Brief Heat Narrative for local observed tracked signals, candidate
+  phrases that need review, and source caveats from configured sources and
+  imported local signals. It provides no demand proof and no platform coverage
+  verification.
 - Can package optional local digest artifacts such as latest report copies, a
   report index, and a local `.eml` handoff file.
 - Provides an optional local Streamlit dashboard for read-only inspection.
@@ -586,6 +590,11 @@ uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" -
 
 Trend deltas are read-only local comparisons. They do not prove demand outside
 your configured source set.
+
+Generated reports include a Daily Brief Heat Narrative that summarizes local
+observed report content from configured sources and imported local signals:
+tracked signals, candidate phrases, and source caveats. The Daily Brief needs
+review. It provides no demand proof and no platform coverage verification.
 
 ### Heat Movers
 

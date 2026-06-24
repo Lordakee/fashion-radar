@@ -2240,6 +2240,14 @@ def validate_report_outputs(json_payload: Any, markdown_text: str) -> None:
     if not isinstance(metadata, dict):
         raise SmokeError("report JSON missing metadata")
     assert_equal("report metadata item_count", metadata.get("item_count"), 3)
+    brief = json_payload.get("brief")
+    if not isinstance(brief, dict):
+        raise SmokeError("report JSON brief must be an object")
+    assert_equal("report brief contract_version", brief.get("contract_version"), "daily-brief/v1")
+    if not report_brief_mentions(brief, "The Row"):
+        raise SmokeError("report brief missing sample item mentioning The Row")
+    if "## Daily Brief" not in markdown_text:
+        raise SmokeError("report Markdown missing Daily Brief section")
     entities = json_payload.get("entities")
     if not isinstance(entities, list):
         raise SmokeError("report JSON entities must be a list")
@@ -2250,6 +2258,26 @@ def validate_report_outputs(json_payload: Any, markdown_text: str) -> None:
             raise SmokeError(f"report Markdown missing sample entity section: {expected}")
     if "No entity signals in this window." in markdown_text:
         raise SmokeError("report Markdown should not contain the empty entity signal message")
+
+
+def report_brief_mentions(brief: Mapping[str, Any], expected_text: str) -> bool:
+    sections = brief.get("sections")
+    if not isinstance(sections, list):
+        raise SmokeError("report JSON brief sections must be a list")
+    for section_index, section in enumerate(sections, start=1):
+        if not isinstance(section, dict):
+            raise SmokeError(f"report JSON brief section {section_index} must be an object")
+        items = section.get("items")
+        if not isinstance(items, list):
+            raise SmokeError(f"report JSON brief section {section_index} items must be a list")
+        for item_index, item in enumerate(items, start=1):
+            if not isinstance(item, dict):
+                raise SmokeError(
+                    f"report JSON brief section {section_index} item {item_index} must be an object"
+                )
+            if item.get("title") == expected_text:
+                return True
+    return False
 
 
 def validate_candidates(command_name: str, payload: Any, report_payload: Any) -> None:

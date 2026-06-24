@@ -56,3 +56,11 @@ def test_daily_digest_docs_keep_review_boundary_section() -> None:
         "not claims about demand outside that source set",
     ):
         assert phrase in normalized
+
+
+def test_daily_digest_docs_note_brief_is_existing_report_content() -> None:
+    normalized = _normalized(_read_daily_digest_doc())
+
+    assert "daily brief" in normalized
+    assert "daily brief is already-generated report content" in normalized
+    assert "not a sending or llm summarization feature" in normalized

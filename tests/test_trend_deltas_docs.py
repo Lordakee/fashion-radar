@@ -40,3 +40,16 @@ def test_trend_deltas_docs_keep_what_is_compared_boundary() -> None:
         "These statuses are local observed signals for review, not market-wide rankings.",
     ):
         assert phrase.casefold() in normalized
+
+
+def test_trend_deltas_docs_note_heat_narrative_remains_review_oriented() -> None:
+    heat_narrative = _section(_read_trend_deltas_doc(), "Heat Narrative")
+    normalized = _normalized(heat_narrative)
+
+    assert "heat narrative" in normalized
+    assert "local observed" in normalized
+    assert "review-oriented" in normalized
+    assert "configured sources and imported local signals" in normalized
+    assert "needs review" in normalized
+    assert "it provides no demand proof and no platform coverage verification." in normalized
+    assert "market-wide ranking" not in normalized

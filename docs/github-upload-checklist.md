@@ -120,6 +120,10 @@ Stage 41 docs freshness check:
       type `manual_import`; include the `review_imported_entity_evidence`
       imported review workflow step; and state no scraping, no browser
       automation, no platform APIs, and no account or cookie work.
+- [ ] Stage 191 Daily Brief docs describe generated report content, including a
+      Daily Brief Heat Narrative for local observed signals from configured
+      sources and imported local signals. The Daily Brief needs review.
+      It provides no demand proof and no platform coverage verification.
 - [ ] `community-signal-profile` remains a print-only local producer contract
       for user-controlled tools, not source acquisition, platform monitoring,
       or compliance review.
@@ -372,8 +376,9 @@ report, and export directories only. They do not run `collect`, `run`,
 automation, account login, cookies/sessions, source/platform connectors,
 platform automation, or external services. A successful source-checkout or
 installed-wheel first-run smoke prints `First-run sample smoke passed.`.
-The smoke also validates sample rows, matched starter entities, report content,
-trend deltas, empty untracked candidates, and directory handoff dry-run counts.
+The smoke also validates sample rows, matched starter entities, report content
+including Daily Brief, trend deltas, empty untracked candidates, and directory
+handoff dry-run counts.
 The automated first-run smoke also validates local external-tool JSON
 contracts: `external-tool-adapters --format json` across all eight adapters,
 plus the `external-tool-template --adapter rednote_mcp --format json`,
