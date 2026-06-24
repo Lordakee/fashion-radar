@@ -37,6 +37,9 @@ uv run fashion-radar dashboard --config-dir "$PWD/configs" --data-dir "$PWD/data
   available.
 - Computes the Trend Deltas tab from existing local SQLite state and local
   scoring config, not from external services.
+- Keeps `trend-explanations` as a CLI-only read-only sidecar over the same
+  configured sources and imported local signals; it does not create data
+  directories, databases, trend tables, reports, or dashboard state.
 - Trend windows default to current UTC and use
   `as_of - scoring.current_window_days` for the baseline snapshot.
 - Trend reads verify schema read-only and do not initialize, migrate, or write
@@ -98,6 +101,12 @@ report is written.
 The Trend Deltas tab compares local observed entity and candidate signals
 between two scoring snapshots. These directional signals need review and should
 not be read as platform-wide popularity or market-wide demand.
+
+Use `trend-explanations` from the CLI when you need deterministic explanations
+for those local observed trend deltas. The sidecar reads configured sources and
+imported local signals only, provides no demand proof, and provides no platform
+coverage verification. It does not add a dashboard tab or dashboard output
+contract.
 
 ## Heat Movers
 

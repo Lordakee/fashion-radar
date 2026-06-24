@@ -15,6 +15,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 193 read-only `trend-explanations` sidecar command for deterministic
+  local explanations over existing trend deltas from configured sources and
+  imported local signals. It provides no demand proof, provides no platform
+  coverage verification, and does not change `trends` or `heat-movers`
+  contracts.
 - Stage 191 docs/test coverage for generated report Daily Brief Heat Narrative
   content over local observed tracked signals, candidate phrases, and source
   caveats from configured sources and imported local signals. The Daily Brief

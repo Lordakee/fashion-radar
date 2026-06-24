@@ -27,6 +27,7 @@ from fashion_radar.heat_movers import HeatMoversReport
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceType
 from fashion_radar.models.trend import TrendComparison
+from fashion_radar.trend_explanations import TrendExplanationReport
 
 ROOT = Path(__file__).resolve().parents[1]
 DIRECTORY_EXAMPLE_PATHS = [
@@ -8722,6 +8723,230 @@ def test_heat_movers_command_help_lists_public_flags() -> None:
     assert "--limit" in result.output
     assert "--format" in result.output
     assert "--include-cooling" in result.output
+
+
+def test_trend_explanations_command_missing_database_writes_nothing(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trend-explanations",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    report = TrendExplanationReport.model_validate_json(result.output)
+    assert report.items == []
+    assert report.baseline_as_of == datetime(2026, 6, 5, 12, 0, tzinfo=UTC)
+    assert not data_dir.exists()
+    assert not (data_dir / "fashion-radar.sqlite").exists()
+
+
+def test_trend_explanations_command_invalid_as_of_writes_nothing(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trend-explanations",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not explain trend deltas: invalid --as-of" in result.output
+    assert not data_dir.exists()
+
+
+def test_trend_explanations_command_invalid_config_writes_nothing(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text(
+        "version: 1\nscoring:\n  current_window_days: 0\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trend-explanations",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Invalid trend explanation config" in result.output
+    assert not data_dir.exists()
+
+
+def test_trend_explanations_command_rejects_incompatible_database_without_schema_mutation(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    data_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+    db_path = data_dir / "fashion-radar.sqlite"
+    db_path.touch()
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trend-explanations",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not explain trend deltas" in result.output
+    assert "schema" in result.output.lower()
+    assert "fashion-radar migrate-db --data-dir" in result.output
+    with sqlite3.connect(db_path) as connection:
+        table_names = {
+            row[0]
+            for row in connection.execute("select name from sqlite_master where type = 'table'")
+        }
+    assert table_names == set()
+
+
+def test_trend_explanations_command_prints_json(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_trend_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trend-explanations",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    report = TrendExplanationReport.model_validate_json(result.output)
+    assert report.items
+    assert "The Row" in {item.name for item in report.items}
+
+
+def test_trend_explanations_command_prints_table(tmp_path: Path) -> None:
+    config_dir, data_dir = _prepare_trend_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trend-explanations",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Local observed trend explanations need review." in result.output
+    assert "Configured sources and imported local signals only" in result.output
+    assert "The Row" in result.output
+
+
+def test_trend_explanations_command_include_dropped_surfaces_baseline_only_signals(
+    tmp_path: Path,
+) -> None:
+    config_dir, data_dir = _prepare_trend_cli_fixture(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trend-explanations",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--include-dropped",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    report = TrendExplanationReport.model_validate_json(result.output)
+    assert "Old Brand" in {item.name for item in report.items}
+
+
+def test_trend_explanations_command_help_lists_public_flags() -> None:
+    result = CliRunner().invoke(app, ["trend-explanations", "--help"], env={"COLUMNS": "120"})
+
+    assert result.exit_code == 0
+    assert "local observed trend deltas" in result.output.lower()
+    assert "--config-dir" in result.output
+    assert "--data-dir" in result.output
+    assert "--as-of" in result.output
+    assert "--baseline-as-of" in result.output
+    assert "--include-dropped" in result.output
+    assert "--limit" in result.output
+    assert "--format" in result.output
+
+
+def test_trend_explanations_command_rejects_negative_limit(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trend-explanations",
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--limit",
+            "-1",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid value" in result.output
 
 
 def test_heat_movers_command_missing_database_writes_nothing_and_prints_empty_outputs(

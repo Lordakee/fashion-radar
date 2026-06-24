@@ -15,7 +15,7 @@ does not add connectors.
 | --- | --- | --- |
 | Setup | `init`, `migrate-db`, `doctor` | [first-run.md](first-run.md) |
 | Local sample/import | `community-signal-lint`, `import-signals`, `import-signals-dir` | [first-run.md](first-run.md) |
-| Match/report/review | `match`, `report`, `candidates`, `trends`, `imported-signals` | [first-run.md](first-run.md) |
+| Match/report/review | `match`, `report`, `candidates`, `trends`, `trend-explanations`, `imported-signals` | [first-run.md](first-run.md) |
 | Dashboard | `dashboard` | [first-run.md](first-run.md) |
 | Optional entity matching | `entity-pack-lint` | [entity-packs.md](entity-packs.md) |
 | Cleanup | Reset The Repo-Local Sample | [first-run.md](first-run.md) |
@@ -311,6 +311,17 @@ These commands read existing local SQLite rows where `source_type` is
   Requires `--as-of`; supports `--config-dir`, `--data-dir`,
   `--baseline-as-of`, `--limit`, `--format table|json`, and
   `--include-dropped`.
+
+### Trend Explanations
+
+- `trend-explanations`: explain local observed trend deltas with a read-only
+  sidecar over the existing trend comparison. It derives deterministic
+  explanations from configured sources and imported local signals, and the
+  output needs review, with no demand proof and no platform coverage
+  verification. It keeps the `trends` and `heat-movers` contracts unchanged.
+  Requires `--config-dir`, `--data-dir`, and `--as-of`; supports
+  `--baseline-as-of`, `--include-dropped`, `--limit`, and
+  `--format table|json`.
 
 ### Heat Movers
 

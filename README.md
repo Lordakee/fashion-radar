@@ -54,6 +54,10 @@ brands, or verify platform coverage.
   sources and imported local signals that need review.
 - Compares local observed entity and candidate signal deltas between scoring
   snapshots.
+- Explains local observed trend deltas with a read-only `trend-explanations`
+  sidecar over configured sources and imported local signals. The explanation
+  output needs review, provides no demand proof, and provides no platform
+  coverage verification.
 - Generates daily Markdown and JSON reports with source attribution plus a
   Daily Brief Heat Narrative for local observed tracked signals, candidate
   phrases that need review, and source caveats from configured sources and
@@ -292,6 +296,7 @@ uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$AS_OF" --
 uv run fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$AS_OF"
 uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --format json
 uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --format json
+uv run fashion-radar trend-explanations --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --format json
 test -s reports/fashion-radar-2026-06-13.md
 test -s reports/fashion-radar-2026-06-13.json
 ```
@@ -591,6 +596,17 @@ uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" -
 Trend deltas are read-only local comparisons. They do not prove demand outside
 your configured source set.
 
+Explain the same local observed trend deltas without changing the `trends` or
+`heat-movers` contracts:
+
+```bash
+uv run fashion-radar trend-explanations --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+```
+
+`trend-explanations` derives deterministic explanations from configured
+sources and imported local signals only. The output needs review, provides no
+demand proof, and provides no platform coverage verification.
+
 Generated reports include a Daily Brief Heat Narrative that summarizes local
 observed report content from configured sources and imported local signals:
 tracked signals, candidate phrases, and source caveats. The Daily Brief needs
@@ -664,6 +680,9 @@ mention-count summaries, reads candidate signals from the latest report JSON,
 and can show a `Trend Deltas` tab computed from local SQLite state with the
 configured scoring window. This local read does not create trend tables or write
 database state. Candidate signals may be stale until a new report is generated.
+Trend explanations remain a CLI-only read-only sidecar over configured sources
+and imported local signals; they provide no demand proof and no platform
+coverage verification.
 
 There is no authentication layer. Do not bind `--host 0.0.0.0` or any non-local
 address on an untrusted network unless you understand that the dashboard may be

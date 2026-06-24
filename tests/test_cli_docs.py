@@ -67,6 +67,7 @@ REQUIRED_FLAGS_BY_COMMAND = {
     "candidates": ("--config-dir", "--data-dir", "--as-of"),
     "heat-movers": ("--config-dir", "--data-dir", "--as-of"),
     "trends": ("--config-dir", "--data-dir", "--as-of"),
+    "trend-explanations": ("--config-dir", "--data-dir", "--as-of"),
     "clean-old-data": ("--data-dir",),
 }
 
@@ -132,6 +133,39 @@ HEAT_MOVERS_FORBIDDEN_POSITIVE_CLAIMS = (
     "platform-wide popularity",
     "verified demand",
     "top social trend",
+)
+TREND_EXPLANATIONS_DOCS = (
+    README,
+    CLI_REFERENCE,
+    TREND_DELTAS_DOC,
+    ARCHITECTURE_DOC,
+    DASHBOARD_DOC,
+    UPLOAD_CHECKLIST,
+)
+TREND_EXPLANATIONS_NARRATIVE_DOCS = (
+    README,
+    CLI_REFERENCE,
+    TREND_DELTAS_DOC,
+)
+TREND_EXPLANATIONS_REQUIRED_BOUNDARY_PHRASES = (
+    "trend-explanations",
+    "configured sources and imported local signals",
+    "no demand proof",
+    "no platform coverage verification",
+)
+TREND_EXPLANATIONS_FORBIDDEN_CLAIMS = (
+    "market-wide ranking",
+    "verified demand",
+    "full platform coverage",
+)
+TREND_EXPLANATIONS_CLI_FLAGS = (
+    "--config-dir",
+    "--data-dir",
+    "--as-of",
+    "--baseline-as-of",
+    "--include-dropped",
+    "--limit",
+    "--format",
 )
 DAILY_BRIEF_DOCS = (
     README,
@@ -499,6 +533,10 @@ def _heat_movers_section(path: Path) -> str:
     return _markdown_section_matching_heading(_read(path), r"heat[- ]movers?")
 
 
+def _trend_explanations_section(path: Path) -> str:
+    return _markdown_section_matching_heading(_read(path), r"trend[- ]explanations?")
+
+
 def _dashboard_current_tab_labels() -> list[str]:
     section = _markdown_section_matching_heading(_read(DASHBOARD_DOC), r"current tabs")
     return [
@@ -618,7 +656,7 @@ def test_cli_reference_has_beginner_roadmap_with_existing_commands() -> None:
         "Local sample/import",
         "`community-signal-lint`, `import-signals`, `import-signals-dir`",
         "Match/report/review",
-        "`match`, `report`, `candidates`, `trends`, `imported-signals`",
+        "`match`, `report`, `candidates`, `trends`, `trend-explanations`, `imported-signals`",
         "Dashboard",
         "`dashboard`",
         "Cleanup",
@@ -716,6 +754,38 @@ def test_heat_movers_cli_reference_lists_public_flags() -> None:
 
 def test_heat_movers_upload_checklist_help_loop_includes_command() -> None:
     assert "heat-movers" in _upload_checklist_help_loop_commands()
+
+
+def test_trend_explanations_docs_are_bounded_and_discoverable() -> None:
+    for path in TREND_EXPLANATIONS_DOCS:
+        text = _normalized_text(_read(path)).casefold()
+        for term in TREND_EXPLANATIONS_REQUIRED_BOUNDARY_PHRASES:
+            assert term in text, f"{path.relative_to(ROOT)} missing {term!r}"
+        for term in TREND_EXPLANATIONS_FORBIDDEN_CLAIMS:
+            assert term not in text, f"{path.relative_to(ROOT)} unexpectedly includes {term!r}"
+
+    for path in TREND_EXPLANATIONS_NARRATIVE_DOCS:
+        text = _normalized_text(_read(path)).casefold()
+        assert "needs review" in text, f"{path.relative_to(ROOT)} missing 'needs review'"
+
+
+def test_trend_explanations_required_flags_match_repo_local_path_contract() -> None:
+    assert REQUIRED_FLAGS_BY_COMMAND["trend-explanations"] == (
+        "--config-dir",
+        "--data-dir",
+        "--as-of",
+    )
+
+
+def test_trend_explanations_cli_reference_lists_public_flags() -> None:
+    section = _trend_explanations_section(CLI_REFERENCE)
+
+    for flag in TREND_EXPLANATIONS_CLI_FLAGS:
+        assert flag in section
+
+
+def test_trend_explanations_upload_checklist_help_loop_includes_command() -> None:
+    assert "trend-explanations" in _upload_checklist_help_loop_commands()
 
 
 def test_daily_brief_docs_are_bounded_and_discoverable() -> None:

@@ -106,6 +106,10 @@ Stage 41 docs freshness check:
       one configured source set, compare configured sources and imported local
       signals, say output needs review, and say there is no demand proof or
       no platform coverage verification.
+- [ ] Stage 193 `trend-explanations` docs describe a read-only sidecar over
+      local observed trend deltas from configured sources and imported local
+      signals, say the output is separate from `trends` and `heat-movers`,
+      and say there is no demand proof and no platform coverage verification.
 - [ ] Stage 58 `imported-review-workflow` docs describe the final read-only
       `heat-movers` handoff for local observed heat movement from configured
       sources and imported local signals, and say there is no demand proof or
@@ -419,7 +423,7 @@ for cmd in \
   community-handoff-check-dir \
   import-signals import-signals-dir imported-signals imported-signals-summary \
   imported-entity-deltas imported-entity-evidence imported-candidates imported-candidate-evidence \
-  imported-review-workflow collect match report candidates trends heat-movers \
+  imported-review-workflow collect match report candidates trends trend-explanations heat-movers \
   schedule-example dashboard clean-old-data run
 do
   "$tmp_env/venv/bin/fashion-radar" "$cmd" --help

@@ -4,8 +4,8 @@ Trend deltas are read-only comparisons of local observed entity and candidate
 signals between two scoring snapshots.
 
 They compare configured sources and imported local signals only. They are not
-verified demand, market-wide proof, real-time monitoring, or complete
-social-platform coverage.
+broader-market proof, real-time monitoring, or complete social-platform
+coverage. They provide no demand proof and no platform coverage verification.
 
 ## Heat Movers
 
@@ -40,6 +40,17 @@ Compare against an explicit baseline and print JSON:
 uv run fashion-radar trends --as-of 2026-06-12T00:00:00Z --baseline-as-of 2026-06-05T00:00:00Z --format json --limit 30 --include-dropped --config-dir ./configs --data-dir ./data
 ```
 
+Explain local observed trend deltas with the read-only sidecar:
+
+```bash
+uv run fashion-radar trend-explanations --as-of 2026-06-12T00:00:00Z --config-dir ./configs --data-dir ./data --format json
+```
+
+`trend-explanations` derives deterministic explanations from existing local
+trend deltas over configured sources and imported local signals. The output
+needs review, provides no demand proof, and provides no platform coverage
+verification. It keeps the `trends` and `heat-movers` contracts unchanged.
+
 If `--baseline-as-of` is omitted, it defaults to:
 
 ```text
@@ -70,7 +81,7 @@ For trend deltas:
 
 Existing signals are labeled `rising` or `cooling` only when score and mention
 movement agree. Mixed-direction movement is `stable`. These statuses are local
-observed signals for review, not market-wide rankings.
+observed signals for review, not broader-market proof.
 
 ## Manual Signals
 
@@ -81,6 +92,7 @@ uv run fashion-radar import-signals ./signals.csv --format csv --source-name "Ma
 uv run fashion-radar imported-signals --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --source-name "Manual Export"
 uv run fashion-radar match --config-dir "$PWD/configs" --data-dir "$PWD/data"
 uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar trend-explanations --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
 Imported rows remain local user-provided signals. They do not add platform
@@ -96,3 +108,8 @@ and shows configuration or schema problems as dashboard warnings.
 Trend dashboard reads are read-only. They do not initialize schema, migrate a
 database, create trend tables, collect sources, run matching, generate reports,
 or make network requests.
+
+The `trend-explanations` CLI sidecar can explain the same local comparison
+from configured sources and imported local signals. Dashboard trend reads stay
+read-only and do not add explanation output contracts; the explanation sidecar
+provides no demand proof and no platform coverage verification.

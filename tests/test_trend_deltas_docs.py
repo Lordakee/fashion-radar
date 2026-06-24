@@ -37,7 +37,7 @@ def test_trend_deltas_docs_keep_what_is_compared_boundary() -> None:
         "Existing signals are labeled `rising` or `cooling` only when score and "
         "mention movement agree.",
         "Mixed-direction movement is `stable`.",
-        "These statuses are local observed signals for review, not market-wide rankings.",
+        "These statuses are local observed signals for review, not broader-market proof.",
     ):
         assert phrase.casefold() in normalized
 

@@ -205,6 +205,10 @@ YAML config
 - **Trend Deltas:** Read-only comparison of entity scoring and candidate
   discovery snapshots from existing local SQLite state. It does not create
   schema migrations, persistent trend tables, or database writes.
+- **Trend Explanations:** Pure read-only sidecar over local trend comparisons.
+  It explains local observed trend deltas from configured sources and imported
+  local signals, keeps `TrendDelta` and `HeatMoversReport` contracts unchanged,
+  and provides no demand proof and no platform coverage verification.
 - **Heat Movers:** Read-only local observed heat movement review for one
   configured source set. It compares configured sources and imported local
   signals, and the output needs review. It provides no demand proof and no
@@ -293,6 +297,7 @@ fashion-radar report --config-dir ./configs --data-dir ./data --reports-dir ./re
 fashion-radar report --config-dir ./configs --data-dir ./data --reports-dir ./reports --as-of 2026-06-11T12:00:00Z --digest-latest copy --digest-index
 fashion-radar candidates --config-dir ./configs --data-dir ./data --as-of 2026-06-11T12:00:00Z
 fashion-radar trends --config-dir ./configs --data-dir ./data --as-of 2026-06-11T12:00:00Z
+fashion-radar trend-explanations --config-dir ./configs --data-dir ./data --as-of 2026-06-11T12:00:00Z
 ```
 
 `run` executes `collect -> match -> report` serially in one local process:
