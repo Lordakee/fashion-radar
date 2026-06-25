@@ -1321,9 +1321,14 @@ def test_latest_candidate_rows_reads_latest_report(tmp_path: Path) -> None:
                         "candidate_type": "bag",
                         "label": "new_candidate",
                         "score": 3.0,
+                        "weighted_mention_component": 2.0,
+                        "growth_component": 0.5,
+                        "source_diversity_component": 1.0,
                         "current_mentions": 2,
                         "baseline_mentions": 0,
+                        "growth_ratio": None,
                         "distinct_sources": 2,
+                        "first_seen_at": "2026-06-11T00:00:00Z",
                     }
                 ],
             }
@@ -1340,15 +1345,100 @@ def test_latest_candidate_rows_reads_latest_report(tmp_path: Path) -> None:
             "candidate_type": "bag",
             "label": "new_candidate",
             "score": 3.0,
+            "weighted_mention_component": 2.0,
+            "growth_component": 0.5,
+            "source_diversity_component": 1.0,
             "current_mentions": 2,
             "baseline_mentions": 0,
+            "growth_ratio": None,
             "distinct_sources": 2,
+            "first_seen_at": "2026-06-11T00:00:00Z",
             "report_date": "2026-06-11T00:00:00Z",
         }
     ]
     assert report["report_date"] == "2026-06-11T00:00:00Z"
     assert report["generated_at"] == "2026-06-11T00:15:00Z"
     assert report["candidate_count"] == 1
+
+
+def test_latest_candidate_rows_defaults_score_components_for_legacy_report(
+    tmp_path: Path,
+) -> None:
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "fashion-radar-2026-06-11.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"report_date": "2026-06-11T00:00:00Z"},
+                "candidates": [
+                    {
+                        "phrase": "Le Teckel bag",
+                        "candidate_type": "bag",
+                        "label": "new_candidate",
+                        "score": 3.0,
+                        "current_mentions": 2,
+                        "baseline_mentions": 0,
+                        "distinct_sources": 2,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert latest_candidate_rows(reports_dir) == [
+        {
+            "phrase": "Le Teckel bag",
+            "candidate_type": "bag",
+            "label": "new_candidate",
+            "score": 3.0,
+            "weighted_mention_component": 0.0,
+            "growth_component": 0.0,
+            "source_diversity_component": 0.0,
+            "current_mentions": 2,
+            "baseline_mentions": 0,
+            "growth_ratio": None,
+            "distinct_sources": 2,
+            "first_seen_at": None,
+            "report_date": "2026-06-11T00:00:00Z",
+        }
+    ]
+
+
+def test_latest_candidate_rows_preserves_legacy_growth_fields_without_components(
+    tmp_path: Path,
+) -> None:
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "fashion-radar-2026-06-11.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"report_date": "2026-06-11T00:00:00Z"},
+                "candidates": [
+                    {
+                        "phrase": "Le Teckel bag",
+                        "candidate_type": "bag",
+                        "label": "new_candidate",
+                        "score": 3.0,
+                        "current_mentions": 2,
+                        "baseline_mentions": 1,
+                        "growth_ratio": 2.0,
+                        "distinct_sources": 2,
+                        "first_seen_at": "2026-06-10T00:00:00Z",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    row = latest_candidate_rows(reports_dir)[0]
+
+    assert row["weighted_mention_component"] == 0.0
+    assert row["growth_component"] == 0.0
+    assert row["source_diversity_component"] == 0.0
+    assert row["growth_ratio"] == 2.0
+    assert row["first_seen_at"] == "2026-06-10T00:00:00Z"
 
 
 def test_latest_candidate_rows_returns_empty_for_missing_reports(tmp_path: Path) -> None:

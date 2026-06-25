@@ -63,8 +63,12 @@ def test_dashboard_docs_keep_warning_and_staleness_boundary() -> None:
         "If the local database has not been initialized or has no retained items, "
         "the tab shows an empty-state message without creating the data directory "
         "or database.",
-        "Reads candidate signals from the latest report JSON when that file is available.",
+        "Reads candidate signals and report-backed candidate score components from the "
+        "latest report JSON when that file is available.",
         "The Candidate Signals tab reads the latest generated report JSON.",
+        "The table includes report-backed score components for mentions, growth, and "
+        "source diversity",
+        "growth ratio and first-seen timestamps",
         "If the latest report was generated before the latest collection, local "
         "import, or matching run, the tab may be stale until a new report is written.",
     ):

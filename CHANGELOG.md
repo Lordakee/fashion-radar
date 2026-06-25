@@ -37,6 +37,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 205 carries candidate score components from latest report JSON into the
+  dashboard Candidate Signals table with legacy-report defaults, without
+  changing scoring, report generation, dashboard writes, sources, connectors,
+  scraping, demand proof, platform coverage verification, dependency files, or
+  compliance-review behavior.
 - Stage 204 pins the optional public fashion source pack's offline composition
   contract in tests and docs: 20 enabled sources, 10 RSS feeds, 10 bounded GDELT
   lanes, and RSS article extraction disabled by default. It does not add

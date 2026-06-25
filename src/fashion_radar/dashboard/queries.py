@@ -66,9 +66,20 @@ def latest_candidate_report(reports_dir: Path) -> dict[str, Any]:
                 "candidate_type": candidate.get("candidate_type", ""),
                 "label": candidate.get("label", ""),
                 "score": candidate.get("score", 0.0),
+                "weighted_mention_component": candidate.get(
+                    "weighted_mention_component",
+                    0.0,
+                ),
+                "growth_component": candidate.get("growth_component", 0.0),
+                "source_diversity_component": candidate.get(
+                    "source_diversity_component",
+                    0.0,
+                ),
                 "current_mentions": candidate.get("current_mentions", 0),
                 "baseline_mentions": candidate.get("baseline_mentions", 0),
+                "growth_ratio": candidate.get("growth_ratio"),
                 "distinct_sources": candidate.get("distinct_sources", 0),
+                "first_seen_at": candidate.get("first_seen_at"),
                 "report_date": report_date,
             }
         )
