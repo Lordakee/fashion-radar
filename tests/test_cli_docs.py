@@ -998,6 +998,29 @@ def test_dependency_mirror_docs_explain_lockfile_recovery() -> None:
     assert "[docs/dependency-mirrors.md](docs/dependency-mirrors.md)" in readme
 
 
+def test_dependency_mirror_docs_explain_socks_helper_without_proxy_pool_scope() -> None:
+    mirror_doc = _read(DEPENDENCY_MIRRORS_DOC)
+    readme = _read(README)
+    normalized_mirror = _normalized_text(mirror_doc).casefold()
+    normalized_readme = _normalized_text(readme).casefold()
+
+    for phrase in (
+        "socks transport helper",
+        "standard socks proxy variables",
+        "uv_default_index",
+        "uv sync --frozen --dev",
+        "instead of editing `uv.lock` or installing ad hoc packages",
+    ):
+        assert phrase in normalized_mirror
+
+    for phrase in (
+        "socks transport helper",
+        "standard environment observed by the http client",
+        "does not manage proxy pools or rotate proxies",
+    ):
+        assert phrase in normalized_readme
+
+
 def test_agent_verification_docs_prefer_no_config_frozen_uv_run() -> None:
     agents = _read(AGENTS_DOC)
     readme = _read(README)

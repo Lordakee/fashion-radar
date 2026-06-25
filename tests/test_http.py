@@ -21,6 +21,28 @@ def test_http_client_sends_user_agent_and_parses_json() -> None:
     assert seen_headers == ["FashionRadar/Test"]
 
 
+@pytest.mark.parametrize("proxy_env", ["ALL_PROXY", "all_proxy"])
+def test_http_client_constructs_with_socks_proxy_env(
+    monkeypatch: pytest.MonkeyPatch,
+    proxy_env: str,
+) -> None:
+    for key in (
+        "ALL_PROXY",
+        "all_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "HTTPS_PROXY",
+        "https_proxy",
+        "NO_PROXY",
+        "no_proxy",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv(proxy_env, "socks5h://127.0.0.1:9")
+
+    client = FashionHttpClient(HttpSourceSettings(per_domain_delay_seconds=0))
+    client.close()
+
+
 def test_http_client_retries_server_errors_with_bound() -> None:
     attempts = 0
 

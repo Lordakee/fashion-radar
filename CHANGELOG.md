@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Stage 200 declares the HTTP client's SOCKS transport helper in the locked
+  core dependency graph so `source-liveness` and configured-source HTTP checks
+  can construct clients in environments that already set standard SOCKS proxy
+  variables, without adding proxy pools, scraping, source acquisition, ranking,
+  coverage verification, social connectors, or compliance-review behavior.
 - Stage 195 broadens the default starter source config to compact curated
   RSS/GDELT lanes with RSS article extraction disabled by default, and folds
   common Latin diacritics in deterministic text and runtime alias matching

@@ -29,6 +29,11 @@ Optional dashboard dependencies can also be installed through the mirror:
 UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple uv sync --frozen --dev --extra dashboard
 ```
 
+The locked core install includes the HTTP client's SOCKS transport helper for
+environments that already set standard SOCKS proxy variables. Keep using the
+committed lockfile with your mirror (`UV_DEFAULT_INDEX=... uv sync --frozen
+--dev`) instead of editing `uv.lock` or installing ad hoc packages.
+
 `--frozen` installs from the committed lockfile without rewriting it. Do not run
 `uv lock` or an unfrozen `uv sync` while `UV_DEFAULT_INDEX` points at a mirror if
 the resulting `uv.lock` will be committed. Public lockfiles should keep the

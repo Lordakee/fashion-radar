@@ -729,6 +729,11 @@ today without collecting or writing artifacts:
 uv run fashion-radar source-liveness configs/source-packs/fashion-public.example.yaml
 ```
 
+In proxy-configured environments, refresh from the committed lockfile/frozen
+install so the HTTP client's SOCKS transport helper is present. Fashion Radar
+does not manage proxy pools or rotate proxies; it only uses the standard
+environment observed by the HTTP client.
+
 Check an entity pack before copying or editing it:
 
 ```bash
