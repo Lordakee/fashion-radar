@@ -23,6 +23,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 197 expands the optional public fashion source pack with four public
+  RSS feeds for runway/editorial, business/luxury fashion, red-carpet celebrity
+  style, and bag/accessory product signals, based on point-in-time RSS planning
+  evidence. It does not change the compact default starter config, add
+  social/platform connectors, scrape, automate browsers, bypass access
+  controls, prove demand, rank sources, verify platform coverage, or add
+  compliance-review product features.
 - Stage 193 read-only `trend-explanations` sidecar command for deterministic
   local explanations over existing trend deltas from configured sources and
   imported local signals. It provides no demand proof, provides no platform

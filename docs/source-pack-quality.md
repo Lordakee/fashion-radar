@@ -39,9 +39,9 @@ Table output starts with a compact summary:
 
 ```text
 Source pack: configs/source-packs/fashion-public.example.yaml
-Sources: 16 total, 16 enabled, 0 disabled
-Types: gdelt=10, rss=6
-Tags: accessories=1, beauty=1, brand_news=2, celebrity_style=2, creative_directors=1, culture=1, designer_brands=1, emerging_designers=1, executive_moves=1, fashion_media=2, fashion_week=1, footwear=1, gdelt=10, industry_news=5, luxury=2, products=1, resale=1, retail=2, runway=1, shoes=2, streetwear=2, trade_media=1
+Sources: 20 total, 20 enabled, 0 disabled
+Types: gdelt=10, rss=10
+Tags: accessories=2, bags=1, beauty=1, brand_news=2, celebrity_style=4, creative_directors=1, culture=1, designer_brands=2, emerging_designers=2, executive_moves=1, fashion_media=4, fashion_week=2, footwear=1, gdelt=10, handbags=1, industry_news=6, luxury=4, products=2, red_carpet=1, resale=1, retail=3, runway=2, shoes=2, streetwear=2, trade_media=2
 Findings: 0 errors, 0 warnings, 0 info
 No source-pack quality findings.
 ```
@@ -72,36 +72,39 @@ JSON output contains the same information in a stable shape:
 ```json
 {
   "path": "configs/source-packs/fashion-public.example.yaml",
-  "source_count": 16,
-  "enabled_count": 16,
+  "source_count": 20,
+  "enabled_count": 20,
   "disabled_count": 0,
   "type_counts": {
     "gdelt": 10,
-    "rss": 6
+    "rss": 10
   },
   "tag_counts": {
-    "accessories": 1,
+    "accessories": 2,
+    "bags": 1,
     "beauty": 1,
     "brand_news": 2,
-    "celebrity_style": 2,
+    "celebrity_style": 4,
     "creative_directors": 1,
     "culture": 1,
-    "designer_brands": 1,
-    "emerging_designers": 1,
+    "designer_brands": 2,
+    "emerging_designers": 2,
     "executive_moves": 1,
-    "fashion_media": 2,
-    "fashion_week": 1,
+    "fashion_media": 4,
+    "fashion_week": 2,
     "footwear": 1,
     "gdelt": 10,
-    "industry_news": 5,
-    "luxury": 2,
-    "products": 1,
+    "handbags": 1,
+    "industry_news": 6,
+    "luxury": 4,
+    "products": 2,
+    "red_carpet": 1,
     "resale": 1,
-    "retail": 2,
-    "runway": 1,
+    "retail": 3,
+    "runway": 2,
     "shoes": 2,
     "streetwear": 2,
-    "trade_media": 1
+    "trade_media": 2
   },
   "findings": []
 }

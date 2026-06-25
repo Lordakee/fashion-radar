@@ -18,10 +18,12 @@ It uses only existing v0.1.0 source types:
 - `rss`
 - `gdelt`
 
-The expanded public pack keeps the RSS entries conservative and adds bounded
-GDELT lanes for runway and fashion week, designer-brand momentum, retail and
-resale, footwear, handbags and accessories, creative-director moves, and
-beauty/fashion crossover signals inside the configured source set.
+The expanded public pack keeps the RSS entries conservative, adds public RSS
+feeds for runway/editorial, business/luxury fashion, red-carpet celebrity
+style, and bag/accessory product signals, and keeps bounded GDELT lanes for
+runway and fashion week, designer-brand momentum, retail and resale, footwear,
+handbags and accessories, creative-director moves, and beauty/fashion crossover
+signals inside the configured source set.
 
 It does not include Google News RSS, Google Trends, account-based source access,
 browser automation, access-control bypasses, paywall bypass, or private data
@@ -47,36 +49,39 @@ Example JSON shape:
 ```json
 {
   "path": "configs/source-packs/fashion-public.example.yaml",
-  "source_count": 16,
-  "enabled_count": 16,
+  "source_count": 20,
+  "enabled_count": 20,
   "disabled_count": 0,
   "type_counts": {
     "gdelt": 10,
-    "rss": 6
+    "rss": 10
   },
   "tag_counts": {
-    "accessories": 1,
+    "accessories": 2,
+    "bags": 1,
     "beauty": 1,
     "brand_news": 2,
-    "celebrity_style": 2,
+    "celebrity_style": 4,
     "creative_directors": 1,
     "culture": 1,
-    "designer_brands": 1,
-    "emerging_designers": 1,
+    "designer_brands": 2,
+    "emerging_designers": 2,
     "executive_moves": 1,
-    "fashion_media": 2,
-    "fashion_week": 1,
+    "fashion_media": 4,
+    "fashion_week": 2,
     "footwear": 1,
     "gdelt": 10,
-    "industry_news": 5,
-    "luxury": 2,
-    "products": 1,
+    "handbags": 1,
+    "industry_news": 6,
+    "luxury": 4,
+    "products": 2,
+    "red_carpet": 1,
     "resale": 1,
-    "retail": 2,
-    "runway": 1,
+    "retail": 3,
+    "runway": 2,
     "shoes": 2,
     "streetwear": 2,
-    "trade_media": 1
+    "trade_media": 2
   },
   "findings": []
 }
@@ -118,9 +123,11 @@ uv run fashion-radar run --config-dir "$PWD/configs" --data-dir "$PWD/data" --re
 
 ## Source Availability
 
-The RSS endpoints in the public pack were checked during Stage 7 planning on
-2026-06-12. RSS availability can change without notice. If a source fails,
-disable it or replace it with a feed you have verified.
+Original RSS endpoints were checked during Stage 7 planning on 2026-06-12.
+Vogue, Business of Fashion, Red Carpet Fashion Awards, and PurseBlog RSS
+endpoints were checked during Stage 197 planning on 2026-06-25. RSS
+availability can change without notice. If a source fails, disable it or
+replace it with a feed you have verified.
 
 ## Article Extraction
 

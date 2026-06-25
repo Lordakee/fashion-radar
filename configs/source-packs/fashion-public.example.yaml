@@ -1,5 +1,7 @@
 # Example public source pack. Review source terms before enabling.
-# These endpoints were checked during Stage 7 planning on 2026-06-12, but RSS
+# Original RSS endpoints were checked during Stage 7 planning on 2026-06-12.
+# Vogue, Business of Fashion, Red Carpet Fashion Awards, and PurseBlog RSS
+# endpoints were checked during Stage 197 planning on 2026-06-25. RSS
 # availability can change. Treat this as a starter set, not an endorsement or
 # availability guarantee.
 version: 1
@@ -50,6 +52,38 @@ sources:
     enabled: true
     weight: 1.1
     tags: [trade_media, industry_news]
+    article:
+      enabled: false
+  - name: Vogue
+    type: rss
+    url: https://www.vogue.com/feed/rss
+    enabled: true
+    weight: 1.0
+    tags: [fashion_media, runway, fashion_week, celebrity_style]
+    article:
+      enabled: false
+  - name: Business of Fashion
+    type: rss
+    url: https://www.businessoffashion.com/arc/outboundfeeds/rss/
+    enabled: true
+    weight: 1.0
+    tags: [trade_media, industry_news, designer_brands, luxury, retail, emerging_designers]
+    article:
+      enabled: false
+  - name: Red Carpet Fashion Awards
+    type: rss
+    url: https://www.redcarpet-fashionawards.com/feed/
+    enabled: true
+    weight: 0.8
+    tags: [celebrity_style, red_carpet, fashion_media]
+    article:
+      enabled: false
+  - name: PurseBlog
+    type: rss
+    url: https://www.purseblog.com/feed/
+    enabled: true
+    weight: 0.8
+    tags: [products, accessories, bags, handbags, luxury]
     article:
       enabled: false
   - name: GDELT Luxury Fashion

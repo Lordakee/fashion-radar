@@ -9711,8 +9711,8 @@ def test_source_pack_lint_prints_json_for_public_pack() -> None:
     assert result.exit_code == 0
     payload = json.loads(result.output)
     assert payload["path"] == "configs/source-packs/fashion-public.example.yaml"
-    assert payload["source_count"] == 16
-    assert payload["type_counts"] == {"gdelt": 10, "rss": 6}
+    assert payload["source_count"] == 20
+    assert payload["type_counts"] == {"gdelt": 10, "rss": 10}
     assert isinstance(payload["findings"], list)
 
 
