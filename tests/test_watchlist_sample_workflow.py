@@ -30,6 +30,10 @@ EXPECTED_REPORT_ENTITIES = {
     "East-West Bags",
     "Office Siren",
     "Boho Revival",
+    "Savette",
+    "Savette Symmetry Bag",
+    "Aeyde",
+    "Aeyde Uma Mary Jane",
 }
 
 
@@ -82,7 +86,7 @@ def test_optional_watchlist_sample_runs_local_import_match_report_and_trends(
             ]
         )
     )
-    assert lint_payload["valid_row_count"] == 11
+    assert lint_payload["valid_row_count"] == 13
     assert lint_payload["findings"] == []
 
     pack_payload = json.loads(
@@ -110,7 +114,7 @@ def test_optional_watchlist_sample_runs_local_import_match_report_and_trends(
             "--dry-run",
         ]
     )
-    assert "Validated 11 manual signal rows" in dry_run_output
+    assert "Validated 13 manual signal rows" in dry_run_output
     assert not (data_dir / "fashion-radar.sqlite").exists()
     assert list(tmp_path.rglob("*.sqlite")) == []
     assert list(tmp_path.rglob("*.sqlite*")) == []
@@ -129,7 +133,7 @@ def test_optional_watchlist_sample_runs_local_import_match_report_and_trends(
             str(data_dir),
         ]
     )
-    assert "Imported 11 manual signal rows" in import_output
+    assert "Imported 13 manual signal rows" in import_output
 
     match_output = invoke_ok(
         [
@@ -140,7 +144,7 @@ def test_optional_watchlist_sample_runs_local_import_match_report_and_trends(
             str(data_dir),
         ]
     )
-    assert "Processed 11 items" in match_output
+    assert "Processed 13 items" in match_output
 
     invoke_ok(
         [
@@ -173,6 +177,8 @@ def test_optional_watchlist_sample_runs_local_import_match_report_and_trends(
                 AS_OF,
                 "--baseline-as-of",
                 BASELINE_AS_OF,
+                "--limit",
+                "50",
                 "--format",
                 "json",
             ]

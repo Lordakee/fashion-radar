@@ -23,7 +23,7 @@ def test_fashion_watchlist_entity_pack_loads() -> None:
     config = load_entity_config(PACK_PATH)
 
     assert config.version == 1
-    assert len(config.entities) >= 24
+    assert len(config.entities) >= 32
 
 
 def test_fashion_watchlist_entity_pack_has_expected_type_mix() -> None:
@@ -33,8 +33,8 @@ def test_fashion_watchlist_entity_pack_has_expected_type_mix() -> None:
         for entity_type in EntityType
     }
 
-    assert type_counts[EntityType.BRAND] >= 8
-    assert type_counts[EntityType.PRODUCT] >= 6
+    assert type_counts[EntityType.BRAND] >= 12
+    assert type_counts[EntityType.PRODUCT] >= 8
     assert type_counts[EntityType.CATEGORY] >= 4
     assert type_counts[EntityType.DESIGNER] >= 2
     assert type_counts[EntityType.CELEBRITY] >= 2
@@ -53,6 +53,10 @@ def test_fashion_watchlist_entity_pack_includes_requested_watchlist_examples() -
         "Miu Miu Arcadie",
         "Mary Jane Shoes",
         "East-West Bags",
+        "Savette",
+        "Aeyde",
+        "Savette Symmetry Bag",
+        "Aeyde Uma Mary Jane",
     ]:
         assert name in entities
 
@@ -113,6 +117,21 @@ def test_fashion_watchlist_matcher_rejects_generic_broad_alias_mentions() -> Non
         assert all(not decision.accepted for decision in decisions)
 
 
+def test_fashion_watchlist_matcher_does_not_register_bare_new_product_shorthands() -> None:
+    entities = _entities()
+
+    for text, entity_name in [
+        ("The symmetry of the geometry was noted.", "Savette Symmetry Bag"),
+        ("Uma joined the dinner list.", "Aeyde Uma Mary Jane"),
+    ]:
+        decisions = [
+            decision
+            for decision in evaluate_entity_matches(text, entities)
+            if decision.entity_name == entity_name
+        ]
+        assert decisions == []
+
+
 def test_fashion_watchlist_matcher_accepts_parent_brand_or_fashion_context() -> None:
     entities = _entities()
 
@@ -120,7 +139,8 @@ def test_fashion_watchlist_matcher_accepts_parent_brand_or_fashion_context() -> 
         decision.entity_name
         for decision in match_entities(
             "The Row Margaux tote, Miu Miu Arcadie bag, Coach Tabby handbag, "
-            "Mary Jane flats, and boat shoes appeared in the runway footwear report.",
+            "Mary Jane flats, boat shoes, Savette Symmetry Bag, and "
+            "Aeyde Uma Mary Jane shoe appeared in the runway footwear report.",
             entities,
         )
     }
@@ -131,6 +151,8 @@ def test_fashion_watchlist_matcher_accepts_parent_brand_or_fashion_context() -> 
         "Coach",
         "Mary Jane Shoes",
         "Boat Shoes",
+        "Savette Symmetry Bag",
+        "Aeyde Uma Mary Jane",
     } <= accepted_names
 
 
@@ -162,6 +184,10 @@ def test_fashion_watchlist_sample_matches_expected_entities_and_types() -> None:
         "East-West Bags",
         "Office Siren",
         "Boho Revival",
+        "Savette",
+        "Savette Symmetry Bag",
+        "Aeyde",
+        "Aeyde Uma Mary Jane",
     } <= matched_names
     assert {"brand", "product", "designer", "celebrity", "category", "trend"} <= matched_types
 

@@ -232,9 +232,7 @@ def test_current_direction_docs_prioritize_liveness_backed_source_coverage() -> 
         "docs/PROJECT_BRIEF.md##Current Review-Aligned Priorities": _section(
             _read(PROJECT_BRIEF), "Current Review-Aligned Priorities"
         ),
-        "README.md##Current Roadmap Focus": _section(
-            _read(README), "Current Roadmap Focus"
-        ),
+        "README.md##Current Roadmap Focus": _section(_read(README), "Current Roadmap Focus"),
         "docs/REVIEW_PROTOCOL.md##During Development": _section(
             _read(REVIEW_PROTOCOL), "During Development"
         ),
@@ -262,10 +260,13 @@ def test_current_direction_docs_prioritize_liveness_backed_source_coverage() -> 
         for phrase in stale_phrases:
             assert phrase not in normalized, f"{label} still has stale phrase {phrase!r}"
 
-    assert "experimental/community handoff expansion remains frozen" in _normalized_text(
-        sections["docs/PROJECT_BRIEF.md##Current Review-Aligned Priorities"]
-    ).casefold()
-    assert "no new external-tool, community-handoff, or imported-review" in _normalized_text(
-        sections["README.md##Current Roadmap Focus"]
-    ).casefold()
-
+    assert (
+        "experimental/community handoff expansion remains frozen"
+        in _normalized_text(
+            sections["docs/PROJECT_BRIEF.md##Current Review-Aligned Priorities"]
+        ).casefold()
+    )
+    assert (
+        "no new external-tool, community-handoff, or imported-review"
+        in _normalized_text(sections["README.md##Current Roadmap Focus"]).casefold()
+    )

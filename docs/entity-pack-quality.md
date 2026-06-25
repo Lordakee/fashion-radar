@@ -41,10 +41,10 @@ Table output starts with a compact summary:
 
 ```text
 Entity pack: configs/entity-packs/fashion-watchlist.example.yaml
-Entities: 28 total
-Aliases: 45 total
-Types: brand=10, category=5, celebrity=2, designer=2, product=6, trend=3
-Findings: 0 errors, 16 warnings, 61 info
+Entities: 32 total
+Aliases: 51 total
+Types: brand=12, category=5, celebrity=2, designer=2, product=8, trend=3
+Findings: 0 errors, 16 warnings, 71 info
 ```
 
 The summary shows:
@@ -75,25 +75,28 @@ shows one representative finding, not the full findings list:
 ```json
 {
   "path": "configs/entity-packs/fashion-watchlist.example.yaml",
-  "entity_count": 28,
-  "alias_count": 45,
+  "entity_count": 32,
+  "alias_count": 51,
   "type_counts": {
-    "brand": 10,
+    "brand": 12,
     "category": 5,
     "celebrity": 2,
     "designer": 2,
-    "product": 6,
+    "product": 8,
     "trend": 3
   },
   "tag_counts": {
     "accessories": 2,
     "aesthetic": 3,
     "american_fashion": 1,
+    "bags": 1,
     "celebrity_style": 2,
     "consumer_trend": 1,
     "contemporary_luxury": 2,
     "creative_director": 2,
-    "designer_brand": 9,
+    "designer_brand": 11,
+    "emerging_label": 2,
+    "footwear": 1,
     "luxury": 4,
     "lvmh": 1,
     "minimalism": 2,
@@ -104,20 +107,22 @@ shows one representative finding, not the full findings list:
     "styling": 2
   },
   "category_tag_counts": {
-    "bag": 6,
-    "flats": 2,
-    "handbag": 4,
+    "bag": 7,
+    "flats": 3,
+    "handbag": 5,
+    "mary_jane": 1,
     "mule": 1,
-    "shoe": 1,
+    "shoe": 2,
     "shoes": 4,
     "shoulder_bag": 1,
     "sneakers": 1,
+    "top_handle": 1,
     "tote": 2
   },
   "accepted_without_context_aliases": 22,
   "context_gated_aliases": 4,
-  "safe_aliases": 7,
-  "product_parent_gated_aliases": 12,
+  "safe_aliases": 9,
+  "product_parent_gated_aliases": 16,
   "findings": [
     {
       "severity": "warning",

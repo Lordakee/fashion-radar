@@ -80,6 +80,22 @@ entities:
     context_terms: [fashion, runway, bow, ballet]
     tags: [designer_brand, new_york]
     active_from: "2024-01-01T00:00:00Z"
+  - name: Savette
+    type: brand
+    aliases:
+      - value: Savette
+        safe_single_word: true
+        reason: Distinct fashion brand name.
+    tags: [designer_brand, bags, emerging_label]
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Aeyde
+    type: brand
+    aliases:
+      - value: Aeyde
+        safe_single_word: true
+        reason: Distinct fashion brand name.
+    tags: [designer_brand, footwear, emerging_label]
+    active_from: "2024-01-01T00:00:00Z"
 
   - name: Jonathan Anderson
     type: designer
@@ -163,6 +179,24 @@ entities:
       - value: Pierced Mule
     context_terms: [tory burch, mule, shoe, footwear]
     category_tags: [shoe, mule]
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Savette Symmetry Bag
+    type: product
+    parent_brand: Savette
+    aliases:
+      - value: Savette Symmetry
+      - value: Symmetry Bag
+    context_terms: [savette, handbag, top handle]
+    category_tags: [bag, handbag, top_handle]
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Aeyde Uma Mary Jane
+    type: product
+    parent_brand: Aeyde
+    aliases:
+      - value: Aeyde Uma
+      - value: Uma Mary Jane
+    context_terms: [aeyde, shoe, footwear]
+    category_tags: [shoe, flats, mary_jane]
     active_from: "2024-01-01T00:00:00Z"
 
   - name: Ballet Flats

@@ -23,6 +23,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 198 expands the optional local fashion watchlist pack with two
+  emerging designer labels and two parent-brand-gated named product entries
+  for bag and shoe coverage, plus synthetic local sample rows and deterministic
+  matcher/docs guards. It does not change default starter configs, add
+  sources, scrape, add social/platform connectors, prove demand, rank brands,
+  verify platform coverage, or add compliance-review product features.
 - Stage 197 expands the optional public fashion source pack with four public
   RSS feeds for runway/editorial, business/luxury fashion, red-carpet celebrity
   style, and bag/accessory product signals, based on point-in-time RSS planning

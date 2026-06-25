@@ -18,7 +18,7 @@ JSON_EXAMPLE = ROOT / "examples" / "community-signals.example.json"
 TOOL_HANDOFF_CSV_EXAMPLE = ROOT / "examples" / "community-tool-handoff.example.csv"
 TOOL_HANDOFF_JSON_EXAMPLE = ROOT / "examples" / "community-tool-handoff.example.json"
 WATCHLIST_CSV_EXAMPLE = ROOT / "examples" / "community-signals.watchlist.example.csv"
-WATCHLIST_EXPECTED_ROWS = 11
+WATCHLIST_EXPECTED_ROWS = 13
 COMMUNITY_SIGNAL_EXAMPLES = (
     (CSV_EXAMPLE, "csv", "Community Tool Export"),
     (JSON_EXAMPLE, "json", "Community Tool Export"),
@@ -115,12 +115,12 @@ def test_watchlist_community_signal_csv_example_loads_expected_rows() -> None:
         default_source_name="Community Watchlist Sample",
     )
 
-    assert len(rows) == 11
+    assert len(rows) == WATCHLIST_EXPECTED_ROWS
     assert rows[0].url == "https://example.com/community-watchlist/khaite-lotus-bag"
     assert rows[0].title == "Khaite Lotus Bag local watchlist note"
     assert rows[0].source_name == "Community Watchlist Sample"
     assert rows[0].platform == "community"
-    assert rows[-1].title == "Boho Revival styling watchlist note"
+    assert rows[-1].title == "Aeyde Uma Mary Jane footwear watchlist note"
 
 
 @pytest.mark.parametrize(

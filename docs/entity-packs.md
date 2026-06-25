@@ -11,10 +11,10 @@ The first optional pack is:
 configs/entity-packs/fashion-watchlist.example.yaml
 ```
 
-It is a seed watchlist for designer brands, named bags and shoes, product
-categories, designers, celebrity style signals, and style terms. It is not a
-hot-list, ranking, current-hotness detector, platform-wide signal, or
-market-wide demand proof.
+It is a seed watchlist for designer brands, emerging designer labels, named
+bags and shoes, product categories, designers, celebrity style signals, and
+style terms. It is not a hot-list, ranking, current-hotness detector,
+platform-wide signal, or market-wide demand proof.
 
 Example repo-local destination path:
 
@@ -75,7 +75,8 @@ social monitoring, current-hotness detection, or ranking semantics.
 ## Try The Optional Local Sample
 
 Use the optional local sample when you want to exercise the broader
-`fashion-watchlist` pack against checked-in synthetic community-signal rows.
+`fashion-watchlist` pack against checked-in synthetic community-signal rows,
+including named bag and shoe examples for emerging designer labels.
 
 ```bash
 tmp_watchlist="$(mktemp -d)"
