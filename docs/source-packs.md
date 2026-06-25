@@ -25,9 +25,32 @@ runway and fashion week, designer-brand momentum, retail and resale, footwear,
 handbags and accessories, creative-director moves, and beauty/fashion crossover
 signals inside the configured source set.
 
+Current composition:
+
+- 20 enabled sources.
+- 10 RSS feeds followed by 10 GDELT query lanes.
+- RSS article extraction disabled by default for every RSS source.
+- GDELT lanes explicitly bounded to a 24-hour lookback, 100 max records, and
+  one request per second.
+
 It does not include Google News RSS, Google Trends, account-based source access,
 browser automation, access-control bypasses, paywall bypass, or private data
 collection.
+
+## RSS Feeds
+
+The RSS entries are listed in pack order:
+
+- `Fashionista`: general fashion media and industry news.
+- `Fashion Week Daily`: fashion media and celebrity style.
+- `FashionUnited`: fashion industry and retail news.
+- `The Industry Fashion`: brand and industry news.
+- `Highsnobiety`: streetwear and culture signals.
+- `WWD`: trade media and industry news.
+- `Vogue`: runway, fashion week, and celebrity style.
+- `Business of Fashion`: trade, luxury, retail, and emerging-designer coverage.
+- `Red Carpet Fashion Awards`: celebrity red-carpet styling.
+- `PurseBlog`: bags, handbags, accessories, and luxury product signals.
 
 ## Check Pack Quality
 

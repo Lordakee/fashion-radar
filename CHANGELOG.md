@@ -37,6 +37,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 204 pins the optional public fashion source pack's offline composition
+  contract in tests and docs: 20 enabled sources, 10 RSS feeds, 10 bounded GDELT
+  lanes, and RSS article extraction disabled by default. It does not add
+  sources, live liveness gates, scraping, social/platform connectors, demand
+  proof, coverage verification, dependency changes, or compliance-review
+  behavior.
 - Stage 202 exposes local candidate score components in daily report JSON,
   daily report Markdown, and candidate CLI JSON so untracked phrase review can
   see mention, growth, and source-diversity terms without changing ranking,

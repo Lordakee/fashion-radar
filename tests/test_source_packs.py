@@ -25,14 +25,18 @@ def findings_by_code(result, code: str):
     return [finding for finding in result.findings if finding.code == code]
 
 
-def test_lint_repository_public_pack_has_no_errors() -> None:
+def test_lint_repository_public_pack_matches_composition_contract() -> None:
     result = lint_source_pack(Path("configs/source-packs/fashion-public.example.yaml"))
 
     assert result.error_count == 0
+    assert result.warning_count == 0
+    assert result.info_count == 0
     assert result.ok is True
-    assert result.source_count >= 10
-    assert "rss" in result.type_counts
-    assert "gdelt" in result.type_counts
+    assert result.source_count == 20
+    assert result.enabled_count == 20
+    assert result.disabled_count == 0
+    assert result.type_counts == {"gdelt": 10, "rss": 10}
+    assert result.findings == []
 
 
 def test_duplicate_source_names_are_errors_after_normalization(tmp_path: Path) -> None:

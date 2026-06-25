@@ -2,6 +2,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+import yaml
 
 from fashion_radar.settings import (
     ConfigError,
@@ -18,10 +19,38 @@ from fashion_radar.source_packs import (
 CANONICAL_PUBLIC_RSS_URLS = {
     "Fashionista": "https://fashionista.com/.rss/feed/28e21eb8-20ac-4617-a448-e845081591ca.xml",
     "Fashion Week Daily": "https://fashionweekdaily.com/feed/",
+    "FashionUnited": "https://fashionunited.info/rss-news",
     "The Industry Fashion": "https://www.theindustry.fashion/feed/",
     "Highsnobiety": "https://www.highsnobiety.com/feeds/rss",
     "WWD": "https://wwd.com/feed/",
+    "Vogue": "https://www.vogue.com/feed/rss",
+    "Business of Fashion": "https://www.businessoffashion.com/arc/outboundfeeds/rss/",
+    "Red Carpet Fashion Awards": "https://www.redcarpet-fashionawards.com/feed/",
+    "PurseBlog": "https://www.purseblog.com/feed/",
 }
+
+EXPECTED_PUBLIC_SOURCE_COMPOSITION = [
+    ("Fashionista", "rss"),
+    ("Fashion Week Daily", "rss"),
+    ("FashionUnited", "rss"),
+    ("The Industry Fashion", "rss"),
+    ("Highsnobiety", "rss"),
+    ("WWD", "rss"),
+    ("Vogue", "rss"),
+    ("Business of Fashion", "rss"),
+    ("Red Carpet Fashion Awards", "rss"),
+    ("PurseBlog", "rss"),
+    ("GDELT Luxury Fashion", "gdelt"),
+    ("GDELT Celebrity Style", "gdelt"),
+    ("GDELT Bags Shoes Products", "gdelt"),
+    ("GDELT Emerging Designers", "gdelt"),
+    ("GDELT Runway Fashion Week", "gdelt"),
+    ("GDELT Designer Brand Momentum", "gdelt"),
+    ("GDELT Retail Resale Fashion", "gdelt"),
+    ("GDELT Footwear Sneakers", "gdelt"),
+    ("GDELT Creative Director Moves", "gdelt"),
+    ("GDELT Beauty Fashion Crossover", "gdelt"),
+]
 
 CANONICAL_STARTER_RSS_URLS = {
     "Fashionista": CANONICAL_PUBLIC_RSS_URLS["Fashionista"],
@@ -41,6 +70,16 @@ def rss_urls_by_source_name(path: Path) -> dict[str, str]:
         for source in config.sources
         if source.type.value == "rss" and source.url is not None
     }
+
+
+def public_pack_raw_sources() -> list[dict[str, object]]:
+    data = yaml.safe_load(
+        Path("configs/source-packs/fashion-public.example.yaml").read_text(encoding="utf-8")
+    )
+    assert isinstance(data, dict)
+    sources = data.get("sources")
+    assert isinstance(sources, list)
+    return sources
 
 
 def test_loads_valid_source_config(tmp_path: Path) -> None:
@@ -408,7 +447,7 @@ def test_starter_source_config_covers_core_fashion_signals_without_article_fetch
 def test_public_fashion_source_pack_loads() -> None:
     config = load_source_config(Path("configs/source-packs/fashion-public.example.yaml"))
 
-    assert len(config.sources) >= 16
+    assert len(config.sources) == 20
     assert {source.type.value for source in config.sources} == {"rss", "gdelt"}
     assert all(
         source.article.enabled is False for source in config.sources if source.type.value == "rss"
@@ -430,11 +469,38 @@ def test_public_fashion_source_pack_loads() -> None:
     assert all(source.tags for source in config.sources)
 
 
+def test_public_fashion_source_pack_composition_matches_contract() -> None:
+    config = load_source_config(Path("configs/source-packs/fashion-public.example.yaml"))
+
+    assert [(source.name, source.type.value) for source in config.sources] == (
+        EXPECTED_PUBLIC_SOURCE_COMPOSITION
+    )
+    assert all(source.enabled is True for source in config.sources)
+
+
+def test_public_fashion_source_pack_keeps_fetch_boundaries_explicit() -> None:
+    for source in public_pack_raw_sources():
+        source_type = source["type"]
+
+        if source_type == "rss":
+            assert source.get("article") == {"enabled": False}
+            assert "url" in source
+            assert "query" not in source
+
+        if source_type == "gdelt":
+            assert source.get("gdelt") == {
+                "lookback_hours": 24,
+                "max_records": 100,
+                "rate_limit_per_second": 1.0,
+            }
+            assert "query" in source
+            assert "url" not in source
+
+
 def test_public_fashion_source_pack_uses_direct_rss_endpoints() -> None:
     urls_by_name = rss_urls_by_source_name(Path("configs/source-packs/fashion-public.example.yaml"))
 
-    for source_name, expected_url in CANONICAL_PUBLIC_RSS_URLS.items():
-        assert urls_by_name[source_name] == expected_url
+    assert urls_by_name == CANONICAL_PUBLIC_RSS_URLS
 
 
 def test_starter_source_configs_use_direct_rss_endpoints() -> None:
