@@ -9,6 +9,10 @@ def test_normalize_text_folds_latin_diacritics() -> None:
     assert normalize_text("Hermès Chloé Sézane Alaïa") == "hermes chloe sezane alaia"
 
 
+def test_normalize_text_folds_stage_196_latin_overrides() -> None:
+    assert normalize_text("Løewe MØ ı bag") == "loewe mo i bag"
+
+
 def test_alias_pattern_uses_word_boundaries() -> None:
     pattern = alias_pattern("row")
 
@@ -35,6 +39,11 @@ def test_alias_pattern_matches_latin_diacritic_variants() -> None:
     assert chloe_pattern.search("Chloé runway bag")
     assert edith_pattern.search("Edith Head costume archive")
     assert edith_pattern.search("ÉDITH Head costume archive")
+
+
+def test_alias_pattern_matches_stage_196_latin_override_variants() -> None:
+    assert alias_pattern("Loewe").search("Løewe puzzle bag")
+    assert alias_pattern("Søster Studio").search("Soster Studio bag")
 
 
 def test_alias_pattern_handles_category_phrase() -> None:

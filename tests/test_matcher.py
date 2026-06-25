@@ -130,6 +130,23 @@ def test_parent_brand_alias_can_accept_product_without_product_context() -> None
     assert product.context_terms == []
 
 
+def test_parent_brand_key_folds_stage_196_latin_overrides() -> None:
+    entities = [
+        _entity("Søster Studio", EntityType.BRAND, ["Søster Studio"]),
+        _entity(
+            "Soster Studio Bag",
+            EntityType.PRODUCT,
+            ["Arc"],
+            parent_brand="Soster Studio",
+        ),
+    ]
+
+    accepted = match_entities("Soster Studio Arc edit", entities)
+
+    product = next(decision for decision in accepted if decision.entity_name == "Soster Studio Bag")
+    assert product.reason == "parent_brand"
+
+
 def test_product_alias_without_parent_brand_or_narrow_context_is_rejected() -> None:
     decisions = [
         decision

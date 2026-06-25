@@ -37,3 +37,22 @@ def test_content_hash_normalizes_core_attribution_fields() -> None:
     )
 
     assert first == second
+
+
+def test_content_hash_folds_stage_196_latin_overrides() -> None:
+    published_at = datetime(2026, 6, 11, 10, 0, tzinfo=UTC)
+
+    first = content_hash(
+        title="Søster Studio MØ bag",
+        published_at=published_at,
+        source_name="Fashion Wire",
+        summary="Søster launches the MØ tote.",
+    )
+    second = content_hash(
+        title="Soster Studio MO bag",
+        published_at="2026-06-11T10:00:00Z",
+        source_name="Fashion Wire",
+        summary="Soster launches the MO tote.",
+    )
+
+    assert first == second

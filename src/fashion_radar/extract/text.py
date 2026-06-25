@@ -15,6 +15,7 @@ _DIACRITIC_CLASS_BY_ASCII = {
     "u": "uùúûüũūŭůűųǔȕȗưụủứừửữự",
     "y": "yýÿŷȳỳỵỷỹ",
 }
+_ASCII_FOLD_OVERRIDES = {"ø": "o", "Ø": "O", "ı": "i"}
 
 
 def normalize_text(value: str) -> str:
@@ -29,8 +30,12 @@ def normalize_text(value: str) -> str:
 
 
 def _fold_diacritics(value: str) -> str:
-    decomposed = unicodedata.normalize("NFD", value)
-    return "".join(char for char in decomposed if not unicodedata.combining(char))
+    folded: list[str] = []
+    for char in unicodedata.normalize("NFD", value):
+        if unicodedata.combining(char):
+            continue
+        folded.append(_ASCII_FOLD_OVERRIDES.get(char, char))
+    return "".join(folded)
 
 
 def normalize_alias_key(value: str) -> str:

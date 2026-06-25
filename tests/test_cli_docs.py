@@ -631,6 +631,30 @@ def test_readme_documents_source_liveness_public_pack_example() -> None:
     assert "configs/source-packs/fashion-public.example.yaml" in text
 
 
+def test_readme_documents_compact_default_source_starter() -> None:
+    section = _markdown_section_exact_heading(_read(README), "Configuration")
+    normalized = _normalized_text(section).casefold()
+
+    assert normalized.index("compact rss/gdelt fashion starter set") < normalized.index(
+        "broader optional public-source starter packs",
+    )
+    for phrase in (
+        "sources.example.yaml",
+        "compact rss/gdelt fashion starter set",
+        "starter lanes for industry news",
+        "celebrity style",
+        "designer/luxury",
+        "emerging designers",
+        "fashion week",
+        "bags",
+        "shoes",
+        "broader optional public-source starter packs",
+        "configs/source-packs",
+        "docs/source-packs.md",
+    ):
+        assert phrase in normalized
+
+
 def test_architecture_documents_source_liveness_boundary() -> None:
     text = _read(ARCHITECTURE_DOC)
 
