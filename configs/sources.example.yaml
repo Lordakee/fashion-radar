@@ -1,6 +1,5 @@
-# Supported source types in v0.1.0:
+# Source types used by this starter config:
 # - rss: direct RSS/Atom feeds
-# - rsshub: RSSHub-compatible feeds when you accept the upstream route terms
 # - gdelt: GDELT Doc API metadata search
 #
 # Broad social-platform collection is not part of the core workflow.
@@ -10,21 +9,28 @@ sources:
     type: rss
     url: https://fashionista.com/.rss/excerpt
     enabled: true
-    # Source weight is used by scoring as source_weight * match_confidence.
-    weight: 1.2
+    weight: 1.0
     tags: [fashion_media, industry_news]
     http:
       timeout_seconds: 10
       per_domain_delay_seconds: 1
     article:
-      # Optional article extraction respects robots.txt and never bypasses
-      # paywalls. If optional article dependencies are missing, extraction is
-      # skipped conservatively.
-      enabled: true
-      respect_robots_txt: true
+      enabled: false
     health:
-      # Source-health retention controls the temporary circuit breaker for
-      # failing sources. It is not data-retention pruning for collected items.
+      max_failures: 3
+      retention_hours: 24
+  - name: Fashion Week Daily
+    type: rss
+    url: https://fashionweekdaily.com/feed
+    enabled: true
+    weight: 0.9
+    tags: [fashion_media, celebrity_style]
+    http:
+      timeout_seconds: 10
+      per_domain_delay_seconds: 1
+    article:
+      enabled: false
+    health:
       max_failures: 3
       retention_hours: 24
   - name: GDELT Luxury Fashion
@@ -32,7 +38,55 @@ sources:
     query: '(luxury fashion OR designer fashion OR "fashion week")'
     enabled: true
     weight: 0.9
-    tags: [news_search, gdelt]
+    tags: [gdelt, designer_luxury, industry_news]
+    gdelt:
+      lookback_hours: 24
+      max_records: 100
+      rate_limit_per_second: 1.0
+    http:
+      timeout_seconds: 10
+      per_domain_delay_seconds: 1
+    health:
+      max_failures: 3
+      retention_hours: 24
+  - name: GDELT Celebrity Style
+    type: gdelt
+    query: '("celebrity style" OR "red carpet fashion" OR "red carpet look")'
+    enabled: true
+    weight: 0.8
+    tags: [gdelt, celebrity_style]
+    gdelt:
+      lookback_hours: 24
+      max_records: 100
+      rate_limit_per_second: 1.0
+    http:
+      timeout_seconds: 10
+      per_domain_delay_seconds: 1
+    health:
+      max_failures: 3
+      retention_hours: 24
+  - name: GDELT Emerging Designers
+    type: gdelt
+    query: '("emerging designer" OR "independent designer" OR "LVMH Prize" OR "ANDAM fashion")'
+    enabled: true
+    weight: 0.8
+    tags: [gdelt, emerging_designers, fashion_week]
+    gdelt:
+      lookback_hours: 24
+      max_records: 100
+      rate_limit_per_second: 1.0
+    http:
+      timeout_seconds: 10
+      per_domain_delay_seconds: 1
+    health:
+      max_failures: 3
+      retention_hours: 24
+  - name: GDELT Bags Shoes Products
+    type: gdelt
+    query: '("designer bag" OR handbag OR sneakers OR "ballet flats" OR loafer) (fashion OR luxury)'
+    enabled: true
+    weight: 0.8
+    tags: [gdelt, accessories, bags, shoes]
     gdelt:
       lookback_hours: 24
       max_records: 100

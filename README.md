@@ -696,9 +696,11 @@ See [docs/dashboard.md](docs/dashboard.md).
 Starter files live in [configs](configs) and are also packaged for
 `fashion-radar init`:
 
-- `sources.example.yaml` defines enabled RSS/RSSHub/GDELT sources, source
-  weights, HTTP settings, article extraction settings, and source-health
-  circuit-breaker behavior.
+- `sources.example.yaml` defines a compact RSS/GDELT fashion starter set with
+  source weights, HTTP settings, article extraction settings, and source-health
+  circuit-breaker behavior. It includes starter lanes for industry news,
+  celebrity style, designer/luxury, emerging designers, fashion week, bags, and
+  shoes.
 - `entities.example.yaml` defines brands, designers, celebrities, products,
   categories, and trends. Single-word/common aliases may need context terms
   unless explicitly marked safe with a reason; ordinary multi-word aliases can
@@ -707,8 +709,9 @@ Starter files live in [configs](configs) and are also packaged for
   filtering, source diversity bonuses, high-weight source bonuses, and optional
   candidate discovery thresholds.
 
-Optional public-source starter packs live in [configs/source-packs](configs/source-packs).
-See [docs/source-packs.md](docs/source-packs.md).
+Broader optional public-source starter packs live in
+[configs/source-packs](configs/source-packs). See
+[docs/source-packs.md](docs/source-packs.md).
 
 Optional entity watchlist packs live in [configs/entity-packs](configs/entity-packs).
 See [docs/entity-packs.md](docs/entity-packs.md).

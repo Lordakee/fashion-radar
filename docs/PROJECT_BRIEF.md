@@ -159,16 +159,21 @@ Google News RSS, Google Trends, Reddit, static webpage monitoring, and social-pl
 
 ## Current Review-Aligned Priorities
 
-Before expanding any experimental or community handoff surface, the remaining
-roadmap priorities are:
+Before expanding any experimental or community handoff surface, roadmap work
+should stay focused on the core collect/match/score/report path:
 
-- use read-only source-liveness evidence to expand curated public-source
-  coverage, especially celebrity style, street style, designer/luxury, and
-  emerging-brand monitoring;
-- improve deterministic matching quality for case, diacritics, and entity
-  disambiguation;
+- keep using read-only source-liveness evidence as optional point-in-time
+  diagnostics for a user's configured public sources and curated public-source
+  coverage;
+- maintain the broader public source pack while keeping the default starter
+  config compact enough for first runs;
+- continue improving deterministic matching quality after the default starter
+  source expansion and common Latin diacritic alias matching added in Stage 195;
 - keep further report summary or explanation refinements optional, local, and
   post-core.
+
+The bundled source examples and source-liveness diagnostics do not prove demand,
+source ranking, or platform-wide coverage.
 
 Experimental/community handoff expansion remains frozen while these remaining
 core gaps are addressed.

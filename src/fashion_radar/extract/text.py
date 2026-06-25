@@ -5,6 +5,16 @@ import unicodedata
 from re import Pattern
 
 _WHITESPACE_RE = re.compile(r"\s+")
+_DIACRITIC_CLASS_BY_ASCII = {
+    "a": "aàáâãäåāăąǎǟǡǻȁȃạảấầẩẫậắằẳẵặ",
+    "c": "cçćĉċč",
+    "e": "eèéêëēĕėęěȅȇẹẻẽếềểễệ",
+    "i": "iìíîïĩīĭįıǐȉȋịỉ",
+    "n": "nñńņň",
+    "o": "oòóôõöøōŏőǒȍȏơọỏốồổỗộớờởỡợ",
+    "u": "uùúûüũūŭůűųǔȕȗưụủứừửữự",
+    "y": "yýÿŷȳỳỵỷỹ",
+}
 
 
 def normalize_text(value: str) -> str:
@@ -13,8 +23,14 @@ def normalize_text(value: str) -> str:
     normalized = normalized.replace("’", "'").replace("‘", "'")
     normalized = normalized.replace("“", '"').replace("”", '"')
     normalized = normalized.replace("–", "-").replace("—", "-")
+    normalized = _fold_diacritics(normalized)
     normalized = _WHITESPACE_RE.sub(" ", normalized)
     return normalized.strip().lower()
+
+
+def _fold_diacritics(value: str) -> str:
+    decomposed = unicodedata.normalize("NFD", value)
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
 
 
 def normalize_alias_key(value: str) -> str:
@@ -30,6 +46,21 @@ def alias_pattern(alias: str) -> Pattern[str]:
     Ambiguous aliases still need the Stage 2 context gate before they become
     accepted entity matches.
     """
-    escaped = re.escape(alias.strip())
-    escaped = escaped.replace(r"\ ", r"\s+")
+    normalized = unicodedata.normalize("NFKC", alias.strip())
+    normalized = normalized.replace("’", "'").replace("‘", "'")
+    normalized = normalized.replace("“", '"').replace("”", '"')
+    normalized = normalized.replace("–", "-").replace("—", "-")
+    folded = _fold_diacritics(normalized).lower()
+    escaped = r"\s+".join(
+        "".join(_alias_char_pattern(char) for char in token)
+        for token in _WHITESPACE_RE.split(folded)
+        if token
+    )
     return re.compile(rf"(?<!\w){escaped}(?!\w)", flags=re.IGNORECASE)
+
+
+def _alias_char_pattern(char: str) -> str:
+    chars = _DIACRITIC_CLASS_BY_ASCII.get(char)
+    if chars:
+        return f"[{re.escape(chars)}]"
+    return re.escape(char)

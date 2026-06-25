@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Stage 195 broadens the default starter source config to compact curated
+  RSS/GDELT lanes with RSS article extraction disabled by default, and folds
+  common Latin diacritics in deterministic text and runtime alias matching
+  without changing the broader public source pack or adding social/platform
+  connectors.
 - Stage 194 refreshes current roadmap and full-project review follow-up status
   after completed Stages 190-193, and backfills `trend-explanations` baseline
   date error coverage without expanding external/community/imported surfaces.

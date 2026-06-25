@@ -359,6 +359,30 @@ def test_sample_configs_load_without_network() -> None:
     assert scoring_config.scoring.new_entity_days > 0
 
 
+def test_starter_source_config_covers_core_fashion_signals_without_article_fetching() -> None:
+    public_pack = load_source_config(Path("configs/source-packs/fashion-public.example.yaml"))
+    config = load_source_config(Path("configs/sources.example.yaml"))
+    enabled_sources = [source for source in config.sources if source.enabled]
+    public_enabled_sources = [source for source in public_pack.sources if source.enabled]
+    required_tags = {
+        "industry_news",
+        "celebrity_style",
+        "designer_luxury",
+        "emerging_designers",
+        "fashion_week",
+        "accessories",
+        "shoes",
+    }
+
+    assert len(enabled_sources) >= 6
+    assert len(enabled_sources) < len(public_enabled_sources)
+    assert {source.type.value for source in enabled_sources} == {"rss", "gdelt"}
+    assert required_tags <= {tag for source in enabled_sources for tag in source.tags}
+    assert all(
+        source.article.enabled is False for source in enabled_sources if source.type.value == "rss"
+    )
+
+
 def test_public_fashion_source_pack_loads() -> None:
     config = load_source_config(Path("configs/source-packs/fashion-public.example.yaml"))
 
