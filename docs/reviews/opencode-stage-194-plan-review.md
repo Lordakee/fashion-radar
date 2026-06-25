@@ -1,11 +1,3 @@
-I'll review the Stage 194 design and implementation plan. Let me read all the required files in parallel.
-Now let me read the remaining required files in parallel.
-Now let me read the plan, README, and test files.
-Now let me examine the CLI implementation and the existing trends tests to verify the parity claims.
-Let me read the existing `trends` baseline tests and the existing `trend_explanations` tests to verify the parity of the planned mirrors.
-Let me verify the CHANGELOG structure and double-check a critical detail in the planned docs guard wording.
-Let me re-verify the exact current wording case-insensitively, since my first grep was case-sensitive.
-I have completed a thorough review. Let me verify one final detail about the existing test's assertion patterns to confirm parity claims before writing findings.
 # Stage 194 Plan Review
 
 I read all required files, verified the production CLI handling (`cli.py:1604-1621` for `trend_explanations_command` vs `cli.py:1528-1545` for `trends_command`), confirmed the existing `trends` baseline tests (`tests/test_cli.py:8426` and `:8454`), and cross-checked the planned docs guards against the planned replacement text and current doc wording.
