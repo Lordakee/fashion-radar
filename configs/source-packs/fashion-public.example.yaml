@@ -1,14 +1,16 @@
 # Example public source pack. Review source terms before enabling.
 # Original RSS endpoints were checked during Stage 7 planning on 2026-06-12.
 # Vogue, Business of Fashion, Red Carpet Fashion Awards, and PurseBlog RSS
-# endpoints were checked during Stage 197 planning on 2026-06-25. RSS
+# endpoints were checked during Stage 197 planning on 2026-06-25. Fashionista,
+# Fashion Week Daily, The Industry Fashion, Highsnobiety, and WWD direct RSS
+# endpoints were normalized during Stage 201 planning on 2026-06-25. RSS
 # availability can change. Treat this as a starter set, not an endorsement or
 # availability guarantee.
 version: 1
 sources:
   - name: Fashionista
     type: rss
-    url: https://fashionista.com/.rss/excerpt
+    url: https://fashionista.com/.rss/feed/28e21eb8-20ac-4617-a448-e845081591ca.xml
     enabled: true
     weight: 1.0
     tags: [fashion_media, industry_news]
@@ -16,7 +18,7 @@ sources:
       enabled: false
   - name: Fashion Week Daily
     type: rss
-    url: https://fashionweekdaily.com/feed
+    url: https://fashionweekdaily.com/feed/
     enabled: true
     weight: 0.9
     tags: [fashion_media, celebrity_style]
@@ -32,7 +34,7 @@ sources:
       enabled: false
   - name: The Industry Fashion
     type: rss
-    url: https://www.theindustry.fashion/feed
+    url: https://www.theindustry.fashion/feed/
     enabled: true
     weight: 0.9
     tags: [industry_news, brand_news]
@@ -40,7 +42,7 @@ sources:
       enabled: false
   - name: Highsnobiety
     type: rss
-    url: https://www.highsnobiety.com/feed/
+    url: https://www.highsnobiety.com/feeds/rss
     enabled: true
     weight: 0.8
     tags: [streetwear, culture]
@@ -48,7 +50,7 @@ sources:
       enabled: false
   - name: WWD
     type: rss
-    url: https://wwd.com/feed/rss
+    url: https://wwd.com/feed/
     enabled: true
     weight: 1.1
     tags: [trade_media, industry_news]

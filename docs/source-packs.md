@@ -125,7 +125,9 @@ uv run fashion-radar run --config-dir "$PWD/configs" --data-dir "$PWD/data" --re
 
 Original RSS endpoints were checked during Stage 7 planning on 2026-06-12.
 Vogue, Business of Fashion, Red Carpet Fashion Awards, and PurseBlog RSS
-endpoints were checked during Stage 197 planning on 2026-06-25. RSS
+endpoints were checked during Stage 197 planning on 2026-06-25. Fashionista,
+Fashion Week Daily, The Industry Fashion, Highsnobiety, and WWD direct RSS
+endpoints were normalized during Stage 201 planning on 2026-06-25. RSS
 availability can change without notice. If a source fails, disable it or
 replace it with a feed you have verified.
 

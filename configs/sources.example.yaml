@@ -7,7 +7,7 @@ version: 1
 sources:
   - name: Fashionista
     type: rss
-    url: https://fashionista.com/.rss/excerpt
+    url: https://fashionista.com/.rss/feed/28e21eb8-20ac-4617-a448-e845081591ca.xml
     enabled: true
     weight: 1.0
     tags: [fashion_media, industry_news]
@@ -21,7 +21,7 @@ sources:
       retention_hours: 24
   - name: Fashion Week Daily
     type: rss
-    url: https://fashionweekdaily.com/feed
+    url: https://fashionweekdaily.com/feed/
     enabled: true
     weight: 0.9
     tags: [fashion_media, celebrity_style]

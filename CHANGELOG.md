@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Stage 201 normalizes Fashionista, Fashion Week Daily, The Industry Fashion,
+  Highsnobiety, and WWD public RSS URLs to current direct feed endpoints in the
+  optional public source pack, and keeps starter source configs aligned without
+  adding collectors, source acquisition, ranking, social connectors, proxy
+  pools, or compliance-review behavior.
 - Stage 200 declares the HTTP client's SOCKS transport helper in the locked
   core dependency graph so `source-liveness` and configured-source HTTP checks
   can construct clients in environments that already set standard SOCKS proxy

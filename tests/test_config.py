@@ -15,10 +15,32 @@ from fashion_radar.source_packs import (
     normalize_source_target,
 )
 
+CANONICAL_PUBLIC_RSS_URLS = {
+    "Fashionista": "https://fashionista.com/.rss/feed/28e21eb8-20ac-4617-a448-e845081591ca.xml",
+    "Fashion Week Daily": "https://fashionweekdaily.com/feed/",
+    "The Industry Fashion": "https://www.theindustry.fashion/feed/",
+    "Highsnobiety": "https://www.highsnobiety.com/feeds/rss",
+    "WWD": "https://wwd.com/feed/",
+}
+
+CANONICAL_STARTER_RSS_URLS = {
+    "Fashionista": CANONICAL_PUBLIC_RSS_URLS["Fashionista"],
+    "Fashion Week Daily": CANONICAL_PUBLIC_RSS_URLS["Fashion Week Daily"],
+}
+
 
 def write_yaml(path: Path, content: str) -> Path:
     path.write_text(dedent(content).strip() + "\n", encoding="utf-8")
     return path
+
+
+def rss_urls_by_source_name(path: Path) -> dict[str, str]:
+    config = load_source_config(path)
+    return {
+        source.name: source.url
+        for source in config.sources
+        if source.type.value == "rss" and source.url is not None
+    }
 
 
 def test_loads_valid_source_config(tmp_path: Path) -> None:
@@ -406,3 +428,20 @@ def test_public_fashion_source_pack_loads() -> None:
     ]
     assert len(gdelt_queries) == len(set(gdelt_queries))
     assert all(source.tags for source in config.sources)
+
+
+def test_public_fashion_source_pack_uses_direct_rss_endpoints() -> None:
+    urls_by_name = rss_urls_by_source_name(Path("configs/source-packs/fashion-public.example.yaml"))
+
+    for source_name, expected_url in CANONICAL_PUBLIC_RSS_URLS.items():
+        assert urls_by_name[source_name] == expected_url
+
+
+def test_starter_source_configs_use_direct_rss_endpoints() -> None:
+    for path in (
+        Path("configs/sources.example.yaml"),
+        Path("src/fashion_radar/templates/configs/sources.example.yaml"),
+    ):
+        urls_by_name = rss_urls_by_source_name(path)
+        for source_name, expected_url in CANONICAL_STARTER_RSS_URLS.items():
+            assert urls_by_name[source_name] == expected_url

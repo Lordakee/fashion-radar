@@ -123,3 +123,20 @@ def test_source_packs_docs_show_source_liveness_command_examples() -> None:
         "uv run fashion-radar source-liveness "
         "configs/source-packs/fashion-public.example.yaml --format json"
     ) in text
+
+
+def test_source_packs_docs_record_stage_201_direct_endpoint_refresh() -> None:
+    section = _section(_read_source_packs_doc(), "Source Availability")
+    normalized = _normalized(section)
+
+    for phrase in (
+        "stage 201 planning on 2026-06-25",
+        "direct rss endpoints",
+        "fashionista",
+        "fashion week daily",
+        "the industry fashion",
+        "highsnobiety",
+        "wwd",
+        "availability can change without notice",
+    ):
+        assert phrase in normalized

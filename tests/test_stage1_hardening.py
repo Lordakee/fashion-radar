@@ -38,6 +38,20 @@ def test_root_example_configs_match_packaged_templates() -> None:
         assert root_text == package_text
 
 
+def test_root_and_packaged_source_configs_stay_byte_identical() -> None:
+    root = Path(__file__).resolve().parents[1] / "configs" / "sources.example.yaml"
+    packaged = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "fashion_radar"
+        / "templates"
+        / "configs"
+        / "sources.example.yaml"
+    )
+
+    assert root.read_text(encoding="utf-8") == packaged.read_text(encoding="utf-8")
+
+
 def test_doctor_fails_when_required_config_files_are_missing(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     data_dir = tmp_path / "data"
