@@ -220,9 +220,10 @@ risk labels. They are not required for the core workflow.
 
 ## Current Roadmap Focus
 
-Near-term v0.1.x work is focused on the core pipeline: broader source coverage,
-source-health visibility, stronger deterministic matching, and an optional
-summary layer for reports. No new external-tool, community-handoff, or
+Near-term v0.1.x work is focused on the core pipeline: using source-liveness
+evidence to broaden curated public-source coverage and improving deterministic
+matching quality. Further report summary or explanation refinements should stay
+optional, local, and post-core. No new external-tool, community-handoff, or
 imported-review surface area is planned unless a release-blocking defect
 requires maintenance.
 

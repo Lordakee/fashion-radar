@@ -84,8 +84,10 @@ YAML config
   readiness or perform PATH lookup.
   Current architecture priority is the collect -> match -> score -> report
   pipeline. The external/community handoff path remains documented and
-  supported, but near-term roadmap work is paused there while source
-  coverage/health, matching quality, and optional summarization are improved.
+  supported, but near-term roadmap work is paused there while curated
+  public-source coverage is expanded using source-liveness evidence and
+  deterministic matching quality is improved. Optional report summary or
+  explanation refinements remain post-core and contract-safe.
   `external-tool-template` prints adapter-specific template rows for
   user-controlled external/community tools that need sanitized CSV/JSON local
   file handoff examples. It is local and print-only: JSON and CSV output

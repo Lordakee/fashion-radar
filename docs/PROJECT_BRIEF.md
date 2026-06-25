@@ -159,19 +159,19 @@ Google News RSS, Google Trends, Reddit, static webpage monitoring, and social-pl
 
 ## Current Review-Aligned Priorities
 
-Before expanding any experimental or community handoff surface, the next
+Before expanding any experimental or community handoff surface, the remaining
 roadmap priorities are:
 
-- expand curated public-source coverage, especially celebrity style, street
-  style, designer/luxury, and emerging-brand monitoring;
-- add read-only source-health/feed-liveness diagnostics for enabled sources;
+- use read-only source-liveness evidence to expand curated public-source
+  coverage, especially celebrity style, street style, designer/luxury, and
+  emerging-brand monitoring;
 - improve deterministic matching quality for case, diacritics, and entity
   disambiguation;
-- keep summaries optional and post-core, improving reports without becoming a
-  baseline dependency.
+- keep further report summary or explanation refinements optional, local, and
+  post-core.
 
-Experimental/community handoff expansion is frozen until those core gaps are
-addressed.
+Experimental/community handoff expansion remains frozen while these remaining
+core gaps are addressed.
 
 ## Required Compliance Defaults
 

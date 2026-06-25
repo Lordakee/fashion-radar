@@ -8,6 +8,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Stage 194 refreshes current roadmap and full-project review follow-up status
+  after completed Stages 190-193, and backfills `trend-explanations` baseline
+  date error coverage without expanding external/community/imported surfaces.
 - Stage 192 polish for generated report Daily Brief source caveats, including
   capped local error fragments, duplicate source-caveat suppression, clearer
   empty-section Markdown fallback, and updated full-project review follow-up

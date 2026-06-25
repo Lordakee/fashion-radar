@@ -8,6 +8,9 @@ AGENTS = ROOT / "AGENTS.md"
 REVIEW_PROTOCOL = ROOT / "docs" / "REVIEW_PROTOCOL.md"
 UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
 FULL_PROJECT_REVIEW = ROOT / "docs" / "reviews" / "opencode-full-project-review.md"
+PROJECT_BRIEF = ROOT / "docs" / "PROJECT_BRIEF.md"
+README = ROOT / "README.md"
+ARCHITECTURE = ROOT / "docs" / "architecture.md"
 
 ACTIVE_REVIEW_DOCS = [
     AGENTS,
@@ -208,11 +211,61 @@ def test_full_project_review_follow_up_status_tracks_completed_stages() -> None:
         "Stage 189 fixed review-capture hygiene gaps",
         "Stage 190 added source-liveness diagnostics for configured public sources.",
         "Stage 191 added the Daily Brief Heat Narrative",
+        "Stage 192 polished Daily Brief source caveats",
+        "Stage 193 added the read-only `trend-explanations` sidecar",
+        "source-liveness evidence",
+        "curated public-source coverage",
+        "deterministic matching quality",
         "source coverage",
         "matching quality",
-        "trend/heat explanation",
     ):
         assert phrase.casefold() in normalized
 
     assert "is intended to" not in normalized
     assert "next product node should implement source-liveness diagnostics" not in normalized
+    assert "add a local trend/heat explanation layer" not in normalized
+    assert "trend/heat explanation layer without claiming demand proof" not in normalized
+
+
+def test_current_direction_docs_prioritize_liveness_backed_source_coverage() -> None:
+    sections = {
+        "docs/PROJECT_BRIEF.md##Current Review-Aligned Priorities": _section(
+            _read(PROJECT_BRIEF), "Current Review-Aligned Priorities"
+        ),
+        "README.md##Current Roadmap Focus": _section(
+            _read(README), "Current Roadmap Focus"
+        ),
+        "docs/REVIEW_PROTOCOL.md##During Development": _section(
+            _read(REVIEW_PROTOCOL), "During Development"
+        ),
+        "docs/architecture.md": _read(ARCHITECTURE),
+    }
+
+    for label, text in sections.items():
+        normalized = _normalized_text(text).casefold()
+        for phrase in (
+            "source-liveness evidence",
+            "curated public-source coverage",
+            "deterministic matching quality",
+        ):
+            assert phrase in normalized, f"{label} is missing {phrase!r}"
+
+    stale_phrases = (
+        "add read-only source-health/feed-liveness diagnostics",
+        "source coverage/health",
+        "source-health visibility",
+        "optional summarization are improved",
+        "optional summary work over",
+    )
+    for label, text in sections.items():
+        normalized = _normalized_text(text).casefold()
+        for phrase in stale_phrases:
+            assert phrase not in normalized, f"{label} still has stale phrase {phrase!r}"
+
+    assert "experimental/community handoff expansion remains frozen" in _normalized_text(
+        sections["docs/PROJECT_BRIEF.md##Current Review-Aligned Priorities"]
+    ).casefold()
+    assert "no new external-tool, community-handoff, or imported-review" in _normalized_text(
+        sections["README.md##Current Roadmap Focus"]
+    ).casefold()
+

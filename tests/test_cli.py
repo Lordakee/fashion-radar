@@ -8778,6 +8778,62 @@ def test_trend_explanations_command_invalid_as_of_writes_nothing(tmp_path: Path)
     assert not data_dir.exists()
 
 
+def test_trend_explanations_command_invalid_baseline_writes_nothing(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trend-explanations",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--baseline-as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not explain trend deltas: invalid --baseline-as-of" in result.output
+    assert not data_dir.exists()
+
+
+def test_trend_explanations_command_rejects_baseline_at_or_after_as_of(
+    tmp_path: Path,
+) -> None:
+    config_dir = tmp_path / "config"
+    data_dir = tmp_path / "data"
+    config_dir.mkdir()
+    (config_dir / "scoring.yaml").write_text("version: 1\nscoring: {}\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "trend-explanations",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--as-of",
+            "2026-06-12T12:00:00Z",
+            "--baseline-as-of",
+            "2026-06-12T12:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Could not explain trend deltas: baseline-as-of must be before as-of" in result.output
+    assert not data_dir.exists()
+
+
 def test_trend_explanations_command_invalid_config_writes_nothing(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     data_dir = tmp_path / "data"

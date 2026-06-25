@@ -104,7 +104,10 @@ coverage with evidence.
   the Stage 188 review chain.
 - Stage 190 added source-liveness diagnostics for configured public sources.
 - Stage 191 added the Daily Brief Heat Narrative to generated daily reports.
-- The next product work should use source-liveness evidence to expand source
-  coverage, improve deterministic matching quality, and add a local trend/heat
-  explanation layer without claiming demand proof or platform coverage
-  verification.
+- Stage 192 polished Daily Brief source caveats and refreshed this follow-up
+  status.
+- Stage 193 added the read-only `trend-explanations` sidecar over existing
+  local trend deltas without changing trend or heat contracts.
+- The next product work should use source-liveness evidence to expand curated
+  public-source coverage and improve deterministic matching quality, without
+  claiming demand proof or platform coverage verification.

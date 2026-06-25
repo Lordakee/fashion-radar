@@ -35,9 +35,10 @@ Each implementation stage must end with:
 3. Fixes for critical and important findings.
 4. Local opencode review of the next-stage plan.
 
-For the current v0.1.x release track, stage proposals should prioritize source
-coverage/health, matching quality, and optional summary work over new
-external/community handoff surface area. Changes to `external-tool-*`,
+For the current v0.1.x release track, stage proposals should prioritize curated
+public-source coverage using source-liveness evidence and deterministic
+matching quality. Further local report summary or explanation refinements
+should stay optional and contract-safe. Changes to `external-tool-*`,
 `community-handoff-*`, or `imported-*` commands should be treated as frozen
 unless they fix a release-blocking defect or a correctness issue in existing
 behavior.
