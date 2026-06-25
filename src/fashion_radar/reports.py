@@ -152,6 +152,9 @@ def _candidate_report(metric: CandidateMetric) -> CandidateReport:
         candidate_type=metric.candidate_type,
         label=metric.label,
         score=metric.score,
+        weighted_mention_component=metric.weighted_mention_component,
+        growth_component=metric.growth_component,
+        source_diversity_component=metric.source_diversity_component,
         current_mentions=metric.current_mentions,
         baseline_mentions=metric.baseline_mentions,
         distinct_sources=metric.distinct_sources,
@@ -706,6 +709,12 @@ def _render_candidate_sections(candidates: list[CandidateReport]) -> str:
                     "imported local signals and needs review.",
                     f"- Type: {candidate.candidate_type}",
                     f"- Score: {candidate.score:.2f}",
+                    (
+                        "- Score components: "
+                        f"mentions {candidate.weighted_mention_component:.2f}; "
+                        f"growth {candidate.growth_component:.2f}; "
+                        f"sources {candidate.source_diversity_component:.2f}"
+                    ),
                     f"- Mentions: {candidate.current_mentions} current, "
                     f"{candidate.baseline_mentions} baseline",
                     f"- Distinct sources: {candidate.distinct_sources}",

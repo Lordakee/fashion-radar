@@ -33,3 +33,15 @@ def test_candidate_discovery_docs_keep_no_source_expansion_boundary() -> None:
         "observed phrases that need review",
     ):
         assert phrase in normalized
+
+
+def test_candidate_discovery_docs_explain_report_score_components() -> None:
+    reports = _section(_read_candidate_discovery_doc(), "Reports And Dashboard")
+    normalized = _normalized(reports)
+
+    for phrase in (
+        "candidate score components",
+        "mentions, growth, and source-diversity terms",
+        "local observed review aids",
+    ):
+        assert phrase in normalized

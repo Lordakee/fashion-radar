@@ -33,6 +33,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 202 exposes local candidate score components in daily report JSON,
+  daily report Markdown, and candidate CLI JSON so untracked phrase review can
+  see mention, growth, and source-diversity terms without changing ranking,
+  source acquisition, social/platform connectors, demand proof, platform
+  coverage verification, or compliance-review behavior.
 - Stage 199 adds aggregate match-evidence summaries to daily report Markdown
   and JSON for accepted deterministic matcher rows in the current local report
   window, without adding demand proof, platform coverage verification,

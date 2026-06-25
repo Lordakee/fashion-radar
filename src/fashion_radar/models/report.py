@@ -94,6 +94,9 @@ class CandidateReport(BaseModel):
     candidate_type: str
     label: str
     score: float
+    weighted_mention_component: float = 0.0
+    growth_component: float = 0.0
+    source_diversity_component: float = 0.0
     current_mentions: int
     baseline_mentions: int
     distinct_sources: int

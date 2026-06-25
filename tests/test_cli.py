@@ -8037,7 +8037,31 @@ def test_candidates_command_prints_json(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
+    assert list(payload[0]) == [
+        "phrase",
+        "candidate_type",
+        "label",
+        "score",
+        "weighted_mention_component",
+        "growth_component",
+        "source_diversity_component",
+        "current_mentions",
+        "baseline_mentions",
+        "distinct_sources",
+        "growth_ratio",
+        "first_seen_at",
+        "representative_items",
+    ]
     assert payload[0]["phrase"] == "Le Teckel bag"
+    assert payload[0]["weighted_mention_component"] == pytest.approx(2.0)
+    assert payload[0]["growth_component"] == 0
+    assert payload[0]["source_diversity_component"] == pytest.approx(1.0)
+    assert payload[0]["score"] == pytest.approx(3.0)
+    assert payload[0]["score"] == pytest.approx(
+        payload[0]["weighted_mention_component"]
+        + payload[0]["growth_component"]
+        + payload[0]["source_diversity_component"]
+    )
     assert (config_dir / "scoring.yaml").read_bytes() == scoring_before
     assert (config_dir / "entities.yaml").read_bytes() == entities_before
 

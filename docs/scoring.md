@@ -145,6 +145,20 @@ Candidate labels use their own `candidate_discovery` thresholds in
 `first_seen_at` for a candidate signal is based on retained local item history.
 It can change after old items are pruned.
 
+Candidate reports expose these local score components:
+
+- `weighted_mention_component`: weighted current-window candidate mentions
+  multiplied by `weighted_mentions_7d`.
+- `growth_component`: positive growth above the retained baseline rate
+  multiplied by `growth_bonus`, or `0` when there is no retained baseline rate.
+- `source_diversity_component`: unique configured/imported local source
+  diversity above one source multiplied by `source_diversity_bonus`.
+
+These fields explain the local candidate score. They are not demand proof and
+not platform coverage verification. Candidate score components intentionally
+omit the tracked-entity high-weight source term. Candidate scoring has no
+high-weight-source component.
+
 ## Trend Deltas
 
 Trend deltas reuse entity scoring and candidate discovery snapshots. They do not

@@ -102,6 +102,9 @@ class CandidateMetric:
     first_seen_at: datetime
     contexts: tuple[str, ...]
     representative_items: tuple[RepresentativeItem, ...]
+    weighted_mention_component: float = 0.0
+    growth_component: float = 0.0
+    source_diversity_component: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -411,11 +414,10 @@ def _score_candidate(
     baseline_rate = baseline_count / scoring.baseline_window_days if baseline_count else 0
     growth_ratio = current_rate / baseline_rate if baseline_rate > 0 else None
     weighted_current_mentions = sum(mention.source_weight for mention in current_mentions)
-    score = (
-        weighted_current_mentions * scoring.weighted_mentions_7d
-        + max(0, distinct_sources - 1) * scoring.source_diversity_bonus
-        + (max(0.0, growth_ratio - 1) * scoring.growth_bonus if growth_ratio else 0.0)
-    )
+    weighted_mention_component = weighted_current_mentions * scoring.weighted_mentions_7d
+    source_diversity_component = max(0, distinct_sources - 1) * scoring.source_diversity_bonus
+    growth_component = max(0.0, growth_ratio - 1) * scoring.growth_bonus if growth_ratio else 0.0
+    score = weighted_mention_component + source_diversity_component + growth_component
     ordered_current = sorted(
         current_mentions,
         key=lambda mention: (mention.collected_at, mention.item_id),
@@ -454,6 +456,9 @@ def _score_candidate(
             )
             for mention in ordered_current[: settings.representative_items_per_candidate]
         ),
+        weighted_mention_component=weighted_mention_component,
+        growth_component=growth_component,
+        source_diversity_component=source_diversity_component,
     )
 
 

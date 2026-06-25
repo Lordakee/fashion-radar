@@ -5,6 +5,8 @@ from datetime import UTC, datetime, timedelta
 from importlib import resources
 from pathlib import Path
 
+import pytest
+
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import (
     CollectorRunRepository,
@@ -892,6 +894,17 @@ def test_daily_report_includes_untracked_candidate_signals(tmp_path) -> None:
         "Le Teckel bag demand is accelerating."
         in parsed["candidates"][0]["representative_items"][0]["summary"]
     )
+    candidate = parsed["candidates"][0]
+    assert candidate["weighted_mention_component"] == pytest.approx(2.0)
+    assert candidate["growth_component"] == 0
+    assert candidate["source_diversity_component"] == pytest.approx(1.0)
+    assert candidate["score"] == pytest.approx(3.0)
+    assert candidate["score"] == pytest.approx(
+        candidate["weighted_mention_component"]
+        + candidate["growth_component"]
+        + candidate["source_diversity_component"]
+    )
+    assert "- Score components: mentions 2.00; growth 0.00; sources 1.00" in markdown
     serialized_candidates = json.dumps(parsed["candidates"])
     for forbidden in (
         "content_hash",

@@ -120,6 +120,63 @@ def test_labels_rising_candidate_when_baseline_exists_and_growth_threshold_is_me
     assert candidate.growth_ratio == pytest.approx((2 / 7) / (1 / 30))
 
 
+def test_candidate_score_exposes_components_that_sum_to_score(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    _store(
+        engine,
+        title="Pierced mule appears earlier",
+        url="https://example.com/baseline",
+        source_name="Fashionista",
+        source_weight=1.0,
+        collected_at=AS_OF - timedelta(days=10),
+    )
+    _store(
+        engine,
+        title="Pierced mule gains momentum",
+        url="https://example.com/current-a",
+        source_name="Fashionista",
+        source_weight=2.0,
+        collected_at=AS_OF - timedelta(hours=1),
+    )
+    _store(
+        engine,
+        title="Pierced mule appears again",
+        url="https://example.com/current-b",
+        source_name="WWD",
+        source_weight=1.5,
+        collected_at=AS_OF - timedelta(hours=2),
+    )
+    scoring = ScoringSettings(
+        current_window_days=7,
+        baseline_window_days=30,
+        weighted_mentions_7d=2.0,
+        source_diversity_bonus=0.75,
+        growth_bonus=1.25,
+    )
+
+    candidates = discover_candidates(
+        engine,
+        scoring=scoring,
+        settings=CandidateDiscoverySettings(rising_growth_ratio=2.0),
+        entity_config=None,
+        as_of=AS_OF,
+    )
+
+    candidate = next(item for item in candidates if item.normalized_key == "pierced mule")
+    expected_growth_ratio = (2 / 7) / (1 / 30)
+    assert candidate.growth_ratio == pytest.approx(expected_growth_ratio)
+    assert candidate.weighted_mention_component == pytest.approx((2.0 + 1.5) * 2.0)
+    assert candidate.source_diversity_component == pytest.approx(0.75)
+    assert candidate.growth_component == pytest.approx((expected_growth_ratio - 1) * 1.25)
+    assert candidate.score == pytest.approx(
+        candidate.weighted_mention_component
+        + candidate.growth_component
+        + candidate.source_diversity_component
+    )
+    assert candidate.score == pytest.approx(17.214285714285715)
+
+
 def test_labels_review_when_candidate_meets_review_floor_but_not_new_or_rising(
     tmp_path,
 ) -> None:

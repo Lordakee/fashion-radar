@@ -73,7 +73,7 @@ Print candidate signals as a table:
 uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
-Print the same review data as JSON:
+Print JSON review data with representative items and score components:
 
 ```bash
 uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --format json
@@ -120,6 +120,11 @@ Daily JSON and Markdown reports may include an untracked candidate signal
 section. Representative items keep source attribution so a reviewer can inspect
 where an observed phrase appeared from configured sources and imported local
 signals.
+
+Daily JSON, Markdown reports, and `candidates --format json` expose candidate
+score components for the mentions, growth, and source-diversity terms that make
+up the local candidate score. These candidate score components are local
+observed review aids, not entity validation.
 
 The dashboard reads candidate signals from the latest report JSON. That view can
 be stale until a new report is generated, and it does not recompute candidate
