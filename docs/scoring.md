@@ -85,6 +85,17 @@ heat_score =
 If there is no baseline rate, `growth_ratio` is `null` and the growth component
 is `0`.
 
+## Match Evidence
+
+Daily reports may include aggregate `match_evidence` for each entity. This
+summarizes current-window local report evidence from accepted deterministic
+matcher rows that meet the report confidence threshold.
+
+The evidence is limited to aggregate matched-item counts, support buckets for
+the stored matcher reason, and min/average/max match confidence. It explains why
+an entity appears in the local report; it is not demand proof, popularity
+ranking, platform coverage verification, or source-set completeness.
+
 ## Labels
 
 Labels are assigned in this order:

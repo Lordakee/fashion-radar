@@ -23,6 +23,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 199 adds aggregate match-evidence summaries to daily report Markdown
+  and JSON for accepted deterministic matcher rows in the current local report
+  window, without adding demand proof, platform coverage verification,
+  connectors, or compliance-review product features.
 - Stage 198 expands the optional local fashion watchlist pack with two
   emerging designer labels and two parent-brand-gated named product entries
   for bag and shoe coverage, plus synthetic local sample rows and deterministic

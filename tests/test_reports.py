@@ -22,6 +22,7 @@ from fashion_radar.models.report import (
     DailyBriefItem,
     DailyBriefSection,
     DailyReport,
+    EntityMatchEvidence,
     EntityReport,
     ReportMetadata,
     RepresentativeItem,
@@ -59,6 +60,40 @@ def _store_item(
     published_at: datetime | None = None,
     summary: str = "Short attributed summary.",
 ) -> int:
+    return _store_item_with_matches(
+        engine,
+        url=url,
+        entity_name=entity_name,
+        source_name=source_name,
+        source_weight=source_weight,
+        collected_at=collected_at,
+        published_at=published_at,
+        summary=summary,
+        matches=[
+            {
+                "entity_name": entity_name,
+                "entity_type": "brand",
+                "alias": "raw alias must stay internal",
+                "confidence": 1.0,
+                "reason": "raw reason must stay internal",
+                "context_terms": ["raw context must stay internal"],
+            }
+        ],
+    )
+
+
+def _store_item_with_matches(
+    engine,
+    *,
+    url: str,
+    entity_name: str,
+    matches: list[dict[str, object]],
+    source_name: str = "Vogue Business",
+    source_weight: float = 1.0,
+    collected_at: datetime,
+    published_at: datetime | None = None,
+    summary: str = "Short attributed summary.",
+) -> int:
     repository = ItemRepository(engine)
     item_id = repository.upsert_item(
         CollectedItem(
@@ -72,19 +107,7 @@ def _store_item(
         source_weight=source_weight,
         collected_at=collected_at,
     )
-    repository.replace_item_matches(
-        item_id,
-        [
-            {
-                "entity_name": entity_name,
-                "entity_type": "brand",
-                "alias": "raw alias must stay internal",
-                "confidence": 1.0,
-                "reason": "raw reason must stay internal",
-                "context_terms": ["raw context must stay internal"],
-            }
-        ],
-    )
+    repository.replace_item_matches(item_id, matches)
     return item_id
 
 
@@ -111,6 +134,43 @@ def test_representative_item_summary_is_report_safe_snippet() -> None:
     assert len(item.summary) <= REPORT_SNIPPET_MAX_CHARS
     assert item.summary.endswith("...")
     assert "TAIL_MARKER" not in item.summary
+
+
+def test_entity_report_match_evidence_default_json_shape() -> None:
+    report = EntityReport(
+        entity_name="The Row",
+        entity_type="brand",
+        label="new",
+        heat_score=1.0,
+        current_mentions=1,
+        baseline_mentions=0,
+        distinct_sources=1,
+    )
+    payload = report.model_dump(mode="json")
+
+    assert isinstance(report.match_evidence, EntityMatchEvidence)
+    assert list(payload["match_evidence"]) == [
+        "matched_items",
+        "accepted_without_context_items",
+        "context_supported_items",
+        "parent_brand_supported_items",
+        "safe_alias_supported_items",
+        "other_supported_items",
+        "min_confidence",
+        "avg_confidence",
+        "max_confidence",
+    ]
+    assert payload["match_evidence"] == {
+        "matched_items": 0,
+        "accepted_without_context_items": 0,
+        "context_supported_items": 0,
+        "parent_brand_supported_items": 0,
+        "safe_alias_supported_items": 0,
+        "other_supported_items": 0,
+        "min_confidence": None,
+        "avg_confidence": None,
+        "max_confidence": None,
+    }
 
 
 def test_rendered_reports_cap_entity_and_candidate_summaries() -> None:
@@ -463,6 +523,225 @@ def test_markdown_report_includes_entities_attribution_and_source_status(tmp_pat
     assert "- Score components:" in markdown
 
 
+def test_daily_report_includes_aggregate_entity_match_evidence(tmp_path: Path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    _store_item_with_matches(
+        engine,
+        url="https://example.com/the-row-context",
+        entity_name="The Row",
+        collected_at=AS_OF - timedelta(hours=1),
+        matches=[
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "raw alias must stay internal",
+                "confidence": 0.8,
+                "reason": "context",
+                "context_terms": ["raw context must stay internal"],
+            },
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "raw alias duplicate must stay internal",
+                "confidence": 0.95,
+                "reason": "parent_brand",
+                "context_terms": ["raw duplicate context must stay internal"],
+            },
+        ],
+    )
+    _store_item_with_matches(
+        engine,
+        url="https://example.com/the-row-safe",
+        entity_name="The Row",
+        collected_at=AS_OF - timedelta(hours=2),
+        matches=[
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "raw safe alias must stay internal",
+                "confidence": 0.9,
+                "reason": "safe_alias",
+                "context_terms": ["raw safe context must stay internal"],
+            }
+        ],
+    )
+    _store_item_with_matches(
+        engine,
+        url="https://example.com/the-row-context-direct",
+        entity_name="The Row",
+        collected_at=AS_OF - timedelta(minutes=90),
+        matches=[
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "raw direct context alias must stay internal",
+                "confidence": 0.8333,
+                "reason": "context",
+                "context_terms": ["raw direct context must stay internal"],
+            }
+        ],
+    )
+    _store_item_with_matches(
+        engine,
+        url="https://example.com/the-row-accepted",
+        entity_name="The Row",
+        collected_at=AS_OF - timedelta(minutes=95),
+        matches=[
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "raw accepted alias must stay internal",
+                "confidence": 0.7665,
+                "reason": "accepted",
+                "context_terms": [],
+            }
+        ],
+    )
+    _store_item_with_matches(
+        engine,
+        url="https://example.com/the-row-tie",
+        entity_name="The Row",
+        collected_at=AS_OF - timedelta(hours=3),
+        matches=[
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "raw tie safe alias must stay internal",
+                "confidence": 0.7,
+                "reason": "safe_alias",
+                "context_terms": ["raw tie safe context must stay internal"],
+            },
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "raw tie parent alias must stay internal",
+                "confidence": 0.7,
+                "reason": "parent_brand",
+                "context_terms": ["raw tie parent context must stay internal"],
+            },
+        ],
+    )
+    _store_item_with_matches(
+        engine,
+        url="https://example.com/the-row-tie-reversed",
+        entity_name="The Row",
+        collected_at=AS_OF - timedelta(hours=3, minutes=30),
+        matches=[
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "raw reversed tie parent alias must stay internal",
+                "confidence": 0.75,
+                "reason": "parent_brand",
+                "context_terms": ["raw reversed tie parent context must stay internal"],
+            },
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "raw reversed tie safe alias must stay internal",
+                "confidence": 0.75,
+                "reason": "safe_alias",
+                "context_terms": ["raw reversed tie safe context must stay internal"],
+            },
+        ],
+    )
+    _store_item_with_matches(
+        engine,
+        url="https://example.com/the-row-low-confidence",
+        entity_name="The Row",
+        collected_at=AS_OF - timedelta(hours=4),
+        matches=[
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "low confidence alias must stay internal",
+                "confidence": 0.3,
+                "reason": "accepted",
+                "context_terms": [],
+            }
+        ],
+    )
+    _store_item_with_matches(
+        engine,
+        url="https://example.com/the-row-wrong-type",
+        entity_name="The Row",
+        collected_at=AS_OF - timedelta(hours=5),
+        matches=[
+            {
+                "entity_name": "The Row",
+                "entity_type": "product",
+                "alias": "wrong type alias must stay internal",
+                "confidence": 0.99,
+                "reason": "accepted",
+                "context_terms": [],
+            }
+        ],
+    )
+    _store_item_with_matches(
+        engine,
+        url="https://example.com/the-row-old",
+        entity_name="The Row",
+        collected_at=AS_OF - timedelta(days=8),
+        matches=[
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "old alias must stay internal",
+                "confidence": 1.0,
+                "reason": "accepted",
+                "context_terms": [],
+            }
+        ],
+    )
+
+    report = build_daily_report(
+        engine,
+        scoring=ScoringSettings(current_window_days=7, min_match_confidence=0.5),
+        as_of=AS_OF,
+        generated_at=AS_OF,
+    )
+    evidence = report.entities[0].match_evidence
+    markdown = render_markdown_report(report)
+
+    assert evidence.matched_items == 6
+    assert evidence.accepted_without_context_items == 1
+    assert evidence.context_supported_items == 1
+    assert evidence.parent_brand_supported_items == 3
+    assert evidence.safe_alias_supported_items == 1
+    assert evidence.other_supported_items == 0
+    assert evidence.min_confidence == 0.7
+    assert evidence.avg_confidence == 0.8166
+    assert evidence.max_confidence == 0.95
+    assert (
+        "- Match evidence: 6 matched items; 1 accepted without context, "
+        "1 context supported, 3 parent-brand supported, 1 safe-alias supported; "
+        "confidence 0.70-0.95 avg 0.82"
+    ) in markdown
+    for forbidden in (
+        "raw alias must stay internal",
+        "raw alias duplicate must stay internal",
+        "raw duplicate context must stay internal",
+        "raw safe alias must stay internal",
+        "raw safe context must stay internal",
+        "raw direct context alias must stay internal",
+        "raw direct context must stay internal",
+        "raw accepted alias must stay internal",
+        "raw tie safe alias must stay internal",
+        "raw tie safe context must stay internal",
+        "raw tie parent alias must stay internal",
+        "raw tie parent context must stay internal",
+        "raw reversed tie parent alias must stay internal",
+        "raw reversed tie parent context must stay internal",
+        "raw reversed tie safe alias must stay internal",
+        "raw reversed tie safe context must stay internal",
+        "low confidence alias must stay internal",
+        "wrong type alias must stay internal",
+        "old alias must stay internal",
+    ):
+        assert forbidden not in markdown
+
+
 def test_json_report_excludes_internal_database_and_matcher_fields(tmp_path) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
     initialize_schema(engine)
@@ -485,6 +764,9 @@ def test_json_report_excludes_internal_database_and_matcher_fields(tmp_path) -> 
     parsed = json.loads(payload)
 
     assert parsed["entities"][0]["entity_name"] == "Miu Miu"
+    entity = parsed["entities"][0]
+    assert entity["match_evidence"]["matched_items"] == 1
+    assert entity["match_evidence"]["other_supported_items"] == 1
     assert parsed["entities"][0]["representative_items"][0] == {
         "source_name": "Elle",
         "source_url": "https://example.com/miu-miu",
@@ -498,8 +780,34 @@ def test_json_report_excludes_internal_database_and_matcher_fields(tmp_path) -> 
         "raw alias must stay internal",
         "raw reason must stay internal",
         "raw context must stay internal",
+        "raw duplicate context must stay internal",
+        "raw safe alias must stay internal",
     ):
         assert forbidden not in payload
+
+
+def test_rendered_entity_sections_show_empty_match_evidence_message() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF, item_count=1),
+        entities=[
+            EntityReport(
+                entity_name="No Evidence Brand",
+                entity_type="brand",
+                label="new",
+                heat_score=1.0,
+                current_mentions=1,
+                baseline_mentions=0,
+                distinct_sources=1,
+            )
+        ],
+    )
+
+    markdown = render_markdown_report(report)
+
+    assert (
+        "- Match evidence: no current-window accepted matches above the report "
+        "confidence threshold."
+    ) in markdown
 
 
 def test_empty_database_produces_useful_empty_report(tmp_path) -> None:

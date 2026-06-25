@@ -7805,6 +7805,21 @@ scoring:
         "high_weight_source_observed",
     ]
     assert json_payload["entities"][0]["entity_name"] == "The Row"
+    assert (
+        "- Match evidence: 1 matched item; 1 accepted without context; "
+        "confidence 1.00-1.00 avg 1.00"
+    ) in markdown_text
+    assert json_payload["entities"][0]["match_evidence"] == {
+        "matched_items": 1,
+        "accepted_without_context_items": 1,
+        "context_supported_items": 0,
+        "parent_brand_supported_items": 0,
+        "safe_alias_supported_items": 0,
+        "other_supported_items": 0,
+        "min_confidence": 1.0,
+        "avg_confidence": 1.0,
+        "max_confidence": 1.0,
+    }
 
 
 def _write_report_cli_config(config_dir: Path) -> None:

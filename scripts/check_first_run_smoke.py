@@ -50,6 +50,25 @@ EXPECTED_SAMPLE_ROWS = (
 )
 EXPECTED_SAMPLE_TITLES = tuple(row["title"] for row in EXPECTED_SAMPLE_ROWS)
 EXPECTED_SAMPLE_ENTITIES = ("The Row", "The Row Margaux", "Ballet Flats")
+EXPECTED_ENTITY_MATCH_EVIDENCE_KEYS = (
+    "matched_items",
+    "accepted_without_context_items",
+    "context_supported_items",
+    "parent_brand_supported_items",
+    "safe_alias_supported_items",
+    "other_supported_items",
+    "min_confidence",
+    "avg_confidence",
+    "max_confidence",
+)
+EXPECTED_ENTITY_MATCH_EVIDENCE_COUNT_KEYS = EXPECTED_ENTITY_MATCH_EVIDENCE_KEYS[:6]
+FORBIDDEN_REPORT_ENTITY_MATCHER_FIELDS = (
+    "alias",
+    "context_terms",
+    "item_id",
+    "normalized_url",
+    "reason",
+)
 EXPECTED_PLATFORM_COUNTS = {"community": 2}
 EXPECTED_SOURCE_COUNTS = {SOURCE_NAME: 2}
 EXPECTED_EXTERNAL_TOOL_TEMPLATE_FIELDS = (
@@ -2253,11 +2272,63 @@ def validate_report_outputs(json_payload: Any, markdown_text: str) -> None:
         raise SmokeError("report JSON entities must be a list")
     entity_names = [entity.get("entity_name") for entity in entities if isinstance(entity, dict)]
     assert_equal("report entity names", entity_names, list(EXPECTED_SAMPLE_ENTITIES))
+    for index, entity in enumerate(entities, start=1):
+        validate_report_entity_json(entity, index=index)
     for expected in EXPECTED_SAMPLE_ENTITIES:
         if f"### {expected} (new)" not in markdown_text:
             raise SmokeError(f"report Markdown missing sample entity section: {expected}")
     if "No entity signals in this window." in markdown_text:
         raise SmokeError("report Markdown should not contain the empty entity signal message")
+
+
+def validate_report_entity_json(entity: Any, *, index: int) -> None:
+    if not isinstance(entity, dict):
+        raise SmokeError(f"report JSON entity {index} must be an object")
+
+    entity_name = str(entity.get("entity_name", f"entity {index}"))
+    forbidden_field = find_forbidden_report_entity_matcher_text(entity)
+    if forbidden_field is not None:
+        raise SmokeError(
+            f"report JSON entity {entity_name} contains raw matcher field: {forbidden_field}"
+        )
+
+    match_evidence = entity.get("match_evidence")
+    if not isinstance(match_evidence, dict):
+        raise SmokeError(f"report JSON entity {entity_name} match_evidence must be an object")
+    assert_equal(
+        f"report JSON entity {entity_name} match_evidence keys",
+        list(match_evidence),
+        list(EXPECTED_ENTITY_MATCH_EVIDENCE_KEYS),
+    )
+
+    for field in EXPECTED_ENTITY_MATCH_EVIDENCE_COUNT_KEYS:
+        value = match_evidence.get(field)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise SmokeError(
+                f"report JSON entity {entity_name} match_evidence {field} "
+                "must be a non-negative integer"
+            )
+
+    matched_items = match_evidence["matched_items"]
+    if entity.get("entity_name") == "The Row":
+        if matched_items < 1:
+            raise SmokeError("report JSON entity The Row match_evidence matched_items must be >= 1")
+
+
+def find_forbidden_report_entity_matcher_text(value: Any) -> str | None:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if key in FORBIDDEN_REPORT_ENTITY_MATCHER_FIELDS:
+                return str(key)
+            found = find_forbidden_report_entity_matcher_text(child)
+            if found is not None:
+                return found
+    elif isinstance(value, list):
+        for child in value:
+            found = find_forbidden_report_entity_matcher_text(child)
+            if found is not None:
+                return found
+    return None
 
 
 def report_brief_mentions(brief: Mapping[str, Any], expected_text: str) -> bool:

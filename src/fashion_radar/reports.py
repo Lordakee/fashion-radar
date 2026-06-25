@@ -17,6 +17,7 @@ from fashion_radar.models.report import (
     DailyBriefItem,
     DailyBriefSection,
     DailyReport,
+    EntityMatchEvidence,
     EntityReport,
     ReportMetadata,
     RepresentativeItem,
@@ -112,6 +113,7 @@ def _entity_report(
     as_of: datetime,
     representative_items_per_entity: int,
 ) -> EntityReport:
+    current_start = as_of - timedelta(days=scoring.current_window_days)
     return EntityReport(
         entity_name=metric.entity_name,
         entity_type=metric.entity_type,
@@ -129,9 +131,17 @@ def _entity_report(
             engine,
             entity_name=metric.entity_name,
             min_match_confidence=scoring.min_match_confidence,
-            current_start=as_of - timedelta(days=scoring.current_window_days),
+            current_start=current_start,
             as_of=as_of,
             limit=representative_items_per_entity,
+        ),
+        match_evidence=_match_evidence(
+            engine,
+            entity_name=metric.entity_name,
+            entity_type=metric.entity_type,
+            min_match_confidence=scoring.min_match_confidence,
+            current_start=current_start,
+            as_of=as_of,
         ),
     )
 
@@ -474,6 +484,86 @@ def _representative_items(
     ]
 
 
+def _match_evidence(
+    engine: Engine,
+    *,
+    entity_name: str,
+    entity_type: str,
+    min_match_confidence: float,
+    current_start: datetime,
+    as_of: datetime,
+) -> EntityMatchEvidence:
+    with engine.connect() as connection:
+        rows = list(
+            connection.execute(
+                select(
+                    items.c.id,
+                    items.c.collected_at,
+                    item_entities.c.confidence,
+                    item_entities.c.reason,
+                )
+                .select_from(item_entities.join(items, item_entities.c.item_id == items.c.id))
+                .where(
+                    item_entities.c.entity_name == entity_name,
+                    item_entities.c.entity_type == entity_type,
+                    item_entities.c.confidence >= min_match_confidence,
+                )
+            ).mappings()
+        )
+
+    selected_by_item: dict[tuple[str, str, int], tuple[float, str]] = {}
+    for row in rows:
+        collected_at = parse_datetime_utc(row["collected_at"])
+        if not (current_start < collected_at <= as_of):
+            continue
+        item_id = int(row["id"])
+        confidence = float(row["confidence"])
+        reason = str(row["reason"])
+        key = (entity_name, entity_type, item_id)
+        existing = selected_by_item.get(key)
+        if (
+            existing is None
+            or confidence > existing[0]
+            or (confidence == existing[0] and reason < existing[1])
+        ):
+            selected_by_item[key] = (confidence, reason)
+
+    if not selected_by_item:
+        return EntityMatchEvidence()
+
+    bucket_counts = {
+        "accepted_without_context_items": 0,
+        "context_supported_items": 0,
+        "parent_brand_supported_items": 0,
+        "safe_alias_supported_items": 0,
+        "other_supported_items": 0,
+    }
+    for _confidence, reason in selected_by_item.values():
+        bucket_counts[_match_evidence_bucket(reason)] += 1
+
+    confidences = [confidence for confidence, _reason in selected_by_item.values()]
+    return EntityMatchEvidence(
+        matched_items=len(confidences),
+        accepted_without_context_items=bucket_counts["accepted_without_context_items"],
+        context_supported_items=bucket_counts["context_supported_items"],
+        parent_brand_supported_items=bucket_counts["parent_brand_supported_items"],
+        safe_alias_supported_items=bucket_counts["safe_alias_supported_items"],
+        other_supported_items=bucket_counts["other_supported_items"],
+        min_confidence=round(min(confidences), 4),
+        avg_confidence=round(sum(confidences) / len(confidences), 4),
+        max_confidence=round(max(confidences), 4),
+    )
+
+
+def _match_evidence_bucket(reason: str) -> str:
+    return {
+        "accepted": "accepted_without_context_items",
+        "context": "context_supported_items",
+        "parent_brand": "parent_brand_supported_items",
+        "safe_alias": "safe_alias_supported_items",
+    }.get(reason, "other_supported_items")
+
+
 def _source_health_reports(engine: Engine) -> list[SourceHealthReport]:
     with engine.connect() as connection:
         rows = connection.execute(
@@ -540,12 +630,57 @@ def _render_entity_sections(entities: list[EntityReport]) -> str:
                     f"- Mentions: {entity.current_mentions} current, "
                     f"{entity.baseline_mentions} baseline",
                     f"- Distinct sources: {entity.distinct_sources}",
+                    f"- Match evidence: {_render_match_evidence(entity.match_evidence)}",
                     "",
                     items_markdown,
                 ]
             )
         )
     return "\n\n".join(sections)
+
+
+def _render_match_evidence(evidence: EntityMatchEvidence) -> str:
+    if evidence.matched_items == 0:
+        return "no current-window accepted matches above the report confidence threshold."
+    if (
+        evidence.min_confidence is None
+        or evidence.avg_confidence is None
+        or evidence.max_confidence is None
+    ):
+        return "no current-window accepted matches above the report confidence threshold."
+
+    support_parts = [
+        _support_bucket_label(
+            evidence.accepted_without_context_items,
+            "accepted without context",
+        ),
+        _support_bucket_label(evidence.context_supported_items, "context supported"),
+        _support_bucket_label(
+            evidence.parent_brand_supported_items,
+            "parent-brand supported",
+        ),
+        _support_bucket_label(
+            evidence.safe_alias_supported_items,
+            "safe-alias supported",
+        ),
+        _support_bucket_label(evidence.other_supported_items, "other supported"),
+    ]
+    support_summary = ", ".join(part for part in support_parts if part)
+    confidence_summary = (
+        f"confidence {evidence.min_confidence:.2f}-"
+        f"{evidence.max_confidence:.2f} avg {evidence.avg_confidence:.2f}"
+    )
+    return (
+        f"{evidence.matched_items} "
+        f"{_count_label(evidence.matched_items, 'matched item', 'matched items')}; "
+        f"{support_summary}; {confidence_summary}"
+    )
+
+
+def _support_bucket_label(count: int, label: str) -> str | None:
+    if count == 0:
+        return None
+    return f"{count} {label}"
 
 
 def _render_candidate_sections(candidates: list[CandidateReport]) -> str:

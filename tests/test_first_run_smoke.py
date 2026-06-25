@@ -522,6 +522,17 @@ def imported_signals_payload() -> dict[str, object]:
 
 
 def report_payload() -> dict[str, object]:
+    empty_match_evidence = {
+        "matched_items": 0,
+        "accepted_without_context_items": 0,
+        "context_supported_items": 0,
+        "parent_brand_supported_items": 0,
+        "safe_alias_supported_items": 0,
+        "other_supported_items": 0,
+        "min_confidence": None,
+        "avg_confidence": None,
+        "max_confidence": None,
+    }
     return {
         "metadata": {
             "generated_at": "2026-06-13T12:00:00Z",
@@ -632,6 +643,17 @@ def report_payload() -> dict[str, object]:
                 "source_diversity_component": 0.0,
                 "high_weight_component": 0.5,
                 "representative_items": [],
+                "match_evidence": {
+                    "matched_items": 1,
+                    "accepted_without_context_items": 1,
+                    "context_supported_items": 0,
+                    "parent_brand_supported_items": 0,
+                    "safe_alias_supported_items": 0,
+                    "other_supported_items": 0,
+                    "min_confidence": 1.0,
+                    "avg_confidence": 1.0,
+                    "max_confidence": 1.0,
+                },
             },
             {
                 "entity_name": "The Row Margaux",
@@ -647,6 +669,7 @@ def report_payload() -> dict[str, object]:
                 "source_diversity_component": 0.0,
                 "high_weight_component": 0.5,
                 "representative_items": [],
+                "match_evidence": dict(empty_match_evidence),
             },
             {
                 "entity_name": "Ballet Flats",
@@ -662,6 +685,7 @@ def report_payload() -> dict[str, object]:
                 "source_diversity_component": 0.0,
                 "high_weight_component": 0.0,
                 "representative_items": [],
+                "match_evidence": dict(empty_match_evidence),
             },
         ],
         "candidates": [],
@@ -3669,6 +3693,35 @@ def test_validate_report_requires_expected_first_run_entity_sections() -> None:
     items[0] = {**items[0], "title": "Not The Sample"}
     with pytest.raises(smoke.SmokeError, match="The Row"):
         smoke.validate_report_outputs(missing_the_row, report_markdown())
+
+    missing_evidence = report_payload()
+    missing_evidence_entities = missing_evidence["entities"]
+    assert isinstance(missing_evidence_entities, list)
+    missing_evidence_entity = missing_evidence_entities[0]
+    assert isinstance(missing_evidence_entity, dict)
+    missing_evidence_entity.pop("match_evidence")
+    with pytest.raises(smoke.SmokeError, match="match_evidence"):
+        smoke.validate_report_outputs(missing_evidence, report_markdown())
+
+    negative_matched_items = report_payload()
+    negative_entities = negative_matched_items["entities"]
+    assert isinstance(negative_entities, list)
+    ballet_flats = negative_entities[2]
+    assert isinstance(ballet_flats, dict)
+    evidence = ballet_flats["match_evidence"]
+    assert isinstance(evidence, dict)
+    evidence["matched_items"] = -1
+    with pytest.raises(smoke.SmokeError, match="matched_items"):
+        smoke.validate_report_outputs(negative_matched_items, report_markdown())
+
+    raw_matcher_leak = report_payload()
+    raw_leak_entities = raw_matcher_leak["entities"]
+    assert isinstance(raw_leak_entities, list)
+    raw_leak_entity = raw_leak_entities[1]
+    assert isinstance(raw_leak_entity, dict)
+    raw_leak_entity["representative_items"] = [{"alias": "The Row Margaux"}]
+    with pytest.raises(smoke.SmokeError, match="alias"):
+        smoke.validate_report_outputs(raw_matcher_leak, report_markdown())
 
 
 def test_validate_candidates_and_trends_pin_expected_first_run_state() -> None:

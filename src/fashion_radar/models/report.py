@@ -54,6 +54,20 @@ class RepresentativeItem(BaseModel):
         return report_safe_snippet(value)
 
 
+class EntityMatchEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    matched_items: int = 0
+    accepted_without_context_items: int = 0
+    context_supported_items: int = 0
+    parent_brand_supported_items: int = 0
+    safe_alias_supported_items: int = 0
+    other_supported_items: int = 0
+    min_confidence: float | None = None
+    avg_confidence: float | None = None
+    max_confidence: float | None = None
+
+
 class EntityReport(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -70,6 +84,7 @@ class EntityReport(BaseModel):
     source_diversity_component: float = 0.0
     high_weight_component: float = 0.0
     representative_items: list[RepresentativeItem] = Field(default_factory=list)
+    match_evidence: EntityMatchEvidence = Field(default_factory=EntityMatchEvidence)
 
 
 class CandidateReport(BaseModel):
