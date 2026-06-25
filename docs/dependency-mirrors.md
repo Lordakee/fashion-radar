@@ -74,7 +74,11 @@ https://pypi.mirrors.ustc.edu.cn/simple/
 - Avoid committing mirror-bound URLs in `uv.lock`.
 - Keep heavyweight optional dependencies out of the core install when the core
   workflow can degrade safely without them.
-- Before GitHub upload, verify the public lockfile does not contain mirror URLs:
+- Before GitHub upload, run release hygiene; it now enforces that the public
+  root `uv.lock` does not contain mirror/private registry URLs, non-PyPI
+  artifact URLs, or lockfile-local package index markers. The direct `rg`
+  command below remains a quick diagnostic when recovering a mirror-rewritten
+  lockfile:
 
   ```bash
   rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock

@@ -61,6 +61,21 @@ None.
 ## Important
 None.
 """
+PUBLIC_UV_LOCK = (
+    "version = 1\n\n"
+    "[[package]]\n"
+    'name = "demo"\n'
+    'version = "1.0.0"\n'
+    'source = { registry = "https://pypi.org/simple" }\n'
+    'sdist = { url = "https://files.pythonhosted.org/packages/demo/demo-1.0.0.tar.gz", '
+    'hash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", '
+    "size = 1 }\n"
+    "wheels = [\n"
+    '    { url = "https://files.pythonhosted.org/packages/demo/demo-1.0.0-py3-none-any.whl", '
+    'hash = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", '
+    "size = 1 },\n"
+    "]\n"
+)
 
 
 def run_checker(repo_root: Path) -> subprocess.CompletedProcess[str]:
@@ -127,6 +142,130 @@ def load_checker_module():
 
 def test_clean_temp_repo_passes(tmp_path: Path) -> None:
     repo_root = init_repo(tmp_path)
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 0
+    assert result.stdout == "Release hygiene checks passed.\n"
+    assert result.stderr == ""
+
+
+def test_tracked_uv_lock_with_mirror_registry_url_fails_redacted(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    mirror_url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+    write_tracked(
+        repo_root,
+        "uv.lock",
+        (
+            "version = 1\n\n"
+            "[[package]]\n"
+            'name = "demo"\n'
+            'version = "1.0.0"\n'
+            f'source = {{ registry = "{mirror_url}" }}\n'
+        ),
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert (
+        "forbidden mirror/private index in tracked file: uv.lock:6: registry URL: <redacted>"
+    ) in result.stderr
+    assert mirror_url not in result.stderr
+
+
+def test_untracked_uv_lock_with_mirror_artifact_url_fails_redacted(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    mirror_url = "https://mirrors.aliyun.com/pypi/packages/demo.tar.gz"
+    write_file(
+        repo_root,
+        "uv.lock",
+        (
+            "version = 1\n\n"
+            "[[package]]\n"
+            'name = "demo"\n'
+            'version = "1.0.0"\n'
+            'source = { registry = "https://pypi.org/simple" }\n'
+            "sdist = { "
+            f'url = "{mirror_url}", '
+            'hash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", '
+            "size = 1 }\n"
+        ),
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert (
+        "forbidden mirror/private index in untracked file: uv.lock:7: artifact URL: <redacted>"
+    ) in result.stderr
+    assert mirror_url not in result.stderr
+
+
+def test_tracked_uv_lock_with_private_registry_url_fails_redacted(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    private_url = "https://packages.example.internal/simple"
+    write_tracked(
+        repo_root,
+        "uv.lock",
+        (
+            "version = 1\n\n"
+            "[[package]]\n"
+            'name = "demo"\n'
+            'version = "1.0.0"\n'
+            f'source = {{ registry = "{private_url}" }}\n'
+        ),
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert (
+        "forbidden mirror/private index in tracked file: uv.lock:6: registry URL: <redacted>"
+    ) in result.stderr
+    assert private_url not in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("line", "marker"),
+    [
+        ('index-url = "https://packages.example.internal/simple"', "index-url"),
+        (
+            'extra-index-url = "https://packages.example.internal/simple"',
+            "extra-index-url",
+        ),
+        ('find-links = ["https://packages.example.internal/simple"]', "find-links"),
+    ],
+)
+def test_tracked_uv_lock_with_index_config_marker_fails_redacted(
+    tmp_path: Path,
+    line: str,
+    marker: str,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    private_url = "https://packages.example.internal/simple"
+    write_tracked(repo_root, "uv.lock", f"version = 1\n{line}\n")
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert (
+        f"forbidden mirror/private index in tracked file: uv.lock:2: {marker}: <redacted>"
+    ) in result.stderr
+    assert private_url not in result.stderr
+
+
+def test_tracked_uv_lock_with_public_pypi_registry_and_pythonhosted_artifacts_passes(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(repo_root, "uv.lock", PUBLIC_UV_LOCK)
 
     result = run_checker(repo_root)
 
@@ -627,6 +766,12 @@ def test_current_repository_tracked_review_artifacts_have_no_capture_findings() 
         )
         == []
     )
+
+
+def test_current_repository_tracked_uv_lock_has_no_mirror_private_index_findings() -> None:
+    checker = load_checker_module()
+
+    assert checker.find_uv_lock_hygiene_findings(REPO_ROOT, ["uv.lock"], "tracked") == []
 
 
 @pytest.mark.parametrize("filename", CREDENTIAL_FILENAMES)

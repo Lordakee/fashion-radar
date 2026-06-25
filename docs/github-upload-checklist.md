@@ -14,6 +14,7 @@ Run:
 git status --short --untracked-files=all
 git status --ignored --short
 git diff --check
+uv --no-config run --frozen python scripts/check_release_hygiene.py --repo-root .
 UV_NO_CONFIG=1 uv lock --check
 UV_NO_CONFIG=1 uv sync --locked --dev
 UV_NO_CONFIG=1 uv sync --locked --dev --check
@@ -45,7 +46,9 @@ UV_NO_CONFIG=1 uv sync --locked --dev
 UV_NO_CONFIG=1 uv sync --locked --dev --check
 ```
 
-Check the public lockfile has no mirror URLs:
+The release hygiene command above rejects mirror/private index material in root
+`uv.lock`. For direct diagnosis, the public lockfile should also have no matches
+for:
 
 ```bash
 rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock

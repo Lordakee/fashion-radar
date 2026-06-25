@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path, PurePosixPath
+from urllib.parse import urlparse
 
 BINARY_SAMPLE_BYTES = 8192
 SUCCESS_MESSAGE = "Release hygiene checks passed."
@@ -67,6 +68,21 @@ PEM_PRIVATE_KEY_PATTERN = re.compile(
     r"-----END [A-Z0-9 ]*PRIVATE KEY-----"
 )
 URL_USERINFO_PATTERN = re.compile(r"://([^/\s@]+)@")
+UV_LOCK_PATH = "uv.lock"
+PUBLIC_PYPI_REGISTRY_URL = "https://pypi.org/simple"
+PUBLIC_PYPI_ARTIFACT_HOST = "files.pythonhosted.org"
+UV_LOCK_REGISTRY_URL_PATTERN = re.compile(
+    r'\bregistry\s*=\s*"(?P<url>https?://[^"]+)"',
+    re.IGNORECASE,
+)
+UV_LOCK_ARTIFACT_URL_PATTERN = re.compile(
+    r'\burl\s*=\s*"(?P<url>https?://[^"]+)"',
+    re.IGNORECASE,
+)
+UV_LOCK_INDEX_MARKER_PATTERN = re.compile(
+    r"\b(?P<marker>index-url|extra-index-url|find-links|default-index|extra-index)\b",
+    re.IGNORECASE,
+)
 REVIEW_CAPTURE_MIN_STAGE = 159
 REVIEW_CAPTURE_ARTIFACT_PATTERN = re.compile(
     r"^docs/reviews/"
@@ -173,6 +189,8 @@ def collect_findings(repo_root: Path) -> list[str]:
 
     findings.extend(find_forbidden_path_findings(tracked_paths, "tracked"))
     findings.extend(find_forbidden_path_findings(untracked_paths, "untracked"))
+    findings.extend(find_uv_lock_hygiene_findings(repo_root, tracked_paths, "tracked"))
+    findings.extend(find_uv_lock_hygiene_findings(repo_root, untracked_paths, "untracked"))
     findings.extend(find_secret_findings(repo_root, tracked_paths, "tracked"))
     findings.extend(find_secret_findings(repo_root, untracked_paths, "untracked"))
     findings.extend(find_review_capture_hygiene_findings(repo_root, tracked_paths, "tracked"))
@@ -273,6 +291,62 @@ def is_local_secret_filename(filename: str) -> bool:
 
 def is_database_or_sidecar(filename: str) -> bool:
     return re.search(r"\.(?:sqlite3?|db)(?:-.+)?$", filename) is not None
+
+
+def find_uv_lock_hygiene_findings(
+    repo_root: Path,
+    paths: list[str],
+    path_status: str,
+) -> list[str]:
+    findings = []
+    for path in paths:
+        normalized = normalize_git_path(path)
+        if normalized != UV_LOCK_PATH:
+            continue
+
+        file_path = safe_repo_path(repo_root, normalized)
+        if file_path is None or file_path.is_symlink() or not file_path.is_file():
+            continue
+
+        text = read_text_if_not_binary(file_path)
+        if text is None:
+            continue
+
+        findings.extend(uv_lock_text_findings(normalized, text, path_status))
+    return findings
+
+
+def uv_lock_text_findings(path: str, text: str, path_status: str) -> list[str]:
+    findings = []
+    prefix = f"forbidden mirror/private index in {path_status} file: {path}"
+
+    for match in UV_LOCK_INDEX_MARKER_PATTERN.finditer(text):
+        line_number = text.count("\n", 0, match.start()) + 1
+        marker = match.group("marker")
+        findings.append(f"{prefix}:{line_number}: {marker}: <redacted>")
+
+    for match in UV_LOCK_REGISTRY_URL_PATTERN.finditer(text):
+        url = match.group("url")
+        if not is_public_pypi_registry_url(url):
+            line_number = text.count("\n", 0, match.start()) + 1
+            findings.append(f"{prefix}:{line_number}: registry URL: <redacted>")
+
+    for match in UV_LOCK_ARTIFACT_URL_PATTERN.finditer(text):
+        url = match.group("url")
+        if not is_public_pypi_artifact_url(url):
+            line_number = text.count("\n", 0, match.start()) + 1
+            findings.append(f"{prefix}:{line_number}: artifact URL: <redacted>")
+
+    return findings
+
+
+def is_public_pypi_registry_url(url: str) -> bool:
+    return url.rstrip("/") == PUBLIC_PYPI_REGISTRY_URL
+
+
+def is_public_pypi_artifact_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return parsed.scheme == "https" and parsed.hostname == PUBLIC_PYPI_ARTIFACT_HOST
 
 
 def find_secret_findings(

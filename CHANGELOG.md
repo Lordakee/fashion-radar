@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Stage 203 makes release hygiene reject mirror/private index material in the
+  public root `uv.lock`, while keeping frozen local mirror installs allowed and
+  avoiding dependency, source, connector, scraper, platform coverage, demand
+  proof, or compliance-review behavior changes.
 - Stage 201 normalizes Fashionista, Fashion Week Daily, The Industry Fashion,
   Highsnobiety, and WWD public RSS URLs to current direct feed endpoints in the
   optional public source pack, and keeps starter source configs aligned without
