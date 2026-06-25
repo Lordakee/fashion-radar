@@ -68,6 +68,11 @@ class EntityConfig(BaseModel):
                         f"{seen[key]!r} and {entity.name!r}"
                     )
                 seen[key] = entity.name
+                if alias.requires_context and not entity.context_terms:
+                    raise ValueError(
+                        f"Alias {alias.value!r} for entity {entity.name!r} "
+                        "requires context but entity has no context_terms"
+                    )
 
                 is_single_or_common = len(key.split()) == 1 or key in UNSAFE_COMMON_ALIASES
                 if is_single_or_common and not alias.safe_single_word and not entity.context_terms:

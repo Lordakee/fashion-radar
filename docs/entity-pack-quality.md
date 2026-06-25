@@ -44,7 +44,7 @@ Entity pack: configs/entity-packs/fashion-watchlist.example.yaml
 Entities: 32 total
 Aliases: 51 total
 Types: brand=12, category=5, celebrity=2, designer=2, product=8, trend=3
-Findings: 0 errors, 16 warnings, 71 info
+Findings: 0 errors, 2 warnings, 71 info
 ```
 
 The summary shows:
@@ -119,8 +119,8 @@ shows one representative finding, not the full findings list:
     "top_handle": 1,
     "tote": 2
   },
-  "accepted_without_context_aliases": 22,
-  "context_gated_aliases": 4,
+  "accepted_without_context_aliases": 12,
+  "context_gated_aliases": 14,
   "safe_aliases": 9,
   "product_parent_gated_aliases": 16,
   "findings": [
@@ -128,7 +128,7 @@ shows one representative finding, not the full findings list:
       "severity": "warning",
       "code": "context_terms_no_effect",
       "message": "Entity has context_terms, but none of its aliases consult context under current matcher rules.",
-      "entity_name": "Boat Shoes",
+      "entity_name": "Sandy Liang",
       "alias": null,
       "field": "context_terms"
     }
@@ -140,8 +140,9 @@ The matcher-gate counts are derived from current local matcher rules:
 
 - `accepted_without_context_aliases`: ordinary multi-word aliases that match
   without context.
-- `context_gated_aliases`: non-product single-word/common aliases that require
-  context.
+- `context_gated_aliases`: non-product aliases that require context, including
+  single-word/common aliases and non-product aliases with
+  `requires_context: true`.
 - `safe_aliases`: non-product single-word/common aliases accepted by
   `safe_single_word` plus a reason.
 - `product_parent_gated_aliases`: product aliases with `parent_brand`, which
@@ -180,9 +181,12 @@ The matcher-gate counts are derived from current local matcher rules:
 - `parent_self_reference`: an entity's generic `parent` points to itself.
 - `parent_cycle`: generic `parent` links form a cycle.
 - `context_terms_no_effect`: an entity has `context_terms`, but none of its
-  aliases consult context under current matcher rules.
+  aliases consult context under current matcher rules. Add
+  `requires_context: true` to broad multi-word aliases when those aliases
+  should consult entity context terms.
 - `ungated_alias_with_context_terms`: an ordinary multi-word alias is accepted
-  without context even though the entity defines `context_terms`.
+  without context even though the entity defines `context_terms`. Use
+  `requires_context: true` when the alias should require context.
 - `self_context_term`: a context term normalizes to the same key as a gated alias
   on the same entity.
 - `safe_common_alias`: an alias marked safe normalizes to a value in
@@ -221,10 +225,13 @@ context appears. Without a parent brand, the product follows ordinary alias
 semantics, which may be fine for generic products but can be noisy for branded
 items.
 
-`context_terms` are not universal phrase-level gates. They matter for product
-aliases with `parent_brand`, non-product single-word aliases, and aliases listed
-as unsafe/common by the application. Other multi-word aliases can match without
-context, so broad phrases should be narrowed or reviewed.
+`context_terms` are not automatic phrase-level gates for every alias. They
+matter for product aliases with `parent_brand`, non-product single-word aliases,
+aliases listed as unsafe/common by the application, and non-product aliases that
+explicitly set `requires_context: true`. Products with `parent_brand` keep the
+parent-brand-or-context behavior even if an alias also sets
+`requires_context: true`. Other multi-word aliases can match without context,
+so broad phrases should be narrowed, reviewed, or explicitly gated.
 
 Safe aliases are explicit shortcuts. They are useful for distinctive brand or
 person names, but they can also bypass context that a user expected to apply.
@@ -253,7 +260,10 @@ specific.
 
 Review ordinary multi-word category and trend aliases such as `Mary Janes`,
 `boat shoes`, or `office siren`. These can be useful in a retained fashion
-corpus, but they are accepted without context by the current matcher.
+corpus, but they are accepted without context unless you set
+`requires_context: true`. When you use the explicit gate, provide
+`context_terms` that need surrounding fashion language rather than terms
+satisfied only by the alias text itself.
 
 Use `tags` for brands, designers, celebrities, and trends. Use `category_tags`
 for products and categories. Tags should describe how you want to review the

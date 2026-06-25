@@ -73,6 +73,11 @@ def _evaluate_alias(
             return True, REASON_CONTEXT
         return False, REASON_MISSING_CONTEXT
 
+    if alias.requires_context:
+        if context_terms:
+            return True, REASON_CONTEXT
+        return False, REASON_MISSING_CONTEXT
+
     if not _requires_context(alias):
         return True, REASON_ACCEPTED
     if alias.safe_single_word and alias.reason:

@@ -211,25 +211,33 @@ entities:
     type: category
     aliases:
       - value: Mary Jane shoes
+        requires_context: true
       - value: Mary Janes
+        requires_context: true
       - value: Mary Jane flats
-    context_terms: [shoes, footwear, flats, runway]
+        requires_context: true
+    context_terms: [footwear, runway, styling]
     category_tags: [shoes, flats]
     active_from: "2024-01-01T00:00:00Z"
   - name: East-West Bags
     type: category
     aliases:
       - value: east-west bag
+        requires_context: true
       - value: east-west bags
+        requires_context: true
       - value: east west tote
-    context_terms: [bag, handbag, tote]
+        requires_context: true
+    context_terms: [handbag, runway, styling]
     category_tags: [bag, tote]
     active_from: "2024-01-01T00:00:00Z"
   - name: Boat Shoes
     type: category
     aliases:
       - value: boat shoes
+        requires_context: true
       - value: boat shoe
+        requires_context: true
     context_terms: [footwear, loafer, runway, styling]
     category_tags: [shoes]
     active_from: "2024-01-01T00:00:00Z"
@@ -237,7 +245,9 @@ entities:
     type: category
     aliases:
       - value: suede sneakers
+        requires_context: true
       - value: suede sneaker
+        requires_context: true
     context_terms: [footwear, shoes, trainer]
     category_tags: [shoes, sneakers]
     active_from: "2024-01-01T00:00:00Z"

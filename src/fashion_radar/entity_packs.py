@@ -621,6 +621,9 @@ def _classify_alias_gate(entity: EntityDefinition, alias: AliasDefinition) -> Al
     if entity.type == EntityType.PRODUCT and entity.parent_brand:
         return AliasGateKind.PRODUCT_PARENT_OR_CONTEXT
 
+    if alias.requires_context:
+        return AliasGateKind.CONTEXT_REQUIRED
+
     if _alias_requires_context(alias):
         if alias.safe_single_word and alias.reason:
             return AliasGateKind.SAFE_ALIAS
@@ -631,7 +634,7 @@ def _classify_alias_gate(entity: EntityDefinition, alias: AliasDefinition) -> Al
 
 def _alias_requires_context(alias: AliasDefinition) -> bool:
     key = normalize_alias_key(alias.value)
-    return len(key.split()) == 1 or key in UNSAFE_COMMON_ALIASES
+    return alias.requires_context or len(key.split()) == 1 or key in UNSAFE_COMMON_ALIASES
 
 
 def _invalid_config_finding(message: str) -> EntityPackFinding:

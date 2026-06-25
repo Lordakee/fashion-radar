@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from fashion_radar.models.entity import EntityDefinition, EntityType
+from fashion_radar.models.entity import AliasDefinition, EntityDefinition, EntityType
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceDefinition, SourceType
 
@@ -30,6 +30,18 @@ def test_entity_definition_has_type_aliases_and_confidence_defaults() -> None:
 
     assert entity.type == EntityType.PRODUCT
     assert entity.match_confidence == 1.0
+
+
+def test_alias_definition_defaults_requires_context_to_false() -> None:
+    alias = AliasDefinition(value="boat shoes")
+
+    assert alias.requires_context is False
+
+
+def test_alias_definition_preserves_requires_context_true() -> None:
+    alias = AliasDefinition(value="boat shoes", requires_context=True)
+
+    assert alias.requires_context is True
 
 
 def test_source_definition_defaults_to_enabled_and_weight_one() -> None:

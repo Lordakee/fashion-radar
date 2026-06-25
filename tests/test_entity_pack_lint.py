@@ -317,6 +317,86 @@ def test_multi_word_alias_with_context_terms_is_reported_as_ungated(tmp_path: Pa
     assert result.context_gated_aliases == 0
 
 
+def test_explicit_multi_word_context_alias_is_context_gated(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "entities.yaml",
+        """
+        version: 1
+        entities:
+          - name: Boat Shoes
+            type: category
+            aliases:
+              - value: boat shoes
+                requires_context: true
+            context_terms: [footwear, runway]
+            category_tags: [shoes]
+            initial_weight: 1.0
+            match_confidence: 1.0
+        """,
+    )
+
+    result = lint_entity_pack(path)
+
+    assert "ungated_alias_with_context_terms" not in finding_codes(result)
+    assert "context_terms_no_effect" not in finding_codes(result)
+    assert result.context_gated_aliases == 1
+    assert result.accepted_without_context_aliases == 0
+
+
+def test_explicit_context_alias_takes_precedence_over_safe_alias_lint(
+    tmp_path: Path,
+) -> None:
+    path = write_yaml(
+        tmp_path / "entities.yaml",
+        """
+        version: 1
+        entities:
+          - name: Acme
+            type: brand
+            aliases:
+              - value: Acme
+                safe_single_word: true
+                reason: Distinct local test brand.
+                requires_context: true
+            context_terms: [runway]
+            tags: [brand]
+            initial_weight: 1.0
+            match_confidence: 1.0
+        """,
+    )
+
+    result = lint_entity_pack(path)
+
+    assert result.context_gated_aliases == 1
+    assert result.safe_aliases == 0
+    assert "safe_alias_bypasses_context" not in finding_codes(result)
+
+
+def test_explicit_context_alias_warns_when_context_term_matches_alias(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "entities.yaml",
+        """
+        version: 1
+        entities:
+          - name: Boat Shoes
+            type: category
+            aliases:
+              - value: boat shoes
+                requires_context: true
+            context_terms: [boat shoes, footwear]
+            category_tags: [shoes]
+            initial_weight: 1.0
+            match_confidence: 1.0
+        """,
+    )
+
+    result = lint_entity_pack(path)
+
+    finding = findings_by_code(result, "self_context_term")[0]
+    assert finding.alias == "boat shoes"
+    assert finding.field == "context_terms"
+
+
 def test_context_terms_no_effect_not_emitted_when_one_alias_uses_context(tmp_path: Path) -> None:
     path = write_yaml(
         tmp_path / "entities.yaml",

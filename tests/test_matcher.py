@@ -167,6 +167,76 @@ def test_multi_word_brand_alias_is_accepted_without_context() -> None:
     assert decision.reason == "accepted"
 
 
+def test_multi_word_alias_can_explicitly_require_context() -> None:
+    entities = [
+        _entity(
+            "Boat Shoes",
+            EntityType.CATEGORY,
+            [{"value": "boat shoes", "requires_context": True}],
+            context_terms=["footwear", "runway"],
+            match_confidence=0.7,
+        )
+    ]
+
+    rejected = evaluate_entity_matches("Boat shoes were required on the dock.", entities)
+    assert len(rejected) == 1
+    assert not rejected[0].accepted
+    assert rejected[0].reason == "missing_context"
+
+    accepted = match_entities("Boat shoes returned in runway footwear styling.", entities)
+    assert len(accepted) == 1
+    assert accepted[0].entity_name == "Boat Shoes"
+    assert accepted[0].reason == "context"
+    assert accepted[0].context_terms == ["footwear", "runway"]
+    assert accepted[0].confidence == 0.7
+
+
+def test_explicit_context_alias_takes_precedence_over_safe_single_word() -> None:
+    entities = [
+        _entity(
+            "Acme",
+            EntityType.BRAND,
+            [
+                {
+                    "value": "Acme",
+                    "safe_single_word": True,
+                    "reason": "Distinct local test brand.",
+                    "requires_context": True,
+                }
+            ],
+            context_terms=["runway"],
+        )
+    ]
+
+    rejected = evaluate_entity_matches("Acme held a staff meeting.", entities)
+    assert len(rejected) == 1
+    assert not rejected[0].accepted
+    assert rejected[0].reason == "missing_context"
+
+    accepted = match_entities("Acme runway notes circulated.", entities)
+    assert len(accepted) == 1
+    assert accepted[0].reason == "context"
+
+
+def test_product_parent_brand_branch_precedes_alias_requires_context() -> None:
+    entities = [
+        _entity("Acme", EntityType.BRAND, ["Acme"]),
+        _entity(
+            "Acme Arc Bag",
+            EntityType.PRODUCT,
+            [{"value": "Arc Bag", "requires_context": True}],
+            parent_brand="Acme",
+            context_terms=["handbag"],
+        ),
+    ]
+
+    accepted = match_entities("Acme Arc Bag edit", entities)
+
+    product = next(decision for decision in accepted if decision.entity_name == "Acme Arc Bag")
+    assert product.reason == "parent_brand"
+    assert product.context_terms == []
+
+
 def test_safe_single_word_alias_is_accepted_with_stable_reason() -> None:
     accepted = match_entities("Zendaya red carpet", _fashion_entities())
 

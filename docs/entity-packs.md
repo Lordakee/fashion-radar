@@ -110,14 +110,18 @@ Treat the pack as a starting point:
   confidence in external demand.
 
 Existing matching uses context gates for product aliases with `parent_brand`,
-single-word aliases, and aliases listed as unsafe/common by the application.
-`context_terms` are not a universal phrase-level disambiguation system for every
-multi-word category or trend alias. For other multi-word category or trend
-aliases, use narrower aliases where possible.
+single-word aliases, aliases listed as unsafe/common by the application, and
+non-product aliases that explicitly set `requires_context: true`. Products with
+`parent_brand` keep the existing parent-brand-or-context behavior even if an
+alias also sets `requires_context: true`. For ordinary multi-word aliases that
+are useful but too broad for your source set, set `requires_context: true` on
+that alias and provide `context_terms` on the entity. Choose context terms that
+need surrounding fashion language instead of terms satisfied only by the alias
+text itself; use terms such as `runway`, `footwear`, `handbag`, or `styling`.
 
-Multi-word category aliases such as `Mary Janes` or `boat shoes` may match in a
-retained fashion corpus without context gating. Remove or narrow them if they
-are noisy for your source set.
+Multi-word category aliases such as `Mary Janes` or `boat shoes` may be useful
+in a retained fashion corpus when they require surrounding context. Remove,
+narrow, or explicitly gate them if they are noisy for your source set.
 
 Candidate discovery can still surface untracked phrases even when they are not
 in the pack. Review those candidates before adding them to your entity config.

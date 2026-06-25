@@ -23,6 +23,7 @@ class AliasDefinition(BaseModel):
     value: str
     safe_single_word: bool = False
     reason: str | None = None
+    requires_context: bool = False
 
     @field_validator("value")
     @classmethod

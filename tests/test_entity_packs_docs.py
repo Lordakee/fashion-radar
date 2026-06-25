@@ -47,3 +47,13 @@ def test_entity_packs_docs_keep_optional_sample_boundary() -> None:
         "no connectors",
     ):
         assert phrase in normalized
+
+
+def test_entity_packs_docs_describe_explicit_context_gates() -> None:
+    text = _read_entity_packs_doc()
+    normalized = _normalized(text)
+
+    assert "requires_context: true" in text
+    assert "provide `context_terms`" in text
+    assert "need surrounding fashion language" in normalized
+    assert "instead of terms satisfied only by the alias text itself" in normalized

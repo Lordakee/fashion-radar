@@ -86,6 +86,21 @@ def test_fashion_watchlist_high_risk_aliases_use_existing_guardrails_or_narrow_p
     }
 
 
+def test_fashion_watchlist_explicit_context_aliases_require_context() -> None:
+    entities = _entities_by_name()
+    expected_aliases = {
+        "Mary Jane Shoes": {"Mary Jane shoes", "Mary Janes", "Mary Jane flats"},
+        "East-West Bags": {"east-west bag", "east-west bags", "east west tote"},
+        "Boat Shoes": {"boat shoes", "boat shoe"},
+        "Suede Sneakers": {"suede sneakers", "suede sneaker"},
+    }
+
+    for entity_name, alias_values in expected_aliases.items():
+        entity = entities[entity_name]
+        gated_aliases = {alias.value for alias in entity.aliases if alias.requires_context}
+        assert alias_values <= gated_aliases
+
+
 def test_fashion_watchlist_all_single_word_and_common_aliases_are_guarded() -> None:
     for entity in _entities():
         for alias in entity.aliases:
@@ -115,6 +130,29 @@ def test_fashion_watchlist_matcher_rejects_generic_broad_alias_mentions() -> Non
         ]
         assert decisions, f"Expected an evaluated decision for {entity_name!r}"
         assert all(not decision.accepted for decision in decisions)
+
+
+def test_fashion_watchlist_context_gates_broad_category_aliases() -> None:
+    entities = _entities()
+
+    generic_texts = [
+        ("Mary Janes joined the dinner list.", "Mary Jane Shoes"),
+        ("Mary Jane shoes were noted.", "Mary Jane Shoes"),
+        ("Mary Jane flats were noted.", "Mary Jane Shoes"),
+        ("Boat shoes were required on the dock.", "Boat Shoes"),
+        ("The east-west bag sat in storage.", "East-West Bags"),
+        ("The east west tote sat in storage.", "East-West Bags"),
+        ("Suede sneakers appeared in a court filing.", "Suede Sneakers"),
+    ]
+    for text, entity_name in generic_texts:
+        decisions = [
+            decision
+            for decision in evaluate_entity_matches(text, entities)
+            if decision.entity_name == entity_name
+        ]
+        assert decisions, f"Expected evaluated decisions for {entity_name!r}"
+        assert all(not decision.accepted for decision in decisions)
+        assert {decision.reason for decision in decisions} == {"missing_context"}
 
 
 def test_fashion_watchlist_matcher_does_not_register_bare_new_product_shorthands() -> None:

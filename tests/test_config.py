@@ -248,6 +248,46 @@ def test_duplicate_entity_names_are_rejected(tmp_path: Path) -> None:
         load_entity_config(path)
 
 
+def test_alias_requires_context_needs_entity_context_terms(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "entities.yaml",
+        """
+        version: 1
+        entities:
+          - name: Boat Shoes
+            type: category
+            aliases:
+              - value: boat shoes
+                requires_context: true
+            category_tags: [shoes]
+        """,
+    )
+
+    with pytest.raises(ConfigError, match="requires context but entity has no context_terms"):
+        load_entity_config(path)
+
+
+def test_alias_requires_context_with_entity_context_terms_loads(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "entities.yaml",
+        """
+        version: 1
+        entities:
+          - name: Boat Shoes
+            type: category
+            aliases:
+              - value: boat shoes
+                requires_context: true
+            context_terms: [footwear, runway]
+            category_tags: [shoes]
+        """,
+    )
+
+    config = load_entity_config(path)
+
+    assert config.entities[0].aliases[0].requires_context is True
+
+
 def test_parent_brand_must_reference_existing_brand(tmp_path: Path) -> None:
     path = write_yaml(
         tmp_path / "entities.yaml",
