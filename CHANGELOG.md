@@ -37,6 +37,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 208 makes the advisory contained-context-term entity-pack lint warning
+  name the offending context term and gated alias in its message, without
+  changing matcher behavior, lint schemas, source acquisition, scoring, report
+  generation, dashboard behavior, social/platform connectors, scraping, demand
+  proof, platform coverage verification, dependency files, or compliance-review
+  behavior.
 - Stage 207 adds advisory entity-pack lint coverage for context terms contained
   in gated aliases, without changing matcher behavior, source acquisition,
   scoring, report generation, dashboard behavior, social/platform connectors,

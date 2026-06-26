@@ -423,6 +423,8 @@ def test_contained_context_term_warns_for_explicit_gated_alias(tmp_path: Path) -
     assert finding.entity_name == "Mary Jane Shoes"
     assert finding.alias == "Mary Jane shoes"
     assert finding.field == "context_terms"
+    assert "'shoes'" in finding.message
+    assert "'Mary Jane shoes'" in finding.message
 
 
 def test_surrounding_context_term_does_not_warn_for_explicit_gated_alias(
@@ -476,6 +478,39 @@ def test_multi_token_context_term_contained_in_gated_alias_warns(
     finding = findings_by_code(result, "contained_context_term_for_gated_alias")[0]
     assert finding.entity_name == "Mary Jane Shoes"
     assert finding.alias == "Mary Jane shoes"
+    assert "'mary jane'" in finding.message
+    assert "'Mary Jane shoes'" in finding.message
+
+
+def test_contained_context_term_message_uses_first_sorted_context_key(
+    tmp_path: Path,
+) -> None:
+    path = write_yaml(
+        tmp_path / "entities.yaml",
+        """
+        version: 1
+        entities:
+          - name: Mary Jane Shoes
+            type: category
+            aliases:
+              - value: Mary Jane shoes
+                requires_context: true
+            context_terms: [shoes, mary jane, runway]
+            category_tags: [shoes]
+            initial_weight: 1.0
+            match_confidence: 1.0
+        """,
+    )
+
+    result = lint_entity_pack(path)
+
+    findings = findings_by_code(result, "contained_context_term_for_gated_alias")
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding.alias == "Mary Jane shoes"
+    assert finding.message.count("Context term") == 1
+    assert "'mary jane'" in finding.message
+    assert "'shoes'" not in finding.message
 
 
 def test_equal_length_reordered_context_term_does_not_warn_for_gated_alias(

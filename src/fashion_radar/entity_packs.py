@@ -441,11 +441,8 @@ def _alias_findings(entity: EntityDefinition) -> list[EntityPackFinding]:
             )
         )
 
-    context_keys = {
-        normalize_alias_key(term)
-        for term in entity.context_terms
-        if term.strip() and normalize_alias_key(term)
-    }
+    context_display_by_key = _context_display_by_key(entity.context_terms)
+    context_keys = set(context_display_by_key)
     for alias, gate in zip(entity.aliases, gates, strict=True):
         alias_key = normalize_alias_key(alias.value)
         if not alias_key:
@@ -491,14 +488,15 @@ def _alias_findings(entity: EntityDefinition) -> list[EntityPackFinding]:
             for context_key in sorted(context_keys):
                 if not _context_term_contained_in_alias(alias_key, context_key):
                     continue
+                context_term = context_display_by_key[context_key]
                 findings.append(
                     EntityPackFinding(
                         severity=EntityPackFindingSeverity.WARNING,
                         code="contained_context_term_for_gated_alias",
                         message=(
-                            "Context term is contained in a gated alias; choose "
-                            "surrounding context terms so the alias text alone "
-                            "does not satisfy the gate."
+                            f"Context term '{context_term}' is contained in gated "
+                            f"alias '{alias.value}'; choose surrounding context "
+                            "terms that the alias text does not satisfy by itself."
                         ),
                         entity_name=entity.name,
                         alias=alias.value,
@@ -655,6 +653,15 @@ def _classify_alias_gate(entity: EntityDefinition, alias: AliasDefinition) -> Al
 def _alias_requires_context(alias: AliasDefinition) -> bool:
     key = normalize_alias_key(alias.value)
     return alias.requires_context or len(key.split()) == 1 or key in UNSAFE_COMMON_ALIASES
+
+
+def _context_display_by_key(context_terms: Sequence[str]) -> dict[str, str]:
+    display_by_key: dict[str, str] = {}
+    for context_term in context_terms:
+        context_key = normalize_alias_key(context_term)
+        if context_key and context_key not in display_by_key:
+            display_by_key[context_key] = context_term
+    return display_by_key
 
 
 def _context_term_contained_in_alias(alias_key: str, context_key: str) -> bool:

@@ -190,7 +190,8 @@ The matcher-gate counts are derived from current local matcher rules:
 - `self_context_term`: a context term normalizes to the same key as a gated alias
   on the same entity.
 - `contained_context_term_for_gated_alias`: a context term is contained in a
-  gated alias, so the alias text may satisfy its own context gate. Prefer
+  gated alias, so the alias text may satisfy its own context gate. The warning
+  message identifies the contained context term and gated alias. Prefer
   surrounding fashion terms such as `runway`, `footwear`, `handbag`, or
   `styling`. This is an advisory token-containment heuristic, not a full
   matcher simulation.
