@@ -487,6 +487,26 @@ def _alias_findings(entity: EntityDefinition) -> list[EntityPackFinding]:
                 )
             )
 
+        if gate == AliasGateKind.CONTEXT_REQUIRED:
+            for context_key in sorted(context_keys):
+                if not _context_term_contained_in_alias(alias_key, context_key):
+                    continue
+                findings.append(
+                    EntityPackFinding(
+                        severity=EntityPackFindingSeverity.WARNING,
+                        code="contained_context_term_for_gated_alias",
+                        message=(
+                            "Context term is contained in a gated alias; choose "
+                            "surrounding context terms so the alias text alone "
+                            "does not satisfy the gate."
+                        ),
+                        entity_name=entity.name,
+                        alias=alias.value,
+                        field="context_terms",
+                    )
+                )
+                break
+
         if not alias.safe_single_word:
             continue
 
@@ -635,6 +655,19 @@ def _classify_alias_gate(entity: EntityDefinition, alias: AliasDefinition) -> Al
 def _alias_requires_context(alias: AliasDefinition) -> bool:
     key = normalize_alias_key(alias.value)
     return alias.requires_context or len(key.split()) == 1 or key in UNSAFE_COMMON_ALIASES
+
+
+def _context_term_contained_in_alias(alias_key: str, context_key: str) -> bool:
+    if not alias_key or not context_key or alias_key == context_key:
+        return False
+    alias_tokens = alias_key.split()
+    context_tokens = context_key.split()
+    if not context_tokens or len(context_tokens) >= len(alias_tokens):
+        return False
+    for start in range(0, len(alias_tokens) - len(context_tokens) + 1):
+        if alias_tokens[start : start + len(context_tokens)] == context_tokens:
+            return True
+    return False
 
 
 def _invalid_config_finding(message: str) -> EntityPackFinding:

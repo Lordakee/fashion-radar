@@ -189,6 +189,11 @@ The matcher-gate counts are derived from current local matcher rules:
   `requires_context: true` when the alias should require context.
 - `self_context_term`: a context term normalizes to the same key as a gated alias
   on the same entity.
+- `contained_context_term_for_gated_alias`: a context term is contained in a
+  gated alias, so the alias text may satisfy its own context gate. Prefer
+  surrounding fashion terms such as `runway`, `footwear`, `handbag`, or
+  `styling`. This is an advisory token-containment heuristic, not a full
+  matcher simulation.
 - `safe_common_alias`: an alias marked safe normalizes to a value in
   `UNSAFE_COMMON_ALIASES`; context terms are usually safer for these phrases.
 - `safe_alias_bypasses_context`: a safe non-product alias bypasses available

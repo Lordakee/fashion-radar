@@ -395,6 +395,113 @@ def test_explicit_context_alias_warns_when_context_term_matches_alias(tmp_path: 
     finding = findings_by_code(result, "self_context_term")[0]
     assert finding.alias == "boat shoes"
     assert finding.field == "context_terms"
+    assert "contained_context_term_for_gated_alias" not in finding_codes(result)
+
+
+def test_contained_context_term_warns_for_explicit_gated_alias(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "entities.yaml",
+        """
+        version: 1
+        entities:
+          - name: Mary Jane Shoes
+            type: category
+            aliases:
+              - value: Mary Jane shoes
+                requires_context: true
+            context_terms: [shoes, runway]
+            category_tags: [shoes]
+            initial_weight: 1.0
+            match_confidence: 1.0
+        """,
+    )
+
+    result = lint_entity_pack(path)
+
+    finding = findings_by_code(result, "contained_context_term_for_gated_alias")[0]
+    assert finding.severity == EntityPackFindingSeverity.WARNING
+    assert finding.entity_name == "Mary Jane Shoes"
+    assert finding.alias == "Mary Jane shoes"
+    assert finding.field == "context_terms"
+
+
+def test_surrounding_context_term_does_not_warn_for_explicit_gated_alias(
+    tmp_path: Path,
+) -> None:
+    path = write_yaml(
+        tmp_path / "entities.yaml",
+        """
+        version: 1
+        entities:
+          - name: Mary Jane Shoes
+            type: category
+            aliases:
+              - value: Mary Jane shoes
+                requires_context: true
+            context_terms: [footwear, runway, styling]
+            category_tags: [shoes]
+            initial_weight: 1.0
+            match_confidence: 1.0
+        """,
+    )
+
+    result = lint_entity_pack(path)
+
+    assert "contained_context_term_for_gated_alias" not in finding_codes(result)
+    assert "self_context_term" not in finding_codes(result)
+
+
+def test_multi_token_context_term_contained_in_gated_alias_warns(
+    tmp_path: Path,
+) -> None:
+    path = write_yaml(
+        tmp_path / "entities.yaml",
+        """
+        version: 1
+        entities:
+          - name: Mary Jane Shoes
+            type: category
+            aliases:
+              - value: Mary Jane shoes
+                requires_context: true
+            context_terms: [mary jane, runway]
+            category_tags: [shoes]
+            initial_weight: 1.0
+            match_confidence: 1.0
+        """,
+    )
+
+    result = lint_entity_pack(path)
+
+    finding = findings_by_code(result, "contained_context_term_for_gated_alias")[0]
+    assert finding.entity_name == "Mary Jane Shoes"
+    assert finding.alias == "Mary Jane shoes"
+
+
+def test_equal_length_reordered_context_term_does_not_warn_for_gated_alias(
+    tmp_path: Path,
+) -> None:
+    path = write_yaml(
+        tmp_path / "entities.yaml",
+        """
+        version: 1
+        entities:
+          - name: Mary Jane
+            type: category
+            aliases:
+              - value: Mary Jane
+                requires_context: true
+            context_terms: [jane mary, runway]
+            category_tags: [shoes]
+            initial_weight: 1.0
+            match_confidence: 1.0
+        """,
+    )
+
+    result = lint_entity_pack(path)
+
+    assert "contained_context_term_for_gated_alias" not in finding_codes(result)
+    assert "self_context_term" not in finding_codes(result)
 
 
 def test_context_terms_no_effect_not_emitted_when_one_alias_uses_context(tmp_path: Path) -> None:

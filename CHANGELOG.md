@@ -37,6 +37,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 207 adds advisory entity-pack lint coverage for context terms contained
+  in gated aliases, without changing matcher behavior, source acquisition,
+  scoring, report generation, dashboard behavior, social/platform connectors,
+  scraping, demand proof, platform coverage verification, dependency files, or
+  compliance-review behavior.
 - Stage 206 adds an explicit alias-level context gate for deterministic
   matching and applies it to high-risk optional watchlist category aliases,
   without changing sources, scoring, report generation, dashboard behavior,
