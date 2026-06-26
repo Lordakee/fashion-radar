@@ -326,6 +326,9 @@ def test_daily_report_includes_stable_daily_brief_json_shape(tmp_path: Path) -> 
         "current_mentions_observed",
         "multiple_sources_observed",
     ]
+    candidate_item = parsed["brief"]["sections"][1]["items"][0]
+    assert "Score components:" in candidate_item["summary"]
+    assert "high-weight" not in candidate_item["summary"]
     assert parsed["brief"]["boundaries"] == [
         (
             "Daily Brief is derived from local report rows for configured sources "
@@ -405,6 +408,29 @@ def test_markdown_report_renders_daily_brief_before_top_signals(tmp_path: Path) 
         collected_at=AS_OF - timedelta(hours=1),
         summary="The Row local observed signal.",
     )
+    repository = ItemRepository(engine)
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Fashionista",
+            source_type=SourceType.RSS,
+            url="https://example.com/le-teckel",
+            title="Le Teckel bag signal",
+            published_at=AS_OF - timedelta(hours=2),
+            summary="Le Teckel bag appears in local observed coverage.",
+        ),
+        collected_at=AS_OF - timedelta(hours=2),
+    )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="WWD",
+            source_type=SourceType.RSS,
+            url="https://example.com/le-teckel-again",
+            title="Le Teckel bag appears again",
+            published_at=AS_OF - timedelta(hours=3),
+            summary="Le Teckel bag appears again in local observed coverage.",
+        ),
+        collected_at=AS_OF - timedelta(hours=3),
+    )
 
     report = build_daily_report(
         engine,
@@ -417,6 +443,14 @@ def test_markdown_report_renders_daily_brief_before_top_signals(tmp_path: Path) 
     assert markdown.index("## Daily Brief") < markdown.index("## Top Signals")
     assert "### Tracked Signals To Review" in markdown
     assert "- The Row:" in markdown
+    daily_brief = markdown.split("## Daily Brief", 1)[1].split("## Top Signals", 1)[0]
+    candidate_brief = daily_brief.split("### Candidate Signals Needing Review", 1)[1].split(
+        "### Source Caveats", 1
+    )[0]
+    assert "### Candidate Signals Needing Review" in daily_brief
+    assert "- Le Teckel bag:" in candidate_brief
+    assert "Score components: mentions 2.00; growth 0.00; sources 1.00" in candidate_brief
+    assert "high-weight" not in candidate_brief
     assert "Reasons:" in markdown
     assert "It provides no demand proof and no platform coverage verification." in markdown
     for forbidden in (
@@ -427,6 +461,41 @@ def test_markdown_report_renders_daily_brief_before_top_signals(tmp_path: Path) 
         "top social trend",
     ):
         assert forbidden not in markdown.lower()
+
+
+def test_daily_brief_candidate_summary_includes_existing_score_components() -> None:
+    brief = build_daily_brief(
+        entities=[],
+        candidates=[
+            CandidateReport(
+                phrase="Le Teckel bag",
+                candidate_type="bag",
+                label="rising_candidate",
+                score=4.25,
+                weighted_mention_component=2.5,
+                growth_component=0.75,
+                source_diversity_component=1.0,
+                current_mentions=2,
+                baseline_mentions=1,
+                distinct_sources=3,
+                growth_ratio=2.0,
+                first_seen_at=AS_OF,
+            )
+        ],
+        source_health=[],
+        recent_runs=[],
+    )
+
+    candidate_item = brief.sections[1].items[0]
+
+    assert candidate_item.kind == "candidate_phrase"
+    assert candidate_item.score == 4.25
+    assert "Score components: mentions 2.50; growth 0.75; sources 1.00" in candidate_item.summary
+    assert "mentions 2.50" in candidate_item.summary
+    assert "growth 0.75" in candidate_item.summary
+    assert "sources 1.00" in candidate_item.summary
+    assert "high-weight" not in candidate_item.summary
+    assert not hasattr(candidate_item, "weighted_mention_component")
 
 
 def test_daily_brief_markdown_uses_section_empty_fallback_when_partially_empty() -> None:

@@ -610,8 +610,10 @@ demand proof, and provides no platform coverage verification.
 
 Generated reports include a Daily Brief Heat Narrative that summarizes local
 observed report content from configured sources and imported local signals:
-tracked signals, candidate phrases, and source caveats. The Daily Brief needs
-review. It provides no demand proof and no platform coverage verification.
+tracked signals, candidate phrases, and source caveats. Candidate summaries can
+include candidate score-component cues for mentions, growth, and source
+diversity. The Daily Brief needs review. It provides no demand proof and no
+platform coverage verification.
 
 ### Heat Movers
 

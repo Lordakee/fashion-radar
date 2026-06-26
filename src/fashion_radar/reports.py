@@ -289,7 +289,8 @@ def _brief_item_for_candidate(candidate: CandidateReport) -> DailyBriefItem:
             "Local observed candidate phrase from configured sources and imported local "
             f"signals; needs review: {candidate.current_mentions} {current_label}, "
             f"{candidate.baseline_mentions} {baseline_label}, "
-            f"{candidate.distinct_sources} {source_label}."
+            f"{candidate.distinct_sources} {source_label}. "
+            f"{_candidate_component_summary(candidate)}"
         ),
         reason_codes=_candidate_reason_codes(candidate),
         current_mentions=candidate.current_mentions,
@@ -297,6 +298,15 @@ def _brief_item_for_candidate(candidate: CandidateReport) -> DailyBriefItem:
         distinct_sources=candidate.distinct_sources,
         score=candidate.score,
         needs_review=True,
+    )
+
+
+def _candidate_component_summary(candidate: CandidateReport) -> str:
+    return (
+        "Score components: "
+        f"mentions {candidate.weighted_mention_component:.2f}; "
+        f"growth {candidate.growth_component:.2f}; "
+        f"sources {candidate.source_diversity_component:.2f}."
     )
 
 

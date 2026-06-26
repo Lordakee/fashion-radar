@@ -37,6 +37,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 209 adds local candidate score-component cues to generated Daily Brief
+  candidate summaries, without changing scoring, ranking, report schemas,
+  source acquisition, dashboard behavior, social/platform connectors, scraping,
+  demand proof, platform coverage verification, dependency files, or
+  compliance-review behavior.
 - Stage 208 makes the advisory contained-context-term entity-pack lint warning
   name the offending context term and gated alias in its message, without
   changing matcher behavior, lint schemas, source acquisition, scoring, report

@@ -219,8 +219,10 @@ YAML config
   templates. The Daily Brief Heat Narrative is derived from report-safe rows
   for configured sources and imported local signals. It summarizes local
   observed tracked signals, candidate phrases, and source caveats as report
-  content that needs review. It does not collect, search, scrape, call platform
-  APIs, write source health, or prove demand or coverage. It provides no demand proof and no platform coverage verification.
+  content that needs review, and can include candidate score-component cues for
+  mentions, growth, and source diversity. It does not collect, search, scrape,
+  call platform APIs, write source health, or prove demand or coverage. It
+  provides no demand proof and no platform coverage verification.
 - **Local Digest:** Optional post-report packaging that writes local
   `latest.md`, `latest.json`, `report-index.json`, `.eml`, or stdout summary
   artifacts from already-generated reports. It does not collect sources or send

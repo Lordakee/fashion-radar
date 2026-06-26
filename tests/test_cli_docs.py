@@ -819,6 +819,14 @@ def test_daily_brief_docs_are_bounded_and_discoverable() -> None:
             assert phrase.casefold() in normalized, f"{path.relative_to(ROOT)} missing {phrase!r}"
 
 
+def test_daily_brief_docs_describe_candidate_score_component_cues() -> None:
+    for path in (README, CLI_REFERENCE, ARCHITECTURE_DOC):
+        normalized = _normalized_doc_text(path).casefold()
+        assert "daily brief" in normalized
+        assert "candidate score-component cues" in normalized
+        assert "mentions, growth, and source diversity" in normalized
+
+
 def test_daily_brief_docs_do_not_make_positive_scope_claims() -> None:
     for path in DAILY_BRIEF_DOCS:
         normalized = _normalized_doc_text(path).casefold()
