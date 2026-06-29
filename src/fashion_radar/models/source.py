@@ -11,6 +11,7 @@ class SourceType(StrEnum):
     GDELT = "gdelt"
     HTML = "html"
     SITEMAP = "sitemap"
+    XIAOHONGSHU = "xiaohongshu"
     MANUAL_IMPORT = "manual_import"
 
 
@@ -53,6 +54,13 @@ class GdeltSourceSettings(BaseModel):
     max_records: int = Field(default=100, gt=0, le=250)
 
 
+class XiaohongshuSourceSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    endpoint: str = "http://localhost:18060/mcp"
+    max_notes_per_run: int = Field(default=20, gt=0, le=200)
+
+
 class SourceHealthSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -74,6 +82,7 @@ class SourceDefinition(BaseModel):
     http: HttpSourceSettings = Field(default_factory=HttpSourceSettings)
     article: ArticleSourceSettings = Field(default_factory=ArticleSourceSettings)
     gdelt: GdeltSourceSettings = Field(default_factory=GdeltSourceSettings)
+    xiaohongshu: XiaohongshuSourceSettings = Field(default_factory=XiaohongshuSourceSettings)
     health: SourceHealthSettings = Field(default_factory=SourceHealthSettings)
 
     @field_validator("name")
@@ -95,4 +104,6 @@ class SourceDefinition(BaseModel):
             raise ValueError("html source requires url or seed_urls")
         if self.type == SourceType.SITEMAP and not self.url:
             raise ValueError("sitemap source requires url (sitemap.xml or site root)")
+        if self.type == SourceType.XIAOHONGSHU and not self.query:
+            raise ValueError("xiaohongshu source requires query")
         return self

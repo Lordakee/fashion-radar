@@ -10,6 +10,7 @@ from fashion_radar.collectors.html import HtmlCollector
 from fashion_radar.collectors.rss import RssCollector
 from fashion_radar.collectors.runner import collect_sources
 from fashion_radar.collectors.sitemap import SitemapCollector
+from fashion_radar.collectors.xiaohongshu import XiaohongshuCollector
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository, PruneResult
 from fashion_radar.db.schema import initialize_schema
@@ -122,4 +123,5 @@ def _default_collectors() -> dict[SourceType, object]:
         SourceType.GDELT: GdeltCollector(),
         SourceType.HTML: HtmlCollector(),
         SourceType.SITEMAP: SitemapCollector(),
+        SourceType.XIAOHONGSHU: XiaohongshuCollector(),
     }

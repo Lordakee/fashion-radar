@@ -237,3 +237,48 @@ def test_collect_sources_skips_article_enrichment_for_html_and_sitemap(tmp_path)
     assert results[1].items[0].summary == "Short attributed signal."
     assert results[2].items[0].summary == "ENRICHED RSS Feed"
     assert extractor_calls["count"] == 1
+
+
+def test_collect_sources_skips_article_enrichment_for_xiaohongshu(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    xhs_source = SourceDefinition(
+        name="XHS",
+        type=SourceType.XIAOHONGSHU,
+        query="the row",
+    )
+    rss_source = SourceDefinition(
+        name="RSS Feed",
+        type=SourceType.RSS,
+        url="https://example.com/feed.xml",
+    )
+
+    extractor_calls = {"count": 0}
+
+    def article_extractor(
+        source: SourceDefinition,
+        item: CollectedItem,
+    ) -> ArticleExtractionResult:
+        extractor_calls["count"] += 1
+        return ArticleExtractionResult(
+            url=item.url,
+            text=f"ENRICHED {source.name}",
+            skipped=False,
+        )
+
+    results = collect_sources(
+        [xhs_source, rss_source],
+        engine=engine,
+        collectors={
+            "XHS": SuccessfulCollector(),
+            "RSS Feed": SuccessfulCollector(),
+        },
+        article_extractor=article_extractor,
+        now=datetime(2026, 6, 11, 12, 0, tzinfo=UTC),
+    )
+
+    assert results[0].status.source_type == SourceType.XIAOHONGSHU
+    assert results[1].status.source_type == SourceType.RSS
+    assert results[0].items[0].summary == "Short attributed signal."
+    assert results[1].items[0].summary == "ENRICHED RSS Feed"
+    assert extractor_calls["count"] == 1

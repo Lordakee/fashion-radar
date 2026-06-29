@@ -53,3 +53,20 @@ def test_sitemap_source_with_url_is_valid() -> None:
     )
 
     assert source.url == "https://newsdaily.com/sitemap.xml"
+
+
+def test_source_type_includes_xiaohongshu_value() -> None:
+    assert SourceType.XIAOHONGSHU == "xiaohongshu"
+
+
+def test_xiaohongshu_source_requires_query() -> None:
+    with pytest.raises(ValidationError, match="xiaohongshu source requires query"):
+        SourceDefinition(name="XHS", type=SourceType.XIAOHONGSHU)
+
+
+def test_xiaohongshu_source_with_query_is_valid() -> None:
+    source = SourceDefinition(name="XHS", type=SourceType.XIAOHONGSHU, query="the row")
+
+    assert source.query == "the row"
+    assert source.xiaohongshu.endpoint == "http://localhost:18060/mcp"
+    assert source.xiaohongshu.max_notes_per_run == 20

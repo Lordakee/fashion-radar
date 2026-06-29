@@ -113,6 +113,26 @@ HTML and sitemap sources respect robots.txt and configured paywalled-domain
 skips, do not crawl or follow links, and provide no demand proof and no
 platform coverage verification.
 
+## Xiaohongshu (Opt-In)
+
+Xiaohongshu (小红书) acquisition is opt-in and use-at-your-own-risk. Fashion
+Radar reads notes from an external `xiaohongshu-mcp` server (which you install,
+run, and log into separately) over its local MCP HTTP endpoint; it does not
+handle login or store cookies itself.
+
+```yaml
+- name: "Xiaohongshu: The Row"
+  type: xiaohongshu
+  query: "The Row handbag"
+  xiaohongshu:
+    endpoint: "http://localhost:18060/mcp"
+    max_notes_per_run: 20
+```
+
+Users are responsible for respecting Xiaohongshu's terms. Signals are local
+observed only; they provide no demand proof and no platform coverage
+verification.
+
 ## Check Pack Quality
 
 Before copying or editing a pack, run the local linter:

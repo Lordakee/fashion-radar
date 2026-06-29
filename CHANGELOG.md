@@ -48,6 +48,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 222 adds opt-in Xiaohongshu (小红书) acquisition via an external
+  `xiaohongshu-mcp` server (the user installs/runs/logs in; Fashion Radar reads
+  results over local MCP HTTP). Login-based, use-at-your-own-risk, fail-closed
+  without the server; provides no demand proof and no platform coverage
+  verification.
+
 - Phase 1 (web acquisition) complete: Stages 211-216 added the iron-rule review
   flow, `html` seed-URL collection and `sitemap` discovery (via trafilatura,
   optional `article` extra, robots-respecting), RSSHub self-host documentation,

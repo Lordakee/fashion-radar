@@ -73,7 +73,12 @@ def collect_sources(
         if (
             source_article_extractor is None
             and source.article.enabled
-            and source.type not in {SourceType.HTML, SourceType.SITEMAP}
+            and source.type
+            not in {
+                SourceType.HTML,
+                SourceType.SITEMAP,
+                SourceType.XIAOHONGSHU,
+            }
         ):
             source_article_extractor, close_article_extractor = _default_article_extractor(source)
 
@@ -97,6 +102,7 @@ def collect_sources(
             if source_article_extractor is not None and source.type not in {
                 SourceType.HTML,
                 SourceType.SITEMAP,
+                SourceType.XIAOHONGSHU,
             }:
                 result = result.model_copy(
                     update={
