@@ -9,6 +9,8 @@ class SourceType(StrEnum):
     RSS = "rss"
     RSSHUB = "rsshub"
     GDELT = "gdelt"
+    HTML = "html"
+    SITEMAP = "sitemap"
     MANUAL_IMPORT = "manual_import"
 
 
@@ -64,6 +66,7 @@ class SourceDefinition(BaseModel):
     name: str
     type: SourceType
     url: str | None = None
+    seed_urls: list[str] = Field(default_factory=list)
     query: str | None = None
     enabled: bool = True
     weight: float = Field(default=1.0, gt=0, le=5)
@@ -88,4 +91,8 @@ class SourceDefinition(BaseModel):
             raise ValueError(f"{self.type.value} source requires url")
         if self.type == SourceType.GDELT and not self.query:
             raise ValueError("gdelt source requires query")
+        if self.type == SourceType.HTML and not (self.url or self.seed_urls):
+            raise ValueError("html source requires url or seed_urls")
+        if self.type == SourceType.SITEMAP and not self.url:
+            raise ValueError("sitemap source requires url (sitemap.xml or site root)")
         return self

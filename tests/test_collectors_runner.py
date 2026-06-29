@@ -184,3 +184,56 @@ def test_collect_sources_stores_source_weight_and_collected_at(tmp_path) -> None
     stored = ItemRepository(engine).get_item(1)
     assert stored["source_weight"] == 1.7
     assert stored["collected_at"] == "2026-06-11T12:00:00+00:00"
+
+
+def test_collect_sources_skips_article_enrichment_for_html_and_sitemap(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    html_source = SourceDefinition(
+        name="HTML News",
+        type=SourceType.HTML,
+        url="https://example.com/news",
+    )
+    sitemap_source = SourceDefinition(
+        name="Sitemap News",
+        type=SourceType.SITEMAP,
+        url="https://example.com/sitemap.xml",
+    )
+    rss_source = SourceDefinition(
+        name="RSS Feed",
+        type=SourceType.RSS,
+        url="https://example.com/feed.xml",
+    )
+
+    extractor_calls = {"count": 0}
+
+    def article_extractor(
+        source: SourceDefinition,
+        item: CollectedItem,
+    ) -> ArticleExtractionResult:
+        extractor_calls["count"] += 1
+        return ArticleExtractionResult(
+            url=item.url,
+            text=f"ENRICHED {source.name}",
+            skipped=False,
+        )
+
+    results = collect_sources(
+        [html_source, sitemap_source, rss_source],
+        engine=engine,
+        collectors={
+            "HTML News": SuccessfulCollector(),
+            "Sitemap News": SuccessfulCollector(),
+            "RSS Feed": SuccessfulCollector(),
+        },
+        article_extractor=article_extractor,
+        now=datetime(2026, 6, 11, 12, 0, tzinfo=UTC),
+    )
+
+    assert results[0].status.source_type == SourceType.HTML
+    assert results[1].status.source_type == SourceType.SITEMAP
+    assert results[2].status.source_type == SourceType.RSS
+    assert results[0].items[0].summary == "Short attributed signal."
+    assert results[1].items[0].summary == "Short attributed signal."
+    assert results[2].items[0].summary == "ENRICHED RSS Feed"
+    assert extractor_calls["count"] == 1

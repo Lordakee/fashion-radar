@@ -90,7 +90,10 @@ def collect_sources(
 
         items_stored = 0
         if result.status.status == CollectorRunStatus.SUCCESS:
-            if source_article_extractor is not None:
+            if source_article_extractor is not None and source.type not in {
+                SourceType.HTML,
+                SourceType.SITEMAP,
+            }:
                 result = result.model_copy(
                     update={
                         "items": _enrich_items_with_article_snippets(

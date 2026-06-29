@@ -3,6 +3,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
+from fashion_radar.collectors.gdelt import GdeltCollector
+from fashion_radar.collectors.html import HtmlCollector
+from fashion_radar.collectors.rss import RssCollector
+from fashion_radar.collectors.sitemap import SitemapCollector
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
 from fashion_radar.db.schema import initialize_schema
@@ -220,3 +224,13 @@ def test_clean_old_data_prunes_by_collected_at(tmp_path: Path) -> None:
     assert result.items_deleted == 1
     assert result.item_entities_deleted == 1
     assert repository.count_items() == 0
+
+
+def test_default_collectors_register_html_and_sitemap() -> None:
+    collectors = _default_collectors()
+
+    assert isinstance(collectors[SourceType.HTML], HtmlCollector)
+    assert isinstance(collectors[SourceType.SITEMAP], SitemapCollector)
+    assert isinstance(collectors[SourceType.RSS], RssCollector)
+    assert isinstance(collectors[SourceType.RSSHUB], RssCollector)
+    assert isinstance(collectors[SourceType.GDELT], GdeltCollector)
