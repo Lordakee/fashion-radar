@@ -41,8 +41,7 @@ def test_project_brief_docs_keep_mvp_non_goals_boundary() -> None:
         "No LLM dependency in the first core pipeline. The first version should work "
         "with deterministic extraction and scoring. Optional LLM summarization can "
         "be added later.",
-        "No default connector that needs login cookies, proxy pools, CAPTCHA bypass, "
-        "or paywall bypass.",
+        "login-based social-platform collection is opt-in and use-at-your-own-risk",
     ):
         assert phrase.casefold() in normalized
 
@@ -67,10 +66,8 @@ def test_readme_keeps_project_brief_mvp_non_goal_parity() -> None:
             "no full-platform instagram, tiktok, x, or xiaohongshu coverage claim",
         ),
         (
-            "No default connector that needs login cookies, proxy pools, "
-            "CAPTCHA bypass, or paywall bypass.",
-            "no default connector that needs login cookies, proxy pools, captcha "
-            "bypass, or paywall bypass",
+            "login-based social-platform collection is opt-in and use-at-your-own-risk",
+            "login-based social-platform collection is opt-in and use-at-your-own-risk",
         ),
     ):
         assert brief_phrase.casefold() in normalized_brief

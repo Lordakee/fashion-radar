@@ -32,7 +32,7 @@ def test_architecture_source_boundary_keeps_core_scope_and_local_import_limits()
         "manual signal import is a local input path",
         "user-provided csv/json files",
         "not a connector or platform collector",
-        "non-core platform collection is not part of v0.1.0",
+        "opt-in social-platform collection (phase 2: xiaohongshu) is use-at-your-own-risk",
         "source-boundaries.md",
     ):
         assert phrase in normalized

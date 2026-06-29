@@ -2,7 +2,8 @@
 
 Fashion Radar is a free-first, local-first open source project. Keep the core
 workflow usable without paid APIs, login cookies, proxy pools, CAPTCHA bypass,
-paywall bypass, or fragile full social-platform scraping.
+or paywall bypass by default; opt-in social-platform collection (Phase 2:
+Xiaohongshu) is use-at-your-own-risk and not enabled by default.
 
 ## Review Gates
 
@@ -66,8 +67,8 @@ paywall bypass, or fragile full social-platform scraping.
 
 - `v0.1.0` core sources are RSS/Atom, RSSHub-compatible, GDELT, HTML seed-URL collection, and sitemap discovery.
 - Google News RSS is not part of `v0.1.0`.
-- Social-platform connectors are future experimental opt-ins, not required for
-  the core daily report.
+- Social-platform connectors are opt-in (Phase 2 adds Xiaohongshu), not enabled
+  by default and not required for the core daily report.
 - Reports must preserve source attribution and avoid republishing full articles.
 - Future external community tool handoff work must keep the external tool
   handoff template limited to sanitized CSV/JSON local file handoff for

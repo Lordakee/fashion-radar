@@ -81,8 +81,10 @@ coverage, or demand proof.
 The public MVP non-goals stay aligned with the project brief: no paid API
 requirement, no account pool, no proxy pool, no high-frequency scraping, no
 automated posting, no private user data collection, no full-platform
-Instagram, TikTok, X, or Xiaohongshu coverage claim, and no default connector
-that needs login cookies, proxy pools, CAPTCHA bypass, or paywall bypass.
+Instagram, TikTok, X, or Xiaohongshu coverage claim, and no login-cookie,
+proxy-pool, CAPTCHA-bypass, or paywall-bypass behavior by default; login-based
+social-platform collection is opt-in and use-at-your-own-risk (Phase 2 adds
+Xiaohongshu).
 
 The external tool handoff templates are sanitized CSV/JSON local file handoff
 templates for user-controlled external/community tools:

@@ -52,7 +52,7 @@ Optional sources may require user-provided credentials, approval, or explicit op
 
 Experimental sources can be added later, but must not block the daily report:
 
-- RedNote/Xiaohongshu MCP or crawlers.
+- RedNote/Xiaohongshu — Phase 2 activates Xiaohongshu as an opt-in connector via xiaohongshu-mcp (login-required, use-at-your-own-risk).
 - MediaCrawler.
 - Instaloader.
 - TikTok-Api.
@@ -70,7 +70,7 @@ Experimental sources can be added later, but must not block the daily report:
 - No private user data collection.
 - No claim that the tool provides full-platform Instagram, TikTok, X, or Xiaohongshu coverage.
 - No LLM dependency in the first core pipeline. The first version should work with deterministic extraction and scoring. Optional LLM summarization can be added later.
-- No default connector that needs login cookies, proxy pools, CAPTCHA bypass, or paywall bypass.
+- No login-cookie, proxy-pool, CAPTCHA-bypass, or paywall-bypass behavior in the default workflow; login-based social-platform collection is opt-in and use-at-your-own-risk (Phase 2 adds Xiaohongshu), provides no demand proof and no platform coverage verification, and users are responsible for each platform's terms.
 
 ## Recommended MVP
 

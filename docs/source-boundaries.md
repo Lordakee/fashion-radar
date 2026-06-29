@@ -237,6 +237,11 @@ These connectors may be useful but must require explicit user enablement:
 - Google Trends official API when the user has access.
 - Reddit API with user-provided credentials and accepted API terms.
 - Static webpage monitoring for user-provided URL lists.
+- Xiaohongshu (小红书) via xiaohongshu-mcp (Phase 2): login-required (QR scan
+  managed by the external tool), use-at-your-own-risk; the user installs, runs,
+  and logs into the external tool, and Fashion Radar only reads results over its
+  local MCP HTTP endpoint. It provides no demand proof and no platform coverage
+  verification.
 
 Opt-in connectors must document their limits and should fail closed when credentials or access are missing.
 
