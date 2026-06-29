@@ -25,7 +25,7 @@ def test_architecture_source_boundary_keeps_core_scope_and_local_import_limits()
     normalized = _normalized(section)
 
     for phrase in (
-        "the core collector set is rss, rsshub-compatible feeds, and gdelt",
+        "the core collector set is rss, rsshub-compatible feeds, gdelt, html seed-url collection, and sitemap discovery",
         "manual signal import is a local input path",
         "user-provided csv/json files",
         "not a connector or platform collector",
