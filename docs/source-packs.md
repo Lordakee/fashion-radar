@@ -52,6 +52,34 @@ The RSS entries are listed in pack order:
 - `Red Carpet Fashion Awards`: celebrity red-carpet styling.
 - `PurseBlog`: bags, handbags, accessories, and luxury product signals.
 
+## Self-Hosted RSSHub
+
+RSSHub is a mature, MIT-licensed, community-maintained feed generator that turns
+sites and platforms without native feeds into RSS/Atom. Self-hosting it lets you
+broaden Fashion Radar coverage of official sites and news without fragile
+per-site scraping. Fashion Radar already supports `type: rsshub` sources
+(collected by the same RSS collector).
+
+Run a local RSSHub instance with Docker (pin a release tag in production rather
+than relying on `latest`):
+
+```bash
+docker run -d --name rsshub -p 1200:1200 diygod/rsshub:latest
+```
+
+Then add a Fashion Radar source pointing at a local RSSHub route:
+
+```yaml
+- name: "Example Site via RSSHub"
+  type: rsshub
+  url: "http://localhost:1200/example/site"
+```
+
+Users remain responsible for respecting each upstream site's terms and robots
+rules. RSSHub routes are community-maintained and may break when upstream sites
+change. RSSHub-sourced signals are local observed signals only; they provide no
+demand proof and no platform coverage verification.
+
 ## Check Pack Quality
 
 Before copying or editing a pack, run the local linter:

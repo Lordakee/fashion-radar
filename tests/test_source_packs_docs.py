@@ -161,3 +161,17 @@ def test_source_packs_docs_record_stage_201_direct_endpoint_refresh() -> None:
         "availability can change without notice",
     ):
         assert phrase in normalized
+
+
+def test_source_packs_docs_describe_self_hosted_rsshub() -> None:
+    section = _section(_read_source_packs_doc(), "Self-Hosted RSSHub")
+    normalized = _normalized(section)
+
+    for phrase in (
+        "self-hosting",
+        "docker run",
+        "type: rsshub",
+        "robots rules",
+        "no demand proof and no platform coverage verification",
+    ):
+        assert phrase in normalized, f"missing {phrase!r}"

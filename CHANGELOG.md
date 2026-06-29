@@ -48,6 +48,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 215 documents self-hosted RSSHub (Docker) so users can broaden official
+  site and news coverage via `type: rsshub` sources without fragile per-site
+  scraping. Docs-only; no code, schema, dependency, or source-pack composition
+  change.
+
 - Stage 214 adds `sitemap` discovery: a configured sitemap or site-root URL is
   read via `trafilatura.sitemaps`, article URLs are discovered, and each is
   extracted through the same robots-respecting html path (bounded per run). It

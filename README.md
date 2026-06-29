@@ -713,7 +713,9 @@ Starter files live in [configs](configs) and are also packaged for
 
 Broader optional public-source starter packs live in
 [configs/source-packs](configs/source-packs). See
-[docs/source-packs.md](docs/source-packs.md).
+[docs/source-packs.md](docs/source-packs.md). For sites without native feeds,
+self-host [RSSHub](docs/source-packs.md#self-hosted-rsshub) and add
+`type: rsshub` sources pointing at your local instance.
 
 Optional entity watchlist packs live in [configs/entity-packs](configs/entity-packs).
 See [docs/entity-packs.md](docs/entity-packs.md).
