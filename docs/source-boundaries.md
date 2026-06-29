@@ -15,6 +15,10 @@ These connectors are suitable for the default local MVP:
   `article` extra), respecting robots.txt and configured paywalled-domain skips;
   it does not crawl or follow links, and provides no demand proof and no platform
   coverage verification.
+- Sitemap discovery (`SourceType.SITEMAP`): reads a configured sitemap or
+  site-root URL via `trafilatura.sitemaps`, discovers article URLs, and extracts
+  each through the same robots-respecting path; it is bounded per run and
+  provides no demand proof and no platform coverage verification.
 - Official brand newsroom, press release, RSS, or sitemap pages where automated access is allowed.
 
 Core connectors should store source URL, title, publication time, source name, short summary where provided by the feed/API, extracted entities, and aggregate metrics.

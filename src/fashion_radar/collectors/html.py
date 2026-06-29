@@ -29,43 +29,57 @@ class HtmlCollector:
         *,
         started_at: datetime | None = None,
     ) -> CollectorResult:
-        # Bind started_at up front so published_at can never be None (mirrors runner.py).
         started_at = started_at or datetime.now(tz=UTC)
         if not extractor_available():
             return CollectorResult.skipped(
                 source, reason="extractor_unavailable", started_at=started_at
             )
         seeds = list(source.seed_urls) if source.seed_urls else ([source.url] if source.url else [])
-        if not seeds:
-            return CollectorResult.success(source, items=[], started_at=started_at)
-        client = FashionHttpClient(source.http)
-        robots = RobotsPolicyChecker(lambda url: client.get_response(url))
-        items: list[CollectedItem] = []
-        try:
-            for url in seeds:
-                result = extract_article_with_metadata(
-                    url,
-                    source=source,
-                    html_fetcher=client.get_text,
-                    robots_checker=robots,
-                )
-                if result.skipped or not result.text:
-                    continue
-                items.append(
-                    CollectedItem(
-                        source_name=source.name,
-                        source_type=source.type,
-                        url=url,
-                        title=result.title or _fallback_title(url),
-                        published_at=_published_at(result.published_at, started_at),
-                        summary=result.text,
-                    )
-                )
-        finally:
-            client.close()
+        items = collect_html_items(source, seeds, started_at)
         return CollectorResult.success(
             source, items=items, started_at=started_at, items_seen=len(seeds)
         )
+
+
+def collect_html_items(
+    source: SourceDefinition,
+    urls: list[str],
+    started_at: datetime,
+) -> list[CollectedItem]:
+    """Fetch and extract a list of URLs for an html/sitemap source.
+
+    Shared by HtmlCollector (seed URLs) and SitemapCollector (discovered URLs).
+    Builds one FashionHttpClient + RobotsPolicyChecker per call, maps each
+    non-skipped extraction result to a CollectedItem, and closes the client.
+    """
+    if not urls:
+        return []
+    client = FashionHttpClient(source.http)
+    robots = RobotsPolicyChecker(lambda url: client.get_response(url))
+    items: list[CollectedItem] = []
+    try:
+        for url in urls:
+            result = extract_article_with_metadata(
+                url,
+                source=source,
+                html_fetcher=client.get_text,
+                robots_checker=robots,
+            )
+            if result.skipped or not result.text:
+                continue
+            items.append(
+                CollectedItem(
+                    source_name=source.name,
+                    source_type=source.type,
+                    url=url,
+                    title=result.title or _fallback_title(url),
+                    published_at=_published_at(result.published_at, started_at),
+                    summary=result.text,
+                )
+            )
+    finally:
+        client.close()
+    return items
 
 
 def _fallback_title(url: str) -> str:

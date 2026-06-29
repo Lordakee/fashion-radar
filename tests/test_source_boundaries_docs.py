@@ -140,3 +140,15 @@ def test_source_boundaries_docs_describe_html_page_collection() -> None:
         "does not crawl or follow links",
     ):
         assert phrase.casefold() in normalized, f"missing {phrase!r}"
+
+
+def test_source_boundaries_docs_describe_sitemap_discovery() -> None:
+    core_section = _section(_read_source_boundaries_doc(), "Core")
+    normalized = _normalized(core_section)
+
+    for phrase in (
+        "sitemap discovery",
+        "trafilatura.sitemaps",
+        "bounded per run",
+    ):
+        assert phrase.casefold() in normalized, f"missing {phrase!r}"

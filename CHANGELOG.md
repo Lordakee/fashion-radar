@@ -48,6 +48,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 214 adds `sitemap` discovery: a configured sitemap or site-root URL is
+  read via `trafilatura.sitemaps`, article URLs are discovered, and each is
+  extracted through the same robots-respecting html path (bounded per run). It
+  provides no demand proof and no platform coverage verification.
+
 - Stage 213 adds `html` seed-URL page collection via trafilatura (optional
   `article` extra): configured seed pages are fetched, robots.txt and
   paywalled-domain skips are respected, and main article text plus title and
