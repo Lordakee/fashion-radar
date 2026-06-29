@@ -32,7 +32,7 @@ brands, or verify platform coverage.
 
 ## What It Does
 
-- Collects public RSS/Atom, RSSHub-compatible, and GDELT Doc API signals.
+- Collects public RSS/Atom, RSSHub-compatible, and GDELT Doc API signals, plus configured HTML seed pages via trafilatura (optional `article` extra), respecting robots.txt and paywalled-domain skips.
 - Imports local user-provided CSV/JSON signal files that you are authorized to
   process.
 - Preserves optional imported `platform` labels as local provenance in SQLite

@@ -126,3 +126,17 @@ def test_source_boundaries_docs_keep_robots_and_fetching_boundary() -> None:
         "Store GDELT-provided metadata and links, not republished article bodies.",
     ):
         assert phrase.casefold() in normalized
+
+
+def test_source_boundaries_docs_describe_html_page_collection() -> None:
+    core_section = _section(_read_source_boundaries_doc(), "Core")
+    normalized = _normalized(core_section)
+
+    for phrase in (
+        "html page collection",
+        "trafilatura",
+        "optional `article` extra",
+        "robots.txt",
+        "does not crawl or follow links",
+    ):
+        assert phrase.casefold() in normalized, f"missing {phrase!r}"

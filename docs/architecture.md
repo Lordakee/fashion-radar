@@ -53,7 +53,7 @@ YAML config
   The command prints table or JSON diagnostics only: it does not collect, store,
   score, match, report, open SQLite, update source health, fetch article pages,
   or prove demand or coverage.
-- **Collectors:** RSS/RSSHub-compatible feeds and GDELT Doc API metadata.
+- **Collectors:** RSS/RSSHub-compatible feeds, GDELT Doc API metadata, and HTML page collection of configured seed URLs via trafilatura (optional `article` extra, robots-respecting, no link crawling).
   Collectors return normalized items and do not write directly to SQLite.
 - **Manual Import:** Local CSV/JSON user-provided signal files are parsed as an
   input path only. They are not connectors or platform collection workflows.

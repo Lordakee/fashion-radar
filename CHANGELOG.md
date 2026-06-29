@@ -48,6 +48,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 213 adds `html` seed-URL page collection via trafilatura (optional
+  `article` extra): configured seed pages are fetched, robots.txt and
+  paywalled-domain skips are respected, and main article text plus title and
+  publication date are extracted into local items. It does not crawl or follow
+  links, and provides no demand proof and no platform coverage verification.
+
 - Stage 209 adds local candidate score-component cues to generated Daily Brief
   candidate summaries, without changing scoring, ranking, report schemas,
   source acquisition, dashboard behavior, social/platform connectors, scraping,

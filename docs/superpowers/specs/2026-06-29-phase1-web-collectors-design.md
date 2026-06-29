@@ -124,8 +124,8 @@ def _default_collectors() -> dict[SourceType, object]:
 
 **HtmlCollector** (per seed URL):
 1. Resolve effective seed list (`seed_urls or [url]`).
-2. For each seed URL: reuse `collectors.article.extract_article(url, source=source, html_fetcher=<FashionHttpClient.get_text>, robots_checker=<RobotsPolicyChecker>)`. This already enforces `respect_robots_txt`, paywall skip, trafilatura extraction, and fail-closed (`extractor_unavailable`).
-3. Map each successful `ArticleExtractionResult` to a `CollectedItem` (`source_name=source.name`, `source_url=url`, `title` from trafilatura metadata or `<title>`, `summary=text` already capped by `max_summary_chars`, `published_at` from trafilatura date metadata or fall back to run `started_at`).
+2. For each seed URL: reuse the new `collectors.article.extract_article_with_metadata(url, source=source, html_fetcher=<FashionHttpClient.get_text>, robots_checker=<RobotsPolicyChecker>)` (added in Stage 213; the older `extract_article` returns text only). It enforces `respect_robots_txt`, paywall skip, trafilatura title/date/text extraction via JSON output, and fail-closed (`extractor_unavailable`).
+3. Map each successful `ArticleExtractionResult` to a `CollectedItem` (`source_name=source.name`, `url=url`, `title` from trafilatura metadata or a URL-derived fallback, `summary=text` already capped by `max_summary_chars`, `published_at` from trafilatura date metadata or fall back to run `started_at`).
 4. Return `CollectorResult.success(source, items=..., items_seen=len(seeds))`. Skipped seeds (robots/paywall/no-text/extractor-unavailable) are counted in `items_seen` but not stored, and are reflected via the runner's existing run/health recording.
 
 **SitemapCollector**:
@@ -145,7 +145,7 @@ Reuse the existing `items` table verbatim:
 
 ## 6. Error Handling & Politeness
 
-- **Robots:** enforced by the reused `extract_article` path (`ArticleSourceSettings.respect_robots_txt`, default true). Disallowed URLs are skipped with a recorded reason, not stored.
+- **Robots:** enforced by the reused `extract_article_with_metadata` path (`ArticleSourceSettings.respect_robots_txt`, default true). Disallowed URLs are skipped with a recorded reason, not stored.
 - **Rate limiting:** per-domain delay via existing `HttpSourceSettings.per_domain_delay_seconds` (default 1.0s), enforced by `FashionHttpClient`.
 - **Paywalls:** existing `paywalled_domains` skip reused.
 - **Partial failure:** per-URL exceptions are swallowed into "skipped" reasons; a collector run succeeds if at least the run completed (mirrors RSS collector behavior). Run-level exceptions → `CollectorResult.failed`.

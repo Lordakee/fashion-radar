@@ -11,6 +11,10 @@ These connectors are suitable for the default local MVP:
 - GDELT Doc API metadata and URLs.
 - Official RSS/Atom feeds.
 - RSSHub-compatible routes when the user accepts the route's source terms.
+- HTML page collection of configured seed URLs via trafilatura (the optional
+  `article` extra), respecting robots.txt and configured paywalled-domain skips;
+  it does not crawl or follow links, and provides no demand proof and no platform
+  coverage verification.
 - Official brand newsroom, press release, RSS, or sitemap pages where automated access is allowed.
 
 Core connectors should store source URL, title, publication time, source name, short summary where provided by the feed/API, extracted entities, and aggregate metrics.
