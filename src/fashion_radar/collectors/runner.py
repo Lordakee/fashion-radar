@@ -70,7 +70,11 @@ def collect_sources(
 
         source_article_extractor = article_extractor
         close_article_extractor: Callable[[], None] | None = None
-        if source_article_extractor is None and source.article.enabled:
+        if (
+            source_article_extractor is None
+            and source.article.enabled
+            and source.type not in {SourceType.HTML, SourceType.SITEMAP}
+        ):
             source_article_extractor, close_article_extractor = _default_article_extractor(source)
 
         try:

@@ -1,7 +1,7 @@
 # Phase 1 — Web Collectors (Official Sites & News) Design
 
 - **Date:** 2026-06-29
-- **Status:** Draft (pending Claude Code review → opencode revision per project iron rules)
+- **Status:** Complete — Phase 1 web acquisition shipped as Stages 211-216. Phase 2 (Xiaohongshu + login/credential model) is next.
 - **Track:** New mainline — direct acquisition (boundaries overturned by project owner)
 - **Predecessor:** v0.1.x stage track ended at Stage 209 (`e8567fc`). Stage 210 (markdown report snippet hygiene) plan exists but is paused while this new mainline is active.
 - **Spec author workflow:** This spec is the brainstorming artifact. After user approval, `writing-plans` produces the implementation plan; that plan is reviewed by local Claude Code, revised by opencode (`glm-5.2 --variant max`), then implemented with TDD; the resulting code is reviewed by Claude Code before the next phase.

@@ -417,7 +417,7 @@ account or cookie work.
 
 ## Source Boundary
 
-The core collector set is RSS, RSSHub-compatible feeds, and GDELT. Manual signal
+The core collector set is RSS, RSSHub-compatible feeds, GDELT, HTML seed-URL collection, and sitemap discovery. Manual signal
 import is a local input path for user-provided CSV/JSON files, not a connector
 or platform collector. Non-core platform collection is not part of v0.1.0. See
 [source-boundaries.md](source-boundaries.md).

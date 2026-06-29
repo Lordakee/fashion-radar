@@ -80,6 +80,39 @@ rules. RSSHub routes are community-maintained and may break when upstream sites
 change. RSSHub-sourced signals are local observed signals only; they provide no
 demand proof and no platform coverage verification.
 
+## HTML And Sitemap Sources
+
+For sites that publish article pages but no feed, use `type: html` with one or
+more seed URLs (requires the optional `article` extra for trafilatura
+extraction):
+
+```yaml
+- name: "Brand X Newsroom"
+  type: html
+  url: "https://brandx.example/news"
+  article: { enabled: true, respect_robots_txt: true, max_summary_chars: 500 }
+
+- name: "Designer Y Press"
+  type: html
+  seed_urls:
+    - "https://designery.example/press"
+    - "https://designery.example/collections"
+```
+
+For large sites that publish a sitemap, use `type: sitemap` with the sitemap or
+site-root URL; article URLs are discovered and extracted through the same
+robots-respecting path (bounded per run):
+
+```yaml
+- name: "Fashion News Daily"
+  type: sitemap
+  url: "https://fashionnewsdaily.example/sitemap.xml"
+```
+
+HTML and sitemap sources respect robots.txt and configured paywalled-domain
+skips, do not crawl or follow links, and provide no demand proof and no
+platform coverage verification.
+
 ## Check Pack Quality
 
 Before copying or editing a pack, run the local linter:

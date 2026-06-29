@@ -64,7 +64,7 @@ paywall bypass, or fragile full social-platform scraping.
 
 ## Scope Boundaries
 
-- `v0.1.0` core sources are RSS/Atom and GDELT.
+- `v0.1.0` core sources are RSS/Atom, RSSHub-compatible, GDELT, HTML seed-URL collection, and sitemap discovery.
 - Google News RSS is not part of `v0.1.0`.
 - Social-platform connectors are future experimental opt-ins, not required for
   the core daily report.

@@ -48,6 +48,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 1 (web acquisition) complete: Stages 211-216 added the iron-rule review
+  flow, `html` seed-URL collection and `sitemap` discovery (via trafilatura,
+  optional `article` extra, robots-respecting), RSSHub self-host documentation,
+  and the Phase 1 release verification. No social-platform, login, cookie,
+  proxy, demand-proof, or coverage-verification scope; social acquisition
+  (Xiaohongshu, Instagram, X, YouTube) begins in Phase 2.
+
 - Stage 215 documents self-hosted RSSHub (Docker) so users can broaden official
   site and news coverage via `type: rsshub` sources without fragile per-site
   scraping. Docs-only; no code, schema, dependency, or source-pack composition
