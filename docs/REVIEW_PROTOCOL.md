@@ -1,26 +1,44 @@
 # Review Protocol
 
-This project follows a review-gated workflow. The active local review engine is
-opencode with `zhipuai-coding-plan/glm-5.2 --variant max`.
+This project follows a review-gated workflow. Claude Code is the **primary
+reviewer** for plan, code, and release reviews. After Claude Code's review,
+opencode revises the plan based on that review and its own judgment. Local
+opencode (`zhipuai-coding-plan/glm-5.2 --variant max`) is the fallback reviewer
+when Claude Code is unavailable.
 
 ## Before Coding
 
 1. Write the objective, architecture, technical stack, implementation method, and staged plan.
-2. Ask local opencode with `zhipuai-coding-plan/glm-5.2 --variant max` to review the plan.
-3. Record the review in `docs/reviews/`.
-4. Fix critical and important planning issues.
-5. Start implementation only after the plan is acceptable.
+2. Ask local Claude Code to review the plan (primary reviewer).
+3. After Claude Code's review, opencode revises the plan based on that review
+   and its own judgment; opencode is also the fallback reviewer if Claude Code
+   is unavailable.
+4. Record the reviews in `docs/reviews/`.
+5. Fix critical and important planning issues.
+6. Start implementation only after the plan is acceptable.
 
 Each new stage plan should state which core product gap it closes in the
 collect -> match -> report pipeline.
 
-Use this command form for plan reviews:
+Use this command form for the Claude Code plan review (primary):
+
+```bash
+tmp_review="$(mktemp)"
+claude --effort max --permission-mode plan --no-session-persistence \
+  --tools Read,Grep,Glob,LS,Bash \
+  -p "review prompt..." > "$tmp_review"
+sed -n '1,500p' "$tmp_review"
+cp "$tmp_review" docs/reviews/claude-code-stage-N-plan-review.md
+rm -f "$tmp_review"
+```
+
+Use this command form for the opencode plan revision (and fallback review).
 
 ```bash
 tmp_review="$(mktemp)"
 opencode run --model zhipuai-coding-plan/glm-5.2 --variant max \
   --dir /home/ubuntu/fashion-radar "$(cat docs/reviews/opencode-stage-N-plan-review-prompt.md)" > "$tmp_review"
-sed -n '1,260p' "$tmp_review"
+sed -n '1,500p' "$tmp_review"
 cp "$tmp_review" docs/reviews/opencode-stage-N-plan-review.md
 rm -f "$tmp_review"
 ```
@@ -30,10 +48,10 @@ rm -f "$tmp_review"
 Each implementation stage must end with:
 
 1. Fresh tests and lint checks.
-2. Local opencode review of newly added code
-   (`docs/reviews/opencode-stage-N-code-review.md`).
+2. Local Claude Code review of newly added code
+   (`docs/reviews/claude-code-stage-N-code-review.md`).
 3. Fixes for critical and important findings.
-4. Local opencode review of the next-stage plan.
+4. Local Claude Code review of the next-stage plan.
 
 For the current v0.1.x release track, stage proposals should prioritize curated
 public-source coverage using source-liveness evidence and deterministic
@@ -53,18 +71,31 @@ Before pushing to GitHub:
    dashboard extra smoke checks.
 4. Check for secrets, cookies, tokens, private data, generated reports, local
    SQLite databases, SQLite sidecars, build artifacts, and CodeGraph DB files.
-5. Ask local opencode with `zhipuai-coding-plan/glm-5.2 --variant max` for final
-   code and documentation review.
+5. Ask local Claude Code for final code and documentation review (primary).
 6. Fix critical and important findings.
 7. Let the user create or choose the GitHub remote.
 
-Use the same local opencode command form for release reviews:
+Use this command form for the Claude Code release review (primary):
+
+```bash
+tmp_review="$(mktemp)"
+claude --effort max --permission-mode plan --no-session-persistence \
+  --tools Read,Grep,Glob,LS,Bash \
+  -p "release review prompt..." > "$tmp_review"
+sed -n '1,500p' "$tmp_review"
+cp "$tmp_review" docs/reviews/claude-code-stage-N-release-review.md
+rm -f "$tmp_review"
+```
+
+If Claude Code is unavailable, an independent opencode agent
+(`zhipuai-coding-plan/glm-5.2 --variant max`) is the fallback reviewer. Use this
+command form for the opencode fallback release review:
 
 ```bash
 tmp_review="$(mktemp)"
 opencode run --model zhipuai-coding-plan/glm-5.2 --variant max \
   --dir /home/ubuntu/fashion-radar "$(cat docs/reviews/opencode-stage-N-release-review-prompt.md)" > "$tmp_review"
-sed -n '1,260p' "$tmp_review"
+sed -n '1,500p' "$tmp_review"
 cp "$tmp_review" docs/reviews/opencode-stage-N-release-review.md
 rm -f "$tmp_review"
 ```
@@ -107,11 +138,10 @@ review times out, record the timeout honestly in a separate scratch location and
 retry with a narrower prompt; committed review artifacts must not be timeout
 stubs or partial output presented as approval.
 
-## Optional Alternate Route
+## Primary Review Route (Claude Code)
 
-Claude Code is an optional alternate route only when a stage explicitly requests
-it. In that case, use `--effort max`, read-only plan mode, no session
-persistence, and the `claude-code-stage-N-...` review artifact prefix.
+Claude Code is the primary reviewer for plan, code, and release reviews. Use
+`--effort max`, read-only plan mode, and no session persistence:
 
 ```bash
 claude --effort max --permission-mode plan --no-session-persistence \
@@ -119,7 +149,7 @@ claude --effort max --permission-mode plan --no-session-persistence \
   -p "review prompt..."
 ```
 
-Use this convention for optional Claude Code reviews:
+Use this convention for Claude Code reviews:
 
 ```text
 docs/reviews/claude-code-stage-N-plan-review.md
@@ -128,4 +158,15 @@ docs/reviews/claude-code-stage-N-release-review.md
 docs/reviews/claude-code-stage-N-plan-rereview.md
 docs/reviews/claude-code-stage-N-code-rereview.md
 docs/reviews/claude-code-stage-N-release-rereview.md
+```
+
+## opencode Revision And Fallback
+
+After Claude Code's plan review, opencode revises the plan based on that review
+and its own judgment. opencode (`zhipuai-coding-plan/glm-5.2 --variant max`) is
+also the fallback reviewer for any review type when Claude Code is unavailable.
+
+```bash
+opencode run --model zhipuai-coding-plan/glm-5.2 --variant max \
+  --dir /home/ubuntu/fashion-radar "review prompt..."
 ```

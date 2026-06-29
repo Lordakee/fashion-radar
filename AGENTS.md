@@ -7,14 +7,17 @@ paywall bypass, or fragile full social-platform scraping.
 ## Review Gates
 
 - Follow the staged review workflow in `docs/REVIEW_PROTOCOL.md`.
+- Claude Code is the **primary reviewer** for plan, code, and release reviews.
 - Before starting a new stage, submit the objective, architecture, tech stack,
-  implementation method, and plan to local opencode with
-  `zhipuai-coding-plan/glm-5.2 --variant max` for review.
-- After completing a development node, run fresh verification and request
-  local opencode review of the new code before moving to the next stage.
+  implementation method, and plan to local Claude Code for review.
+- After Claude Code's review, local opencode revises the plan based on that
+  review and its own judgment. local opencode is also the fallback reviewer when
+  Claude Code is unavailable.
+- After completing a development node, run fresh verification and request local
+  Claude Code review of the new code before moving to the next stage.
 - Record active plan, code, release, and rereview artifacts under
-  `docs/reviews/opencode-stage-N-...`.
-- Before committing review artifacts, ensure each local opencode record contains
+  `docs/reviews/claude-code-stage-N-...` and `docs/reviews/opencode-stage-N-...`.
+- Before committing review artifacts, ensure each review record contains
   completed review output and no live-capture stubs, duplicated or truncated
   text, tool-status messages, or empty output.
 - Fix critical and important review findings before continuing.
@@ -23,21 +26,21 @@ paywall bypass, or fragile full social-platform scraping.
 
 - When spawning Codex subagents for this project, set the subagent reasoning
   effort to `xhigh`.
-- When invoking local opencode for plan or code review, use GLM 5.2 with the max
-  variant:
-
-  ```bash
-  opencode run --model zhipuai-coding-plan/glm-5.2 --variant max \
-    --dir /home/ubuntu/fashion-radar "review prompt..."
-  ```
-
-- If a stage explicitly switches review back to local Claude Code, use
-  `--effort max`, read-only plan mode, and no session persistence:
+- Claude Code is the primary reviewer. Use `--effort max`, read-only plan mode,
+  and no session persistence for plan, code, and release reviews:
 
   ```bash
   claude --effort max --permission-mode plan --no-session-persistence \
     --tools Read,Grep,Glob,LS,Bash \
     -p "review prompt..."
+  ```
+
+- When local opencode revises a plan after Claude Code's review, or acts as the
+  fallback reviewer, use GLM 5.2 with the max variant:
+
+  ```bash
+  opencode run --model zhipuai-coding-plan/glm-5.2 --variant max \
+    --dir /home/ubuntu/fashion-radar "review prompt..."
   ```
 
 ## Dependencies And Mirrors

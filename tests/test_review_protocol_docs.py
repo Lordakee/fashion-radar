@@ -19,7 +19,7 @@ ACTIVE_REVIEW_DOCS = [
 ]
 
 ACTIVE_OPENCODE_COMMAND = "opencode run --model zhipuai-coding-plan/glm-5.2 --variant max"
-OPTIONAL_CLAUDE_CODE_COMMAND = "claude --effort max --permission-mode plan --no-session-persistence"
+PRIMARY_CLAUDE_CODE_COMMAND = "claude --effort max --permission-mode plan --no-session-persistence"
 REVIEW_CAPTURE_HYGIENE_REQUIRED_PHRASES = (
     "review capture hygiene",
     "capture the completed reviewer output",
@@ -98,8 +98,11 @@ def test_active_review_docs_document_local_opencode_gate() -> None:
 
     assert not failures, "\n".join(failures)
 
+    agents_text = _read(AGENTS)
+    assert "docs/reviews/claude-code-stage-N" in _normalized_text(agents_text)
 
-def test_active_review_protocol_documents_opencode_gate_and_claude_alternate() -> None:
+
+def test_active_review_protocol_documents_opencode_gate_and_claude_primary() -> None:
     agents_text = _read(AGENTS)
     protocol_text = _read(REVIEW_PROTOCOL)
     naming_section = _section(protocol_text, "Review Record Naming")
@@ -111,8 +114,12 @@ def test_active_review_protocol_documents_opencode_gate_and_claude_alternate() -
     assert "reasoning effort to `xhigh`" in _normalized_text(agents_text)
     assert ACTIVE_OPENCODE_COMMAND in normalized_protocol
     assert ACTIVE_OPENCODE_COMMAND in normalized_checklist
-    assert OPTIONAL_CLAUDE_CODE_COMMAND in normalized_protocol
-    assert "optional alternate" in normalized_protocol.casefold()
+    assert PRIMARY_CLAUDE_CODE_COMMAND in normalized_checklist
+    assert PRIMARY_CLAUDE_CODE_COMMAND in normalized_protocol
+    assert "primary reviewer" in normalized_protocol.casefold()
+    assert "opencode revises the plan" in normalized_protocol.casefold()
+    assert "fallback" in normalized_protocol.casefold()
+    assert "optional alternate" not in normalized_protocol.casefold()
     assert "historical audit records" not in protocol_text
     assert "older `opencode-*` records" not in protocol_text
 

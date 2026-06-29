@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Phase 1 sub-stage 1a makes Claude Code the primary reviewer for plan, code,
+  and release reviews, with opencode (`zhipuai-coding-plan/glm-5.2 --variant max`)
+  revising plans after Claude Code's review and acting as fallback reviewer when
+  Claude Code is unavailable. The three review types, artifact naming, and
+  roadmap-focus wording are unchanged; review-capture `sed` output caps widened
+  from 260 to 500 lines so long review bodies are not truncated in stored
+  artifacts. This is a docs and docs-guard change only; no source, schema,
+  dependency, collector, or model change.
+
 ### Fixed
 
 - Stage 203 makes release hygiene reject mirror/private index material in the

@@ -537,28 +537,34 @@ Before upload:
 
 1. Run full verification.
 2. Sync and check CodeGraph if it is being used.
-3. Run a final local opencode code and documentation review with
-   `zhipuai-coding-plan/glm-5.2 --variant max`.
+3. Run a final local Claude Code code and documentation review (primary).
 4. Fix all Critical and Important findings.
 5. Let the user choose or create the GitHub remote and push.
 
-Use this command form:
+Use this command form for the Claude Code final review (primary):
+
+```bash
+claude --effort max --permission-mode plan --no-session-persistence \
+  --tools Read,Grep,Glob,LS,Bash \
+  -p "review prompt..."
+```
+
+Follow `docs/REVIEW_PROTOCOL.md` for review record naming and record the final
+review as `docs/reviews/claude-code-stage-N-release-review.md`. If Claude Code
+is unavailable, local opencode (`zhipuai-coding-plan/glm-5.2 --variant max`) is
+the fallback reviewer; record that as
+`docs/reviews/opencode-stage-N-release-review.md`:
 
 ```bash
 opencode run --model zhipuai-coding-plan/glm-5.2 --variant max \
   --dir /home/ubuntu/fashion-radar "review prompt..."
 ```
 
-Follow `docs/REVIEW_PROTOCOL.md` for review record naming and record the final
-review as `docs/reviews/opencode-stage-N-release-review.md`. Claude Code
-`--effort max` remains an optional alternate route only when a stage explicitly
-requests it.
-
-Before upload, confirm the final local opencode release-review artifact contains
-review capture hygiene notes. Capture the completed reviewer output into a
-temporary file first, inspect it, and copy one coherent review body directly
-into the target review record. Do not commit live-capture stubs, duplicated or
-truncated text, empty output, multiple top-level review drafts, more than one
-verdict, or partial output as approval. Do not commit tool status lines such as
-`Wrote`, and do not duplicate approval phrases. If the review times out, record
-the timeout honestly instead of treating partial output as approval.
+Before upload, confirm the final release-review artifact contains review capture
+hygiene notes. Capture the completed reviewer output into a temporary file
+first, inspect it, and copy one coherent review body directly into the target
+review record. Do not commit live-capture stubs, duplicated or truncated text,
+empty output, multiple top-level review drafts, more than one verdict, or
+partial output as approval. Do not commit tool status lines such as `Wrote`,
+and do not duplicate approval phrases. If the review times out, record the
+timeout honestly instead of treating partial output as approval.
