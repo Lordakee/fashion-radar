@@ -48,6 +48,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 2 (Xiaohongshu) complete: Stages 221-223 evolved the social boundary to
+  opt-in/use-at-your-own-risk and added the Xiaohongshu collector via external
+  xiaohongshu-mcp (login owned by the tool; Fashion Radar reads over local MCP
+  HTTP; fail-closed). No demand proof, no platform coverage verification;
+  Instagram/X/YouTube remain for Phases 3-5.
+
 - Stage 222 adds opt-in Xiaohongshu (小红书) acquisition via an external
   `xiaohongshu-mcp` server (the user installs/runs/logs in; Fashion Radar reads
   results over local MCP HTTP). Login-based, use-at-your-own-risk, fail-closed

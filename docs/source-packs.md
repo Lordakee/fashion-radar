@@ -131,7 +131,9 @@ handle login or store cookies itself.
 
 Users are responsible for respecting Xiaohongshu's terms. Signals are local
 observed only; they provide no demand proof and no platform coverage
-verification.
+verification. MCP response field names can vary by xiaohongshu-mcp version; on
+your first live run, inspect the raw `search_feeds` / `get_feed_detail` output
+if fields look off, and report mismatches as a follow-up.
 
 ## Check Pack Quality
 

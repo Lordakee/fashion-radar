@@ -1,7 +1,7 @@
 # Phase 2 — Social Acquisition (Xiaohongshu) Design
 
 - **Date:** 2026-06-30
-- **Status:** Active mainline (project owner overturned the no-social-scraping boundary; Phase 2 = first social platform).
+- **Status:** Complete — Phase 2 (Xiaohongshu) shipped as Stages 221-223. Phase 3 (Instagram via instaloader) is next.
 - **Predecessor:** Phase 1 (web acquisition) complete at `2c389d0`.
 - **Review flow:** iron rule 2 (Claude Code primary reviewer; opencode `glm-5.2 --variant max` revises/fallback). Each stage: plan → Claude Code plan review → opencode revision → TDD implement → Claude Code code review → commit/push.
 

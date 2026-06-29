@@ -52,6 +52,7 @@ reports/**/*.eml
 reports/**/*.txt
 cookies*.txt
 cookies*.json
+cookies*.db
 session*.json
 storage-state*.json
 browser-profiles/
