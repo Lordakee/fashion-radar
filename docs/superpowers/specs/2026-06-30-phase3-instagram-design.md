@@ -1,7 +1,8 @@
 # Phase 3 — Social Acquisition (Instagram) Design
 
 - **Date:** 2026-06-30
-- **Status:** Active mainline. Phase 1 (web) + Phase 2 (Xiaohongshu) complete at `3bf3c7c`.
+- **Status:** Complete — Phase 3 (Instagram) shipped as Stages 231-233. Phase 4 (X via twitter-cli) is next.
+- **Shipped as:** a library import (`import instaloader`, optional via `try/except`, session reuse via `load_session_from_config`, lazy `itertools.islice` bounding) — NOT the subprocess-CLI design originally proposed in the Architecture/Credential/Tech-Stack sections below. Those sections describe the superseded approach and are retained for history; see the Stage 232 plan (`docs/superpowers/plans/2026-06-30-stage-232-instagram-collector-plan.md`) for the shipped design.
 - **Review flow:** iron rule 2 (Claude Code primary; opencode `glm-5.2 --variant max` revises/fallback).
 
 ## Goal

@@ -135,6 +135,30 @@ verification. MCP response field names can vary by xiaohongshu-mcp version; on
 your first live run, inspect the raw `search_feeds` / `get_feed_detail` output
 if fields look off, and report mismatches as a follow-up.
 
+## Instagram (Opt-In)
+
+Instagram acquisition is opt-in and use-at-your-own-risk. Fashion Radar reads
+posts via the user-installed `instaloader` library (hashtag or profile); the
+user installs instaloader and creates a login session once
+(`instaloader --login=<user>`). Fashion Radar reuses that session and never
+handles passwords.
+
+```yaml
+- name: "Instagram: The Row"
+  type: instagram
+  query: "therow"
+  instagram:
+    login_user: "your_ig_account"
+    target_type: "hashtag"
+    max_posts_per_run: 20
+```
+
+Users are responsible for respecting Instagram's terms. Anonymous (no login)
+hashtag access is heavily throttled/blocked, so empty or skipped runs without a
+session are expected. Signals are local observed only; they provide no demand
+proof and no platform coverage verification. instaloader's Post field names can
+vary by version; on your first live run, inspect the output if fields look off.
+
 ## Check Pack Quality
 
 Before copying or editing a pack, run the local linter:

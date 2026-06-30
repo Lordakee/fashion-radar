@@ -152,3 +152,15 @@ def test_source_boundaries_docs_describe_sitemap_discovery() -> None:
         "bounded per run",
     ):
         assert phrase.casefold() in normalized, f"missing {phrase!r}"
+
+
+def test_source_boundaries_docs_describe_instagram_opt_in() -> None:
+    normalized = _normalized(_read_source_boundaries_doc())
+
+    for phrase in (
+        "instagram via instaloader",
+        "login-required",
+        "use-at-your-own-risk",
+        "no demand proof and no platform coverage verification",
+    ):
+        assert phrase.casefold() in normalized, f"missing {phrase!r}"

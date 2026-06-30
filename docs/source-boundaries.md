@@ -242,6 +242,11 @@ These connectors may be useful but must require explicit user enablement:
   and logs into the external tool, and Fashion Radar only reads results over its
   local MCP HTTP endpoint. It provides no demand proof and no platform coverage
   verification.
+- Instagram via instaloader (Phase 3): login-required (the user runs
+  `instaloader --login=<user>` once to create a session), use-at-your-own-risk;
+  the user installs instaloader separately and Fashion Radar only reuses the
+  saved session (no password handling). It provides no demand proof and no
+  platform coverage verification.
 
 Opt-in connectors must document their limits and should fail closed when credentials or access are missing.
 

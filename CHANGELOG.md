@@ -48,6 +48,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 3 (Instagram) complete: Stages 231-233 added Instagram source plumbing
+  and the Instagram collector via the user-installed `instaloader` library
+  (login session reused, fail-closed, bounded). Opt-in, use-at-your-own-risk;
+  no demand proof, no platform coverage verification. X/YouTube remain for
+  Phases 4-5.
+
 - Phase 2 (Xiaohongshu) complete: Stages 221-223 evolved the social boundary to
   opt-in/use-at-your-own-risk and added the Xiaohongshu collector via external
   xiaohongshu-mcp (login owned by the tool; Fashion Radar reads over local MCP
