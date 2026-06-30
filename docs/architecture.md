@@ -53,7 +53,7 @@ YAML config
   The command prints table or JSON diagnostics only: it does not collect, store,
   score, match, report, open SQLite, update source health, fetch article pages,
   or prove demand or coverage.
-- **Collectors:** RSS/RSSHub-compatible feeds, GDELT Doc API metadata, HTML page collection of configured seed URLs, and sitemap discovery of article URLs, via trafilatura (optional `article` extra, robots-respecting, no link crawling); plus opt-in Xiaohongshu (xiaohongshu-mcp) and Instagram (instaloader) — login-required, use-at-your-own-risk.
+- **Collectors:** RSS/RSSHub-compatible feeds, GDELT Doc API metadata, HTML page collection of configured seed URLs, and sitemap discovery of article URLs, via trafilatura (optional `article` extra, robots-respecting, no link crawling); plus opt-in Xiaohongshu (xiaohongshu-mcp), Instagram (instaloader), and Twitter/X (twitter-cli) — login-required, use-at-your-own-risk.
   Collectors return normalized items and do not write directly to SQLite.
 - **Manual Import:** Local CSV/JSON user-provided signal files are parsed as an
   input path only. They are not connectors or platform collection workflows.

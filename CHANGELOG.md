@@ -48,6 +48,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 4 (Twitter/X) complete: Stages 241-243 added Twitter source plumbing
+  and the Twitter collector via the external `twitter-cli` CLI (the user is
+  logged into x.com in their browser; Fashion Radar shells out to
+  `twitter search --json` and parses output — no cookie handling). Opt-in,
+  use-at-your-own-risk, fail-closed, bounded; no demand proof, no platform
+  coverage verification. Only YouTube remains (Phase 5).
+
 - Phase 3 (Instagram) complete: Stages 231-233 added Instagram source plumbing
   and the Instagram collector via the user-installed `instaloader` library
   (login session reused, fail-closed, bounded). Opt-in, use-at-your-own-risk;

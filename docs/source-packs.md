@@ -159,6 +159,28 @@ session are expected. Signals are local observed only; they provide no demand
 proof and no platform coverage verification. instaloader's Post field names can
 vary by version; on your first live run, inspect the output if fields look off.
 
+## Twitter / X (Opt-In)
+
+Twitter/X acquisition is opt-in and use-at-your-own-risk. Fashion Radar reads
+search results via the user-installed `twitter-cli` CLI; the user installs
+twitter-cli (`pipx install twitter-cli`) and is logged into x.com in their
+browser (twitter-cli reads that cookie session). Fashion Radar only shells out
+to `twitter search ... --json` and parses the output — it never handles
+cookies/credentials.
+
+```yaml
+- name: "X: The Row"
+  type: twitter
+  query: "the row handbag"
+  twitter:
+    max_tweets_per_run: 20
+```
+
+Users are responsible for respecting X's terms. Signals are local observed
+only; they provide no demand proof and no platform coverage verification.
+twitter-cli's JSON output shape can vary by version; on your first live run,
+inspect the output if fields look off.
+
 ## Check Pack Quality
 
 Before copying or editing a pack, run the local linter:

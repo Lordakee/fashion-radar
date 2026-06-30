@@ -247,6 +247,12 @@ These connectors may be useful but must require explicit user enablement:
   the user installs instaloader separately and Fashion Radar only reuses the
   saved session (no password handling). It provides no demand proof and no
   platform coverage verification.
+- Twitter/X via twitter-cli (Phase 4): login-required (the user is logged into
+  x.com in their browser; twitter-cli reads that cookie session),
+  use-at-your-own-risk; Fashion Radar only shells out to
+  `twitter search ... --json` and parses the output — it never handles
+  cookies/credentials. It provides no demand proof and no platform coverage
+  verification.
 
 Opt-in connectors must document their limits and should fail closed when credentials or access are missing.
 

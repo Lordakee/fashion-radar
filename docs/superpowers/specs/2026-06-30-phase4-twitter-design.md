@@ -1,7 +1,7 @@
 # Phase 4 — Social Acquisition (X / Twitter) Design
 
 - **Date:** 2026-06-30
-- **Status:** Active mainline. Phases 1–3 complete at `e883fdb`.
+- **Status:** Complete — Phase 4 (Twitter/X) shipped as Stages 241-243. Phase 5 (YouTube via yt-dlp) is next.
 - **Review flow:** iron rule 2 (Claude Code primary; opencode `glm-5.2 --variant max` revises/fallback); superpowers writing-plans → executing-plans.
 
 ## Goal
