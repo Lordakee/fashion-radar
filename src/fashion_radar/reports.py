@@ -745,22 +745,26 @@ def _render_source_health(source_health_reports: list[SourceHealthReport]) -> st
 
 def _render_source_health_line(source: SourceHealthReport) -> str:
     unhealthy_until = source.unhealthy_until.isoformat() if source.unhealthy_until else "n/a"
+    safe_error = report_safe_snippet(source.last_error_message)
     return (
         f"- {source.source_name} ({source.source_type}): "
         f"{source.consecutive_failures} consecutive failures; "
         f"unhealthy until {unhealthy_until}; "
-        f"{source.last_error_message or 'no error'}"
+        f"{safe_error or 'no error'}"
     )
 
 
 def _render_recent_runs(recent_runs: list[CollectorRunReport]) -> str:
     if not recent_runs:
         return "No recent collector runs recorded."
-    return "\n".join(
-        (
+    lines: list[str] = []
+    for run in recent_runs:
+        line = (
             f"- {run.started_at.isoformat()} {run.source_name} ({run.source_type}) "
             f"{run.status}: {run.items_stored}/{run.items_seen} stored"
-            + (f"; {run.error_message}" if run.error_message else "")
         )
-        for run in recent_runs
-    )
+        safe_error = report_safe_snippet(run.error_message)
+        if safe_error:
+            line += f"; {safe_error}"
+        lines.append(line)
+    return "\n".join(lines)

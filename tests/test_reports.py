@@ -41,6 +41,9 @@ from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, Sco
 
 AS_OF = datetime(2026, 6, 11, 12, 0, tzinfo=UTC)
 LONG_SUMMARY = "Lead text. " + ("detail " * 120) + "TAIL_MARKER"
+LONG_ERROR = "timeout: " + ("retry detail " * 80) + "TAIL_MARKER"
+MULTILINE_ERROR = "connection reset\n  by peer\n\nretry exhausted TAIL_MARKER"
+WHITESPACE_ONLY_ERROR = "   \n\t  "
 
 
 def _source(name: str = "Vogue Business") -> SourceDefinition:
@@ -1067,3 +1070,196 @@ def test_report_candidate_filter_uses_entity_config_without_stored_matches(tmp_p
         "margaux"
         not in json.dumps([candidate.model_dump() for candidate in report.candidates]).lower()
     )
+
+
+def test_markdown_source_health_collapses_and_truncates_long_error() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF),
+        source_health=[
+            SourceHealthReport(
+                source_name="WWD",
+                source_type="rss",
+                consecutive_failures=3,
+                unhealthy_until=AS_OF + timedelta(hours=1),
+                last_error_message=LONG_ERROR,
+            )
+        ],
+    )
+
+    markdown = render_markdown_report(report)
+    source_health_section = markdown.split("## Source Health", 1)[1].split(
+        "## Recent Collector Runs", 1
+    )[0]
+
+    assert "WWD (rss)" in source_health_section
+    assert "3 consecutive failures" in source_health_section
+    assert "TAIL_MARKER" not in source_health_section
+    assert "retry detail" in source_health_section
+    assert source_health_section.rstrip().endswith("...")
+
+
+def test_markdown_source_health_collapses_multiline_error() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF),
+        source_health=[
+            SourceHealthReport(
+                source_name="Fashionista",
+                source_type="rss",
+                consecutive_failures=2,
+                last_error_message=MULTILINE_ERROR,
+            )
+        ],
+    )
+
+    markdown = render_markdown_report(report)
+    source_health_section = markdown.split("## Source Health", 1)[1].split(
+        "## Recent Collector Runs", 1
+    )[0]
+
+    assert "connection reset by peer retry exhausted TAIL_MARKER" in source_health_section
+    assert "connection reset\n  by peer" not in source_health_section
+    assert "retry exhausted TAIL_MARKER" in source_health_section
+
+
+def test_markdown_source_health_without_error_keeps_no_error_fallback() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF),
+        source_health=[
+            SourceHealthReport(
+                source_name="WWD",
+                source_type="rss",
+                consecutive_failures=0,
+                last_error_message=None,
+            )
+        ],
+    )
+
+    markdown = render_markdown_report(report)
+    source_health_section = markdown.split("## Source Health", 1)[1].split(
+        "## Recent Collector Runs", 1
+    )[0]
+
+    assert "no error" in source_health_section
+    assert "None" not in source_health_section
+
+
+def test_markdown_recent_runs_collapses_and_truncates_long_error() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF),
+        recent_runs=[
+            CollectorRunReport(
+                source_name="WWD",
+                source_type="rss",
+                status="failed",
+                started_at=AS_OF - timedelta(minutes=5),
+                finished_at=AS_OF - timedelta(minutes=4),
+                items_seen=0,
+                items_stored=0,
+                error_message=LONG_ERROR,
+            )
+        ],
+    )
+
+    markdown = render_markdown_report(report)
+    recent_runs_section = markdown.split("## Recent Collector Runs", 1)[1]
+
+    assert "WWD (rss)" in recent_runs_section
+    assert "failed" in recent_runs_section
+    assert "0/0 stored" in recent_runs_section
+    assert "TAIL_MARKER" not in recent_runs_section
+    assert "retry detail" in recent_runs_section
+    assert recent_runs_section.rstrip().endswith("...")
+
+
+def test_markdown_recent_runs_collapses_multiline_error() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF),
+        recent_runs=[
+            CollectorRunReport(
+                source_name="Fashionista",
+                source_type="rss",
+                status="failed",
+                started_at=AS_OF - timedelta(minutes=5),
+                finished_at=AS_OF - timedelta(minutes=4),
+                items_seen=4,
+                items_stored=2,
+                error_message=MULTILINE_ERROR,
+            )
+        ],
+    )
+
+    markdown = render_markdown_report(report)
+    recent_runs_section = markdown.split("## Recent Collector Runs", 1)[1]
+
+    assert "connection reset by peer retry exhausted TAIL_MARKER" in recent_runs_section
+    assert "connection reset\n  by peer" not in recent_runs_section
+
+
+def test_markdown_recent_runs_omits_error_segment_when_snippet_is_none() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF),
+        recent_runs=[
+            CollectorRunReport(
+                source_name="WWD",
+                source_type="rss",
+                status="ok",
+                started_at=AS_OF - timedelta(minutes=5),
+                finished_at=AS_OF - timedelta(minutes=4),
+                items_seen=9,
+                items_stored=9,
+                error_message=WHITESPACE_ONLY_ERROR,
+            ),
+            CollectorRunReport(
+                source_name="Fashionista",
+                source_type="rss",
+                status="ok",
+                started_at=AS_OF - timedelta(minutes=3),
+                finished_at=AS_OF - timedelta(minutes=2),
+                items_seen=7,
+                items_stored=7,
+                error_message=None,
+            ),
+        ],
+    )
+
+    markdown = render_markdown_report(report)
+    recent_runs_section = markdown.split("## Recent Collector Runs", 1)[1]
+
+    wwd_line = next(line for line in recent_runs_section.splitlines() if "WWD (rss)" in line)
+    fashionista_line = next(
+        line for line in recent_runs_section.splitlines() if "Fashionista (rss)" in line
+    )
+    assert wwd_line.endswith("9/9 stored")
+    assert ";" not in wwd_line
+    assert fashionista_line.endswith("7/7 stored")
+    assert ";" not in fashionista_line
+
+
+def test_json_report_keeps_raw_source_health_and_run_error_fields() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF),
+        source_health=[
+            SourceHealthReport(
+                source_name="WWD",
+                source_type="rss",
+                consecutive_failures=3,
+                last_error_message=LONG_ERROR,
+            )
+        ],
+        recent_runs=[
+            CollectorRunReport(
+                source_name="WWD",
+                source_type="rss",
+                status="failed",
+                started_at=AS_OF - timedelta(minutes=5),
+                items_seen=0,
+                items_stored=0,
+                error_message=MULTILINE_ERROR,
+            )
+        ],
+    )
+
+    parsed = json.loads(render_json_report(report))
+
+    assert parsed["source_health"][0]["last_error_message"] == LONG_ERROR
+    assert parsed["recent_runs"][0]["error_message"] == MULTILINE_ERROR

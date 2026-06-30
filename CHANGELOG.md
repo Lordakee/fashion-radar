@@ -19,6 +19,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Stage 210 collapses whitespace and truncates long collector and source error
+  messages to report-safe snippets in the Markdown Source Health and Recent
+  Collector Runs sections, without changing JSON report error fields, report
+  model contracts, scoring, ranking, source acquisition, dashboard behavior,
+  social or platform connectors, scraping, dependency files, or
+  compliance-review behavior.
+
 - Stage 203 makes release hygiene reject mirror/private index material in the
   public root `uv.lock`, while keeping frozen local mirror installs allowed and
   avoiding dependency, source, connector, scraper, platform coverage, demand
