@@ -104,3 +104,20 @@ def test_twitter_source_with_query_is_valid() -> None:
     assert source.query == "therow"
     assert source.twitter.output_format == "json"
     assert source.twitter.max_tweets_per_run == 20
+
+
+def test_source_type_includes_youtube_value() -> None:
+    assert SourceType.YOUTUBE == "youtube"
+
+
+def test_youtube_source_requires_query() -> None:
+    with pytest.raises(ValidationError, match="youtube source requires query"):
+        SourceDefinition(name="YT", type=SourceType.YOUTUBE)
+
+
+def test_youtube_source_with_query_is_valid() -> None:
+    source = SourceDefinition(name="YT", type=SourceType.YOUTUBE, query="fashion week")
+
+    assert source.query == "fashion week"
+    assert source.youtube.search_prefix == "ytsearch"
+    assert source.youtube.max_videos_per_run == 20

@@ -13,6 +13,7 @@ from fashion_radar.collectors.runner import collect_sources
 from fashion_radar.collectors.sitemap import SitemapCollector
 from fashion_radar.collectors.twitter import TwitterCollector
 from fashion_radar.collectors.xiaohongshu import XiaohongshuCollector
+from fashion_radar.collectors.youtube import YouTubeCollector
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository, PruneResult
 from fashion_radar.db.schema import initialize_schema
@@ -128,4 +129,5 @@ def _default_collectors() -> dict[SourceType, object]:
         SourceType.XIAOHONGSHU: XiaohongshuCollector(),
         SourceType.INSTAGRAM: InstagramCollector(),
         SourceType.TWITTER: TwitterCollector(),
+        SourceType.YOUTUBE: YouTubeCollector(),
     }

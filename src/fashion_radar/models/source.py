@@ -15,6 +15,7 @@ class SourceType(StrEnum):
     XIAOHONGSHU = "xiaohongshu"
     INSTAGRAM = "instagram"
     TWITTER = "twitter"
+    YOUTUBE = "youtube"
     MANUAL_IMPORT = "manual_import"
 
 
@@ -81,6 +82,14 @@ class TwitterSourceSettings(BaseModel):
     output_format: Literal["json", "text"] = "json"
 
 
+class YouTubeSourceSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ytdlp_path: str | None = None
+    max_videos_per_run: int = Field(default=20, gt=0, le=200)
+    search_prefix: Literal["ytsearch", "ytsearchdate"] = "ytsearch"
+
+
 class SourceHealthSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -105,6 +114,7 @@ class SourceDefinition(BaseModel):
     xiaohongshu: XiaohongshuSourceSettings = Field(default_factory=XiaohongshuSourceSettings)
     instagram: InstagramSourceSettings = Field(default_factory=InstagramSourceSettings)
     twitter: TwitterSourceSettings = Field(default_factory=TwitterSourceSettings)
+    youtube: YouTubeSourceSettings = Field(default_factory=YouTubeSourceSettings)
     health: SourceHealthSettings = Field(default_factory=SourceHealthSettings)
 
     @field_validator("name")
@@ -132,4 +142,6 @@ class SourceDefinition(BaseModel):
             raise ValueError("instagram source requires query")
         if self.type == SourceType.TWITTER and not self.query:
             raise ValueError("twitter source requires query")
+        if self.type == SourceType.YOUTUBE and not self.query:
+            raise ValueError("youtube source requires query")
         return self

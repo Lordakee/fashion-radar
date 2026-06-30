@@ -80,6 +80,7 @@ def collect_sources(
                 SourceType.XIAOHONGSHU,
                 SourceType.INSTAGRAM,
                 SourceType.TWITTER,
+                SourceType.YOUTUBE,
             }
         ):
             source_article_extractor, close_article_extractor = _default_article_extractor(source)
@@ -107,6 +108,7 @@ def collect_sources(
                 SourceType.XIAOHONGSHU,
                 SourceType.INSTAGRAM,
                 SourceType.TWITTER,
+                SourceType.YOUTUBE,
             }:
                 result = result.model_copy(
                     update={
