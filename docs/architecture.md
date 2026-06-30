@@ -419,8 +419,9 @@ account or cookie work.
 
 The core collector set is RSS, RSSHub-compatible feeds, GDELT, HTML seed-URL collection, and sitemap discovery. Manual signal
 import is a local input path for user-provided CSV/JSON files, not a connector
-or platform collector. Opt-in social-platform collection (Phase 2: Xiaohongshu)
-is use-at-your-own-risk, non-core, and provides no demand proof or platform
+or platform collector. Opt-in social-platform collection (Phase 2-5:
+Xiaohongshu, Instagram, Twitter/X, YouTube) is use-at-your-own-risk, non-core,
+and provides no demand proof or platform
 coverage verification. See
 [source-boundaries.md](source-boundaries.md).
 

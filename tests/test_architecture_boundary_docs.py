@@ -32,7 +32,10 @@ def test_architecture_source_boundary_keeps_core_scope_and_local_import_limits()
         "manual signal import is a local input path",
         "user-provided csv/json files",
         "not a connector or platform collector",
-        "opt-in social-platform collection (phase 2: xiaohongshu) is use-at-your-own-risk",
+        (
+            "opt-in social-platform collection (phase 2-5: xiaohongshu, "
+            "instagram, twitter/x, youtube) is use-at-your-own-risk"
+        ),
         "source-boundaries.md",
     ):
         assert phrase in normalized

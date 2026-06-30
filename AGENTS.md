@@ -2,8 +2,9 @@
 
 Fashion Radar is a free-first, local-first open source project. Keep the core
 workflow usable without paid APIs, login cookies, proxy pools, CAPTCHA bypass,
-or paywall bypass by default; opt-in social-platform collection (Phase 2:
-Xiaohongshu) is use-at-your-own-risk and not enabled by default.
+or paywall bypass by default; opt-in social-platform collection (Phase 2-5:
+Xiaohongshu, Instagram, X, YouTube) is use-at-your-own-risk and not enabled by
+default.
 
 ## Review Gates
 
