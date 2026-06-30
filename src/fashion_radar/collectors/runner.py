@@ -79,6 +79,7 @@ def collect_sources(
                 SourceType.SITEMAP,
                 SourceType.XIAOHONGSHU,
                 SourceType.INSTAGRAM,
+                SourceType.TWITTER,
             }
         ):
             source_article_extractor, close_article_extractor = _default_article_extractor(source)
@@ -105,6 +106,7 @@ def collect_sources(
                 SourceType.SITEMAP,
                 SourceType.XIAOHONGSHU,
                 SourceType.INSTAGRAM,
+                SourceType.TWITTER,
             }:
                 result = result.model_copy(
                     update={

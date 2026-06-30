@@ -11,6 +11,7 @@ from fashion_radar.collectors.instagram import InstagramCollector
 from fashion_radar.collectors.rss import RssCollector
 from fashion_radar.collectors.runner import collect_sources
 from fashion_radar.collectors.sitemap import SitemapCollector
+from fashion_radar.collectors.twitter import TwitterCollector
 from fashion_radar.collectors.xiaohongshu import XiaohongshuCollector
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository, PruneResult
@@ -126,4 +127,5 @@ def _default_collectors() -> dict[SourceType, object]:
         SourceType.SITEMAP: SitemapCollector(),
         SourceType.XIAOHONGSHU: XiaohongshuCollector(),
         SourceType.INSTAGRAM: InstagramCollector(),
+        SourceType.TWITTER: TwitterCollector(),
     }

@@ -8,6 +8,7 @@ from fashion_radar.collectors.html import HtmlCollector
 from fashion_radar.collectors.instagram import InstagramCollector
 from fashion_radar.collectors.rss import RssCollector
 from fashion_radar.collectors.sitemap import SitemapCollector
+from fashion_radar.collectors.twitter import TwitterCollector
 from fashion_radar.collectors.xiaohongshu import XiaohongshuCollector
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
@@ -228,13 +229,14 @@ def test_clean_old_data_prunes_by_collected_at(tmp_path: Path) -> None:
     assert repository.count_items() == 0
 
 
-def test_default_collectors_register_html_sitemap_xiaohongshu_and_instagram() -> None:
+def test_default_collectors_register_html_sitemap_xiaohongshu_instagram_and_twitter() -> None:
     collectors = _default_collectors()
 
     assert isinstance(collectors[SourceType.HTML], HtmlCollector)
     assert isinstance(collectors[SourceType.SITEMAP], SitemapCollector)
     assert isinstance(collectors[SourceType.XIAOHONGSHU], XiaohongshuCollector)
     assert isinstance(collectors[SourceType.INSTAGRAM], InstagramCollector)
+    assert isinstance(collectors[SourceType.TWITTER], TwitterCollector)
     assert isinstance(collectors[SourceType.RSS], RssCollector)
     assert isinstance(collectors[SourceType.RSSHUB], RssCollector)
     assert isinstance(collectors[SourceType.GDELT], GdeltCollector)

@@ -14,6 +14,7 @@ class SourceType(StrEnum):
     SITEMAP = "sitemap"
     XIAOHONGSHU = "xiaohongshu"
     INSTAGRAM = "instagram"
+    TWITTER = "twitter"
     MANUAL_IMPORT = "manual_import"
 
 
@@ -72,6 +73,14 @@ class InstagramSourceSettings(BaseModel):
     target_type: Literal["hashtag", "profile"] = "hashtag"
 
 
+class TwitterSourceSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    twitter_cli_path: str | None = None
+    max_tweets_per_run: int = Field(default=20, gt=0, le=200)
+    output_format: Literal["json", "text"] = "json"
+
+
 class SourceHealthSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -95,6 +104,7 @@ class SourceDefinition(BaseModel):
     gdelt: GdeltSourceSettings = Field(default_factory=GdeltSourceSettings)
     xiaohongshu: XiaohongshuSourceSettings = Field(default_factory=XiaohongshuSourceSettings)
     instagram: InstagramSourceSettings = Field(default_factory=InstagramSourceSettings)
+    twitter: TwitterSourceSettings = Field(default_factory=TwitterSourceSettings)
     health: SourceHealthSettings = Field(default_factory=SourceHealthSettings)
 
     @field_validator("name")
@@ -120,4 +130,6 @@ class SourceDefinition(BaseModel):
             raise ValueError("xiaohongshu source requires query")
         if self.type == SourceType.INSTAGRAM and not self.query:
             raise ValueError("instagram source requires query")
+        if self.type == SourceType.TWITTER and not self.query:
+            raise ValueError("twitter source requires query")
         return self

@@ -87,3 +87,20 @@ def test_instagram_source_with_query_is_valid() -> None:
     assert source.query == "therow"
     assert source.instagram.target_type == "hashtag"
     assert source.instagram.max_posts_per_run == 20
+
+
+def test_source_type_includes_twitter_value() -> None:
+    assert SourceType.TWITTER == "twitter"
+
+
+def test_twitter_source_requires_query() -> None:
+    with pytest.raises(ValidationError, match="twitter source requires query"):
+        SourceDefinition(name="X", type=SourceType.TWITTER)
+
+
+def test_twitter_source_with_query_is_valid() -> None:
+    source = SourceDefinition(name="X", type=SourceType.TWITTER, query="therow")
+
+    assert source.query == "therow"
+    assert source.twitter.output_format == "json"
+    assert source.twitter.max_tweets_per_run == 20
