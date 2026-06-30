@@ -176,3 +176,15 @@ def test_source_boundaries_docs_describe_twitter_opt_in() -> None:
         "no demand proof and no platform coverage verification",
     ):
         assert phrase.casefold() in normalized, f"missing {phrase!r}"
+
+
+def test_source_boundaries_docs_describe_youtube_opt_in() -> None:
+    normalized = _normalized(_read_source_boundaries_doc())
+
+    for phrase in (
+        "youtube via yt-dlp",
+        "no login/cookies needed",
+        "use-at-your-own-risk",
+        "no demand proof and no platform coverage verification",
+    ):
+        assert phrase.casefold() in normalized, f"missing {phrase!r}"

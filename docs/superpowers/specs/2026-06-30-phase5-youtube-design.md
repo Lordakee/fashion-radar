@@ -1,7 +1,7 @@
 # Phase 5 — Social Acquisition (YouTube) Design
 
 - **Date:** 2026-06-30
-- **Status:** Active mainline. Phases 1–4 complete at `1502387`.
+- **Status:** Complete — Phase 5 (YouTube) shipped as Stages 251-253. All five acquisition targets (web + Xiaohongshu + Instagram + X + YouTube) are now complete.
 - **Review flow:** iron rule 2 (Claude Code primary; opencode `glm-5.2 --variant max` revises/fallback); superpowers writing-plans → executing-plans.
 
 ## Goal

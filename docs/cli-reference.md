@@ -67,7 +67,7 @@ validates deterministic sample output content, not only command execution.
   `--strict`.
 - `entity-pack-lint` PATH: lint one entity pack without matching or collecting;
   supports `--format table|json` and `--strict`.
-- `collect`: collect configured public sources into local SQLite (RSS/RSSHub/GDELT, plus `html`/`sitemap` via the optional `article` extra, and opt-in social `xiaohongshu` via xiaohongshu-mcp, `instagram` via instaloader, and `twitter` (X) via twitter-cli); supports
+- `collect`: collect configured public sources into local SQLite (RSS/RSSHub/GDELT, plus `html`/`sitemap` via the optional `article` extra, and opt-in social `xiaohongshu` via xiaohongshu-mcp, `instagram` via instaloader, `twitter` (X) via twitter-cli, and `youtube` via yt-dlp); supports
   `--config-dir`, `--data-dir`, and `--now`.
 - `match`: match configured entities against stored items; supports
   `--config-dir` and `--data-dir`.

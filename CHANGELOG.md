@@ -48,6 +48,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 5 (YouTube) complete: Stages 251-253 added YouTube source plumbing and
+  the YouTube collector via the external `yt-dlp` CLI (public data, no login;
+  Fashion Radar shells out to `yt-dlp --dump-json` and parses metadata).
+  Opt-in, use-at-your-own-risk, fail-closed, bounded; no demand proof, no
+  platform coverage verification.
+
+- All five acquisition targets now complete: official sites & news
+  (RSS/RSSHub + HTML + sitemap), Xiaohongshu, Instagram, X/Twitter, and
+  YouTube. Each is an opt-in, use-at-your-own-risk collector wrapping a mature
+  external tool, with Fashion Radar handling no login cookies/passwords
+  directly (YouTube needs no login at all).
+
 - Phase 4 (Twitter/X) complete: Stages 241-243 added Twitter source plumbing
   and the Twitter collector via the external `twitter-cli` CLI (the user is
   logged into x.com in their browser; Fashion Radar shells out to

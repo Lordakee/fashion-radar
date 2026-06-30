@@ -253,6 +253,11 @@ These connectors may be useful but must require explicit user enablement:
   `twitter search ... --json` and parses the output — it never handles
   cookies/credentials. It provides no demand proof and no platform coverage
   verification.
+- YouTube via yt-dlp (Phase 5): use-at-your-own-risk; the user installs yt-dlp
+  separately and Fashion Radar shells out to
+  `yt-dlp "ytsearch<N>:<query>" --dump-json` and parses the metadata (public
+  data — no login/cookies needed). It provides no demand proof and no platform
+  coverage verification.
 
 Opt-in connectors must document their limits and should fail closed when credentials or access are missing.
 

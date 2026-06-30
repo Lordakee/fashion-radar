@@ -181,6 +181,31 @@ only; they provide no demand proof and no platform coverage verification.
 twitter-cli's JSON output shape can vary by version; on your first live run,
 inspect the output if fields look off.
 
+## YouTube (Opt-In)
+
+YouTube acquisition is opt-in and use-at-your-own-risk. Fashion Radar reads
+search metadata via the user-installed `yt-dlp` CLI; the user installs yt-dlp
+(`pipx install yt-dlp`). Public data — no login/cookies needed. Fashion Radar
+shells out to `yt-dlp "ytsearch<N>:<query>" --dump-json` and parses the
+per-line JSON metadata.
+
+```yaml
+- name: "YouTube: Fashion Week"
+  type: youtube
+  query: "fashion week runway"
+  youtube:
+    max_videos_per_run: 20
+```
+
+Note: this live `type: youtube` collector is distinct from the pre-existing
+`yt_dlp` external-tool adapter (`external-tool-adapters`), which is for
+sanitized CSV/JSON *manual import* of yt-dlp exports — the two are different
+routes (live collection vs manual handoff).
+
+Users are responsible for respecting YouTube's terms. Signals are local
+observed only; they provide no demand proof and no platform coverage
+verification.
+
 ## Check Pack Quality
 
 Before copying or editing a pack, run the local linter:
