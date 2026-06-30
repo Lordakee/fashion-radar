@@ -7,6 +7,7 @@ from pathlib import Path
 
 from fashion_radar.collectors.gdelt import GdeltCollector
 from fashion_radar.collectors.html import HtmlCollector
+from fashion_radar.collectors.instagram import InstagramCollector
 from fashion_radar.collectors.rss import RssCollector
 from fashion_radar.collectors.runner import collect_sources
 from fashion_radar.collectors.sitemap import SitemapCollector
@@ -124,4 +125,5 @@ def _default_collectors() -> dict[SourceType, object]:
         SourceType.HTML: HtmlCollector(),
         SourceType.SITEMAP: SitemapCollector(),
         SourceType.XIAOHONGSHU: XiaohongshuCollector(),
+        SourceType.INSTAGRAM: InstagramCollector(),
     }

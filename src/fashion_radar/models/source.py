@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -12,6 +13,7 @@ class SourceType(StrEnum):
     HTML = "html"
     SITEMAP = "sitemap"
     XIAOHONGSHU = "xiaohongshu"
+    INSTAGRAM = "instagram"
     MANUAL_IMPORT = "manual_import"
 
 
@@ -61,6 +63,15 @@ class XiaohongshuSourceSettings(BaseModel):
     max_notes_per_run: int = Field(default=20, gt=0, le=200)
 
 
+class InstagramSourceSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    instaloader_path: str | None = None
+    login_user: str | None = None
+    max_posts_per_run: int = Field(default=20, gt=0, le=200)
+    target_type: Literal["hashtag", "profile"] = "hashtag"
+
+
 class SourceHealthSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -83,6 +94,7 @@ class SourceDefinition(BaseModel):
     article: ArticleSourceSettings = Field(default_factory=ArticleSourceSettings)
     gdelt: GdeltSourceSettings = Field(default_factory=GdeltSourceSettings)
     xiaohongshu: XiaohongshuSourceSettings = Field(default_factory=XiaohongshuSourceSettings)
+    instagram: InstagramSourceSettings = Field(default_factory=InstagramSourceSettings)
     health: SourceHealthSettings = Field(default_factory=SourceHealthSettings)
 
     @field_validator("name")
@@ -106,4 +118,6 @@ class SourceDefinition(BaseModel):
             raise ValueError("sitemap source requires url (sitemap.xml or site root)")
         if self.type == SourceType.XIAOHONGSHU and not self.query:
             raise ValueError("xiaohongshu source requires query")
+        if self.type == SourceType.INSTAGRAM and not self.query:
+            raise ValueError("instagram source requires query")
         return self

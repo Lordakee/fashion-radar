@@ -70,3 +70,20 @@ def test_xiaohongshu_source_with_query_is_valid() -> None:
     assert source.query == "the row"
     assert source.xiaohongshu.endpoint == "http://localhost:18060/mcp"
     assert source.xiaohongshu.max_notes_per_run == 20
+
+
+def test_source_type_includes_instagram_value() -> None:
+    assert SourceType.INSTAGRAM == "instagram"
+
+
+def test_instagram_source_requires_query() -> None:
+    with pytest.raises(ValidationError, match="instagram source requires query"):
+        SourceDefinition(name="IG", type=SourceType.INSTAGRAM)
+
+
+def test_instagram_source_with_query_is_valid() -> None:
+    source = SourceDefinition(name="IG", type=SourceType.INSTAGRAM, query="therow")
+
+    assert source.query == "therow"
+    assert source.instagram.target_type == "hashtag"
+    assert source.instagram.max_posts_per_run == 20
