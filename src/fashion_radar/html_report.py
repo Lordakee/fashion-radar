@@ -1,6 +1,29 @@
 from __future__ import annotations
 
-from fashion_radar.models.report import DailyReport
+from html import escape
+from urllib.parse import urlsplit
+
+from fashion_radar.models.report import (
+    CandidateReport,
+    CollectorRunReport,
+    DailyBrief,
+    DailyReport,
+    EntityReport,
+    SourceHealthReport,
+)
+
+
+def _esc(value: object) -> str:
+    return escape(str(value), quote=True) if value else ""
+
+
+def _safe_url(url: str | None) -> str:
+    if not url:
+        return ""
+    parsed = urlsplit(url)
+    if parsed.scheme not in ("http", "https"):
+        return ""
+    return escape(url, quote=True)
 
 
 def render_html_report(report: DailyReport) -> str:
@@ -29,35 +52,34 @@ def render_html_report(report: DailyReport) -> str:
     )
 
 
-def _render_brief(brief) -> str:
-    if not brief:
-        return ""
-    parts = [f"<p class='brief-summary'>{brief.summary}</p>"]
+def _render_brief(brief: DailyBrief) -> str:
+    parts = [f"<p class='brief-summary'>{_esc(brief.summary)}</p>"]
     for section in brief.sections:
         if section.items:
-            parts.append(f"<h3>{section.title}</h3>")
+            parts.append(f"<h3>{_esc(section.title)}</h3>")
             for item in section.items:
                 reasons = ", ".join(item.reason_codes) if item.reason_codes else "none"
                 parts.append(
-                    f"<div class='brief-item'><span class='brief-title'>{item.title}</span>"
-                    f"<span class='brief-detail'>{item.summary} <em>Reasons: {reasons}</em></span></div>"
+                    f"<div class='brief-item'><span class='brief-title'>{_esc(item.title)}</span>"
+                    f"<span class='brief-detail'>{_esc(item.summary)} "
+                    f"<em>Reasons: {_esc(reasons)}</em></span></div>"
                 )
     return "\n".join(parts)
 
 
-def _render_signals(entities) -> str:
+def _render_signals(entities: list[EntityReport]) -> str:
     if not entities:
         return "<p class='empty'>No entity signals in this window.</p>"
     cards = []
     for entity in entities:
         items_html = _render_representative_items(entity.representative_items)
         score_pct = min(100, int(entity.heat_score * 10))
-        label_class = entity.label
+        label_class = _esc(entity.label)
         cards.append(
             f"""<div class='signal-card'>
             <div class='signal-header'>
-                <span class='signal-name'>{entity.entity_name}</span>
-                <span class='signal-label {label_class}'>{entity.label}</span>
+                <span class='signal-name'>{_esc(entity.entity_name)}</span>
+                <span class='signal-label {label_class}'>{_esc(entity.label)}</span>
             </div>
             <div class='signal-meta'>
                 <span class='score-bar'><span class='score-fill' style='width:{score_pct}%'></span></span>
@@ -72,37 +94,37 @@ def _render_signals(entities) -> str:
     return "\n".join(cards)
 
 
-def _render_candidates(candidates) -> str:
+def _render_candidates(candidates: list[CandidateReport]) -> str:
     if not candidates:
         return "<p class='empty'>No untracked candidate signals in this window.</p>"
     cards = []
     for candidate in candidates:
         cards.append(
             f"""<div class='candidate-card'>
-            <span class='candidate-name'>{candidate.phrase}</span>
-            <span class='candidate-label'>{candidate.label}</span>
+            <span class='candidate-name'>{_esc(candidate.phrase)}</span>
+            <span class='candidate-label'>{_esc(candidate.label)}</span>
             <span class='candidate-score'>{candidate.score:.1f}</span>
             </div>"""
         )
     return "\n".join(cards)
 
 
-def _render_health(source_health, recent_runs) -> str:
+def _render_health(
+    source_health: list[SourceHealthReport],
+    recent_runs: list[CollectorRunReport],
+) -> str:
     parts = []
     if source_health:
         parts.append("<h3>Source Health</h3>")
         for source in source_health:
-            error = (
-                "no error"
-                if not source.last_error_message
-                else (source.last_error_message[:80] + "...")
-            )
+            raw_error = source.last_error_message or ""
+            error = (raw_error[:80] + "...") if len(raw_error) > 80 else (raw_error or "no error")
             cls = "health-ok" if source.consecutive_failures == 0 else "health-warn"
             parts.append(
                 f"<div class='health-item {cls}'>"
-                f"<span>{source.source_name} ({source.source_type})</span>"
+                f"<span>{_esc(source.source_name)} ({_esc(source.source_type)})</span>"
                 f"<span>{source.consecutive_failures} failures</span>"
-                f"<span class='health-error'>{error}</span>"
+                f"<span class='health-error'>{_esc(error)}</span>"
                 f"</div>"
             )
     if recent_runs:
@@ -111,8 +133,8 @@ def _render_health(source_health, recent_runs) -> str:
             parts.append(
                 f"<div class='run-item'>"
                 f"<span class='run-time'>{run.started_at.strftime('%H:%M')}</span>"
-                f"<span>{run.source_name} ({run.source_type})</span>"
-                f"<span class='run-status run-{run.status}'>{run.status}</span>"
+                f"<span>{_esc(run.source_name)} ({_esc(run.source_type)})</span>"
+                f"<span class='run-status run-{_esc(run.status)}'>{_esc(run.status)}</span>"
                 f"<span>{run.items_stored}/{run.items_seen} stored</span>"
                 f"</div>"
             )
@@ -121,23 +143,31 @@ def _render_health(source_health, recent_runs) -> str:
     return "\n".join(parts)
 
 
-def _render_representative_items(items) -> str:
+def _render_representative_items(items: list) -> str:
     if not items:
         return ""
     parts = ["<div class='rep-items'>"]
     for item in items[:3]:
-        summary = (
-            (item.summary[:120] + "...")
-            if item.summary and len(item.summary) > 120
-            else (item.summary or "")
-        )
-        parts.append(
-            f"<div class='rep-item'>"
-            f"<a href='{item.source_url}' target='_blank' rel='noopener'>{item.title}</a>"
-            f"<span class='rep-source'>{item.source_name}</span>"
-            f"<p class='rep-summary'>{summary}</p>"
-            f"</div>"
-        )
+        raw_summary = item.summary or ""
+        summary = raw_summary[:120] + "..." if len(raw_summary) > 120 else raw_summary
+        url = _safe_url(item.source_url)
+        title = _esc(item.title)
+        if url:
+            parts.append(
+                f"<div class='rep-item'>"
+                f"<a href='{url}' target='_blank' rel='noopener'>{title}</a>"
+                f"<span class='rep-source'>{_esc(item.source_name)}</span>"
+                f"<p class='rep-summary'>{_esc(summary)}</p>"
+                f"</div>"
+            )
+        else:
+            parts.append(
+                f"<div class='rep-item'>"
+                f"<span class='rep-title-no-link'>{title}</span>"
+                f"<span class='rep-source'>{_esc(item.source_name)}</span>"
+                f"<p class='rep-summary'>{_esc(summary)}</p>"
+                f"</div>"
+            )
     parts.append("</div>")
     return "\n".join(parts)
 
@@ -187,6 +217,7 @@ h3 {{ font-size: 1rem; font-weight: 600; margin: 1rem 0 0.5rem; color: var(--mut
 .rep-item {{ margin-bottom: 0.4rem; padding-left: 0.8rem; border-left: 3px solid var(--accent-light); }}
 .rep-item a {{ color: var(--accent); text-decoration: none; font-weight: 600; font-size: 0.9rem; }}
 .rep-item a:hover {{ text-decoration: underline; }}
+.rep-title-no-link {{ font-weight: 600; font-size: 0.9rem; }}
 .rep-source {{ font-size: 0.75rem; color: var(--muted); margin-left: 0.3rem; }}
 .rep-summary {{ font-size: 0.8rem; color: var(--text); margin-top: 0.2rem; }}
 .candidate-card {{ display: flex; align-items: center; gap: 0.5rem; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.8rem; margin-bottom: 0.4rem; }}

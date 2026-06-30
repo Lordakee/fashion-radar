@@ -1322,3 +1322,37 @@ def test_render_html_report_includes_entities_and_candidates() -> None:
     assert "quiet luxury" in html
     assert "score-fill" in html
     assert "wwd.com/test" in html
+
+
+def test_render_html_report_escapes_untrusted_content() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF, item_count=1),
+        entities=[
+            EntityReport(
+                entity_name="<script>alert(1)</script>",
+                entity_type="brand",
+                label="rising",
+                heat_score=5.0,
+                current_mentions=1,
+                baseline_mentions=0,
+                distinct_sources=1,
+                representative_items=[
+                    RepresentativeItem(
+                        source_name="Dolce & Gabbana",
+                        source_url="javascript:alert(1)",
+                        published_at=AS_OF,
+                        title="Dolce & Gabbana <show>",
+                        summary="Test 'quote' & ampersand",
+                    )
+                ],
+            ),
+        ],
+    )
+
+    html = render_html_report(report)
+
+    assert "<script>alert" not in html
+    assert "&lt;script&gt;" in html
+    assert "javascript:" not in html
+    assert "Dolce &amp; Gabbana" in html
+    assert "&lt;show&gt;" in html
