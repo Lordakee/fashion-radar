@@ -101,7 +101,7 @@ def _map_video(
         or f"https://www.youtube.com/watch?v={video_id}"
     )
     description = _first(video, ("description", "description_text"))
-    upload_date = _first(video, ("upload_date", "release_date", "timestamp"))
+    upload_date = _first(video, ("upload_date", "release_date"))
     return CollectedItem(
         source_name=source.name,
         source_type=source.type,

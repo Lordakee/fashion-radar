@@ -204,7 +204,8 @@ routes (live collection vs manual handoff).
 
 Users are responsible for respecting YouTube's terms. Signals are local
 observed only; they provide no demand proof and no platform coverage
-verification.
+verification. yt-dlp's `--dump-json` schema is stable, but if fields look off
+on your first live run, inspect the raw `yt-dlp --dump-json` output.
 
 ## Check Pack Quality
 
