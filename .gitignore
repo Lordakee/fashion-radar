@@ -46,6 +46,7 @@ reports/*.md
 reports/*.json
 reports/*.eml
 reports/*.txt
+reports/**/*.html
 reports/**/*.md
 reports/**/*.json
 reports/**/*.eml

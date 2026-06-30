@@ -18,6 +18,7 @@ from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository, PruneResult
 from fashion_radar.db.schema import initialize_schema
 from fashion_radar.extract.entities import match_entities
+from fashion_radar.html_report import render_html_report
 from fashion_radar.models.entity import EntityDefinition
 from fashion_radar.models.source import SourceDefinition, SourceType
 from fashion_radar.reports import build_daily_report, render_json_report, render_markdown_report
@@ -66,6 +67,8 @@ def write_daily_report_files(
     markdown_path, json_path = report_output_paths(reports_dir, as_of_utc)
     markdown_path.write_text(render_markdown_report(report), encoding="utf-8")
     json_path.write_text(render_json_report(report) + "\n", encoding="utf-8")
+    html_path = reports_dir / f"fashion-radar-{as_of_utc.date().isoformat()}.html"
+    html_path.write_text(render_html_report(report), encoding="utf-8")
     return markdown_path, json_path
 
 

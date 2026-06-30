@@ -14,6 +14,7 @@ from fashion_radar.db.repositories import (
     SourceHealthRepository,
 )
 from fashion_radar.db.schema import initialize_schema
+from fashion_radar.html_report import render_html_report
 from fashion_radar.models.entity import EntityDefinition, EntityType
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.report import (
@@ -1263,3 +1264,61 @@ def test_json_report_keeps_raw_source_health_and_run_error_fields() -> None:
 
     assert parsed["source_health"][0]["last_error_message"] == LONG_ERROR
     assert parsed["recent_runs"][0]["error_message"] == MULTILINE_ERROR
+
+
+def test_render_html_report_produces_valid_html_with_empty_report() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF, item_count=0),
+    )
+
+    html = render_html_report(report)
+
+    assert "<!DOCTYPE html>" in html
+    assert "</html>" in html
+    assert "FASHION RADAR" in html
+    assert "No entity signals" in html
+
+
+def test_render_html_report_includes_entities_and_candidates() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF, item_count=5),
+        entities=[
+            EntityReport(
+                entity_name="The Row",
+                entity_type="brand",
+                label="rising",
+                heat_score=8.5,
+                current_mentions=12,
+                baseline_mentions=5,
+                distinct_sources=4,
+                representative_items=[
+                    RepresentativeItem(
+                        source_name="WWD",
+                        source_url="https://wwd.com/test",
+                        published_at=AS_OF,
+                        title="The Row Margaux",
+                        summary="Popular bag.",
+                    )
+                ],
+            ),
+        ],
+        candidates=[
+            CandidateReport(
+                phrase="quiet luxury",
+                candidate_type="trend",
+                label="rising_candidate",
+                score=6.0,
+                current_mentions=8,
+                baseline_mentions=2,
+                distinct_sources=3,
+                first_seen_at=AS_OF,
+            ),
+        ],
+    )
+
+    html = render_html_report(report)
+
+    assert "The Row" in html
+    assert "quiet luxury" in html
+    assert "score-fill" in html
+    assert "wwd.com/test" in html
