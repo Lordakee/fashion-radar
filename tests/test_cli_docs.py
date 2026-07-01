@@ -1265,6 +1265,7 @@ def test_readme_documents_manual_sample_flow_and_automated_smoke_boundary() -> N
         "import-signals examples/community-signals.example.csv",
         "reports/fashion-radar-2026-06-13.md",
         "reports/fashion-radar-2026-06-13.json",
+        "reports/fashion-radar-2026-06-13.html",
         "Automated First-Run Smoke",
         "source checkout",
         "installed wheel",
@@ -1279,6 +1280,12 @@ def test_readme_documents_manual_sample_flow_and_automated_smoke_boundary() -> N
     assert (
         "deterministic sample is expected to produce matched report and trend signals "
         "for `The Row`, `The Row Margaux`, and `Ballet Flats`"
+    ) in normalized
+    assert (
+        "Both modes print `First-run sample smoke passed.` on success and create "
+        "temporary dated reports such as `fashion-radar-2026-06-13.md`, "
+        "`fashion-radar-2026-06-13.json`, and `fashion-radar-2026-06-13.html` "
+        "inside their temporary report directories."
     ) in normalized
     for term in (
         "validates that sample rows import as community signals",
@@ -1348,6 +1355,7 @@ def test_first_run_guide_documents_paths_outputs_dashboard_reset_and_boundaries(
         "import-signals examples/community-signals.example.csv",
         "reports/fashion-radar-2026-06-13.md",
         "reports/fashion-radar-2026-06-13.json",
+        "reports/fashion-radar-2026-06-13.html",
         "data/fashion-radar.sqlite",
         "data/fashion-radar.sqlite-wal",
         "data/fashion-radar.sqlite-shm",
@@ -2709,7 +2717,8 @@ def test_first_run_guide_reset_commands_are_narrow_file_deletions() -> None:
         "rm -f data/fashion-radar.sqlite; rm -f data/fashion-radar.sqlite-wal; "
         "rm -f data/fashion-radar.sqlite-shm; "
         "rm -f reports/fashion-radar-2026-06-13.md; "
-        "rm -f reports/fashion-radar-2026-06-13.json; }",
+        "rm -f reports/fashion-radar-2026-06-13.json; "
+        "rm -f reports/fashion-radar-2026-06-13.html; }",
     ]
 
 

@@ -221,6 +221,7 @@ test -f pyproject.toml && test -d examples && { \
   rm -f data/fashion-radar.sqlite-shm; \
   rm -f reports/fashion-radar-2026-06-13.md; \
   rm -f reports/fashion-radar-2026-06-13.json; \
+  rm -f reports/fashion-radar-2026-06-13.html; \
 }
 ```
 

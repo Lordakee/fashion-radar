@@ -41,7 +41,7 @@ The cleanup command does not prune:
 - `collector_runs`
 - `source_health`
 - `entity_first_seen`
-- generated Markdown or JSON report files
+- generated Markdown, JSON, or HTML report files
 - config files
 
 `collector_runs` and `source_health` remain available for source diagnostics.

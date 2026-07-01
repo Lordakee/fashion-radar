@@ -340,8 +340,9 @@ uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 ```
 
 Both modes print `First-run sample smoke passed.` on success and create
-temporary dated reports such as `fashion-radar-2026-06-13.md` and
-`fashion-radar-2026-06-13.json` inside their temporary report directories.
+temporary dated reports such as `fashion-radar-2026-06-13.md`,
+`fashion-radar-2026-06-13.json`, and `fashion-radar-2026-06-13.html` inside
+their temporary report directories.
 The automated smoke validates that sample rows import as community signals,
 match the starter entities `The Row`, `The Row Margaux`, and `Ballet Flats`,
 appear in the dated report, produce matching entity trend deltas, and keep

@@ -3757,10 +3757,11 @@ def test_validate_trends_rejects_non_object_delta_entries() -> None:
 def test_report_paths_derive_date_from_as_of(tmp_path: Path) -> None:
     context = make_context(tmp_path)
 
-    markdown_path, json_path = smoke.report_paths(context)
+    markdown_path, json_path, html_path = smoke.report_paths(context)
 
     assert markdown_path == context.reports_dir / "fashion-radar-2026-06-13.md"
     assert json_path == context.reports_dir / "fashion-radar-2026-06-13.json"
+    assert html_path == context.reports_dir / "fashion-radar-2026-06-13.html"
 
 
 def test_default_artifact_guard_detects_new_repo_data_and_report_files(
@@ -3769,10 +3770,12 @@ def test_default_artifact_guard_detects_new_repo_data_and_report_files(
     before = smoke.snapshot_default_artifacts(tmp_path)
     data_file = tmp_path / "data" / "fashion-radar.sqlite"
     report_file = tmp_path / "reports" / "fashion-radar-2026-06-13.json"
+    html_file = tmp_path / "reports" / "fashion-radar-2026-06-13.html"
     data_file.parent.mkdir()
     report_file.parent.mkdir()
     data_file.write_text("sqlite", encoding="utf-8")
     report_file.write_text("{}", encoding="utf-8")
+    html_file.write_text("<!doctype html>", encoding="utf-8")
 
     with pytest.raises(smoke.SmokeError) as exc_info:
         smoke.assert_default_artifacts_unchanged(tmp_path, before)
@@ -3781,6 +3784,7 @@ def test_default_artifact_guard_detects_new_repo_data_and_report_files(
     assert "created:" in message
     assert "data/fashion-radar.sqlite" in message
     assert "reports/fashion-radar-2026-06-13.json" in message
+    assert "reports/fashion-radar-2026-06-13.html" in message
 
 
 def test_default_artifact_guard_detects_changed_repo_data_and_report_files(
@@ -3788,14 +3792,17 @@ def test_default_artifact_guard_detects_changed_repo_data_and_report_files(
 ) -> None:
     data_file = tmp_path / "data" / "fashion-radar.sqlite"
     report_file = tmp_path / "reports" / "fashion-radar-2026-06-13.json"
+    html_file = tmp_path / "reports" / "fashion-radar-2026-06-13.html"
     data_file.parent.mkdir()
     report_file.parent.mkdir()
     data_file.write_text("before", encoding="utf-8")
     report_file.write_text('{"before": true}', encoding="utf-8")
+    html_file.write_text("<!doctype html><p>before</p>", encoding="utf-8")
     before = smoke.snapshot_default_artifacts(tmp_path)
 
     data_file.write_text("after", encoding="utf-8")
     report_file.write_text('{"after": true}', encoding="utf-8")
+    html_file.write_text("<!doctype html><p>after</p>", encoding="utf-8")
 
     with pytest.raises(smoke.SmokeError) as exc_info:
         smoke.assert_default_artifacts_unchanged(tmp_path, before)
@@ -3804,17 +3811,21 @@ def test_default_artifact_guard_detects_changed_repo_data_and_report_files(
     assert "changed:" in message
     assert "data/fashion-radar.sqlite" in message
     assert "reports/fashion-radar-2026-06-13.json" in message
+    assert "reports/fashion-radar-2026-06-13.html" in message
 
 
 def test_default_artifact_guard_detects_deleted_repo_data_or_report_files(
     tmp_path: Path,
 ) -> None:
     report_file = tmp_path / "reports" / "fashion-radar-2026-06-13.json"
+    html_file = tmp_path / "reports" / "fashion-radar-2026-06-13.html"
     report_file.parent.mkdir()
     report_file.write_text("{}", encoding="utf-8")
+    html_file.write_text("<!doctype html>", encoding="utf-8")
     before = smoke.snapshot_default_artifacts(tmp_path)
 
     report_file.unlink()
+    html_file.unlink()
 
     with pytest.raises(smoke.SmokeError) as exc_info:
         smoke.assert_default_artifacts_unchanged(tmp_path, before)
@@ -3822,6 +3833,7 @@ def test_default_artifact_guard_detects_deleted_repo_data_or_report_files(
     message = str(exc_info.value)
     assert "deleted:" in message
     assert "reports/fashion-radar-2026-06-13.json" in message
+    assert "reports/fashion-radar-2026-06-13.html" in message
 
 
 def test_default_artifact_guard_detects_new_repo_config_files(
@@ -4171,9 +4183,10 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             )
         if command_name == "report":
             context.reports_dir.mkdir(parents=True, exist_ok=True)
-            markdown_path, json_path = smoke.report_paths(context)
+            markdown_path, json_path, html_path = smoke.report_paths(context)
             markdown_path.write_text(report_markdown(), encoding="utf-8")
             json_path.write_text(json.dumps(report_payload()), encoding="utf-8")
+            html_path.write_text("<!doctype html>", encoding="utf-8")
 
         if command_name == "import-signals":
             output = (
@@ -4265,6 +4278,9 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
     smoke.run_first_run_flow(context)
 
     assert_first_run_flow_commands(captured, context, example_csv)
+    assert (context.reports_dir / "fashion-radar-2026-06-13.html").read_text(
+        encoding="utf-8"
+    ) == "<!doctype html>"
     assert (context.exports_dir / smoke.DIR_EXPORT_CSV).read_text(encoding="utf-8") == (
         example_csv.read_text(encoding="utf-8")
     )

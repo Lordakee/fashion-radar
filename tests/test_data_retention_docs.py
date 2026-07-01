@@ -24,7 +24,7 @@ def test_data_retention_docs_pin_cleanup_boundaries() -> None:
         "`collector_runs`",
         "`source_health`",
         "`entity_first_seen`",
-        "generated Markdown or JSON report files",
+        "generated Markdown, JSON, or HTML report files",
         "config files",
         "`entity_first_seen` is intentionally retained across item pruning",
         "Back up the SQLite database before aggressive cleanup",

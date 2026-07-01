@@ -2387,11 +2387,12 @@ def validate_trends(command_name: str, payload: Any) -> None:
         assert_equal(f"{command_name} {name} status", delta.get("status"), "new")
 
 
-def report_paths(context: SmokeContext) -> tuple[Path, Path]:
+def report_paths(context: SmokeContext) -> tuple[Path, Path, Path]:
     report_date = AS_OF.split("T", 1)[0]
     return (
         context.reports_dir / f"fashion-radar-{report_date}.md",
         context.reports_dir / f"fashion-radar-{report_date}.json",
+        context.reports_dir / f"fashion-radar-{report_date}.html",
     )
 
 
@@ -2745,9 +2746,10 @@ def run_first_run_flow(context: SmokeContext) -> None:
         "--as-of",
         AS_OF,
     )
-    markdown_path, json_path = report_paths(context)
+    markdown_path, json_path, html_path = report_paths(context)
     assert_non_empty_file(markdown_path)
     assert_non_empty_file(json_path)
+    assert_non_empty_file(html_path)
     report_payload = validate_json_output("report JSON", json_path.read_text(encoding="utf-8"))
     validate_report_outputs(report_payload, markdown_path.read_text(encoding="utf-8"))
     candidates_payload = validate_json_output(
