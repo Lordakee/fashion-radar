@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-01
+
 ### Changed
 
 - Phase 1 sub-stage 1a makes Claude Code the primary reviewer for plan, code,
@@ -19,6 +21,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Stage 258 aligns first-run smoke, cleanup, data-retention, and docs guards
+  with generated HTML report artifacts so the companion HTML file is treated
+  consistently with Markdown and JSON outputs.
+- Stage 256 fix escapes all generated HTML report values and keeps unsafe URLs
+  from being linked in the companion HTML report.
 - Stage 210 collapses whitespace and truncates long collector and source error
   messages to report-safe snippets in the Markdown Source Health and Recent
   Collector Runs sections, without changing JSON report error fields, report
@@ -55,6 +62,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 257 adds deterministic latest collected news to HTML reports and the
+  optional local `configs/entity-packs/buyer-brands.example.yaml` pack for buyer
+  brands, Chinese designer brands, and bag/shoe trend terms.
+- Stage 256 adds styled companion HTML reports alongside Markdown and JSON
+  reports, including CLI output for the generated HTML path.
 - Phase 5 (YouTube) complete: Stages 251-253 added YouTube source plumbing and
   the YouTube collector via the external `yt-dlp` CLI (public data, no login;
   Fashion Radar shells out to `yt-dlp --dump-json` and parses metadata).

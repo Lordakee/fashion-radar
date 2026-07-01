@@ -1184,6 +1184,45 @@ def test_readme_distinguishes_source_checkout_from_package_smoke() -> None:
     assert "[docs/github-upload-checklist.md](docs/github-upload-checklist.md)" in text
 
 
+def test_release_docs_describe_current_html_report_outputs() -> None:
+    readme = _normalized_doc_text(README)
+    architecture = _normalized_doc_text(ARCHITECTURE_DOC)
+    changelog = _normalized_doc_text(CHANGELOG)
+    checklist = _normalized_doc_text(UPLOAD_CHECKLIST)
+
+    assert "## [0.1.0] - 2026-07-01" in _read(CHANGELOG)
+
+    for phrase in (
+        "Markdown, JSON, and companion HTML reports",
+        "daily Markdown, JSON, and companion HTML reports",
+    ):
+        assert phrase.casefold() in readme.casefold()
+
+    for phrase in (
+        "write Markdown/JSON/HTML reports",
+        "Markdown, JSON, and companion HTML daily reports",
+    ):
+        assert phrase.casefold() in architecture.casefold()
+
+    for phrase in (
+        "Stage 256 adds styled companion HTML reports",
+        "Stage 256 fix escapes all generated HTML report values",
+        "Stage 257 adds deterministic latest collected news to HTML reports",
+        "configs/entity-packs/buyer-brands.example.yaml",
+        "Stage 258 aligns first-run smoke, cleanup, data-retention, and docs guards "
+        "with generated HTML report artifacts",
+    ):
+        assert phrase.casefold() in changelog.casefold()
+
+    for phrase in (
+        "Tagging is user-controlled",
+        "only after the release gate passes",
+        "the changelog has a dated `0.1.0` section",
+        "`HEAD == origin/main`",
+    ):
+        assert phrase.casefold() in checklist.casefold()
+
+
 def test_readme_start_here_points_to_recommended_first_run_path() -> None:
     text = _read(README)
     normalized = _normalized_doc_text(README).casefold()

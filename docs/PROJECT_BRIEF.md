@@ -24,7 +24,7 @@ Fashion Radar is not a generic scraper. It is a daily fashion intelligence workf
 2. Normalize items into a shared data model.
 3. Match brands, designers, celebrities, product lines, categories, and trend words.
 4. Score heat changes using source count, recent growth, source weight, and cross-platform spread.
-5. Generate a daily Markdown/JSON report.
+5. Generate a daily Markdown/JSON/HTML report.
 6. Show rankings and recent signals in a Streamlit dashboard.
 
 ## Core Users
@@ -84,7 +84,7 @@ The first GitHub-ready MVP should include:
 - Optional public webpage extraction through trafilatura.
 - Entity matcher with aliases.
 - Daily heat scorer.
-- Markdown and JSON report generation.
+- Markdown, JSON, and companion HTML report generation.
 - Streamlit dashboard.
 - Tests for core logic.
 - README, installation guide, sample config, license, and contribution notes.
@@ -150,7 +150,7 @@ Version `v0.1.0` should promise only:
 - YAML source/entity/scoring configuration.
 - Dictionary entity matching.
 - Transparent heat scoring.
-- Daily Markdown and JSON reports.
+- Daily Markdown, JSON, and companion HTML reports.
 - Basic Streamlit dashboard.
 - Typer CLI.
 - Tests and CI.

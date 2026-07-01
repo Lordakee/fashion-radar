@@ -59,6 +59,13 @@ restore it before staging. See
 [Recover A Mirror-Rewritten Lockfile](dependency-mirrors.md#recover-a-mirror-rewritten-lockfile)
 for the recovery path.
 
+## Before Tagging
+
+Tagging is user-controlled. Create or push a `v0.1.0` tag only after the
+release gate passes, the changelog has a dated `0.1.0` section, final release
+review has no Critical or Important blockers, and `HEAD == origin/main` on a
+clean branch.
+
 Historical boundary checks:
 
 Stage 27B docs check:

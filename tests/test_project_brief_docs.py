@@ -72,3 +72,14 @@ def test_readme_keeps_project_brief_mvp_non_goal_parity() -> None:
     ):
         assert brief_phrase.casefold() in normalized_brief
         assert readme_phrase in normalized_readme
+
+
+def test_project_brief_docs_describe_current_report_outputs() -> None:
+    normalized = _normalized(_read_project_brief_doc())
+
+    for phrase in (
+        "Generate a daily Markdown/JSON/HTML report.",
+        "Markdown, JSON, and companion HTML report generation.",
+        "Daily Markdown, JSON, and companion HTML reports.",
+    ):
+        assert phrase.casefold() in normalized

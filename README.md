@@ -4,9 +4,9 @@ Fashion Radar is a free-first, local-first fashion intelligence tool for daily
 tracking of fashion signals across allowed public sources. It collects RSS or
 RSSHub-compatible feeds and GDELT metadata, matches configurable brands,
 designers, celebrities, products, categories, and trends, then writes local
-Markdown/JSON reports and a read-only dashboard. It can also surface candidate
-signals as observed phrases from configured sources and imported local signals
-that need review before being tracked.
+Markdown, JSON, and companion HTML reports and a read-only dashboard. It can
+also surface candidate signals as observed phrases from configured sources and
+imported local signals that need review before being tracked.
 
 The MVP is built for personal research and editorial monitoring. It is not a
 full social-listening service, and its heat scores are local metrics based only

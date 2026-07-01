@@ -24,7 +24,7 @@ YAML config
   -> optionally inspect retained manual_import rows behind one candidate phrase
   -> score current vs baseline windows
   -> discover candidate signals from retained local items
-  -> write Markdown/JSON reports
+  -> write Markdown/JSON/HTML reports
   -> optionally package local digest artifacts
   -> compare local trend deltas on demand
   -> inspect read-only dashboard
@@ -215,14 +215,15 @@ YAML config
   configured source set. It compares configured sources and imported local
   signals, and the output needs review. It provides no demand proof and no
   platform coverage verification.
-- **Reports:** Markdown and JSON daily reports rendered from packaged
-  templates. The Daily Brief Heat Narrative is derived from report-safe rows
-  for configured sources and imported local signals. It summarizes local
-  observed tracked signals, candidate phrases, and source caveats as report
-  content that needs review, and can include candidate score-component cues for
-  mentions, growth, and source diversity. It does not collect, search, scrape,
-  call platform APIs, write source health, or prove demand or coverage. It
-  provides no demand proof and no platform coverage verification.
+- **Reports:** Markdown, JSON, and companion HTML daily reports rendered from
+  packaged templates and local report models. The Daily Brief Heat Narrative is
+  derived from report-safe rows for configured sources and imported local
+  signals. It summarizes local observed tracked signals, candidate phrases, and
+  source caveats as report content that needs review, and can include candidate
+  score-component cues for mentions, growth, and source diversity. It does not
+  collect, search, scrape, call platform APIs, write source health, or prove
+  demand or coverage. It provides no demand proof and no platform coverage
+  verification.
 - **Local Digest:** Optional post-report packaging that writes local
   `latest.md`, `latest.json`, `report-index.json`, `.eml`, or stdout summary
   artifacts from already-generated reports. It does not collect sources or send
