@@ -43,8 +43,9 @@ fashion-radar report --config-dir "$PWD/configs" --data-dir "$PWD/data" --report
 ```
 
 With `--as-of "2026-06-13T12:00:00Z"` and `--reports-dir "$PWD/reports"`,
-the report command writes `reports/fashion-radar-2026-06-13.md` and
-`reports/fashion-radar-2026-06-13.json`.
+the report command writes `reports/fashion-radar-2026-06-13.md`,
+`reports/fashion-radar-2026-06-13.json`, and the companion
+`reports/fashion-radar-2026-06-13.html`.
 
 `scripts/check_first_run_smoke.py` is a source-checkout and release-package
 smoke helper used by README, CI, and the upload checklist. It is not a normal
@@ -71,7 +72,7 @@ validates deterministic sample output content, not only command execution.
   `--config-dir`, `--data-dir`, and `--now`.
 - `match`: match configured entities against stored items; supports
   `--config-dir` and `--data-dir`.
-- `report`: generate Markdown and JSON reports, including a Daily Brief Heat
+- `report`: generate Markdown, JSON, and companion HTML reports, including a Daily Brief Heat
   Narrative for local observed tracked signals, candidate phrases that need
   review, candidate score-component cues for mentions, growth, and source
   diversity, and source caveats from configured sources and imported local

@@ -251,6 +251,7 @@ Daily reports are:
 ```text
 <reports-dir>/fashion-radar-YYYY-MM-DD.md
 <reports-dir>/fashion-radar-YYYY-MM-DD.json
+<reports-dir>/fashion-radar-YYYY-MM-DD.html
 ```
 
 Optional local digest artifacts are:

@@ -7,6 +7,7 @@ from fashion_radar.models.entity import EntityDefinition, EntityType
 from fashion_radar.settings import UNSAFE_COMMON_ALIASES, load_entity_config
 
 PACK_PATH = Path("configs/entity-packs/fashion-watchlist.example.yaml")
+BUYER_BRANDS_PACK_PATH = Path("configs/entity-packs/buyer-brands.example.yaml")
 DOC_PATH = Path("docs/entity-packs.md")
 WATCHLIST_SIGNAL_PATH = Path("examples/community-signals.watchlist.example.csv")
 
@@ -19,11 +20,89 @@ def _entities_by_name() -> dict[str, EntityDefinition]:
     return {entity.name: entity for entity in _entities()}
 
 
+def _buyer_brand_entities() -> list[EntityDefinition]:
+    return load_entity_config(BUYER_BRANDS_PACK_PATH).entities
+
+
+def _buyer_brand_entities_by_name() -> dict[str, EntityDefinition]:
+    return {entity.name: entity for entity in _buyer_brand_entities()}
+
+
 def test_fashion_watchlist_entity_pack_loads() -> None:
     config = load_entity_config(PACK_PATH)
 
     assert config.version == 1
     assert len(config.entities) >= 32
+
+
+def test_buyer_brands_entity_pack_loads_with_expected_examples() -> None:
+    config = load_entity_config(BUYER_BRANDS_PACK_PATH)
+    entities = {entity.name: entity for entity in config.entities}
+
+    assert config.version == 1
+    assert len(config.entities) >= 29
+    for name in [
+        "Lemaire",
+        "Khaite",
+        "Toteme",
+        "The Row",
+        "Savette",
+        "Aeyde",
+        "Shushu Tong",
+        "Uma Wang",
+        "Quiet Luxury",
+        "Boho Revival",
+    ]:
+        assert name in entities
+
+
+def test_buyer_brands_entity_pack_has_expected_type_mix_and_tags() -> None:
+    entities = _buyer_brand_entities()
+    type_counts = {
+        entity_type: sum(1 for entity in entities if entity.type == entity_type)
+        for entity_type in EntityType
+    }
+
+    assert type_counts[EntityType.BRAND] >= 24
+    assert type_counts[EntityType.TREND] >= 3
+    assert any("chinese_designer" in entity.tags for entity in entities)
+    assert any("buyer_brand" in entity.tags for entity in entities)
+
+
+def test_buyer_brands_context_aliases_require_context() -> None:
+    entities = _buyer_brand_entities_by_name()
+    expected_aliases = {
+        "Ami Paris": {"Ami Paris"},
+        "Our Legacy": {"Our Legacy"},
+        "Acne Studios": {"Acne Studios"},
+        "Sandy Liang": {"Sandy Liang"},
+        "Hui": {"Hui Shan", "Hui by Zhao Huizhou"},
+    }
+
+    for entity_name, alias_values in expected_aliases.items():
+        entity = entities[entity_name]
+        gated_aliases = {alias.value for alias in entity.aliases if alias.requires_context}
+        assert alias_values <= gated_aliases
+
+
+def test_buyer_brands_matcher_rejects_contextless_common_aliases() -> None:
+    entities = _buyer_brand_entities()
+
+    generic_texts = [
+        ("Ami joined the dinner.", "Ami Paris"),
+        ("Acne is a common skin condition.", "Acne Studios"),
+        ("Joseph joined the meeting.", "Joseph"),
+        ("The row of seats was empty.", "The Row"),
+        ("Hui Shan was mentioned at dinner.", "Hui"),
+    ]
+    for text, entity_name in generic_texts:
+        decisions = [
+            decision
+            for decision in evaluate_entity_matches(text, entities)
+            if decision.entity_name == entity_name
+        ]
+        assert decisions, f"Expected evaluated decisions for {entity_name!r}"
+        assert all(not decision.accepted for decision in decisions)
 
 
 def test_fashion_watchlist_entity_pack_has_expected_type_mix() -> None:

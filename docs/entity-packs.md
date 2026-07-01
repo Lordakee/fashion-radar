@@ -16,6 +16,17 @@ bags and shoes, product categories, designers, celebrity style signals, and
 style terms. It is not a hot-list, ranking, current-hotness detector,
 platform-wide signal, or market-wide demand proof.
 
+An additional optional local configuration template is:
+
+```text
+configs/entity-packs/buyer-brands.example.yaml
+```
+
+It focuses on buyer brands, emerging designer labels, Chinese designer brands,
+and a small set of style trend terms. Like the broader watchlist pack, it only
+changes local entity matching after you copy or edit it into your own
+`entities.yaml`.
+
 Example repo-local destination path:
 
 ```text

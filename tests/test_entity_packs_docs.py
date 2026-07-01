@@ -31,6 +31,15 @@ def test_entity_packs_docs_keep_local_matching_boundary() -> None:
         assert phrase in normalized
 
 
+def test_entity_packs_docs_mentions_buyer_brands_pack_as_optional_local_template() -> None:
+    normalized = _normalized(_read_entity_packs_doc())
+
+    assert "configs/entity-packs/buyer-brands.example.yaml" in normalized
+    assert "optional local configuration template" in normalized
+    assert "buyer brands" in normalized
+    assert "emerging designer labels" in normalized
+
+
 def test_entity_packs_docs_keep_optional_sample_boundary() -> None:
     normalized = _normalized(_read_entity_packs_doc())
 

@@ -36,6 +36,17 @@ def test_lint_repository_watchlist_pack_has_no_errors() -> None:
     assert result.product_parent_gated_aliases > 0
 
 
+def test_lint_repository_buyer_brands_pack_has_no_errors() -> None:
+    result = lint_entity_pack(Path("configs/entity-packs/buyer-brands.example.yaml"))
+
+    assert result.error_count == 0
+    assert result.entity_count >= 29
+    assert result.alias_count >= result.entity_count
+    assert result.type_counts["brand"] >= 24
+    assert result.type_counts["trend"] >= 3
+    assert result.context_gated_aliases > 0
+
+
 def test_invalid_entity_config_returns_error_finding(tmp_path: Path) -> None:
     path = write_yaml(
         tmp_path / "entities.yaml",

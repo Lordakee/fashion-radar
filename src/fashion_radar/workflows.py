@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from sqlalchemy import select
+
 from fashion_radar.collectors.gdelt import GdeltCollector
 from fashion_radar.collectors.html import HtmlCollector
 from fashion_radar.collectors.instagram import InstagramCollector
@@ -17,6 +19,7 @@ from fashion_radar.collectors.youtube import YouTubeCollector
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository, PruneResult
 from fashion_radar.db.schema import initialize_schema
+from fashion_radar.db.schema import items as items_table
 from fashion_radar.extract.entities import match_entities
 from fashion_radar.html_report import render_html_report
 from fashion_radar.models.entity import EntityDefinition
@@ -67,8 +70,27 @@ def write_daily_report_files(
     markdown_path, json_path = report_output_paths(reports_dir, as_of_utc)
     markdown_path.write_text(render_markdown_report(report), encoding="utf-8")
     json_path.write_text(render_json_report(report) + "\n", encoding="utf-8")
+    window_start = as_of_utc - timedelta(days=scoring.current_window_days)
+    recent_items: list[dict[str, object]] = []
+    with engine.connect() as conn:
+        rows = conn.execute(
+            select(
+                items_table.c.source_name,
+                items_table.c.url,
+                items_table.c.title,
+                items_table.c.summary,
+                items_table.c.collected_at,
+            )
+            .where(
+                items_table.c.collected_at > window_start.isoformat(),
+                items_table.c.collected_at <= as_of_utc.isoformat(),
+            )
+            .order_by(items_table.c.collected_at.desc())
+            .limit(50)
+        ).mappings()
+        recent_items = [dict(row) for row in rows]
     html_path = reports_dir / f"fashion-radar-{as_of_utc.date().isoformat()}.html"
-    html_path.write_text(render_html_report(report), encoding="utf-8")
+    html_path.write_text(render_html_report(report, recent_items=recent_items), encoding="utf-8")
     return markdown_path, json_path
 
 

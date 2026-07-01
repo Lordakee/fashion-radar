@@ -1324,6 +1324,43 @@ def test_render_html_report_includes_entities_and_candidates() -> None:
     assert "wwd.com/test" in html
 
 
+def test_render_html_report_includes_recent_items_safely() -> None:
+    report = DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF, item_count=2),
+    )
+    long_summary = "Lead text. " + ("detail " * 40) + "TAIL_MARKER"
+
+    html = render_html_report(
+        report,
+        recent_items=[
+            {
+                "source_name": "Vogue & Business",
+                "url": "https://example.com/the-row?ref=a&b=1",
+                "title": "The Row <Margaux> gains momentum",
+                "summary": "Fresh local coverage.",
+            },
+            {
+                "source_name": "<Unsafe Source>",
+                "url": "javascript:alert(1)",
+                "title": "<script>alert(1)</script>",
+                "summary": long_summary,
+            },
+        ],
+    )
+
+    assert "<h2>Latest Collected News</h2>" in html
+    assert "The Row &lt;Margaux&gt; gains momentum" in html
+    assert "Vogue &amp; Business" in html
+    assert "Fresh local coverage." in html
+    assert "href='https://example.com/the-row?ref=a&amp;b=1'" in html
+    assert "target='_blank' rel='noopener'" in html
+    assert "javascript:" not in html
+    assert "<script>alert" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+    assert "&lt;Unsafe Source&gt;" in html
+    assert "TAIL_MARKER" not in html
+
+
 def test_render_html_report_escapes_untrusted_content() -> None:
     report = DailyReport(
         metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF, item_count=1),

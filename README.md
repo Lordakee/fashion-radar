@@ -58,7 +58,7 @@ brands, or verify platform coverage.
   sidecar over configured sources and imported local signals. The explanation
   output needs review, provides no demand proof, and provides no platform
   coverage verification.
-- Generates daily Markdown and JSON reports with source attribution plus a
+- Generates daily Markdown, JSON, and companion HTML reports with source attribution plus a
   Daily Brief Heat Narrative for local observed tracked signals, candidate
   phrases that need review, and source caveats from configured sources and
   imported local signals. It provides no demand proof and no platform coverage
@@ -302,12 +302,14 @@ uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" -
 uv run fashion-radar trend-explanations --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --format json
 test -s reports/fashion-radar-2026-06-13.md
 test -s reports/fashion-radar-2026-06-13.json
+test -s reports/fashion-radar-2026-06-13.html
 ```
 
 Expected repo-local artifacts include `configs/sources.yaml`,
 `configs/entities.yaml`, `configs/scoring.yaml`,
 `data/fashion-radar.sqlite`, `reports/fashion-radar-2026-06-13.md`, and
-`reports/fashion-radar-2026-06-13.json`. The deterministic sample is expected
+`reports/fashion-radar-2026-06-13.json`, plus the companion
+`reports/fashion-radar-2026-06-13.html`. The deterministic sample is expected
 to produce matched report and trend signals for `The Row`, `The Row Margaux`,
 and `Ballet Flats`. To inspect the generated sample report, run the dashboard
 with the same path flags and open
@@ -855,6 +857,7 @@ are written as:
 ```text
 fashion-radar-YYYY-MM-DD.md
 fashion-radar-YYYY-MM-DD.json
+fashion-radar-YYYY-MM-DD.html
 ```
 
 Reports contain source attribution, links, snippets/metadata, matched entities,

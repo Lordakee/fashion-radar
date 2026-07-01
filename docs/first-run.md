@@ -80,6 +80,7 @@ uv run fashion-radar candidates --config-dir "$PWD/configs" --data-dir "$PWD/dat
 uv run fashion-radar trends --config-dir "$PWD/configs" --data-dir "$PWD/data" --as-of "$AS_OF" --format json
 test -s reports/fashion-radar-2026-06-13.md
 test -s reports/fashion-radar-2026-06-13.json
+test -s reports/fashion-radar-2026-06-13.html
 ```
 
 Expected sample artifacts are:
@@ -87,6 +88,7 @@ Expected sample artifacts are:
 - `data/fashion-radar.sqlite`
 - `reports/fashion-radar-2026-06-13.md`
 - `reports/fashion-radar-2026-06-13.json`
+- `reports/fashion-radar-2026-06-13.html`
 
 The deterministic sample is expected to produce matched report and trend
 signals for `The Row`, `The Row Margaux`, and `Ballet Flats`.

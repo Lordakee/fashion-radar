@@ -26,7 +26,9 @@ def _safe_url(url: str | None) -> str:
     return escape(url, quote=True)
 
 
-def render_html_report(report: DailyReport) -> str:
+def render_html_report(
+    report: DailyReport, *, recent_items: list[dict[str, object]] | None = None
+) -> str:
     metadata = report.metadata
     brief = report.brief
     entities = report.entities
@@ -38,6 +40,7 @@ def render_html_report(report: DailyReport) -> str:
     signals_html = _render_signals(entities)
     candidates_html = _render_candidates(candidates)
     health_html = _render_health(source_health, recent_runs)
+    news_html = _render_recent_items(recent_items or [])
 
     return _HTML_TEMPLATE.format(
         date=metadata.report_date.strftime("%Y-%m-%d"),
@@ -49,6 +52,7 @@ def render_html_report(report: DailyReport) -> str:
         signals_html=signals_html,
         candidates_html=candidates_html,
         health_html=health_html,
+        news_html=news_html,
     )
 
 
@@ -172,6 +176,35 @@ def _render_representative_items(items: list) -> str:
     return "\n".join(parts)
 
 
+def _render_recent_items(items: list[dict[str, object]]) -> str:
+    if not items:
+        return "<p class='empty'>No items collected in this window.</p>"
+    cards = []
+    for item in items[:50]:
+        title = _esc(item.get("title", ""))
+        url = _safe_url(str(item.get("url") or ""))
+        source = _esc(item.get("source_name", ""))
+        raw_summary = str(item.get("summary") or "")
+        summary = _esc(raw_summary[:200] + "..." if len(raw_summary) > 200 else raw_summary)
+        if url:
+            cards.append(
+                f"<div class='news-card'>"
+                f"<a href='{url}' target='_blank' rel='noopener'>{title}</a>"
+                f"<span class='news-source'>{source}</span>"
+                f"<p class='news-summary'>{summary}</p>"
+                f"</div>"
+            )
+        else:
+            cards.append(
+                f"<div class='news-card'>"
+                f"<span class='news-title-nolink'>{title}</span>"
+                f"<span class='news-source'>{source}</span>"
+                f"<p class='news-summary'>{summary}</p>"
+                f"</div>"
+            )
+    return "\n".join(cards)
+
+
 _HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -235,6 +268,12 @@ h3 {{ font-size: 1rem; font-weight: 600; margin: 1rem 0 0.5rem; color: var(--mut
 .run-failed {{ color: var(--red); }}
 .run-skipped {{ color: var(--muted); }}
 .empty {{ color: var(--muted); font-style: italic; padding: 0.5rem 0; }}
+.news-card {{ background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem 1rem; margin-bottom: 0.6rem; }}
+.news-card a {{ color: var(--accent); text-decoration: none; font-weight: 600; font-size: 0.95rem; display: block; }}
+.news-card a:hover {{ text-decoration: underline; }}
+.news-title-nolink {{ font-weight: 600; font-size: 0.95rem; display: block; }}
+.news-source {{ font-size: 0.75rem; color: var(--muted); }}
+.news-summary {{ font-size: 0.82rem; color: var(--text); margin-top: 0.3rem; }}
 footer {{ text-align: center; padding: 1.5rem; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 2rem; }}
 </style>
 </head>
@@ -249,6 +288,7 @@ footer {{ text-align: center; padding: 1.5rem; color: var(--muted); font-size: 0
   <section id="signals"><h2>Top Signals</h2>{signals_html}</section>
   <section id="candidates"><h2>Candidate Signals</h2>{candidates_html}</section>
   <section id="health"><h2>Source Health & Runs</h2>{health_html}</section>
+  <section id="news"><h2>Latest Collected News</h2>{news_html}</section>
 </main>
 <footer>
   Fashion Radar · Local observed signals from configured sources · No demand proof · No platform coverage verification

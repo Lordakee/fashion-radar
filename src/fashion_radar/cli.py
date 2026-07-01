@@ -1415,7 +1415,7 @@ def report(
     digest_eml: bool = DIGEST_EML_OPTION,
     digest_summary: bool = DIGEST_SUMMARY_OPTION,
 ) -> None:
-    """Generate Markdown and JSON reports from the local database."""
+    """Generate Markdown, JSON, and companion HTML reports from the local database."""
     try:
         scoring_config = load_scoring_config(config_dir / "scoring.yaml")
         entity_path = config_dir / "entities.yaml"
@@ -1439,6 +1439,7 @@ def report(
 
     typer.echo(f"Wrote Markdown report: {markdown_path}")
     typer.echo(f"Wrote JSON report: {json_path}")
+    typer.echo(f"Wrote HTML report: {markdown_path.with_suffix('.html')}")
     _package_digest_or_exit(
         markdown_path=markdown_path,
         json_path=json_path,
@@ -2218,6 +2219,7 @@ def run(
     typer.echo(f"Stored {summary.matches_stored} matches")
     typer.echo(f"Wrote Markdown report: {markdown_path}")
     typer.echo(f"Wrote JSON report: {json_path}")
+    typer.echo(f"Wrote HTML report: {markdown_path.with_suffix('.html')}")
     _package_digest_or_exit(
         markdown_path=markdown_path,
         json_path=json_path,

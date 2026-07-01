@@ -1,0 +1,250 @@
+version: 1
+entities:
+  # === 买手店热门独立品牌 ===
+  - name: Lemaire
+    type: brand
+    aliases:
+      - value: Lemaire
+        safe_single_word: true
+        reason: Distinct fashion brand name.
+    tags: [buyer_brand, minimalism, paris]
+    initial_weight: 1.2
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Khaite
+    type: brand
+    aliases:
+      - value: Khaite
+        safe_single_word: true
+        reason: Distinct fashion brand name.
+    tags: [buyer_brand, contemporary_luxury]
+    initial_weight: 1.2
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Toteme
+    type: brand
+    aliases:
+      - value: Toteme
+        safe_single_word: true
+        reason: Distinct fashion brand name.
+    tags: [buyer_brand, minimalism, scandinavian]
+    initial_weight: 1.2
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Jacquemus
+    type: brand
+    aliases:
+      - value: Jacquemus
+        safe_single_word: true
+        reason: Distinct fashion brand name.
+    tags: [buyer_brand, paris, contemporary]
+    initial_weight: 1.2
+    active_from: "2024-01-01T00:00:00Z"
+  - name: The Row
+    type: brand
+    aliases:
+      - value: The Row
+    context_terms: [olsen, handbag, margaux, luxury, runway]
+    tags: [buyer_brand, minimalism, luxury]
+    initial_weight: 1.1
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Ami Paris
+    type: brand
+    aliases:
+      - value: Ami Paris
+        requires_context: true
+      - value: Ami
+    context_terms: [fashion, brand, runway, knitwear]
+    tags: [buyer_brand, paris, contemporary]
+    initial_weight: 1.1
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Officine Generale
+    type: brand
+    aliases:
+      - value: Officine Generale
+    tags: [buyer_brand, paris, tailoring]
+    initial_weight: 1.0
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Our Legacy
+    type: brand
+    aliases:
+      - value: Our Legacy
+        requires_context: true
+    context_terms: [fashion, brand, stockholm, sweden]
+    tags: [buyer_brand, scandinavian, contemporary]
+    initial_weight: 1.1
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Acne Studios
+    type: brand
+    aliases:
+      - value: Acne Studios
+        requires_context: true
+      - value: Acne
+    context_terms: [fashion, stockholm, denim, jeans]
+    tags: [buyer_brand, scandinavian, contemporary]
+    initial_weight: 1.0
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Stoffa
+    type: brand
+    aliases:
+      - value: Stoffa
+    context_terms: [fashion, brand, tailoring, pants]
+    tags: [buyer_brand, italian, tailoring]
+    initial_weight: 1.0
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Tibi
+    type: brand
+    aliases:
+      - value: Tibi
+        safe_single_word: true
+        reason: Distinct fashion brand name.
+    tags: [buyer_brand, contemporary]
+    initial_weight: 1.0
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Joseph
+    type: brand
+    aliases:
+      - value: Joseph
+    context_terms: [fashion, brand, london, knitwear, trousers]
+    tags: [buyer_brand, london, contemporary]
+    initial_weight: 0.9
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Sandy Liang
+    type: brand
+    aliases:
+      - value: Sandy Liang
+        requires_context: true
+    context_terms: [fashion, runway, bow, ballet, new_york]
+    tags: [buyer_brand, new_york, emerging]
+    initial_weight: 1.1
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Savette
+    type: brand
+    aliases:
+      - value: Savette
+        safe_single_word: true
+        reason: Distinct fashion brand name.
+    tags: [buyer_brand, bags, emerging]
+    initial_weight: 1.1
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Aeyde
+    type: brand
+    aliases:
+      - value: Aeyde
+        safe_single_word: true
+        reason: Distinct fashion brand name.
+    tags: [buyer_brand, footwear, berlin, emerging]
+    initial_weight: 1.1
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Nensi Dojaka
+    type: brand
+    aliases:
+      - value: Nensi Dojaka
+    tags: [buyer_brand, london, emerging]
+    initial_weight: 1.1
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Marine Serre
+    type: brand
+    aliases:
+      - value: Marine Serre
+    tags: [buyer_brand, paris, emerging]
+    initial_weight: 1.0
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Eckhaus Latta
+    type: brand
+    aliases:
+      - value: Eckhaus Latta
+    tags: [buyer_brand, new_york, emerging]
+    initial_weight: 1.0
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Collina Strada
+    type: brand
+    aliases:
+      - value: Collina Strada
+    tags: [buyer_brand, new_york, emerging]
+    initial_weight: 1.0
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Bode
+    type: brand
+    aliases:
+      - value: Bode
+    context_terms: [fashion, brand, new_york, embroidery, vintage]
+    tags: [buyer_brand, new_york, emerging]
+    initial_weight: 1.1
+    active_from: "2024-01-01T00:00:00Z"
+
+  # === 中国独立设计师品牌 ===
+  - name: Shushu Tong
+    type: brand
+    aliases:
+      - value: SHUSHU/TONG
+    tags: [buyer_brand, chinese_designer, shanghai, emerging]
+    initial_weight: 1.2
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Uma Wang
+    type: brand
+    aliases:
+      - value: Uma Wang
+    tags: [buyer_brand, chinese_designer, milan, emerging]
+    initial_weight: 1.1
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Samuel Gui Yang
+    type: brand
+    aliases:
+      - value: Samuel Gui Yang
+      - value: Samuel Yang
+    tags: [buyer_brand, chinese_designer, london, emerging]
+    initial_weight: 1.1
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Pronounce
+    type: brand
+    aliases:
+      - value: Pronounce
+    context_terms: [fashion, brand, milan, milan_fashion_week, designer]
+    tags: [buyer_brand, chinese_designer, milan, emerging]
+    initial_weight: 1.0
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Staffonly
+    type: brand
+    aliases:
+      - value: Staffonly
+        safe_single_word: true
+        reason: Distinct fashion brand name.
+    tags: [buyer_brand, chinese_designer, london, emerging]
+    initial_weight: 1.0
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Hui
+    type: brand
+    aliases:
+      - value: Hui Shan
+        requires_context: true
+      - value: Hui by Zhao Huizhou
+        requires_context: true
+    context_terms: [fashion, milan_fashion_week, chinese_designer]
+    tags: [buyer_brand, chinese_designer, milan]
+    initial_weight: 0.9
+    active_from: "2024-01-01T00:00:00Z"
+
+  # === 热门买手品类趋势 ===
+  - name: Quiet Luxury
+    type: trend
+    aliases:
+      - value: quiet luxury
+      - value: stealth wealth
+      - value: old money aesthetic
+    tags: [aesthetic, consumer_trend]
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Emerging Designer
+    type: trend
+    aliases:
+      - value: emerging designer
+      - value: independent designer
+      - value: independent label
+      - value: new designer
+    tags: [industry, emerging]
+    active_from: "2024-01-01T00:00:00Z"
+  - name: Boho Revival
+    type: trend
+    aliases:
+      - value: boho revival
+      - value: boho chic
+      - value: bohemian revival
+    tags: [aesthetic, styling]
+    active_from: "2024-01-01T00:00:00Z"

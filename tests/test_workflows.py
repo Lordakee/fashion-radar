@@ -189,6 +189,80 @@ def test_write_daily_report_files_caps_stored_summaries(tmp_path: Path) -> None:
     assert "TAIL_MARKER" not in json_path.read_text(encoding="utf-8")
 
 
+def test_write_daily_report_files_writes_html_with_recent_window_items(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    engine = create_sqlite_engine(default_database_path(data_dir))
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    for title, source_name, url, collected_at, summary in [
+        (
+            "Future collected title",
+            "Future Source",
+            "https://example.com/future",
+            datetime(2026, 6, 11, 13, 0, tzinfo=UTC),
+            "Future summary.",
+        ),
+        (
+            "Newest collected title",
+            "Newest Source",
+            "https://example.com/newest",
+            datetime(2026, 6, 11, 11, 0, tzinfo=UTC),
+            "Lead text. " + ("detail " * 40) + "TAIL_MARKER",
+        ),
+        (
+            "Older collected title",
+            "Older Source",
+            "https://example.com/older",
+            datetime(2026, 6, 10, 11, 0, tzinfo=UTC),
+            "Older summary.",
+        ),
+        (
+            "Stale collected title",
+            "Stale Source",
+            "https://example.com/stale",
+            datetime(2026, 6, 9, 11, 0, tzinfo=UTC),
+            "Stale summary.",
+        ),
+    ]:
+        repository.upsert_item(
+            CollectedItem(
+                source_name=source_name,
+                source_type=SourceType.RSS,
+                url=url,
+                title=title,
+                published_at=collected_at,
+                summary=summary,
+            ),
+            collected_at=collected_at,
+        )
+
+    markdown_path, json_path = write_daily_report_files(
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        scoring=ScoringSettings(current_window_days=2),
+        as_of=datetime(2026, 6, 11, 12, 0, tzinfo=UTC),
+    )
+
+    html_path = reports_dir / "fashion-radar-2026-06-11.html"
+    html = html_path.read_text(encoding="utf-8")
+    assert markdown_path.name == "fashion-radar-2026-06-11.md"
+    assert json_path.name == "fashion-radar-2026-06-11.json"
+    assert html_path.exists()
+    assert "<h2>Latest Collected News</h2>" in html
+    assert "Newest collected title" in html
+    assert "Older collected title" in html
+    assert "Newest Source" in html
+    assert "Older Source" in html
+    assert "https://example.com/newest" in html
+    assert html.index("Newest collected title") < html.index("Older collected title")
+    assert "Future collected title" not in html
+    assert "Stale collected title" not in html
+    assert "TAIL_MARKER" not in html
+
+
 def test_clean_old_data_prunes_by_collected_at(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     engine = create_sqlite_engine(default_database_path(data_dir))

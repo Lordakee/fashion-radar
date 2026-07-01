@@ -67,6 +67,7 @@ SDIST_FILES = [
     "configs/entities.example.yaml",
     "configs/scoring.example.yaml",
     "configs/source-packs/fashion-public.example.yaml",
+    "configs/entity-packs/buyer-brands.example.yaml",
     "configs/entity-packs/fashion-watchlist.example.yaml",
     "examples/community-signals.example.csv",
     "examples/community-signals.example.json",

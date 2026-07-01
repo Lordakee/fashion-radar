@@ -7790,11 +7790,16 @@ scoring:
     assert result.exit_code == 0
     markdown_path = reports_dir / "fashion-radar-2026-06-11.md"
     json_path = reports_dir / "fashion-radar-2026-06-11.json"
+    html_path = reports_dir / "fashion-radar-2026-06-11.html"
     assert markdown_path.exists()
     assert json_path.exists()
+    assert html_path.exists()
     markdown_text = markdown_path.read_text(encoding="utf-8")
     json_payload = json.loads(json_path.read_text(encoding="utf-8"))
+    html_text = html_path.read_text(encoding="utf-8")
     assert "The Row" in markdown_text
+    assert "Latest Collected News" in html_text
+    assert "The Row Margaux handbag gains momentum" in html_text
     assert "## Daily Brief" in markdown_text
     assert "Local observed brief" in markdown_text
     assert json_payload["brief"]["contract_version"] == "daily-brief/v1"
@@ -7954,6 +7959,7 @@ def test_report_command_default_output_creates_no_digest_artifacts(
     )
     markdown_path = reports_dir / "fashion-radar-2026-06-11.md"
     json_path = reports_dir / "fashion-radar-2026-06-11.json"
+    html_path = reports_dir / "fashion-radar-2026-06-11.html"
 
     result = CliRunner().invoke(
         app,
@@ -7972,7 +7978,9 @@ def test_report_command_default_output_creates_no_digest_artifacts(
 
     assert result.exit_code == 0
     assert result.output == (
-        f"Wrote Markdown report: {markdown_path}\nWrote JSON report: {json_path}\n"
+        f"Wrote Markdown report: {markdown_path}\n"
+        f"Wrote JSON report: {json_path}\n"
+        f"Wrote HTML report: {html_path}\n"
     )
     assert not (reports_dir / "latest.md").exists()
     assert not (reports_dir / "latest.json").exists()
@@ -10448,6 +10456,7 @@ def test_run_command_default_output_creates_no_digest_artifacts(
         "Stored 0 matches\n"
         f"Wrote Markdown report: {markdown_path}\n"
         f"Wrote JSON report: {json_path}\n"
+        f"Wrote HTML report: {markdown_path.with_suffix('.html')}\n"
     )
     assert calls == ["collect", "match", "report"]
     assert not (reports_dir / "latest.md").exists()
