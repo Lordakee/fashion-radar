@@ -18,7 +18,8 @@ For first-run onboarding, start with [docs/first-run.md](docs/first-run.md).
 The Manual repo-local sample is the recommended first-time path when you want
 inspectable output, local SQLite state, dated reports, and dashboard data.
 For a source-checkout first run, follow [docs/first-run.md](docs/first-run.md)
-and then inspect the same sample in the ROW ONE local static site.
+and then inspect the same sample in the ROW ONE local static site. The
+source-checkout smoke covers the ROW ONE manifest and serve dry-run path.
 
 Use Automated source-checkout smoke or Installed-wheel smoke as verification
 paths when you need disposable source-tree or package checks. They are not the

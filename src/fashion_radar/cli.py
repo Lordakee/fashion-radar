@@ -1458,6 +1458,7 @@ def row_one_preview(
     typer.echo("ROW ONE preview")
     typer.echo(f"Site: {result.index_path}")
     typer.echo(f"JSON: {result.output_dir / 'data' / 'edition.json'}")
+    typer.echo(f"Manifest: {result.output_dir / 'data' / 'manifest.json'}")
     typer.echo(f"Stories: {readiness.story_count}")
     typer.echo(f"Sections: {readiness.section_count}")
     typer.echo(f"Evidence links: {readiness.safe_evidence_count}")

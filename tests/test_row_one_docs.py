@@ -154,6 +154,9 @@ def test_row_one_docs_describe_daily_readiness_preview() -> None:
         "bilingual english/chinese labels",
         "`row-one preview`",
         "`row-one preview --dry-run-serve-url`",
+        "preview prints the manifest path",
+        "`data/manifest.json` output",
+        "same local url message used by `row-one serve --dry-run`",
     ):
         assert phrase in normalized
 
@@ -176,12 +179,15 @@ def test_row_one_docs_describe_manifest_and_editorial_polish() -> None:
 
     assert "Inspect The Sample In ROW ONE".lower() in first_run.lower()
     assert 'row-one preview --config-dir "$PWD/configs"'.lower() in first_run.lower()
+    assert "ROW ONE manifest".lower() in first_run.lower()
+    assert "row-one serve --dry-run".lower() in first_run.lower()
     assert (
         "row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787".lower()
         in first_run.lower()
     )
     assert "docs/row-one.md" in readme
     assert "ROW ONE local static site" in readme
+    assert "ROW ONE manifest and serve dry-run".lower() in readme.lower()
     assert "data/manifest.json" in checklist
     assert "do not upload generated ROW ONE site artifacts".lower() in checklist.lower()
 

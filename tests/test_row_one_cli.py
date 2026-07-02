@@ -141,6 +141,7 @@ def test_row_one_preview_builds_site_and_prints_readiness(tmp_path: Path) -> Non
     assert "ROW ONE preview" in result.output
     assert f"Site: {output_dir / 'index.html'}" in result.output
     assert f"JSON: {output_dir / 'data' / 'edition.json'}" in result.output
+    assert f"Manifest: {output_dir / 'data' / 'manifest.json'}" in result.output
     assert "Stories:" in result.output
     assert "Sections:" in result.output
     assert "Evidence links:" in result.output

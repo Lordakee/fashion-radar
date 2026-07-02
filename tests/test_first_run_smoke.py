@@ -1868,6 +1868,17 @@ def expected_first_run_flow_commands(
         ),
         (
             "row-one",
+            "serve",
+            "--site-dir",
+            str(context.reports_dir / "row-one" / "site"),
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "8787",
+            "--dry-run",
+        ),
+        (
+            "row-one",
             "local-ops",
             "--config-dir",
             str(context.config_dir),
@@ -4247,7 +4258,52 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             row_one_data_dir = row_one_output_dir / "data"
             row_one_data_dir.mkdir(parents=True, exist_ok=True)
             (row_one_output_dir / "index.html").write_text("<!doctype html>", encoding="utf-8")
-            (row_one_data_dir / "edition.json").write_text("{}", encoding="utf-8")
+            (row_one_output_dir / ".row-one-site").write_text(
+                "ROW ONE generated site\n",
+                encoding="utf-8",
+            )
+            edition_payload = {
+                "generated_at": "2026-06-13T12:00:00Z",
+                "edition_date": "2026-06-13T12:00:00Z",
+                "story_count": 0,
+                "evidence_count": 0,
+                "sections": [
+                    {"key": "top_stories"},
+                    {"key": "brand_moves"},
+                    {"key": "celebrity_style"},
+                    {"key": "hot_products"},
+                    {"key": "rising_radar"},
+                ],
+            }
+            manifest_payload = {
+                "contract_version": "row-one-manifest/v1",
+                "brand": "ROW ONE",
+                "generated_at": "2026-06-13T12:00:00Z",
+                "edition_date": "2026-06-13T12:00:00Z",
+                "app_contract": {
+                    "version": "row-one-app/v1",
+                    "path": "data/edition.json",
+                    "schema_path": "schemas/row-one-app.schema.json",
+                },
+                "site": {
+                    "index_path": "index.html",
+                    "manifest_path": "data/manifest.json",
+                },
+                "counts": {
+                    "story_count": 0,
+                    "section_count": 5,
+                    "evidence_count": 0,
+                },
+                "readiness": {"status": "empty"},
+            }
+            (row_one_data_dir / "edition.json").write_text(
+                json.dumps(edition_payload),
+                encoding="utf-8",
+            )
+            (row_one_data_dir / "manifest.json").write_text(
+                json.dumps(manifest_payload),
+                encoding="utf-8",
+            )
             return subprocess.CompletedProcess(
                 ["python", "-m", "fashion_radar", *args],
                 0,
@@ -4255,6 +4311,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                     "ROW ONE preview\n"
                     f"Site: {row_one_output_dir / 'index.html'}\n"
                     f"JSON: {row_one_output_dir / 'data' / 'edition.json'}\n"
+                    f"Manifest: {row_one_output_dir / 'data' / 'manifest.json'}\n"
                     "Stories: 0\n"
                     "Sections: 5\n"
                     "Evidence links: 0\n"
@@ -4264,6 +4321,14 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                     "Readiness: empty\n"
                     "Open: http://127.0.0.1:8787\n"
                 ),
+                stderr="",
+            )
+
+        if args[:2] == ("row-one", "serve") and "--dry-run" in args:
+            return subprocess.CompletedProcess(
+                ["python", "-m", "fashion_radar", *args],
+                0,
+                stdout="Open: http://127.0.0.1:8787\n",
                 stderr="",
             )
 

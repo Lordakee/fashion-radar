@@ -109,8 +109,11 @@ The readiness labels are deliberately narrow:
   stories yet.
 
 `row-one preview` builds the same static site as `row-one build` and prints the
-site path, `data/edition.json` path, story count, section count, evidence link
-count, empty sections, generated timestamp, and readiness label. Use
+site path, `data/edition.json` path, `data/manifest.json` output path, story
+count, section count, evidence link count, empty sections, generated timestamp,
+and readiness label. Preview prints the manifest path so app clients and smoke
+checks can verify the Manifest: `data/manifest.json` output without scraping
+HTML. Use
 `row-one preview --dry-run-serve-url` to also print the same local URL message
 used by `row-one serve --dry-run` without starting a long-running server.
 The CLI preview uses compact English status labels for terminal output; the

@@ -1086,6 +1086,69 @@ def validate_row_one_schedule_output(output: str) -> None:
         raise SmokeError("row-one schedule must pass --latest-only to row-one build")
 
 
+def validate_row_one_manifest(
+    manifest_payload: Any,
+    edition_payload: Any,
+) -> None:
+    if not isinstance(manifest_payload, dict):
+        raise SmokeError("row-one manifest must be a JSON object")
+    if not isinstance(edition_payload, dict):
+        raise SmokeError("row-one edition must be a JSON object")
+
+    assert_equal(
+        "row-one manifest contract_version",
+        manifest_payload.get("contract_version"),
+        "row-one-manifest/v1",
+    )
+    assert_equal("row-one manifest brand", manifest_payload.get("brand"), "ROW ONE")
+    assert_equal(
+        "row-one manifest app_contract path",
+        (manifest_payload.get("app_contract") or {}).get("path")
+        if isinstance(manifest_payload.get("app_contract"), dict)
+        else None,
+        "data/edition.json",
+    )
+    site = manifest_payload.get("site")
+    if not isinstance(site, dict):
+        raise SmokeError("row-one manifest site must be a JSON object")
+    assert_equal("row-one manifest index path", site.get("index_path"), "index.html")
+    assert_equal("row-one manifest manifest path", site.get("manifest_path"), "data/manifest.json")
+    assert_equal(
+        "row-one manifest generated_at",
+        manifest_payload.get("generated_at"),
+        edition_payload.get("generated_at"),
+    )
+    assert_equal(
+        "row-one manifest edition_date",
+        manifest_payload.get("edition_date"),
+        edition_payload.get("edition_date"),
+    )
+
+    counts = manifest_payload.get("counts")
+    if not isinstance(counts, dict):
+        raise SmokeError("row-one manifest counts must be a JSON object")
+    sections = edition_payload.get("sections")
+    if not isinstance(sections, list):
+        raise SmokeError("row-one edition sections must be a JSON array")
+    assert_equal(
+        "row-one manifest story_count",
+        counts.get("story_count"),
+        edition_payload.get("story_count"),
+    )
+    assert_equal("row-one manifest section_count", counts.get("section_count"), len(sections))
+    assert_equal(
+        "row-one manifest evidence_count",
+        counts.get("evidence_count"),
+        edition_payload.get("evidence_count"),
+    )
+
+    readiness = manifest_payload.get("readiness")
+    if not isinstance(readiness, dict):
+        raise SmokeError("row-one manifest readiness must be a JSON object")
+    expected_status = "ready" if counts.get("story_count") else "empty"
+    assert_equal("row-one manifest readiness status", readiness.get("status"), expected_status)
+
+
 def validate_import_signals_dry_run(output: str) -> None:
     assert_output_contains(
         "import-signals --dry-run",
@@ -2814,6 +2877,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
             "ROW ONE preview",
             f"Site: {row_one_output_dir / 'index.html'}",
             f"JSON: {row_one_output_dir / 'data' / 'edition.json'}",
+            f"Manifest: {row_one_output_dir / 'data' / 'manifest.json'}",
             "Stories:",
             "Sections:",
             "Evidence links:",
@@ -2824,7 +2888,37 @@ def run_first_run_flow(context: SmokeContext) -> None:
         ),
     )
     assert_non_empty_file(row_one_output_dir / "index.html")
-    assert_non_empty_file(row_one_output_dir / "data" / "edition.json")
+    row_one_edition_path = row_one_output_dir / "data" / "edition.json"
+    row_one_manifest_path = row_one_output_dir / "data" / "manifest.json"
+    assert_non_empty_file(row_one_edition_path)
+    assert_non_empty_file(row_one_manifest_path)
+    validate_row_one_manifest(
+        validate_json_output(
+            "row-one manifest",
+            row_one_manifest_path.read_text(encoding="utf-8"),
+        ),
+        validate_json_output(
+            "row-one edition",
+            row_one_edition_path.read_text(encoding="utf-8"),
+        ),
+    )
+    row_one_serve = run_cli(
+        context,
+        "row-one",
+        "serve",
+        "--site-dir",
+        str(row_one_output_dir),
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8787",
+        "--dry-run",
+    ).stdout
+    assert_output_contains(
+        "row-one serve --dry-run",
+        row_one_serve,
+        ("Open: http://127.0.0.1:8787",),
+    )
     row_one_local_ops = run_cli(
         context,
         "row-one",

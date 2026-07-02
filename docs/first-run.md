@@ -151,6 +151,12 @@ working tree. A successful run prints:
 First-run sample smoke passed.
 ```
 
+The source-checkout smoke also validates the ROW ONE manifest output and local
+serve readiness path. It checks that ROW ONE writes the Manifest:
+`data/manifest.json` app discovery file, then runs `row-one serve --dry-run`
+against the generated temporary site so the dry-run URL path is covered without
+starting a long-running server.
+
 ## Installed-Wheel Smoke
 
 Use this path when you need to verify the built package instead of the source
