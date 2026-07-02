@@ -110,6 +110,28 @@ def test_row_one_docs_describe_reader_orientation_boundary() -> None:
         assert phrase in normalized
 
 
+def test_row_one_docs_describe_versioned_app_json_contract() -> None:
+    normalized = _normalized(_read(ROW_ONE_DOC))
+    architecture = _normalized(_read(ARCHITECTURE_DOC))
+
+    for phrase in (
+        "app json contract",
+        "`data/edition.json` is the row-one-app/v1 app-facing contract",
+        "`schemas/row-one-app.schema.json`",
+        "section counts",
+        "detail hrefs",
+        "published dates",
+        "evidence counts",
+        "sanitized urls",
+        "story_count",
+        "evidence_count",
+        "detail_href",
+        "href",
+    ):
+        assert phrase in normalized
+    assert "versioned app json" in architecture
+
+
 def test_row_one_cli_docs_list_build_serve_and_schedule_commands() -> None:
     normalized = _normalized(_read(CLI_REFERENCE))
 

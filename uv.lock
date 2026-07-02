@@ -371,6 +371,7 @@ dashboard = [
     { name = "streamlit" },
 ]
 dev = [
+    { name = "jsonschema" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -379,6 +380,7 @@ dev = [
 [package.dev-dependencies]
 dev = [
     { name = "fashion-radar", extra = ["article"] },
+    { name = "jsonschema" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -388,6 +390,7 @@ dev = [
 requires-dist = [
     { name = "feedparser", specifier = ">=6.0.11" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.28.1" },
+    { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.26.0" },
     { name = "pandas", marker = "extra == 'dashboard'", specifier = ">=2.2.3" },
     { name = "platformdirs", specifier = ">=4.3.6" },
     { name = "pydantic", specifier = ">=2.10.4" },
@@ -408,6 +411,7 @@ provides-extras = ["article", "dashboard", "dev"]
 [package.metadata.requires-dev]
 dev = [
     { name = "fashion-radar", extras = ["article"] },
+    { name = "jsonschema", specifier = ">=4.26.0" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "ruff", specifier = ">=0.8.6" },

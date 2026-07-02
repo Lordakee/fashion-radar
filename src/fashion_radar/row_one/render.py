@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from shutil import rmtree
 
-from fashion_radar.row_one.models import RowOneEdition
+from fashion_radar.row_one.models import RowOneEdition, RowOneLink, RowOneSection, RowOneStory
 from fashion_radar.row_one.templates import (
     _safe_external_url,
     _validated_detail_relative_path,
@@ -16,6 +17,7 @@ from fashion_radar.row_one.templates import (
 )
 
 GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data")
+ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v1"
 
 
 @dataclass(frozen=True)
@@ -39,10 +41,11 @@ def render_row_one_site(
     index_path = output_dir / "index.html"
     index_path.write_text(render_index_html(edition), encoding="utf-8")
     _write_detail_pages(edition, output_dir / "details")
+    app_payload = build_row_one_app_payload(edition)
     data_dir = output_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "edition.json").write_text(
-        json.dumps(_sanitized_edition_payload(edition), ensure_ascii=False, indent=2) + "\n",
+        json.dumps(app_payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     return RowOneRenderResult(
@@ -87,19 +90,99 @@ def _write_detail_pages(edition: RowOneEdition, details_dir: Path) -> None:
         detail_path.write_text(render_detail_html(edition, story), encoding="utf-8")
 
 
-def _sanitized_edition_payload(edition: RowOneEdition) -> dict[str, object]:
-    payload = edition.model_dump(mode="json")
-    stories = payload.get("stories", [])
-    if not isinstance(stories, list):
-        return payload
-    for story in stories:
-        if not isinstance(story, dict):
-            continue
-        story["source_url"] = _safe_external_url(story.get("source_url"))
-        evidence = story.get("evidence", [])
-        if not isinstance(evidence, list):
-            continue
-        for link in evidence:
-            if isinstance(link, dict):
-                link["url"] = _safe_external_url(link.get("url"))
-    return payload
+def build_row_one_app_payload(edition: RowOneEdition) -> dict[str, object]:
+    stories = [_story_payload(edition, story) for story in edition.stories]
+    return {
+        "contract_version": ROW_ONE_APP_CONTRACT_VERSION,
+        "brand": edition.brand,
+        "generated_at": _isoformat_z(edition.generated_at),
+        "edition_date": _isoformat_z(edition.edition_date),
+        "summary": edition.summary.model_dump(mode="json"),
+        "sections": [_section_payload(edition, section) for section in edition.sections],
+        "stories": stories,
+        "story_count": len(stories),
+        "evidence_count": sum(_safe_evidence_count(story.evidence) for story in edition.stories),
+    }
+
+
+def _section_payload(edition: RowOneEdition, section: RowOneSection) -> dict[str, object]:
+    return {
+        "key": section.key,
+        "title": section.title.model_dump(mode="json"),
+        "dek": section.dek.model_dump(mode="json"),
+        "href": f"#{section.key}",
+        "story_count": len(edition.section_stories(section.key)),
+    }
+
+
+def _story_payload(edition: RowOneEdition, story: RowOneStory) -> dict[str, object]:
+    section = _section_for_story(edition, story.section_key)
+    detail_href = _app_detail_href(story.detail_path)
+    published_at_utc = _utc_datetime(story.published_at) if story.published_at else None
+    return {
+        "id": story.id,
+        "section_key": story.section_key,
+        "section": {
+            "key": section.key,
+            "title": section.title.model_dump(mode="json"),
+            "href": f"#{section.key}",
+        },
+        "headline": story.headline,
+        "summary": story.summary.model_dump(mode="json"),
+        "why_it_matters": story.why_it_matters.model_dump(mode="json"),
+        "editorial_takeaway": story.editorial_takeaway.model_dump(mode="json"),
+        "signal_context": story.signal_context.model_dump(mode="json"),
+        "reader_path": story.reader_path.model_dump(mode="json"),
+        "source_name": story.source_name,
+        "source_url": _safe_external_url(story.source_url),
+        "published_at": _isoformat_z(published_at_utc) if published_at_utc else None,
+        "published_date": published_at_utc.date().isoformat() if published_at_utc else None,
+        "detail_path": detail_href,
+        "href": detail_href,
+        "detail_href": detail_href,
+        "tags": list(story.tags),
+        "evidence_count": _safe_evidence_count(story.evidence),
+        "evidence": [_evidence_payload(link) for link in story.evidence],
+    }
+
+
+def _section_for_story(edition: RowOneEdition, section_key: str) -> RowOneSection:
+    for section in edition.sections:
+        if section.key == section_key:
+            return section
+    return RowOneSection(
+        key=section_key,
+        title=type(edition.summary)(zh=section_key, en=section_key.replace("_", " ").title()),
+        dek=type(edition.summary)(zh="", en=""),
+    )
+
+
+def _evidence_payload(link: RowOneLink) -> dict[str, object]:
+    safe_url = _safe_external_url(link.url)
+    return {
+        "title": link.title,
+        "url": safe_url,
+        "href": safe_url,
+        "source_name": link.source_name,
+    }
+
+
+def _safe_evidence_count(evidence: list[RowOneLink]) -> int:
+    return sum(1 for link in evidence if _safe_external_url(link.url) is not None)
+
+
+def _app_detail_href(detail_path: str) -> str:
+    pure_path = _validated_detail_relative_path(detail_path)
+    if pure_path is None:
+        raise ValueError(f"Invalid ROW ONE detail path: {detail_path}")
+    return str(pure_path)
+
+
+def _isoformat_z(value: datetime) -> str:
+    return _utc_datetime(value).isoformat().replace("+00:00", "Z")
+
+
+def _utc_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)

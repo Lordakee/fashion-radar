@@ -141,10 +141,13 @@ def test_row_one_build_command_writes_non_ascii_story_detail_path(tmp_path: Path
 
     assert result.exit_code == 0, result.output
     payload = json.loads((output_dir / "data" / "edition.json").read_text(encoding="utf-8"))
+    assert payload["contract_version"] == "row-one-app/v1"
     story = next(
         story for story in payload["stories"] if story["headline"] == "上海新锐设计师品牌升温"
     )
     detail_path = story["detail_path"]
+    assert story["detail_href"] == detail_path
+    assert story["href"] == detail_path
     assert detail_path.startswith("details/story-")
     assert detail_path.endswith(".html")
     assert detail_path.isascii()

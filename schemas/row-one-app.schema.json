@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Lordakee/fashion-radar/blob/main/schemas/row-one-app.schema.json",
+  "title": "Fashion Radar ROW ONE App Payload",
+  "type": "object",
+  "required": [
+    "contract_version",
+    "brand",
+    "generated_at",
+    "edition_date",
+    "summary",
+    "sections",
+    "stories",
+    "story_count",
+    "evidence_count"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "row-one-app/v1"
+    },
+    "brand": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "edition_date": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "summary": {
+      "$ref": "#/$defs/localizedText"
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/section"
+      }
+    },
+    "stories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/story"
+      }
+    },
+    "story_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidence_count": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "$defs": {
+    "localizedText": {
+      "type": "object",
+      "required": ["zh", "en"],
+      "additionalProperties": false,
+      "properties": {
+        "zh": {
+          "type": "string",
+          "minLength": 1
+        },
+        "en": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "sectionKey": {
+      "enum": [
+        "top_stories",
+        "brand_moves",
+        "celebrity_style",
+        "hot_products",
+        "rising_radar"
+      ]
+    },
+    "safeExternalUrl": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://[^\\s/]+"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "detailHref": {
+      "type": "string",
+      "pattern": "^details/[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\\.html$"
+    },
+    "section": {
+      "type": "object",
+      "required": ["key", "title", "dek", "href", "story_count"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/sectionKey"
+        },
+        "title": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "dek": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "href": {
+          "type": "string",
+          "pattern": "^#(top_stories|brand_moves|celebrity_style|hot_products|rising_radar)$"
+        },
+        "story_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "storySection": {
+      "type": "object",
+      "required": ["key", "title", "href"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/sectionKey"
+        },
+        "title": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "href": {
+          "type": "string",
+          "pattern": "^#(top_stories|brand_moves|celebrity_style|hot_products|rising_radar)$"
+        }
+      }
+    },
+    "story": {
+      "type": "object",
+      "required": [
+        "id",
+        "section_key",
+        "section",
+        "headline",
+        "summary",
+        "why_it_matters",
+        "editorial_takeaway",
+        "signal_context",
+        "reader_path",
+        "source_name",
+        "source_url",
+        "published_at",
+        "published_date",
+        "detail_path",
+        "href",
+        "detail_href",
+        "tags",
+        "evidence_count",
+        "evidence"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "section_key": {
+          "$ref": "#/$defs/sectionKey"
+        },
+        "section": {
+          "$ref": "#/$defs/storySection"
+        },
+        "headline": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "why_it_matters": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "editorial_takeaway": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "signal_context": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "reader_path": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "source_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_url": {
+          "$ref": "#/$defs/safeExternalUrl"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "published_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "detail_path": {
+          "$ref": "#/$defs/detailHref"
+        },
+        "href": {
+          "$ref": "#/$defs/detailHref"
+        },
+        "detail_href": {
+          "$ref": "#/$defs/detailHref"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "evidence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["title", "url", "href", "source_name"],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "$ref": "#/$defs/safeExternalUrl"
+        },
+        "href": {
+          "$ref": "#/$defs/safeExternalUrl"
+        },
+        "source_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

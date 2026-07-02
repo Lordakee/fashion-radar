@@ -81,6 +81,7 @@ SDIST_FILES = [
     "examples/community-tool-handoff-directory.example/json/community-tool-a.json",
     "examples/community-tool-handoff-directory.example/json/community-tool-b.json",
     "schemas/community-signals.schema.json",
+    "schemas/row-one-app.schema.json",
     "scripts/check_first_run_smoke.py",
     "src/fashion_radar/cli.py",
     "src/fashion_radar/__main__.py",

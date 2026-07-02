@@ -1,0 +1,264 @@
+from __future__ import annotations
+
+import copy
+import json
+from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+from jsonschema import Draft202012Validator, FormatChecker, ValidationError
+
+from fashion_radar.row_one.models import (
+    LocalizedText,
+    RowOneEdition,
+    RowOneLink,
+    RowOneSection,
+    RowOneStory,
+)
+from fashion_radar.row_one.render import render_row_one_site
+
+ROOT = Path(__file__).resolve().parents[1]
+SCHEMA = ROOT / "schemas" / "row-one-app.schema.json"
+AS_OF = datetime(2026, 7, 2, 4, 0, tzinfo=UTC)
+
+
+def _edition(
+    *,
+    source_url: str | None = "https://example.com/the-row",
+    evidence_url: str | None = "https://example.com/evidence",
+    published_at: datetime | None = AS_OF,
+) -> RowOneEdition:
+    return RowOneEdition(
+        brand="ROW ONE",
+        generated_at=AS_OF,
+        edition_date=AS_OF,
+        summary=LocalizedText(
+            zh="ROW ONE 今日整理了 1 条本地时尚信号。",
+            en="ROW ONE organized 1 local fashion signal for today.",
+        ),
+        sections=[
+            RowOneSection(
+                key="top_stories",
+                title=LocalizedText(zh="今日重点", en="Top Stories"),
+                dek=LocalizedText(zh="今日最值得先看的时尚信号。", en="Read first."),
+            ),
+            RowOneSection(
+                key="brand_moves",
+                title=LocalizedText(zh="品牌动态", en="Brand Moves"),
+                dek=LocalizedText(zh="品牌、零售与商业动作。", en="Brand and retail context."),
+            ),
+        ],
+        stories=[
+            RowOneStory(
+                id="the-row-signal-1234567890",
+                section_key="top_stories",
+                headline="The Row signal",
+                summary=LocalizedText(zh="来源摘要。", en="Source summary."),
+                why_it_matters=LocalizedText(zh="值得关注。", en="Worth watching."),
+                editorial_takeaway=LocalizedText(zh="编辑整理。", en="Editorial takeaway."),
+                signal_context=LocalizedText(zh="信号背景。", en="Signal context."),
+                reader_path=LocalizedText(zh="阅读路径。", en="Reader path."),
+                source_name="Vogue Business",
+                source_url=source_url,
+                published_at=published_at,
+                detail_path="details/the-row-signal-1234567890.html",
+                tags=["brand"],
+                evidence=[
+                    RowOneLink(
+                        title="Evidence",
+                        url=evidence_url,
+                        source_name="Vogue Business",
+                    )
+                ],
+            )
+        ],
+    )
+
+
+def _schema_validator() -> Draft202012Validator:
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(schema, format_checker=FormatChecker())
+
+
+def _payload(tmp_path: Path, edition: RowOneEdition | None = None) -> dict[str, object]:
+    render_row_one_site(edition or _edition(), tmp_path)
+    return json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
+
+
+def test_row_one_app_contract_schema_validates_generated_payload(tmp_path: Path) -> None:
+    payload = _payload(tmp_path)
+
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_payload_has_stable_counts(tmp_path: Path) -> None:
+    payload = _payload(tmp_path)
+
+    stories = payload["stories"]
+    sections = payload["sections"]
+    assert isinstance(stories, list)
+    assert isinstance(sections, list)
+    assert payload["story_count"] == len(stories)
+    assert payload["evidence_count"] == sum(story["evidence_count"] for story in stories)
+    for section in sections:
+        assert section["story_count"] == sum(
+            1 for story in stories if story["section_key"] == section["key"]
+        )
+
+
+def test_row_one_app_payload_supports_undated_stories(tmp_path: Path) -> None:
+    payload = _payload(tmp_path, _edition(published_at=None))
+
+    story = payload["stories"][0]
+    assert story["published_at"] is None
+    assert story["published_date"] is None
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_payload_normalizes_assigned_timezone_to_utc(tmp_path: Path) -> None:
+    edition = _edition()
+    edition.generated_at = datetime(2026, 7, 2, 12, 0, tzinfo=timezone(timedelta(hours=8)))
+    edition.edition_date = datetime(2026, 7, 2, 12, 0, tzinfo=timezone(timedelta(hours=8)))
+    edition.stories[0].published_at = datetime(
+        2026,
+        7,
+        2,
+        12,
+        0,
+        tzinfo=timezone(timedelta(hours=8)),
+    )
+
+    payload = _payload(tmp_path, edition)
+
+    assert payload["generated_at"] == "2026-07-02T04:00:00Z"
+    assert payload["edition_date"] == "2026-07-02T04:00:00Z"
+    assert payload["stories"][0]["published_at"] == "2026-07-02T04:00:00Z"
+    assert payload["stories"][0]["published_date"] == "2026-07-02"
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_payload_published_date_uses_utc_date(tmp_path: Path) -> None:
+    edition = _edition()
+    edition.stories[0].published_at = datetime(
+        2026,
+        7,
+        2,
+        0,
+        30,
+        tzinfo=timezone(timedelta(hours=8)),
+    )
+
+    payload = _payload(tmp_path, edition)
+
+    assert payload["stories"][0]["published_at"] == "2026-07-01T16:30:00Z"
+    assert payload["stories"][0]["published_date"] == "2026-07-01"
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_payload_preserves_rendering_for_sparse_sections(tmp_path: Path) -> None:
+    edition = _edition()
+    edition.sections = [
+        RowOneSection(
+            key="brand_moves",
+            title=LocalizedText(zh="品牌动态", en="Brand Moves"),
+            dek=LocalizedText(zh="品牌、零售与商业动作。", en="Brand and retail context."),
+        )
+    ]
+
+    payload = _payload(tmp_path, edition)
+
+    assert (tmp_path / "index.html").exists()
+    assert (tmp_path / "data" / "edition.json").exists()
+    story = payload["stories"][0]
+    assert story["section_key"] == "top_stories"
+    assert story["section"] == {
+        "key": "top_stories",
+        "title": {"zh": "top_stories", "en": "Top Stories"},
+        "href": "#top_stories",
+    }
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_payload_repeated_href_fields_stay_in_sync(tmp_path: Path) -> None:
+    payload = _payload(tmp_path)
+
+    story = payload["stories"][0]
+    assert story["detail_path"] == story["href"] == story["detail_href"]
+    for link in story["evidence"]:
+        assert link["url"] == link["href"]
+
+
+def test_row_one_app_payload_sanitizes_urls(tmp_path: Path) -> None:
+    payload = _payload(
+        tmp_path,
+        _edition(source_url="javascript:alert(1)", evidence_url="https:///bad"),
+    )
+
+    story = payload["stories"][0]
+    assert story["source_url"] is None
+    assert story["evidence_count"] == 0
+    assert story["evidence"][0]["url"] is None
+    assert story["evidence"][0]["href"] is None
+    _schema_validator().validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        (lambda payload: payload.__setitem__("contract_version", "row-one-app/v2"), "was expected"),
+        (lambda payload: payload.__setitem__("extra", True), "Additional properties"),
+        (lambda payload: payload["stories"][0].__setitem__("section_key", "unknown"), "not one"),
+        (
+            lambda payload: payload["stories"][0].__setitem__("detail_href", "../escape.html"),
+            "does not match",
+        ),
+        (lambda payload: payload.__setitem__("generated_at", "not-a-date"), "does not match"),
+        (
+            lambda payload: payload["stories"][0].__setitem__(
+                "published_at",
+                "2026-07-02 04:00:00",
+            ),
+            "not valid under any",
+        ),
+        (
+            lambda payload: payload["stories"][0].__setitem__("published_date", "2026-7-2"),
+            "not valid under any",
+        ),
+        (lambda payload: payload["summary"].pop("zh"), "'zh' is a required property"),
+    ],
+)
+def test_row_one_app_schema_rejects_contract_drift(
+    tmp_path: Path,
+    mutation,
+    match: str,
+) -> None:
+    payload = copy.deepcopy(_payload(tmp_path))
+    mutation(payload)
+
+    with pytest.raises(ValidationError, match=match):
+        _schema_validator().validate(payload)
+
+
+def test_empty_row_one_app_payload_validates(tmp_path: Path) -> None:
+    edition = RowOneEdition(
+        generated_at=AS_OF,
+        edition_date=AS_OF,
+        summary=LocalizedText(zh="暂无信号。", en="No signals yet."),
+        sections=[
+            RowOneSection(
+                key="top_stories",
+                title=LocalizedText(zh="今日重点", en="Top Stories"),
+                dek=LocalizedText(zh="今日最值得先看的时尚信号。", en="Read first."),
+            )
+        ],
+        stories=[],
+    )
+
+    payload = _payload(tmp_path, edition)
+
+    assert payload["contract_version"] == "row-one-app/v1"
+    assert payload["story_count"] == 0
+    assert payload["evidence_count"] == 0
+    assert payload["stories"] == []
+    _schema_validator().validate(payload)

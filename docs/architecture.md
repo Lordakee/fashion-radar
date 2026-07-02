@@ -40,11 +40,11 @@ YAML config
 - **ROW ONE:** Presentation-only local static site generation over existing
   daily report data and local state. It reuses the existing daily report and
   scoring logic over local SQLite rows, maps the resulting report model and
-  recent local rows into ROW ONE edition models, renders static HTML/CSS/JS/JSON,
-  and can serve the output with Python's stdlib HTTP server. It performs no new
-  data acquisition, no entity matching, no source collection, no new scoring
-  logic, no persisted scoring state, no demand proof, and no platform coverage
-  verification.
+  recent local rows into ROW ONE edition models, renders static HTML/CSS/JS plus
+  versioned app JSON at `data/edition.json`, and can serve the output with
+  Python's stdlib HTTP server. It performs no new data acquisition, no entity
+  matching, no source collection, no new scoring logic, no persisted scoring
+  state, no demand proof, and no platform coverage verification.
 - **Entity-Pack Quality:** Local read-only diagnostics lint one entity YAML or
   entity-pack YAML file for invalid config, empty packs, aliases that cannot
   match, matcher-context surprises, product parent-brand precision issues,

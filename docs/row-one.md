@@ -61,6 +61,26 @@ section link so readers can return to the relevant homepage section.
 This remains presentation-only. Reader orientation does not change ranking,
 scoring, story IDs, source collection, JSON contract semantics, or publishing.
 
+## App JSON Contract
+
+`data/edition.json` is the row-one-app/v1 app-facing contract for clients that
+need to render the latest ROW ONE edition without scraping HTML. The payload is
+validated by `schemas/row-one-app.schema.json` and includes localized edition
+summary text, section counts (`story_count`), section anchors, story detail
+hrefs (`detail_href` and `href`), published dates, evidence counts
+(`evidence_count`), and sanitized URLs.
+
+Unsafe external URLs are written as `null`. Missing story publication timestamps
+are represented as `null` in both `published_at` and `published_date`. The
+`evidence_count` value counts only safe clickable evidence URLs; evidence entries
+with unsafe or missing URLs remain present with `url: null` and `href: null`.
+The schema pins UTC timestamp and date string shapes; generated values come from
+ROW ONE's normalized datetime output.
+The contract is generated from the existing ROW ONE edition model only; it does
+not collect sources, run platform integrations, call LLMs, generate images,
+deploy the site, or change matching, ranking, scoring, story IDs, cleanup,
+server, or schedule behavior.
+
 ## Generated Files
 
 `row-one build` writes a static site under the selected output directory:

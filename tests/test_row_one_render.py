@@ -325,18 +325,44 @@ def test_render_row_one_site_writes_json_payload(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
+    assert payload["contract_version"] == "row-one-app/v1"
     assert payload["brand"] == "ROW ONE"
-    assert payload["stories"][0]["id"] == "the-row-signal-1234567890"
-    assert payload["stories"][0]["summary"]["zh"].startswith("来源摘要")
-    assert (
-        payload["stories"][0]["editorial_takeaway"]["en"] == "The Row is today's priority signal."
-    )
-    assert payload["stories"][0]["signal_context"]["zh"] == "本地报告显示它来自 1 个来源。"
-    assert payload["stories"][0]["reader_path"]["en"] == (
-        "Read the brief, then open the evidence link."
-    )
-    assert payload["stories"][0]["source_url"] == "https://example.com/the-row"
-    assert payload["stories"][0]["evidence"][1]["url"] is None
+    assert payload["generated_at"] == "2026-07-02T04:00:00Z"
+    assert payload["edition_date"] == "2026-07-02T04:00:00Z"
+    assert payload["summary"]["zh"] == "ROW ONE 今日整理了 1 条本地时尚信号。"
+    assert payload["story_count"] == 1
+    assert payload["evidence_count"] == 1
+
+    sections = {section["key"]: section for section in payload["sections"]}
+    assert sections["top_stories"]["href"] == "#top_stories"
+    assert sections["top_stories"]["story_count"] == 1
+    assert sections["brand_moves"]["href"] == "#brand_moves"
+    assert sections["brand_moves"]["story_count"] == 0
+
+    story = payload["stories"][0]
+    assert story["id"] == "the-row-signal-1234567890"
+    assert story["section_key"] == "top_stories"
+    assert story["section"] == {
+        "key": "top_stories",
+        "title": {"zh": "今日重点", "en": "Top Stories"},
+        "href": "#top_stories",
+    }
+    assert story["headline"] == 'The Row <signals> "quiet" demand'
+    assert story["summary"]["zh"].startswith("来源摘要")
+    assert story["editorial_takeaway"]["en"] == "The Row is today's priority signal."
+    assert story["signal_context"]["zh"] == "本地报告显示它来自 1 个来源。"
+    assert story["reader_path"]["en"] == "Read the brief, then open the evidence link."
+    assert story["detail_path"] == "details/the-row-signal-1234567890.html"
+    assert story["href"] == "details/the-row-signal-1234567890.html"
+    assert story["detail_href"] == "details/the-row-signal-1234567890.html"
+    assert story["published_at"] == "2026-07-02T04:00:00Z"
+    assert story["published_date"] == "2026-07-02"
+    assert story["evidence_count"] == 1
+    assert story["source_url"] == "https://example.com/the-row"
+    assert story["evidence"][0]["url"] == "https://example.com/evidence"
+    assert story["evidence"][0]["href"] == "https://example.com/evidence"
+    assert story["evidence"][1]["url"] is None
+    assert story["evidence"][1]["href"] is None
 
 
 def test_render_row_one_site_sanitizes_json_source_url(tmp_path) -> None:
@@ -347,7 +373,10 @@ def test_render_row_one_site_sanitizes_json_source_url(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
+    assert payload["contract_version"] == "row-one-app/v1"
     assert payload["stories"][0]["source_url"] is None
+    assert payload["stories"][0]["evidence"][1]["url"] is None
+    assert payload["stories"][0]["evidence"][1]["href"] is None
 
 
 def test_row_one_story_rejects_unknown_section_key() -> None:
