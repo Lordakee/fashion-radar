@@ -50,6 +50,17 @@ This is not translation, not LLM generation, not new scoring, and not demand
 proof. It does not infer domestic/international market grouping unless explicit
 source metadata is added in a future stage.
 
+## Reader Orientation
+
+ROW ONE includes a deterministic reader orientation layer for the generated
+static site. The homepage renders edition contents with section jump links and
+current story counts. Story cards include lightweight story-card metadata such
+as section, source, date, and evidence count. Detail pages include a back to
+section link so readers can return to the relevant homepage section.
+
+This remains presentation-only. Reader orientation does not change ranking,
+scoring, story IDs, source collection, JSON contract semantics, or publishing.
+
 ## Generated Files
 
 `row-one build` writes a static site under the selected output directory:

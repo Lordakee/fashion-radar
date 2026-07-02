@@ -75,7 +75,15 @@ def _edition() -> RowOneEdition:
                 key="top_stories",
                 title=LocalizedText(zh="今日重点", en="Top Stories"),
                 dek=LocalizedText(zh="今日最值得先看的时尚信号。", en="Read first."),
-            )
+            ),
+            RowOneSection(
+                key="brand_moves",
+                title=LocalizedText(zh="品牌动态", en="Brand Moves"),
+                dek=LocalizedText(
+                    zh="品牌、零售与商业动作。",
+                    en="Brand and retail context.",
+                ),
+            ),
         ],
         stories=[story],
     )
@@ -111,9 +119,33 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert "zh-Hans" in script
     assert re.search(r'document\.documentElement\.lang\s*=.*"en"', script)
     assert 'class="story-takeaway"' in index_html
+    orientation_match = re.search(
+        r'<p class="story-orientation">(?P<orientation>.*?)</p>',
+        index_html,
+        re.S,
+    )
+    assert orientation_match is not None
+    orientation_html = orientation_match.group("orientation")
+    en_orientation_match = re.search(
+        r'<span data-lang="en">(?P<orientation>.*?)</span>',
+        orientation_html,
+        re.S,
+    )
+    assert en_orientation_match is not None
+    en_orientation_html = en_orientation_match.group("orientation")
+    assert "Top Stories" in orientation_html
+    assert "Vogue Business" in orientation_html
+    assert "Jul 02, 2026" in orientation_html
+    assert "2026-07-02" not in en_orientation_html
+    assert "1 evidence link" in orientation_html
+    assert "1 条线索" in orientation_html
+    assert '<p class="story-meta">Vogue Business</p>' not in index_html
     assert "The Row 是今日重点信号。" in index_html
     assert "The Row &lt;signals&gt; &quot;quiet&quot; demand" in index_html
     assert "The Row is today&#x27;s priority signal." in index_html
+    assert 'href="../index.html#top_stories"' in detail_html
+    assert "Back to section" in detail_html
+    assert "回到栏目" in detail_html
     detail_panel_match = re.search(
         r'<section class="detail-panel">(?P<panel>.*?)</section>',
         detail_html,
@@ -131,6 +163,57 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert "javascript:alert" not in detail_html
     assert "Unsafe evidence" in detail_html
     assert '<a href="https://example.com/evidence"' in detail_html
+
+
+def test_render_row_one_site_writes_edition_contents_navigation(tmp_path) -> None:
+    render_row_one_site(_edition(), tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert 'class="edition-nav"' in index_html
+    assert 'aria-label="Edition contents"' in index_html
+    assert 'href="#top_stories"' in index_html
+    assert 'href="#brand_moves"' in index_html
+    assert 'id="top_stories"' in index_html
+    assert 'id="brand_moves"' in index_html
+    assert index_html.index('class="edition-nav"') < index_html.index('class="section-block"')
+    nav_match = re.search(
+        r'<nav class="edition-nav" aria-label="Edition contents">(?P<nav>.*?)</nav>',
+        index_html,
+        re.S,
+    )
+    assert nav_match is not None
+    nav_html = nav_match.group("nav")
+    assert "Top Stories" in nav_html
+    assert "Brand Moves" in nav_html
+    assert "1 story" in nav_html
+    assert "0 stories" in nav_html
+    assert "1 条" in nav_html
+    assert "0 条" in nav_html
+    assert "No stories in this section yet." in index_html
+
+
+def test_render_row_one_site_story_orientation_handles_single_link_and_undated(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    edition.stories[0].published_at = None
+    edition.stories[0].evidence = [edition.stories[0].evidence[0]]
+
+    render_row_one_site(edition, tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    orientation_match = re.search(
+        r'<p class="story-orientation">(?P<orientation>.*?)</p>',
+        index_html,
+        re.S,
+    )
+    assert orientation_match is not None
+    orientation_html = orientation_match.group("orientation")
+    assert "Undated" in orientation_html
+    assert "时间未标注" in orientation_html
+    assert "1 evidence link" in orientation_html
+    assert "1 条线索" in orientation_html
 
 
 def test_render_row_one_site_latest_only_preserves_unrelated_files(tmp_path) -> None:

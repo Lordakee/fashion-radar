@@ -150,7 +150,10 @@ def test_row_one_build_command_writes_non_ascii_story_detail_path(tmp_path: Path
     assert detail_path.isascii()
     assert "%" not in detail_path
     assert (output_dir / detail_path).exists()
-    assert "上海新锐设计师品牌升温" in (output_dir / "index.html").read_text(encoding="utf-8")
+    index_html = (output_dir / "index.html").read_text(encoding="utf-8")
+    assert 'class="edition-nav"' in index_html
+    assert 'href="#top_stories"' in index_html
+    assert "上海新锐设计师品牌升温" in index_html
 
 
 def test_row_one_serve_dry_run_prints_url(tmp_path: Path) -> None:

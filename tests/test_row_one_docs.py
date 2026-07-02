@@ -96,6 +96,20 @@ def test_row_one_docs_describe_editorial_synthesis_boundary() -> None:
         assert phrase in normalized
 
 
+def test_row_one_docs_describe_reader_orientation_boundary() -> None:
+    normalized = _normalized(_read(ROW_ONE_DOC))
+
+    for phrase in (
+        "reader orientation",
+        "edition contents",
+        "section jump links",
+        "story-card metadata",
+        "back to section",
+        "presentation-only",
+    ):
+        assert phrase in normalized
+
+
 def test_row_one_cli_docs_list_build_serve_and_schedule_commands() -> None:
     normalized = _normalized(_read(CLI_REFERENCE))
 

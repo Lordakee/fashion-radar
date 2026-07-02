@@ -5,12 +5,20 @@ from html import escape
 from pathlib import PurePosixPath
 from urllib.parse import urlsplit
 
-from fashion_radar.row_one.models import RowOneEdition, RowOneLink, RowOneSectionKey, RowOneStory
+from fashion_radar.row_one.models import (
+    LocalizedText,
+    RowOneEdition,
+    RowOneLink,
+    RowOneSection,
+    RowOneSectionKey,
+    RowOneStory,
+)
 
 _DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$")
 
 
 def render_index_html(edition: RowOneEdition) -> str:
+    contents_nav = _render_edition_nav(edition)
     story_cards = "\n".join(_render_section(edition, section.key) for section in edition.sections)
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -35,6 +43,7 @@ def render_index_html(edition: RowOneEdition) -> str:
   </p>
 </header>
 <main>
+{contents_nav}
 {story_cards}
 </main>
 <script src="assets/row-one.js"></script>
@@ -68,6 +77,12 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
     <p class="story-section">
       <span data-lang="en">{_esc(section_title.en)}</span>
       <span data-lang="zh">{_esc(section_title.zh)}</span>
+    </p>
+    <p class="section-return">
+      <a href="../index.html#{_esc(story.section_key)}">
+        <span data-lang="en">Back to section</span>
+        <span data-lang="zh">回到栏目</span>
+      </a>
     </p>
     <h1>{_esc(story.headline)}</h1>
     <p class="story-source">{source_link}</p>
@@ -191,6 +206,43 @@ h1 {
 .language-toggle button:last-child { border-right: 0; }
 .language-toggle button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 main { padding: 36px min(7vw, 88px) 72px; }
+.edition-nav {
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  padding: 24px 0;
+  margin-bottom: 32px;
+}
+.edition-nav-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+.edition-nav-item {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  gap: 8px;
+  min-height: 150px;
+  padding: 16px;
+  text-decoration: none;
+}
+.edition-nav-title {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.edition-nav-count {
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.edition-nav-dek {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
 .section-block {
   display: grid;
   grid-template-columns: minmax(180px, 0.45fr) minmax(0, 1fr);
@@ -238,6 +290,13 @@ main { padding: 36px min(7vw, 88px) 72px; }
   margin: 8px 0;
 }
 .story-card p, .detail-article p { color: var(--muted); line-height: 1.55; }
+.story-orientation {
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  margin: 10px 0 0;
+  text-transform: uppercase;
+}
 .story-meta {
   color: var(--accent);
   font-size: 0.78rem;
@@ -270,6 +329,17 @@ main { padding: 36px min(7vw, 88px) 72px; }
   padding: 22px 0;
 }
 .detail-panel h2 { margin-top: 8px; }
+.section-return {
+  margin: 0 0 22px;
+}
+.section-return a {
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
 .evidence-item {
   padding: 14px 0;
   border-top: 1px solid var(--line);
@@ -281,11 +351,46 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
 @media (max-width: 760px) {
   .site-header { min-height: 46vh; padding: 28px 20px; }
   main { padding: 24px 20px 56px; }
+  .edition-nav-grid { grid-template-columns: 1fr; }
   .section-block { grid-template-columns: 1fr; gap: 18px; }
   .story-grid { grid-template-columns: 1fr; }
   .detail-header { padding: 18px 20px; }
 }
 """
+
+
+def _render_edition_nav(edition: RowOneEdition) -> str:
+    rows = "\n".join(_render_edition_nav_item(edition, section) for section in edition.sections)
+    return f"""<nav class="edition-nav" aria-label="Edition contents">
+  <p class="story-section">
+    <span data-lang="en">Edition Contents</span>
+    <span data-lang="zh">今日目录</span>
+  </p>
+  <div class="edition-nav-grid">{rows}</div>
+</nav>"""
+
+
+def _render_edition_nav_item(
+    edition: RowOneEdition,
+    section: RowOneSection,
+) -> str:
+    story_count = len(edition.section_stories(section.key))
+    count_en = "1 story" if story_count == 1 else f"{story_count} stories"
+    count_zh = f"{story_count} 条"
+    return f"""<a class="edition-nav-item" href="#{_esc(section.key)}">
+  <span class="edition-nav-title">
+    <span data-lang="en">{_esc(section.title.en)}</span>
+    <span data-lang="zh">{_esc(section.title.zh)}</span>
+  </span>
+  <span class="edition-nav-count">
+    <span data-lang="en">{_esc(count_en)}</span>
+    <span data-lang="zh">{_esc(count_zh)}</span>
+  </span>
+  <span class="edition-nav-dek">
+    <span data-lang="en">{_esc(section.dek.en)}</span>
+    <span data-lang="zh">{_esc(section.dek.zh)}</span>
+  </span>
+</a>"""
 
 
 def row_one_js() -> str:
@@ -309,7 +414,7 @@ def row_one_js() -> str:
 def _render_section(edition: RowOneEdition, section_key: RowOneSectionKey) -> str:
     section = next(section for section in edition.sections if section.key == section_key)
     stories = edition.section_stories(section_key)
-    cards = "\n".join(_render_story_card(story) for story in stories)
+    cards = "\n".join(_render_story_card(story, section.title) for story in stories)
     if not cards:
         cards = (
             '<p class="empty-state">'
@@ -332,13 +437,16 @@ def _render_section(edition: RowOneEdition, section_key: RowOneSectionKey) -> st
 </section>"""
 
 
-def _render_story_card(story: RowOneStory) -> str:
+def _render_story_card(
+    story: RowOneStory,
+    section_title: LocalizedText,
+) -> str:
     detail_href = _internal_detail_href(story.detail_path)
     return f"""<article class="story-card">
   <div>
-    <p class="story-meta">{_esc(story.source_name)}</p>
     <h3><a href="{detail_href}">{_esc(story.headline)}</a></h3>
   </div>
+  {_render_story_orientation(story, section_title)}
   <p class="story-takeaway">
     <span data-lang="en">{_esc(story.editorial_takeaway.en)}</span>
     <span data-lang="zh">{_esc(story.editorial_takeaway.zh)}</span>
@@ -348,6 +456,41 @@ def _render_story_card(story: RowOneStory) -> str:
     <span data-lang="zh">{_esc(story.summary.zh)}</span>
   </p>
 </article>"""
+
+
+def _render_story_orientation(story: RowOneStory, section_title: LocalizedText) -> str:
+    published = _published_label(story)
+    evidence_count = sum(1 for link in story.evidence if _safe_external_url(link.url) is not None)
+    evidence_en = "1 evidence link" if evidence_count == 1 else f"{evidence_count} evidence links"
+    evidence_zh = f"{evidence_count} 条线索"
+    en_parts = [
+        section_title.en,
+        story.source_name,
+        published.en,
+        evidence_en,
+    ]
+    en_text = " · ".join(en_parts)
+    zh_text = " · ".join(
+        (
+            section_title.zh,
+            story.source_name,
+            published.zh,
+            evidence_zh,
+        )
+    )
+    return f"""<p class="story-orientation">
+    <span data-lang="en">{_esc(en_text)}</span>
+    <span data-lang="zh">{_esc(zh_text)}</span>
+  </p>"""
+
+
+def _published_label(story: RowOneStory) -> LocalizedText:
+    if story.published_at is None:
+        return LocalizedText(zh="时间未标注", en="Undated")
+    return LocalizedText(
+        zh=story.published_at.strftime("%Y-%m-%d"),
+        en=story.published_at.strftime("%b %d, %Y"),
+    )
 
 
 def _render_evidence(link: RowOneLink) -> str:
