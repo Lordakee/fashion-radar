@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from html import escape
 from pathlib import PurePosixPath
-from urllib.parse import urlsplit
 
 from fashion_radar.row_one.models import (
     LocalizedText,
@@ -13,12 +12,15 @@ from fashion_radar.row_one.models import (
     RowOneSectionKey,
     RowOneStory,
 )
+from fashion_radar.row_one.readiness import build_row_one_readiness
+from fashion_radar.row_one.utils import safe_external_url
 
 _DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$")
 
 
 def render_index_html(edition: RowOneEdition) -> str:
     contents_nav = _render_edition_nav(edition)
+    status_strip = _render_edition_status(edition)
     story_cards = "\n".join(_render_section(edition, section.key) for section in edition.sections)
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -42,6 +44,7 @@ def render_index_html(edition: RowOneEdition) -> str:
     <span data-lang="zh">{_esc(edition.summary.zh)}</span>
   </p>
 </header>
+{status_strip}
 <main>
 {contents_nav}
 {story_cards}
@@ -206,6 +209,34 @@ h1 {
 .language-toggle button:last-child { border-right: 0; }
 .language-toggle button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 main { padding: 36px min(7vw, 88px) 72px; }
+.edition-status {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.2fr) repeat(5, minmax(120px, 1fr));
+  gap: 0;
+  border-bottom: 1px solid var(--ink);
+  background: var(--paper);
+}
+.edition-status > div {
+  border-right: 1px solid var(--line);
+  padding: 18px min(2vw, 24px);
+}
+.edition-status > div:last-child { border-right: 0; }
+.edition-status strong {
+  color: var(--ink);
+  display: block;
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.05rem, 1.8vw, 1.8rem);
+  font-weight: 500;
+  line-height: 1.05;
+  margin-top: 6px;
+}
+.edition-status-label {
+  color: var(--muted);
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
 .edition-nav {
   border-top: 1px solid var(--ink);
   border-bottom: 1px solid var(--ink);
@@ -350,6 +381,13 @@ body.lang-zh [data-lang="zh"] { display: inline; }
 body.lang-zh p [data-lang="zh"] { display: inline; }
 @media (max-width: 760px) {
   .site-header { min-height: 46vh; padding: 28px 20px; }
+  .edition-status { grid-template-columns: 1fr; }
+  .edition-status > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 16px 20px;
+  }
+  .edition-status > div:last-child { border-bottom: 0; }
   main { padding: 24px 20px 56px; }
   .edition-nav-grid { grid-template-columns: 1fr; }
   .section-block { grid-template-columns: 1fr; gap: 18px; }
@@ -368,6 +406,70 @@ def _render_edition_nav(edition: RowOneEdition) -> str:
   </p>
   <div class="edition-nav-grid">{rows}</div>
 </nav>"""
+
+
+def _render_edition_status(edition: RowOneEdition) -> str:
+    readiness = build_row_one_readiness(edition)
+    status_metrics = "\n  ".join(
+        (
+            _render_status_metric(
+                "Generated",
+                "生成时间",
+                readiness.generated_at,
+                readiness.generated_at,
+            ),
+            _render_status_metric(
+                "Edition date",
+                "刊期",
+                readiness.edition_date,
+                readiness.edition_date,
+            ),
+            _render_status_metric(
+                "Stories",
+                "故事",
+                str(readiness.story_count),
+                f"{readiness.story_count} 条",
+            ),
+            _render_status_metric(
+                "Evidence links",
+                "证据链接",
+                str(readiness.safe_evidence_count),
+                f"{readiness.safe_evidence_count} 条",
+            ),
+            _render_status_metric(
+                "Empty sections",
+                "空栏目",
+                readiness.empty_sections.en,
+                readiness.empty_sections.zh,
+            ),
+        )
+    )
+    return f"""<section class="edition-status" aria-label="Latest edition status">
+  <div>
+    <p class="story-section">
+      <span data-lang="en">Latest Edition</span>
+      <span data-lang="zh">今日状态</span>
+    </p>
+    <strong>
+      <span data-lang="en">{_esc(readiness.readiness.en)}</span>
+      <span data-lang="zh">{_esc(readiness.readiness.zh)}</span>
+    </strong>
+  </div>
+  {status_metrics}
+</section>"""
+
+
+def _render_status_metric(label_en: str, label_zh: str, value_en: str, value_zh: str) -> str:
+    return f"""<div class="edition-status-metric">
+    <span class="edition-status-label">
+      <span data-lang="en">{_esc(label_en)}</span>
+      <span data-lang="zh">{_esc(label_zh)}</span>
+    </span>
+    <strong>
+      <span data-lang="en">{_esc(value_en)}</span>
+      <span data-lang="zh">{_esc(value_zh)}</span>
+    </strong>
+  </div>"""
 
 
 def _render_edition_nav_item(
@@ -531,12 +633,7 @@ def _validated_detail_relative_path(path: str) -> PurePosixPath | None:
 
 
 def _safe_external_url(url: str | None) -> str | None:
-    if not url:
-        return None
-    parsed = urlsplit(url)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        return None
-    return url
+    return safe_external_url(url)
 
 
 def _section_title(edition: RowOneEdition, section_key: RowOneSectionKey):

@@ -16,7 +16,7 @@ does not add connectors.
 | Setup | `init`, `migrate-db`, `doctor` | [first-run.md](first-run.md) |
 | Local sample/import | `community-signal-lint`, `import-signals`, `import-signals-dir` | [first-run.md](first-run.md) |
 | Match/report/review | `match`, `report`, `candidates`, `trends`, `trend-explanations`, `imported-signals` | [first-run.md](first-run.md) |
-| Daily site | `row-one build`, `row-one serve`, `row-one schedule` | [row-one.md](row-one.md) |
+| Daily site | `row-one build`, `row-one preview`, `row-one serve`, `row-one schedule` | [row-one.md](row-one.md) |
 | Dashboard | `dashboard` | [first-run.md](first-run.md) |
 | Optional entity matching | `entity-pack-lint` | [entity-packs.md](entity-packs.md) |
 | Cleanup | Reset The Repo-Local Sample | [first-run.md](first-run.md) |
@@ -94,6 +94,10 @@ validates deterministic sample output content, not only command execution.
 - `row-one build`: build the ROW ONE local static site from existing daily
   report data; requires `--as-of` and supports `--config-dir`, `--data-dir`,
   `--reports-dir`, `--output-dir`, and `--latest-only`.
+- `row-one preview`: build the ROW ONE local static site and print the Latest
+  Edition readiness details; requires `--as-of` and supports `--config-dir`,
+  `--data-dir`, `--reports-dir`, `--output-dir`, `--latest-only`, `--host`,
+  `--port`, and `--dry-run-serve-url`.
 - `row-one serve`: serve a generated ROW ONE site; supports `--site-dir`,
   `--host`, `--port`, and `--dry-run`.
 - `row-one schedule`: print ROW ONE scheduling snippets without installing

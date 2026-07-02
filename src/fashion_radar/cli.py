@@ -144,6 +144,7 @@ from fashion_radar.importers.manual_signals import (
 )
 from fashion_radar.models.report import CandidateReport
 from fashion_radar.models.trend import TrendComparison
+from fashion_radar.row_one.readiness import build_row_one_readiness
 from fashion_radar.row_one.server import (
     format_row_one_site_access_message,
     serve_row_one_site,
@@ -1398,18 +1399,11 @@ def row_one_build(
 ) -> None:
     """Build the local ROW ONE static daily site."""
     try:
-        scoring_config = load_scoring_config(config_dir / "scoring.yaml")
-        entity_config = None
-        entity_config_path = config_dir / "entities.yaml"
-        if entity_config_path.exists():
-            entity_config = load_entity_config(entity_config_path)
-        result = write_row_one_site_files(
+        result = _write_row_one_site_from_cli_options(
+            config_dir=config_dir,
             data_dir=data_dir,
             reports_dir=reports_dir,
             output_dir=output_dir,
-            scoring=scoring_config.scoring,
-            candidate_discovery=scoring_config.candidate_discovery,
-            entity_config=entity_config,
             as_of=as_of,
             latest_only=latest_only,
         )
@@ -1422,6 +1416,81 @@ def row_one_build(
 
     typer.echo(f"Wrote ROW ONE site: {result.index_path}")
     typer.echo(f"Wrote {result.story_count} stories")
+
+
+@row_one_app.command(name="preview")
+def row_one_preview(
+    config_dir: Path = CONFIG_DIR_OPTION,
+    data_dir: Path = DATA_DIR_OPTION,
+    reports_dir: Path = REPORTS_DIR_OPTION,
+    as_of: str = AS_OF_OPTION,
+    output_dir: Path = ROW_ONE_OUTPUT_DIR_OPTION,
+    latest_only: bool = typer.Option(
+        False,
+        help="Remove known ROW ONE generated children before writing the site.",
+    ),
+    host: str = ROW_ONE_HOST_OPTION,
+    port: int = ROW_ONE_PORT_OPTION,
+    dry_run_serve_url: bool = typer.Option(
+        False,
+        help="Print the local ROW ONE serve URL without starting a server.",
+    ),
+) -> None:
+    """Build a ROW ONE preview and print readiness details."""
+    try:
+        result = _write_row_one_site_from_cli_options(
+            config_dir=config_dir,
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+            output_dir=output_dir,
+            as_of=as_of,
+            latest_only=latest_only,
+        )
+    except ConfigError as exc:
+        typer.echo(f"Invalid config: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    except Exception as exc:
+        typer.echo(f"ROW ONE preview failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    readiness = build_row_one_readiness(result.edition)
+    typer.echo("ROW ONE preview")
+    typer.echo(f"Site: {result.index_path}")
+    typer.echo(f"JSON: {result.output_dir / 'data' / 'edition.json'}")
+    typer.echo(f"Stories: {readiness.story_count}")
+    typer.echo(f"Sections: {readiness.section_count}")
+    typer.echo(f"Evidence links: {readiness.safe_evidence_count}")
+    typer.echo(f"Empty sections: {readiness.empty_sections.en}")
+    typer.echo(f"Generated at: {readiness.generated_at}")
+    typer.echo(f"Readiness: {readiness.readiness.en}")
+    if dry_run_serve_url:
+        typer.echo(format_row_one_site_access_message(host, port))
+
+
+def _write_row_one_site_from_cli_options(
+    *,
+    config_dir: Path,
+    data_dir: Path,
+    reports_dir: Path,
+    output_dir: Path,
+    as_of: str,
+    latest_only: bool,
+):
+    scoring_config = load_scoring_config(config_dir / "scoring.yaml")
+    entity_config = None
+    entity_config_path = config_dir / "entities.yaml"
+    if entity_config_path.exists():
+        entity_config = load_entity_config(entity_config_path)
+    return write_row_one_site_files(
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        output_dir=output_dir,
+        scoring=scoring_config.scoring,
+        candidate_discovery=scoring_config.candidate_discovery,
+        entity_config=entity_config,
+        as_of=as_of,
+        latest_only=latest_only,
+    )
 
 
 @row_one_app.command(name="serve")

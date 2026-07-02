@@ -1061,6 +1061,31 @@ def assert_output_contains(command_name: str, output: str, expected_lines: Seque
             raise SmokeError(f"{command_name} output missing expected text: {expected}")
 
 
+def assert_output_contains_text(
+    command_name: str,
+    output: str,
+    expected_text: Sequence[str],
+) -> None:
+    for expected in expected_text:
+        if expected not in output:
+            raise SmokeError(f"{command_name} output missing expected text: {expected}")
+
+
+def validate_row_one_schedule_output(output: str) -> None:
+    assert_output_contains_text(
+        "row-one schedule",
+        output,
+        ("fashion-radar run", "fashion-radar row-one build", "--latest-only"),
+    )
+    run_index = output.index("fashion-radar run")
+    build_index = output.index("fashion-radar row-one build")
+    latest_only_index = output.index("--latest-only")
+    if run_index > build_index:
+        raise SmokeError("row-one schedule must refresh with fashion-radar run before build")
+    if build_index > latest_only_index:
+        raise SmokeError("row-one schedule must pass --latest-only to row-one build")
+
+
 def validate_import_signals_dry_run(output: str) -> None:
     assert_output_contains(
         "import-signals --dry-run",
@@ -2752,6 +2777,53 @@ def run_first_run_flow(context: SmokeContext) -> None:
     assert_non_empty_file(html_path)
     report_payload = validate_json_output("report JSON", json_path.read_text(encoding="utf-8"))
     validate_report_outputs(report_payload, markdown_path.read_text(encoding="utf-8"))
+    for command_parts in (
+        ("row-one", "--help"),
+        ("row-one", "build", "--help"),
+        ("row-one", "serve", "--help"),
+        ("row-one", "schedule", "--help"),
+        ("row-one", "preview", "--help"),
+    ):
+        run_cli(context, *command_parts)
+    validate_row_one_schedule_output(
+        run_cli(context, "row-one", "schedule", "--time", "04:00").stdout
+    )
+    row_one_output_dir = context.reports_dir / "row-one" / "site"
+    row_one_preview = run_cli(
+        context,
+        "row-one",
+        "preview",
+        "--config-dir",
+        str(context.config_dir),
+        "--data-dir",
+        str(context.data_dir),
+        "--reports-dir",
+        str(context.reports_dir),
+        "--output-dir",
+        str(row_one_output_dir),
+        "--as-of",
+        AS_OF,
+        "--latest-only",
+        "--dry-run-serve-url",
+    ).stdout
+    assert_output_contains_text(
+        "row-one preview",
+        row_one_preview,
+        (
+            "ROW ONE preview",
+            f"Site: {row_one_output_dir / 'index.html'}",
+            f"JSON: {row_one_output_dir / 'data' / 'edition.json'}",
+            "Stories:",
+            "Sections:",
+            "Evidence links:",
+            "Empty sections:",
+            "Generated at:",
+            "Readiness:",
+            "Open:",
+        ),
+    )
+    assert_non_empty_file(row_one_output_dir / "index.html")
+    assert_non_empty_file(row_one_output_dir / "data" / "edition.json")
     candidates_payload = validate_json_output(
         "candidates",
         run_cli(

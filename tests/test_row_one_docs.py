@@ -69,12 +69,14 @@ def test_row_one_docs_include_user_required_phrases() -> None:
     for phrase in (
         "row one",
         "row-one build",
+        "row-one preview",
         "row-one serve",
         "row-one schedule",
         "04:00 local scheduling",
         "latest-only cleanup",
         "ip:port local-network serving",
         "fashion-radar row-one build",
+        "fashion-radar row-one preview",
         "fashion-radar run",
         "--latest-only",
         "open design imagery is optional and not required for tests.",
@@ -132,11 +134,31 @@ def test_row_one_docs_describe_versioned_app_json_contract() -> None:
     assert "versioned app json" in architecture
 
 
-def test_row_one_cli_docs_list_build_serve_and_schedule_commands() -> None:
+def test_row_one_docs_describe_daily_readiness_preview() -> None:
+    normalized = _normalized(_read(ROW_ONE_DOC))
+
+    for phrase in (
+        "daily readiness and preview",
+        "latest edition status strip",
+        "ready",
+        "empty",
+        "stories",
+        "evidence links",
+        "empty sections",
+        "compact english status labels",
+        "bilingual english/chinese labels",
+        "`row-one preview`",
+        "`row-one preview --dry-run-serve-url`",
+    ):
+        assert phrase in normalized
+
+
+def test_row_one_cli_docs_list_build_preview_serve_and_schedule_commands() -> None:
     normalized = _normalized(_read(CLI_REFERENCE))
 
     for phrase in (
         "`row-one build`",
+        "`row-one preview`",
         "`row-one serve`",
         "`row-one schedule`",
         "`--output-dir`",
@@ -169,9 +191,13 @@ def test_row_one_upload_checklist_covers_subcommand_help() -> None:
 
     for phrase in (
         "row-one build --help",
+        "row-one preview --help",
         "row-one serve --help",
         "row-one schedule --help",
-        "row-one build`, `row-one serve`, and `row-one schedule` subcommand help",
+        (
+            "row-one build`, `row-one preview`, `row-one serve`, "
+            "and `row-one schedule` subcommand help"
+        ),
     ):
         assert phrase in normalized
 

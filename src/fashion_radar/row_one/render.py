@@ -2,19 +2,18 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
 from shutil import rmtree
 
 from fashion_radar.row_one.models import RowOneEdition, RowOneLink, RowOneSection, RowOneStory
 from fashion_radar.row_one.templates import (
-    _safe_external_url,
     _validated_detail_relative_path,
     render_detail_html,
     render_index_html,
     row_one_css,
     row_one_js,
 )
+from fashion_radar.row_one.utils import isoformat_z, safe_external_url, utc_datetime
 
 GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data")
 ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v1"
@@ -25,6 +24,7 @@ class RowOneRenderResult:
     output_dir: Path
     index_path: Path
     story_count: int
+    edition: RowOneEdition
 
 
 def render_row_one_site(
@@ -52,6 +52,7 @@ def render_row_one_site(
         output_dir=output_dir,
         index_path=index_path,
         story_count=len(edition.stories),
+        edition=edition,
     )
 
 
@@ -95,8 +96,8 @@ def build_row_one_app_payload(edition: RowOneEdition) -> dict[str, object]:
     return {
         "contract_version": ROW_ONE_APP_CONTRACT_VERSION,
         "brand": edition.brand,
-        "generated_at": _isoformat_z(edition.generated_at),
-        "edition_date": _isoformat_z(edition.edition_date),
+        "generated_at": isoformat_z(edition.generated_at),
+        "edition_date": isoformat_z(edition.edition_date),
         "summary": edition.summary.model_dump(mode="json"),
         "sections": [_section_payload(edition, section) for section in edition.sections],
         "stories": stories,
@@ -118,7 +119,7 @@ def _section_payload(edition: RowOneEdition, section: RowOneSection) -> dict[str
 def _story_payload(edition: RowOneEdition, story: RowOneStory) -> dict[str, object]:
     section = _section_for_story(edition, story.section_key)
     detail_href = _app_detail_href(story.detail_path)
-    published_at_utc = _utc_datetime(story.published_at) if story.published_at else None
+    published_at_utc = utc_datetime(story.published_at) if story.published_at else None
     return {
         "id": story.id,
         "section_key": story.section_key,
@@ -134,8 +135,8 @@ def _story_payload(edition: RowOneEdition, story: RowOneStory) -> dict[str, obje
         "signal_context": story.signal_context.model_dump(mode="json"),
         "reader_path": story.reader_path.model_dump(mode="json"),
         "source_name": story.source_name,
-        "source_url": _safe_external_url(story.source_url),
-        "published_at": _isoformat_z(published_at_utc) if published_at_utc else None,
+        "source_url": safe_external_url(story.source_url),
+        "published_at": isoformat_z(published_at_utc) if published_at_utc else None,
         "published_date": published_at_utc.date().isoformat() if published_at_utc else None,
         "detail_path": detail_href,
         "href": detail_href,
@@ -158,7 +159,7 @@ def _section_for_story(edition: RowOneEdition, section_key: str) -> RowOneSectio
 
 
 def _evidence_payload(link: RowOneLink) -> dict[str, object]:
-    safe_url = _safe_external_url(link.url)
+    safe_url = safe_external_url(link.url)
     return {
         "title": link.title,
         "url": safe_url,
@@ -168,7 +169,7 @@ def _evidence_payload(link: RowOneLink) -> dict[str, object]:
 
 
 def _safe_evidence_count(evidence: list[RowOneLink]) -> int:
-    return sum(1 for link in evidence if _safe_external_url(link.url) is not None)
+    return sum(1 for link in evidence if safe_external_url(link.url) is not None)
 
 
 def _app_detail_href(detail_path: str) -> str:
@@ -176,13 +177,3 @@ def _app_detail_href(detail_path: str) -> str:
     if pure_path is None:
         raise ValueError(f"Invalid ROW ONE detail path: {detail_path}")
     return str(pure_path)
-
-
-def _isoformat_z(value: datetime) -> str:
-    return _utc_datetime(value).isoformat().replace("+00:00", "Z")
-
-
-def _utc_datetime(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)

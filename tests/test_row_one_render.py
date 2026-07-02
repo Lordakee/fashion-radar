@@ -193,6 +193,42 @@ def test_render_row_one_site_writes_edition_contents_navigation(tmp_path) -> Non
     assert "No stories in this section yet." in index_html
 
 
+def test_render_row_one_site_includes_latest_edition_status_strip(tmp_path) -> None:
+    render_row_one_site(_edition(), tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert 'class="edition-status"' in index_html
+    assert "Latest Edition" in index_html
+    assert "今日状态" in index_html
+    assert "Generated" in index_html
+    assert "2026-07-02T04:00:00Z" in index_html
+    assert "Stories" in index_html
+    assert '<span data-lang="en">1</span>' in index_html
+    assert '<span data-lang="zh">1 条</span>' in index_html
+    assert "Evidence links" in index_html
+    assert "Empty sections" in index_html
+    assert "Brand Moves" in index_html
+    assert "品牌动态" in index_html
+    assert "ready" in index_html
+    assert "可阅读" in index_html
+
+
+def test_render_row_one_site_status_strip_handles_empty_edition(tmp_path) -> None:
+    edition = _edition()
+    edition.stories = []
+
+    render_row_one_site(edition, tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert "empty" in index_html
+    assert "暂无故事" in index_html
+    assert '<span data-lang="en">0</span>' in index_html
+    assert '<span data-lang="zh">0 条</span>' in index_html
+    assert "Top Stories, Brand Moves" in index_html
+
+
 def test_render_row_one_site_story_orientation_handles_single_link_and_undated(
     tmp_path,
 ) -> None:

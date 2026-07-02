@@ -112,7 +112,7 @@ Stage 41 docs freshness check:
       consistently.
 - [ ] Installed-wheel help smoke covers every documented command, including
       the Stage 57 `heat-movers` entry, the Stage 260 `row-one` parent command,
-      and the `row-one build`, `row-one serve`, and `row-one schedule`
+      and the `row-one build`, `row-one preview`, `row-one serve`, and `row-one schedule`
       subcommand help.
 - [ ] Stage 57 `heat-movers` docs describe local observed heat movement for
       one configured source set, compare configured sources and imported local
@@ -441,6 +441,7 @@ do
   "$tmp_env/venv/bin/fashion-radar" "$cmd" --help
 done
 "$tmp_env/venv/bin/fashion-radar" row-one build --help
+"$tmp_env/venv/bin/fashion-radar" row-one preview --help
 "$tmp_env/venv/bin/fashion-radar" row-one serve --help
 "$tmp_env/venv/bin/fashion-radar" row-one schedule --help
 tmp_run="$(mktemp -d)"

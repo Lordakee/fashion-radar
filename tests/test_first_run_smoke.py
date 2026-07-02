@@ -1843,6 +1843,28 @@ def expected_first_run_flow_commands(
             "--as-of",
             smoke.AS_OF,
         ),
+        ("row-one", "--help"),
+        ("row-one", "build", "--help"),
+        ("row-one", "serve", "--help"),
+        ("row-one", "schedule", "--help"),
+        ("row-one", "preview", "--help"),
+        ("row-one", "schedule", "--time", "04:00"),
+        (
+            "row-one",
+            "preview",
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--reports-dir",
+            str(context.reports_dir),
+            "--output-dir",
+            str(context.reports_dir / "row-one" / "site"),
+            "--as-of",
+            smoke.AS_OF,
+            "--latest-only",
+            "--dry-run-serve-url",
+        ),
         (
             "candidates",
             "--config-dir",
@@ -4187,6 +4209,44 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             markdown_path.write_text(report_markdown(), encoding="utf-8")
             json_path.write_text(json.dumps(report_payload()), encoding="utf-8")
             html_path.write_text("<!doctype html>", encoding="utf-8")
+
+        if args[:2] == ("row-one", "schedule"):
+            return subprocess.CompletedProcess(
+                ["python", "-m", "fashion_radar", *args],
+                0,
+                stdout=(
+                    "Daily ROW ONE schedule\n"
+                    "04:00 fashion-radar run\n"
+                    "04:00 fashion-radar row-one build --latest-only\n"
+                ),
+                stderr="",
+            )
+
+        if args[:2] == ("row-one", "preview"):
+            row_one_output_dir = context.reports_dir / "row-one" / "site"
+            row_one_output_dir.mkdir(parents=True, exist_ok=True)
+            row_one_data_dir = row_one_output_dir / "data"
+            row_one_data_dir.mkdir(parents=True, exist_ok=True)
+            (row_one_output_dir / "index.html").write_text("<!doctype html>", encoding="utf-8")
+            (row_one_data_dir / "edition.json").write_text("{}", encoding="utf-8")
+            return subprocess.CompletedProcess(
+                ["python", "-m", "fashion_radar", *args],
+                0,
+                stdout=(
+                    "ROW ONE preview\n"
+                    f"Site: {row_one_output_dir / 'index.html'}\n"
+                    f"JSON: {row_one_output_dir / 'data' / 'edition.json'}\n"
+                    "Stories: 0\n"
+                    "Sections: 5\n"
+                    "Evidence links: 0\n"
+                    "Empty sections: Top Stories, Brand Moves, Celebrity Style, "
+                    "Hot Products, Rising Radar\n"
+                    f"Generated at: {smoke.AS_OF}\n"
+                    "Readiness: empty\n"
+                    "Open: http://127.0.0.1:8787\n"
+                ),
+                stderr="",
+            )
 
         if command_name == "import-signals":
             output = (

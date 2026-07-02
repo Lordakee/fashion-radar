@@ -58,6 +58,7 @@ SDIST_FILES = [
     "pyproject.toml",
     "docs/cli-reference.md",
     "docs/github-upload-checklist.md",
+    "docs/row-one.md",
     "docs/source-boundaries.md",
     "docs/dependency-mirrors.md",
     "docs/community-signal-import.md",
@@ -85,6 +86,14 @@ SDIST_FILES = [
     "scripts/check_first_run_smoke.py",
     "src/fashion_radar/cli.py",
     "src/fashion_radar/__main__.py",
+    "src/fashion_radar/row_one/__init__.py",
+    "src/fashion_radar/row_one/edition.py",
+    "src/fashion_radar/row_one/models.py",
+    "src/fashion_radar/row_one/readiness.py",
+    "src/fashion_radar/row_one/render.py",
+    "src/fashion_radar/row_one/server.py",
+    "src/fashion_radar/row_one/templates.py",
+    "src/fashion_radar/row_one/utils.py",
     "src/fashion_radar/templates/daily_report.md",
     "src/fashion_radar/templates/configs/sources.example.yaml",
     "src/fashion_radar/templates/configs/entities.example.yaml",
@@ -518,6 +527,21 @@ def test_rejects_wheel_without_metadata_file_without_traceback(tmp_path: Path) -
 
     assert result.returncode == 1
     assert "wheel dist-info missing required file: METADATA" in result.stderr
+
+
+def test_rejects_sdist_without_row_one_doc(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(
+        build_dir,
+        files=[path for path in SDIST_FILES if path != "docs/row-one.md"],
+    )
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert "sdist archive missing required file: docs/row-one.md" in result.stderr
     assert "Traceback" not in result.stderr
 
 

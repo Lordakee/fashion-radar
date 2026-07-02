@@ -14,6 +14,7 @@ site:
 AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar run --as-of "$AS_OF"
 uv run fashion-radar row-one build --as-of "$AS_OF" --latest-only
+uv run fashion-radar row-one preview --as-of "$AS_OF" --latest-only --dry-run-serve-url
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one schedule --time 04:00
@@ -81,6 +82,31 @@ not collect sources, run platform integrations, call LLMs, generate images,
 deploy the site, or change matching, ranking, scoring, story IDs, cleanup,
 server, or schedule behavior.
 
+## Daily Readiness And Preview
+
+ROW ONE adds a deterministic daily readiness and preview layer for the generated
+site. The homepage renders a Latest Edition status strip directly under the
+masthead so a reader can see the generated timestamp, edition date, Stories,
+Evidence links, Empty sections, and a simple readiness label.
+
+The readiness labels are deliberately narrow:
+
+- `ready`: at least one local story exists in the generated edition.
+- `empty`: the site rendered successfully, but the current edition has no
+  stories yet.
+
+`row-one preview` builds the same static site as `row-one build` and prints the
+site path, `data/edition.json` path, story count, section count, evidence link
+count, empty sections, generated timestamp, and readiness label. Use
+`row-one preview --dry-run-serve-url` to also print the same local URL message
+used by `row-one serve --dry-run` without starting a long-running server.
+The CLI preview uses compact English status labels for terminal output; the
+homepage Latest Edition status strip renders bilingual English/Chinese labels.
+
+This is a display/readiness surface only. It does not change the
+`row-one-app/v1` JSON contract, source collection, matching, scoring, ranking,
+or scheduling semantics.
+
 ## Generated Files
 
 `row-one build` writes a static site under the selected output directory:
@@ -103,6 +129,9 @@ continue so user files are not silently removed.
 - `row-one build`: builds the static ROW ONE site from existing local Fashion
   Radar report/state data. Important flags: `--as-of`, `--output-dir`, and
   `--latest-only`.
+- `row-one preview`: builds the static ROW ONE site and prints daily readiness
+  details. Important flags: `--as-of`, `--output-dir`, `--latest-only`,
+  `--host`, `--port`, and `--dry-run-serve-url`.
 - `row-one serve`: serves a generated site directory. Important flags:
   `--site-dir`, `--host`, `--port`, and `--dry-run`.
 - `row-one schedule`: prints examples for 04:00 local scheduling without

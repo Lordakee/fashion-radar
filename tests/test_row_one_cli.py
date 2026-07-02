@@ -108,6 +108,57 @@ def test_row_one_build_command_writes_empty_state_site(tmp_path: Path) -> None:
     assert "No ROW ONE stories" in (output_dir / "index.html").read_text(encoding="utf-8")
 
 
+def test_row_one_preview_builds_site_and_prints_readiness(tmp_path: Path) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "preview",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--output-dir",
+            str(output_dir),
+            "--as-of",
+            AS_OF,
+            "--latest-only",
+            "--dry-run-serve-url",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (output_dir / "index.html").exists()
+    assert (output_dir / "data" / "edition.json").exists()
+    assert "ROW ONE preview" in result.output
+    assert f"Site: {output_dir / 'index.html'}" in result.output
+    assert f"JSON: {output_dir / 'data' / 'edition.json'}" in result.output
+    assert "Stories:" in result.output
+    assert "Sections:" in result.output
+    assert "Evidence links:" in result.output
+    assert "Empty sections:" in result.output
+    assert "Generated at:" in result.output
+    assert "Readiness:" in result.output
+    assert "Open:" in result.output
+
+
+def test_row_one_preview_help_is_discoverable() -> None:
+    result = CliRunner().invoke(app, ["row-one", "preview", "--help"])
+
+    assert result.exit_code == 0
+    assert "Build a ROW ONE preview" in result.output
+    assert "dry-run" in result.output
+    assert "Print the local" in result.output
+
+
 def test_row_one_build_command_writes_non_ascii_story_detail_path(tmp_path: Path) -> None:
     config_dir = tmp_path / "configs"
     data_dir = tmp_path / "data"
