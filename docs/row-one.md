@@ -7,13 +7,12 @@ server for testing.
 
 ## Quick Start
 
-Run the normal Fashion Radar pipeline first, then build and serve the ROW ONE
+Run the single local daily refresh command, then preview or serve the ROW ONE
 site:
 
 ```bash
 AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-uv run fashion-radar run --as-of "$AS_OF"
-uv run fashion-radar row-one build --as-of "$AS_OF" --latest-only
+uv run fashion-radar row-one refresh --as-of "$AS_OF" --output-dir reports/row-one/site
 uv run fashion-radar row-one preview --as-of "$AS_OF" --latest-only --dry-run-serve-url
 uv run fashion-radar row-one local-ops --time 04:00 --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787
@@ -150,6 +149,9 @@ continue so user files are not silently removed.
 - `row-one build`: builds the static ROW ONE site from existing local Fashion
   Radar report/state data. Important flags: `--as-of`, `--output-dir`, and
   `--latest-only`.
+- `row-one refresh`: runs the single local daily refresh command for ROW ONE by
+  refreshing the daily report data and generated site in one command. Important
+  flags: `--as-of` and `--output-dir`; latest-only cleanup is built in.
 - `row-one preview`: builds the static ROW ONE site and prints daily readiness
   details. Important flags: `--as-of`, `--output-dir`, `--latest-only`,
   `--host`, `--port`, and `--dry-run-serve-url`.
@@ -164,10 +166,11 @@ continue so user files are not silently removed.
 
 ## Scheduling
 
-ROW ONE scheduled output is a two-step refresh. It runs `fashion-radar run`
-first to refresh the daily report, then runs
-`fashion-radar row-one build --latest-only` with the same timestamp. This
-refreshes the daily report before rebuilding the ROW ONE site.
+ROW ONE scheduled refresh runs the single refresh command.
+`fashion-radar row-one refresh` is the single local daily refresh command for
+ROW ONE: it refreshes the daily report data and rebuilds the site in one local
+operation. Schedule output includes the 04:00 command, `--output-dir`, and
+serving guidance, but it prints snippets only.
 
 Use:
 

@@ -1469,6 +1469,68 @@ def row_one_preview(
         typer.echo(format_row_one_site_access_message(host, port))
 
 
+@row_one_app.command(name="refresh")
+def row_one_refresh(
+    config_dir: Path = CONFIG_DIR_OPTION,
+    data_dir: Path = DATA_DIR_OPTION,
+    reports_dir: Path = REPORTS_DIR_OPTION,
+    as_of: str = AS_OF_OPTION,
+    output_dir: Path = ROW_ONE_OUTPUT_DIR_OPTION,
+    host: str = ROW_ONE_HOST_OPTION,
+    port: int = ROW_ONE_PORT_OPTION,
+) -> None:
+    """Refresh ROW ONE by collecting, matching, reporting, and rebuilding the site."""
+    try:
+        source_config = load_source_config(config_dir / "sources.yaml")
+        entity_config = load_entity_config(config_dir / "entities.yaml")
+        scoring_config = load_scoring_config(config_dir / "scoring.yaml")
+        collect_configured_sources(
+            data_dir=data_dir,
+            sources=source_config.sources,
+            now=as_of,
+        )
+        summary: MatchSummary = match_stored_items(
+            data_dir=data_dir,
+            entities=entity_config.entities,
+        )
+        markdown_path, json_path = write_daily_report_files(
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+            scoring=scoring_config.scoring,
+            candidate_discovery=scoring_config.candidate_discovery,
+            entity_config=entity_config,
+            as_of=as_of,
+        )
+        site_result = _write_row_one_site_from_cli_options(
+            config_dir=config_dir,
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+            output_dir=output_dir,
+            as_of=as_of,
+            latest_only=True,
+        )
+    except ConfigError as exc:
+        typer.echo(f"Invalid config: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    except Exception as exc:
+        typer.echo(f"ROW ONE refresh failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    readiness = build_row_one_readiness(site_result.edition)
+    typer.echo("ROW ONE refresh")
+    typer.echo(f"Stored matches: {summary.matches_stored}")
+    typer.echo(f"Markdown report: {markdown_path}")
+    typer.echo(f"JSON report: {json_path}")
+    typer.echo(f"HTML report: {markdown_path.with_suffix('.html')}")
+    typer.echo(f"Site: {site_result.index_path}")
+    typer.echo(f"JSON: {site_result.output_dir / 'data' / 'edition.json'}")
+    typer.echo(f"Manifest: {site_result.output_dir / 'data' / 'manifest.json'}")
+    typer.echo(f"Stories: {readiness.story_count}")
+    typer.echo(f"Evidence links: {readiness.safe_evidence_count}")
+    typer.echo(f"Readiness: {readiness.readiness.en}")
+    typer.echo(format_row_one_site_access_message(host, port))
+
+
 def _write_row_one_site_from_cli_options(
     *,
     config_dir: Path,

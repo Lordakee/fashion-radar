@@ -100,14 +100,13 @@ def render_row_one_cron_example(
         f"FASHION_RADAR_DATA_DIR={_shell_quote(data_dir)} "
         f"FASHION_RADAR_REPORTS_DIR={_shell_quote(reports_dir)} "
         'PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH" && '
-        '{ uv run fashion-radar run --as-of "$AS_OF" && '
-        'uv run fashion-radar row-one build --as-of "$AS_OF" '
-        f"--output-dir {_shell_quote(output_dir)} --latest-only; }} "
+        '{ uv run fashion-radar row-one refresh --as-of "$AS_OF" '
+        f"--output-dir {_shell_quote(output_dir)}; }} "
         f">> {_shell_quote(log_path)} 2>&1"
     )
     return f"""# Add with `crontab -e` after reviewing paths.
 # cron uses the machine's local timezone.
-# ROW ONE scheduled refresh runs Fashion Radar first, then builds the site.
+# ROW ONE scheduled refresh runs the single refresh command.
 # Scheduled time: {time}
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
@@ -146,9 +145,8 @@ def render_row_one_systemd_service(
 ) -> str:
     command = (
         f'AS_OF="{systemd_as_of_shell()}" && '
-        'uv run fashion-radar run --as-of "$AS_OF" && '
-        'uv run fashion-radar row-one build --as-of "$AS_OF" '
-        '--output-dir "$ROW_ONE_OUTPUT_DIR" --latest-only'
+        'uv run fashion-radar row-one refresh --as-of "$AS_OF" '
+        '--output-dir "$ROW_ONE_OUTPUT_DIR"'
     )
     return f"""[Unit]
 Description=ROW ONE daily site refresh

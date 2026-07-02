@@ -6,10 +6,12 @@ import re
 import socket
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from typer.testing import CliRunner
 
+import fashion_radar.cli as cli_module
 from fashion_radar.cli import app
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
@@ -160,6 +162,120 @@ def test_row_one_preview_help_is_discoverable() -> None:
     assert "Print the local" in result.output
 
 
+def test_row_one_refresh_runs_pipeline_and_writes_site(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+    calls: list[str] = []
+
+    class StoredMatches:
+        matches_stored = 4
+
+    def collect_configured_sources(**kwargs: object) -> None:
+        assert kwargs["data_dir"] == data_dir
+        assert kwargs["sources"] == []
+        assert kwargs["now"] == AS_OF
+        calls.append("collect_configured_sources")
+
+    def match_stored_items(**kwargs: object) -> StoredMatches:
+        assert kwargs["data_dir"] == data_dir
+        assert kwargs["entities"] == []
+        calls.append("match_stored_items")
+        return StoredMatches()
+
+    def write_daily_report_files(**kwargs: object) -> tuple[Path, Path]:
+        assert kwargs["data_dir"] == data_dir
+        assert kwargs["reports_dir"] == reports_dir
+        assert kwargs["as_of"] == AS_OF
+        assert kwargs["scoring"] is not None
+        assert kwargs["candidate_discovery"] is not None
+        assert kwargs["entity_config"] is not None
+        calls.append("write_daily_report_files")
+        return reports_dir / "daily.md", reports_dir / "daily.json"
+
+    def write_row_one_site_from_cli_options(**kwargs: object) -> SimpleNamespace:
+        assert kwargs == {
+            "config_dir": config_dir,
+            "data_dir": data_dir,
+            "reports_dir": reports_dir,
+            "output_dir": output_dir,
+            "as_of": AS_OF,
+            "latest_only": True,
+        }
+        calls.append("_write_row_one_site_from_cli_options")
+        return SimpleNamespace(
+            index_path=output_dir / "index.html",
+            output_dir=output_dir,
+            story_count=0,
+            edition=build_row_one_edition(report=_empty_report(), recent_items=[], as_of=AS_OF),
+        )
+
+    monkeypatch.setattr(cli_module, "collect_configured_sources", collect_configured_sources)
+    monkeypatch.setattr(cli_module, "match_stored_items", match_stored_items)
+    monkeypatch.setattr(cli_module, "write_daily_report_files", write_daily_report_files)
+    monkeypatch.setattr(
+        cli_module,
+        "_write_row_one_site_from_cli_options",
+        write_row_one_site_from_cli_options,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "refresh",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--output-dir",
+            str(output_dir),
+            "--as-of",
+            AS_OF,
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "8787",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert calls == [
+        "collect_configured_sources",
+        "match_stored_items",
+        "write_daily_report_files",
+        "_write_row_one_site_from_cli_options",
+    ]
+    assert "ROW ONE refresh" in result.output
+    assert "Stored matches: 4" in result.output
+    assert f"Markdown report: {reports_dir / 'daily.md'}" in result.output
+    assert f"JSON report: {reports_dir / 'daily.json'}" in result.output
+    assert f"HTML report: {reports_dir / 'daily.html'}" in result.output
+    assert f"Site: {output_dir / 'index.html'}" in result.output
+    assert f"JSON: {output_dir / 'data' / 'edition.json'}" in result.output
+    assert f"Manifest: {output_dir / 'data' / 'manifest.json'}" in result.output
+    assert "Stories:" in result.output
+    assert "Evidence links:" in result.output
+    assert "Readiness:" in result.output
+    assert "Open: http://127.0.0.1:8787" in result.output
+
+
+def test_row_one_refresh_help_is_discoverable() -> None:
+    result = CliRunner().invoke(app, ["row-one", "refresh", "--help"])
+
+    assert result.exit_code == 0
+    assert "Refresh ROW ONE" in result.output
+    assert "--output-dir" in result.output
+    assert "--host" in result.output
+    assert "--port" in result.output
+
+
 def test_row_one_local_ops_command_prints_runbook(tmp_path: Path) -> None:
     config_dir = tmp_path / "configs"
     data_dir = tmp_path / "data"
@@ -190,10 +306,12 @@ def test_row_one_local_ops_command_prints_runbook(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert "ROW ONE local daily ops" in result.output
-    assert "fashion-radar run" in result.output
-    assert "fashion-radar row-one build" in result.output
+    assert "fashion-radar row-one refresh" in result.output
     assert "fashion-radar row-one preview" in result.output
     assert "fashion-radar row-one serve" in result.output
+    assert "fashion-radar run" not in result.output
+    assert "fashion-radar row-one build" not in result.output
+    assert not re.search(r"fashion-radar row-one refresh\b[^\n]*--latest-only", result.output)
     assert "Open from LAN: http://<LAN-IP>:8787" in result.output
     assert "0 4 * * *" in result.output
 
@@ -391,17 +509,15 @@ def test_row_one_serve_dry_run_rejects_marked_directory_without_index(tmp_path: 
     assert "index.html" in result.output
 
 
-def test_row_one_schedule_prints_refresh_then_build() -> None:
+def test_row_one_schedule_prints_refresh_command() -> None:
     result = CliRunner().invoke(app, ["row-one", "schedule", "--time", "04:00"])
 
     assert result.exit_code == 0
     assert "04:00" in result.output
-    assert "fashion-radar run" in result.output
-    assert "fashion-radar row-one build" in result.output
-    assert "--latest-only" in result.output
-    assert result.output.index("fashion-radar run") < result.output.index(
-        "fashion-radar row-one build"
-    )
+    assert "fashion-radar row-one refresh" in result.output
+    assert "fashion-radar run" not in result.output
+    assert "fashion-radar row-one build" not in result.output
+    assert "--latest-only" not in result.output
 
 
 def test_row_one_server_serves_index_on_ephemeral_port(tmp_path: Path) -> None:

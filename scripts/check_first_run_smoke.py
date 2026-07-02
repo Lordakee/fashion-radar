@@ -1071,19 +1071,36 @@ def assert_output_contains_text(
             raise SmokeError(f"{command_name} output missing expected text: {expected}")
 
 
+def assert_output_not_contains_text(
+    command_name: str,
+    output: str,
+    forbidden_text: Sequence[str],
+) -> None:
+    for forbidden in forbidden_text:
+        if forbidden in output:
+            raise SmokeError(f"{command_name} output includes forbidden text: {forbidden}")
+
+
 def validate_row_one_schedule_output(output: str) -> None:
     assert_output_contains_text(
         "row-one schedule",
         output,
-        ("fashion-radar run", "fashion-radar row-one build", "--latest-only"),
+        (
+            "ROW ONE scheduled refresh runs the single refresh command.",
+            "fashion-radar row-one refresh",
+            "--output-dir",
+            "04:00",
+        ),
     )
-    run_index = output.index("fashion-radar run")
-    build_index = output.index("fashion-radar row-one build")
-    latest_only_index = output.index("--latest-only")
-    if run_index > build_index:
-        raise SmokeError("row-one schedule must refresh with fashion-radar run before build")
-    if build_index > latest_only_index:
-        raise SmokeError("row-one schedule must pass --latest-only to row-one build")
+    assert_output_not_contains_text(
+        "row-one schedule",
+        output,
+        (
+            "fashion-radar run",
+            "fashion-radar row-one build",
+            "fashion-radar row-one refresh --latest-only",
+        ),
+    )
 
 
 def validate_row_one_manifest(
@@ -2843,6 +2860,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
     for command_parts in (
         ("row-one", "--help"),
         ("row-one", "build", "--help"),
+        ("row-one", "refresh", "--help"),
         ("row-one", "serve", "--help"),
         ("row-one", "schedule", "--help"),
         ("row-one", "preview", "--help"),
@@ -2943,13 +2961,18 @@ def run_first_run_flow(context: SmokeContext) -> None:
         row_one_local_ops,
         (
             "ROW ONE local daily ops",
-            "fashion-radar run",
-            "fashion-radar row-one build",
+            "fashion-radar row-one refresh",
             "fashion-radar row-one preview",
             "fashion-radar row-one serve",
             "Open from LAN: http://<LAN-IP>:8787",
-            "--latest-only",
+            "LAN",
+            "cron",
         ),
+    )
+    assert_output_not_contains_text(
+        "row-one local-ops",
+        row_one_local_ops,
+        ("fashion-radar run", "fashion-radar row-one build"),
     )
     candidates_payload = validate_json_output(
         "candidates",

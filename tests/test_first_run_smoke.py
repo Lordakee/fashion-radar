@@ -1845,6 +1845,7 @@ def expected_first_run_flow_commands(
         ),
         ("row-one", "--help"),
         ("row-one", "build", "--help"),
+        ("row-one", "refresh", "--help"),
         ("row-one", "serve", "--help"),
         ("row-one", "schedule", "--help"),
         ("row-one", "preview", "--help"),
@@ -4209,6 +4210,18 @@ def test_assert_first_run_flow_commands_rejects_tail_command_extra_args(
         assert_first_run_flow_commands(drifted, context, example_csv)
 
 
+def test_validate_row_one_schedule_output_rejects_legacy_run_line() -> None:
+    output = (
+        "Daily ROW ONE schedule\n"
+        "ROW ONE scheduled refresh runs the single refresh command.\n"
+        "04:00 fashion-radar row-one refresh --output-dir reports/row-one/site\n"
+        "04:00 fashion-radar run\n"
+    )
+
+    with pytest.raises(smoke.SmokeError, match="fashion-radar run"):
+        smoke.validate_row_one_schedule_output(output)
+
+
 def test_run_first_run_flow_uses_deterministic_local_command_sequence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -4246,8 +4259,8 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                 0,
                 stdout=(
                     "Daily ROW ONE schedule\n"
-                    "04:00 fashion-radar run\n"
-                    "04:00 fashion-radar row-one build --latest-only\n"
+                    "ROW ONE scheduled refresh runs the single refresh command.\n"
+                    "04:00 fashion-radar row-one refresh --output-dir reports/row-one/site\n"
                 ),
                 stderr="",
             )
@@ -4338,10 +4351,11 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                 0,
                 stdout=(
                     "ROW ONE local daily ops\n"
-                    "fashion-radar run\n"
-                    "fashion-radar row-one build --latest-only\n"
+                    "fashion-radar row-one refresh --output-dir reports/row-one/site\n"
                     "fashion-radar row-one preview --dry-run-serve-url\n"
                     "fashion-radar row-one serve --host 0.0.0.0 --port 8787\n"
+                    "LAN: http://<LAN-IP>:8787\n"
+                    "cron 04:00\n"
                     "Open from LAN: http://<LAN-IP>:8787\n"
                 ),
                 stderr="",

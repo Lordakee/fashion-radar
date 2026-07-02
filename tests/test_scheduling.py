@@ -108,15 +108,22 @@ def test_render_row_one_cron_uses_one_timestamp_shared_env_and_grouped_log() -> 
     )
 
     assert "0 4 * * *" in text
+    assert "ROW ONE scheduled refresh runs the single refresh command." in text
     assert text.count("date -u") == 1
     assert 'AS_OF="$(date -u +\\%Y-\\%m-\\%dT\\%H:\\%M:\\%SZ)"' in text
-    assert 'uv run fashion-radar run --as-of "$AS_OF"' in text
-    assert 'uv run fashion-radar row-one build --as-of "$AS_OF"' in text
+    assert 'uv run fashion-radar row-one refresh --as-of "$AS_OF"' in text
+    assert "--output-dir /opt/fashion-radar/reports/row-one/site" in text
+    assert "fashion-radar run" not in text
+    assert "fashion-radar row-one build" not in text
     assert "export FASHION_RADAR_CONFIG_DIR=/opt/fashion-radar/configs" in text
     assert "FASHION_RADAR_DATA_DIR=/opt/fashion-radar/data" in text
     assert "FASHION_RADAR_REPORTS_DIR=/opt/fashion-radar/reports" in text
-    assert '{ uv run fashion-radar run --as-of "$AS_OF" && ' in text
-    assert "--latest-only; } >> /opt/fashion-radar/reports/row-one-cron.log 2>&1" in text
+    assert '{ uv run fashion-radar row-one refresh --as-of "$AS_OF" ' in text
+    assert "--latest-only" not in text
+    assert (
+        "--output-dir /opt/fashion-radar/reports/row-one/site; } >> "
+        "/opt/fashion-radar/reports/row-one-cron.log 2>&1"
+    ) in text
 
 
 def test_render_row_one_cron_quotes_output_dir_with_spaces_and_single_quotes() -> None:
@@ -148,14 +155,18 @@ def test_render_row_one_local_ops_runbook_prints_refresh_serve_and_cron() -> Non
 
     assert "ROW ONE local daily ops" in output
     assert 'AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"' in output
-    assert "fashion-radar run" in output
-    assert "fashion-radar row-one build" in output
+    assert "fashion-radar row-one refresh" in output
+    assert "fashion-radar run" not in output
+    assert "fashion-radar row-one build" not in output
     assert "--config-dir /repo/configs" in output
     assert "--data-dir /repo/data" in output
     assert "--reports-dir /repo/reports" in output
     assert "--output-dir /repo/reports/row-one/site" in output
     assert '--as-of "$AS_OF"' in output
-    assert "--latest-only" in output
+    refresh_line = next(
+        line for line in output.splitlines() if line.startswith("fashion-radar row-one refresh")
+    )
+    assert "--latest-only" not in refresh_line
     assert "fashion-radar row-one preview" in output
     assert "--dry-run-serve-url" in output
     assert "fashion-radar row-one serve" in output
@@ -164,6 +175,7 @@ def test_render_row_one_local_ops_runbook_prints_refresh_serve_and_cron() -> Non
     assert "Open locally: http://127.0.0.1:8787" in output
     assert "Open from LAN: http://<LAN-IP>:8787" in output
     assert "0 4 * * *" in output
+    assert "ROW ONE scheduled refresh runs the single refresh command." in output
     assert "/repo/reports/row-one/site" in output
     assert "directory marked with a .row-one-site file" in output
 
@@ -193,9 +205,11 @@ def test_render_row_one_systemd_uses_one_timestamp_and_output_env() -> None:
 
     assert service.count("date -u") == 1
     assert 'AS_OF="$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)"' in service
-    assert 'uv run fashion-radar run --as-of "$AS_OF"' in service
-    assert 'uv run fashion-radar row-one build --as-of "$AS_OF"' in service
-    assert '--output-dir "$ROW_ONE_OUTPUT_DIR" --latest-only' in service
+    assert 'uv run fashion-radar row-one refresh --as-of "$AS_OF"' in service
+    assert '--output-dir "$ROW_ONE_OUTPUT_DIR"' in service
+    assert "fashion-radar run" not in service
+    assert "fashion-radar row-one build" not in service
+    assert "--latest-only" not in service
     assert 'Environment="ROW_ONE_OUTPUT_DIR=/tmp/ROW ONE\'s site"' in service
     assert "ROW ONE'\"'\"'s site" not in service
 

@@ -32,16 +32,11 @@ def render_row_one_local_ops_runbook(
     quoted_reports_dir = _shell_quote(reports_dir)
     quoted_output_dir = _shell_quote(output_dir)
     quoted_host = _shell_quote(host)
-    run_command = (
-        f"fashion-radar run --config-dir {quoted_config_dir} "
-        f"--data-dir {quoted_data_dir} --reports-dir {quoted_reports_dir} "
-        '--as-of "$AS_OF"'
-    )
-    build_command = (
-        f"fashion-radar row-one build --config-dir {quoted_config_dir} "
+    refresh_command = (
+        f"fashion-radar row-one refresh --config-dir {quoted_config_dir} "
         f"--data-dir {quoted_data_dir} --reports-dir {quoted_reports_dir} "
         f"--output-dir {quoted_output_dir} "
-        '--as-of "$AS_OF" --latest-only'
+        '--as-of "$AS_OF"'
     )
     preview_command = (
         f"fashion-radar row-one preview --config-dir {quoted_config_dir} "
@@ -66,8 +61,7 @@ def render_row_one_local_ops_runbook(
 
 Manual refresh:
 AS_OF="{raw_as_of_shell()}"
-{run_command}
-{build_command}
+{refresh_command}
 
 Preview before serving:
 {preview_command}

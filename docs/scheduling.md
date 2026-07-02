@@ -48,10 +48,11 @@ uv run fashion-radar schedule-example --mode github-actions --project-dir "$PWD"
 
 ## ROW ONE Daily Site
 
-Use `row-one schedule` to print ROW ONE snippets for a two-step refresh. The
-snippet runs `fashion-radar run` first, then
-`fashion-radar row-one build --latest-only` with the same timestamp to refresh
-the daily report before rebuilding the ROW ONE site.
+Use `row-one schedule` to print ROW ONE snippets for the single local daily
+refresh command. ROW ONE scheduled refresh runs the single refresh command.
+The command is `fashion-radar row-one refresh`. The snippet includes the 04:00
+local time, `--output-dir`, and cron/systemd examples without installing
+anything.
 
 ```bash
 uv run fashion-radar row-one schedule --time 04:00

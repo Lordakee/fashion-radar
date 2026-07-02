@@ -69,6 +69,7 @@ def test_row_one_docs_include_user_required_phrases() -> None:
     for phrase in (
         "row one",
         "row-one build",
+        "row-one refresh",
         "row-one preview",
         "row-one local-ops",
         "row-one serve",
@@ -78,9 +79,8 @@ def test_row_one_docs_include_user_required_phrases() -> None:
         "latest-only cleanup",
         "ip:port local-network serving",
         "open from lan: http://<lan-ip>:8787",
-        "fashion-radar row-one build",
+        "fashion-radar row-one refresh",
         "fashion-radar row-one preview",
-        "fashion-radar run",
         "--latest-only",
         "prints snippets only",
         "does not install timers",
@@ -211,19 +211,25 @@ def test_row_one_cli_docs_list_build_preview_serve_and_schedule_commands() -> No
         assert phrase in normalized
 
 
-def test_row_one_scheduling_docs_keep_two_step_refresh_order() -> None:
-    normalized = _normalized(_read(SCHEDULING_DOC))
+def test_row_one_scheduling_docs_describe_single_refresh_command() -> None:
+    normalized = _normalized(_section(_read(SCHEDULING_DOC), "ROW ONE Daily Site"))
 
     for phrase in (
         "`row-one schedule`",
-        "two-step refresh",
-        "`fashion-radar run`",
-        "`fashion-radar row-one build --latest-only`",
-        "refresh the daily report before rebuilding the row one site",
+        "single local daily refresh command",
+        "`fashion-radar row-one refresh`",
+        "row one scheduled refresh runs the single refresh command.",
         "uv run fashion-radar row-one schedule",
         '--output-dir "$pwd/reports/row-one/site"',
     ):
         assert phrase in normalized
+
+    for old_phrase in (
+        "two-step refresh",
+        "`fashion-radar run`",
+        "`fashion-radar row-one build --latest-only`",
+    ):
+        assert old_phrase not in normalized
 
 
 def test_row_one_upload_checklist_covers_subcommand_help() -> None:
