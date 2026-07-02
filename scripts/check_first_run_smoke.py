@@ -2783,6 +2783,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
         ("row-one", "serve", "--help"),
         ("row-one", "schedule", "--help"),
         ("row-one", "preview", "--help"),
+        ("row-one", "local-ops", "--help"),
     ):
         run_cli(context, *command_parts)
     validate_row_one_schedule_output(
@@ -2824,6 +2825,38 @@ def run_first_run_flow(context: SmokeContext) -> None:
     )
     assert_non_empty_file(row_one_output_dir / "index.html")
     assert_non_empty_file(row_one_output_dir / "data" / "edition.json")
+    row_one_local_ops = run_cli(
+        context,
+        "row-one",
+        "local-ops",
+        "--config-dir",
+        str(context.config_dir),
+        "--data-dir",
+        str(context.data_dir),
+        "--reports-dir",
+        str(context.reports_dir),
+        "--output-dir",
+        str(row_one_output_dir),
+        "--time",
+        "04:00",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8787",
+    ).stdout
+    assert_output_contains_text(
+        "row-one local-ops",
+        row_one_local_ops,
+        (
+            "ROW ONE local daily ops",
+            "fashion-radar run",
+            "fashion-radar row-one build",
+            "fashion-radar row-one preview",
+            "fashion-radar row-one serve",
+            "Open from LAN: http://<LAN-IP>:8787",
+            "--latest-only",
+        ),
+    )
     candidates_payload = validate_json_output(
         "candidates",
         run_cli(

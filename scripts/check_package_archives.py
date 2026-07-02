@@ -96,6 +96,7 @@ SDIST_REQUIRED_PATHS = [
     "src/fashion_radar/row_one/__init__.py",
     "src/fashion_radar/row_one/edition.py",
     "src/fashion_radar/row_one/models.py",
+    "src/fashion_radar/row_one/ops.py",
     "src/fashion_radar/row_one/readiness.py",
     "src/fashion_radar/row_one/render.py",
     "src/fashion_radar/row_one/server.py",

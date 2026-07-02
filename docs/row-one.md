@@ -15,6 +15,7 @@ AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar run --as-of "$AS_OF"
 uv run fashion-radar row-one build --as-of "$AS_OF" --latest-only
 uv run fashion-radar row-one preview --as-of "$AS_OF" --latest-only --dry-run-serve-url
+uv run fashion-radar row-one local-ops --time 04:00 --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one schedule --time 04:00
@@ -132,6 +133,10 @@ continue so user files are not silently removed.
 - `row-one preview`: builds the static ROW ONE site and prints daily readiness
   details. Important flags: `--as-of`, `--output-dir`, `--latest-only`,
   `--host`, `--port`, and `--dry-run-serve-url`.
+- `row-one local-ops`: prints a ROW ONE local daily ops runbook for 04:00
+  refresh, fixed IP:port serving, preview, and cron snippets. It prints
+  snippets only and does not install timers, build the site, start the server,
+  or mutate files.
 - `row-one serve`: serves a generated site directory. Important flags:
   `--site-dir`, `--host`, `--port`, and `--dry-run`.
 - `row-one schedule`: prints examples for 04:00 local scheduling without
@@ -148,7 +153,10 @@ Use:
 
 ```bash
 uv run fashion-radar row-one schedule --time 04:00
+uv run fashion-radar row-one local-ops --time 04:00 --host 0.0.0.0 --port 8787
 ```
 
-The command prints snippets only; it does not install cron jobs or systemd
-timers.
+Both commands print snippets only; they do not install cron jobs or systemd
+timers. `row-one local-ops` also prints fixed IP:port serving guidance, including
+`Open from LAN: http://<LAN-IP>:8787`, and the manual preview/serve commands for
+the latest-only local ROW ONE site.

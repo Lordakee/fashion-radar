@@ -655,12 +655,16 @@ uv run fashion-radar row-one build --config-dir "$PWD/configs" --data-dir "$PWD/
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one schedule --time 04:00
+uv run fashion-radar row-one local-ops --time 04:00 --host 0.0.0.0 --port 8787
 ```
 
 ROW ONE supports IP:port local-network serving when you explicitly bind
 `--host 0.0.0.0`; open `http://<LAN-IP>:8787`, not `http://0.0.0.0:8787`,
 from another device. The local ROW ONE server has no authentication layer. Open
 Design imagery is optional and not required for tests.
+`row-one local-ops` prints a local daily ops runbook for 04:00 refresh, preview,
+fixed IP:port serving, and latest-only cleanup. It prints snippets only and does
+not install timers, build the site, start the server, or mutate files.
 
 Package local digest artifacts after a report or serial run:
 

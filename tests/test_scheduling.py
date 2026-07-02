@@ -1,5 +1,6 @@
 import pytest
 
+from fashion_radar.row_one.ops import render_row_one_local_ops_runbook
 from fashion_radar.scheduling import (
     cron_as_of_shell,
     raw_as_of_shell,
@@ -131,6 +132,54 @@ def test_render_row_one_cron_quotes_output_dir_with_spaces_and_single_quotes() -
     assert "cd '/opt/Fashion Radar'" in text
     assert "--output-dir '/tmp/ROW ONE'\"'\"'s site'" in text
     assert ">> '/opt/Fashion Radar/reports/row-one-cron.log' 2>&1" in text
+
+
+def test_render_row_one_local_ops_runbook_prints_refresh_serve_and_cron() -> None:
+    output = render_row_one_local_ops_runbook(
+        project_dir="/repo",
+        config_dir="/repo/configs",
+        data_dir="/repo/data",
+        reports_dir="/repo/reports",
+        output_dir="/repo/reports/row-one/site",
+        time="04:00",
+        host="0.0.0.0",
+        port=8787,
+    )
+
+    assert "ROW ONE local daily ops" in output
+    assert 'AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"' in output
+    assert "fashion-radar run" in output
+    assert "fashion-radar row-one build" in output
+    assert "--config-dir /repo/configs" in output
+    assert "--data-dir /repo/data" in output
+    assert "--reports-dir /repo/reports" in output
+    assert "--output-dir /repo/reports/row-one/site" in output
+    assert '--as-of "$AS_OF"' in output
+    assert "--latest-only" in output
+    assert "fashion-radar row-one preview" in output
+    assert "--dry-run-serve-url" in output
+    assert "fashion-radar row-one serve" in output
+    assert "--host 0.0.0.0" in output
+    assert "--port 8787" in output
+    assert "Open locally: http://127.0.0.1:8787" in output
+    assert "Open from LAN: http://<LAN-IP>:8787" in output
+    assert "0 4 * * *" in output
+    assert "/repo/reports/row-one/site" in output
+    assert "directory marked with a .row-one-site file" in output
+
+
+def test_render_row_one_local_ops_runbook_rejects_invalid_time() -> None:
+    with pytest.raises(ValueError, match="time must be in 24-hour HH:MM format"):
+        render_row_one_local_ops_runbook(
+            project_dir="/repo",
+            config_dir="/repo/configs",
+            data_dir="/repo/data",
+            reports_dir="/repo/reports",
+            output_dir="/repo/reports/row-one/site",
+            time="4am",
+            host="127.0.0.1",
+            port=8787,
+        )
 
 
 def test_render_row_one_systemd_uses_one_timestamp_and_output_env() -> None:

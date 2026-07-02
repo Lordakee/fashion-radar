@@ -159,6 +159,54 @@ def test_row_one_preview_help_is_discoverable() -> None:
     assert "Print the local" in result.output
 
 
+def test_row_one_local_ops_command_prints_runbook(tmp_path: Path) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "reports" / "row-one" / "site"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "local-ops",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--output-dir",
+            str(output_dir),
+            "--time",
+            "04:00",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8787",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "ROW ONE local daily ops" in result.output
+    assert "fashion-radar run" in result.output
+    assert "fashion-radar row-one build" in result.output
+    assert "fashion-radar row-one preview" in result.output
+    assert "fashion-radar row-one serve" in result.output
+    assert "Open from LAN: http://<LAN-IP>:8787" in result.output
+    assert "0 4 * * *" in result.output
+
+
+def test_row_one_local_ops_help_is_discoverable() -> None:
+    result = CliRunner().invoke(app, ["row-one", "local-ops", "--help"])
+
+    assert result.exit_code == 0
+    assert "Print ROW ONE local daily ops runbook" in result.output
+    assert "--time" in result.output
+    assert "--host" in result.output
+    assert "--port" in result.output
+
+
 def test_row_one_build_command_writes_non_ascii_story_detail_path(tmp_path: Path) -> None:
     config_dir = tmp_path / "configs"
     data_dir = tmp_path / "data"

@@ -144,6 +144,7 @@ from fashion_radar.importers.manual_signals import (
 )
 from fashion_radar.models.report import CandidateReport
 from fashion_radar.models.trend import TrendComparison
+from fashion_radar.row_one.ops import render_row_one_local_ops_runbook
 from fashion_radar.row_one.readiness import build_row_one_readiness
 from fashion_radar.row_one.server import (
     format_row_one_site_access_message,
@@ -1512,6 +1513,39 @@ def row_one_serve(
         serve_row_one_site(site_dir=site_dir, host=host, port=port)
     except Exception as exc:
         typer.echo(f"Could not serve ROW ONE site: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+
+@row_one_app.command(name="local-ops")
+def row_one_local_ops(
+    project_dir: Path = PROJECT_DIR_OPTION,
+    config_dir: Path = CONFIG_DIR_OPTION,
+    data_dir: Path = DATA_DIR_OPTION,
+    reports_dir: Path = REPORTS_DIR_OPTION,
+    output_dir: Path = ROW_ONE_OUTPUT_DIR_OPTION,
+    time: str = typer.Option(
+        "04:00",
+        help="Daily ROW ONE refresh time in 24-hour HH:MM format.",
+    ),
+    host: str = ROW_ONE_HOST_OPTION,
+    port: int = ROW_ONE_PORT_OPTION,
+) -> None:
+    """Print ROW ONE local daily ops runbook without installing anything."""
+    try:
+        typer.echo(
+            render_row_one_local_ops_runbook(
+                project_dir=str(project_dir),
+                config_dir=str(config_dir),
+                data_dir=str(data_dir),
+                reports_dir=str(reports_dir),
+                output_dir=str(output_dir),
+                time=time,
+                host=host,
+                port=port,
+            )
+        )
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc
 
 

@@ -70,15 +70,20 @@ def test_row_one_docs_include_user_required_phrases() -> None:
         "row one",
         "row-one build",
         "row-one preview",
+        "row-one local-ops",
         "row-one serve",
         "row-one schedule",
         "04:00 local scheduling",
+        "fixed ip:port",
         "latest-only cleanup",
         "ip:port local-network serving",
+        "open from lan: http://<lan-ip>:8787",
         "fashion-radar row-one build",
         "fashion-radar row-one preview",
         "fashion-radar run",
         "--latest-only",
+        "prints snippets only",
+        "does not install timers",
         "open design imagery is optional and not required for tests.",
     ):
         assert phrase in normalized
@@ -159,6 +164,7 @@ def test_row_one_cli_docs_list_build_preview_serve_and_schedule_commands() -> No
     for phrase in (
         "`row-one build`",
         "`row-one preview`",
+        "`row-one local-ops`",
         "`row-one serve`",
         "`row-one schedule`",
         "`--output-dir`",
@@ -192,10 +198,11 @@ def test_row_one_upload_checklist_covers_subcommand_help() -> None:
     for phrase in (
         "row-one build --help",
         "row-one preview --help",
+        "row-one local-ops --help",
         "row-one serve --help",
         "row-one schedule --help",
         (
-            "row-one build`, `row-one preview`, `row-one serve`, "
+            "row-one build`, `row-one preview`, `row-one local-ops`, `row-one serve`, "
             "and `row-one schedule` subcommand help"
         ),
     ):

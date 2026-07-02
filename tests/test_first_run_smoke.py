@@ -1848,6 +1848,7 @@ def expected_first_run_flow_commands(
         ("row-one", "serve", "--help"),
         ("row-one", "schedule", "--help"),
         ("row-one", "preview", "--help"),
+        ("row-one", "local-ops", "--help"),
         ("row-one", "schedule", "--time", "04:00"),
         (
             "row-one",
@@ -1864,6 +1865,24 @@ def expected_first_run_flow_commands(
             smoke.AS_OF,
             "--latest-only",
             "--dry-run-serve-url",
+        ),
+        (
+            "row-one",
+            "local-ops",
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--reports-dir",
+            str(context.reports_dir),
+            "--output-dir",
+            str(context.reports_dir / "row-one" / "site"),
+            "--time",
+            "04:00",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8787",
         ),
         (
             "candidates",
@@ -4244,6 +4263,21 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                     f"Generated at: {smoke.AS_OF}\n"
                     "Readiness: empty\n"
                     "Open: http://127.0.0.1:8787\n"
+                ),
+                stderr="",
+            )
+
+        if args[:2] == ("row-one", "local-ops") and "--help" not in args:
+            return subprocess.CompletedProcess(
+                ["python", "-m", "fashion_radar", *args],
+                0,
+                stdout=(
+                    "ROW ONE local daily ops\n"
+                    "fashion-radar run\n"
+                    "fashion-radar row-one build --latest-only\n"
+                    "fashion-radar row-one preview --dry-run-serve-url\n"
+                    "fashion-radar row-one serve --host 0.0.0.0 --port 8787\n"
+                    "Open from LAN: http://<LAN-IP>:8787\n"
                 ),
                 stderr="",
             )
