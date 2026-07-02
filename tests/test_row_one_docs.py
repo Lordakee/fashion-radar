@@ -82,6 +82,20 @@ def test_row_one_docs_include_user_required_phrases() -> None:
         assert phrase in normalized
 
 
+def test_row_one_docs_describe_editorial_synthesis_boundary() -> None:
+    normalized = _normalized(_read(ROW_ONE_DOC))
+
+    for phrase in (
+        "editorial synthesis",
+        "deterministic",
+        "not translation",
+        "not llm",
+        "not new scoring",
+        "not demand proof",
+    ):
+        assert phrase in normalized
+
+
 def test_row_one_cli_docs_list_build_serve_and_schedule_commands() -> None:
     normalized = _normalized(_read(CLI_REFERENCE))
 

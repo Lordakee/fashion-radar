@@ -36,6 +36,7 @@ def _entity(
     entity_type: str,
     *,
     score: float,
+    growth_ratio: float | None = 5.0,
     representative_items: list[RepresentativeItem] | None = None,
 ) -> EntityReport:
     return EntityReport(
@@ -46,6 +47,7 @@ def _entity(
         current_mentions=5,
         baseline_mentions=1,
         distinct_sources=3,
+        growth_ratio=growth_ratio,
         representative_items=representative_items or [_representative_item(f"{name} lead")],
     )
 
@@ -65,6 +67,7 @@ def _candidate(
         current_mentions=4,
         baseline_mentions=0,
         distinct_sources=2,
+        growth_ratio=None,
         first_seen_at=AS_OF,
         representative_items=representative_items or [_representative_item(f"{phrase} spotted")],
     )
@@ -137,7 +140,14 @@ def test_build_row_one_edition_groups_editorial_sections() -> None:
     assert edition.section_stories("celebrity_style")[0].headline == "Zendaya lead"
     assert edition.section_stories("hot_products")[0].headline == "market loafer spotted"
     assert edition.section_stories("rising_radar")[0].headline == "atelier grey spotted"
-    assert edition.stories[0].detail_path.startswith("details/")
+    story = edition.stories[0]
+    assert story.detail_path.startswith("details/")
+    assert story.editorial_takeaway.zh
+    assert story.editorial_takeaway.en
+    assert story.signal_context.zh
+    assert story.signal_context.en
+    assert story.reader_path.zh
+    assert story.reader_path.en
 
 
 def test_build_row_one_edition_uses_collision_safe_detail_paths() -> None:
@@ -235,6 +245,117 @@ def test_build_row_one_edition_has_bilingual_fallbacks_and_source_attribution() 
     assert story.source_name == "Business of Fashion"
     assert story.source_url == "https://example.com/khaite"
     assert story.evidence[0].source_name == "Business of Fashion"
+
+
+def test_build_row_one_edition_adds_entity_synthesis_from_report_fields() -> None:
+    entity = _entity("The Row", "brand", score=9.2)
+
+    edition = build_row_one_edition(report=_report(entities=[entity]), recent_items=[], as_of=AS_OF)
+    story = edition.section_stories("brand_moves")[0]
+
+    assert "The Row" in story.editorial_takeaway.en
+    assert "5 current mentions" in story.signal_context.en
+    assert "1 baseline" in story.signal_context.en
+    assert "hot" in story.reader_path.en
+    assert "品牌动态" in story.reader_path.zh
+
+
+def test_build_row_one_edition_handles_missing_entity_growth_ratio() -> None:
+    entity = _entity("The Row", "brand", score=9.2, growth_ratio=None)
+
+    edition = build_row_one_edition(report=_report(entities=[entity]), recent_items=[], as_of=AS_OF)
+    story = edition.section_stories("brand_moves")[0]
+
+    assert "growth ratio is unavailable" in story.signal_context.en
+    assert "暂无增长倍数" in story.signal_context.zh
+    assert "n/ax" not in story.signal_context.en
+
+
+def test_build_row_one_edition_adds_candidate_synthesis_from_report_fields() -> None:
+    candidate = _candidate("market loafer", "shoe", score=7.8)
+
+    edition = build_row_one_edition(
+        report=_report(candidates=[candidate]),
+        recent_items=[],
+        as_of=AS_OF,
+    )
+    story = edition.section_stories("hot_products")[0]
+
+    assert "market loafer" in story.editorial_takeaway.en
+    assert "4 current mentions" in story.signal_context.en
+    assert "0 baseline" in story.signal_context.en
+    assert "rising" in story.reader_path.en
+    assert "Hot Products" in story.reader_path.en
+
+
+def test_build_row_one_edition_orders_top_story_ties_by_name() -> None:
+    report = _report(
+        entities=[
+            _entity("Z Brand", "brand", score=9.0),
+            _entity("A Brand", "brand", score=9.0),
+        ],
+        candidates=[
+            _candidate("z shoe", "shoe", score=8.0),
+            _candidate("a shoe", "shoe", score=8.0),
+        ],
+    )
+
+    top_stories = build_row_one_edition(
+        report=report,
+        recent_items=[],
+        as_of=AS_OF,
+    ).section_stories("top_stories")
+
+    assert [story.headline for story in top_stories] == [
+        "A Brand lead",
+        "Z Brand lead",
+        "a shoe spotted",
+        "z shoe spotted",
+    ]
+
+
+def test_build_row_one_edition_orders_casefold_ties_by_original_name() -> None:
+    report = _report(
+        entities=[
+            _entity("a brand", "brand", score=9.0),
+            _entity("A Brand", "brand", score=9.0),
+        ],
+        candidates=[
+            _candidate("z shoe", "shoe", score=8.0),
+            _candidate("Z shoe", "shoe", score=8.0),
+        ],
+    )
+
+    top_stories = build_row_one_edition(
+        report=report,
+        recent_items=[],
+        as_of=AS_OF,
+    ).section_stories("top_stories")
+
+    assert [story.headline for story in top_stories] == [
+        "A Brand lead",
+        "a brand lead",
+        "Z shoe spotted",
+        "z shoe spotted",
+    ]
+
+
+def test_build_row_one_edition_adds_recent_item_synthesis_from_local_item() -> None:
+    recent_item = {
+        "source_name": "Vogue Business",
+        "url": "https://example.com/the-row",
+        "title": "The Row sharpens its retail language",
+        "summary": "A concise retail update with strong buyer interest.",
+        "collected_at": AS_OF.isoformat(),
+    }
+
+    edition = build_row_one_edition(report=_report(), recent_items=[recent_item], as_of=AS_OF)
+    story = edition.section_stories("top_stories")[0]
+
+    assert "The Row sharpens its retail language" in story.editorial_takeaway.en
+    assert "Vogue Business" in story.signal_context.en
+    assert "retained local item" in story.signal_context.en
+    assert "Vogue Business" in story.reader_path.en
 
 
 def test_build_row_one_edition_enforces_section_caps() -> None:

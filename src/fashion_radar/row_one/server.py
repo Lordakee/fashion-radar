@@ -31,7 +31,7 @@ def create_row_one_http_server(
     host: str,
     port: int,
 ) -> ThreadingHTTPServer:
-    _validate_site_dir(site_dir)
+    validate_row_one_site_dir(site_dir)
     handler = partial(SimpleHTTPRequestHandler, directory=str(site_dir))
     server_class = _http_server_class(host)
     return server_class((host, port), handler)
@@ -50,7 +50,7 @@ def serve_row_one_site(
         server.server_close()
 
 
-def _validate_site_dir(site_dir: Path) -> None:
+def validate_row_one_site_dir(site_dir: Path) -> None:
     marker_path = site_dir / ".row-one-site"
     if not marker_path.exists():
         raise FileNotFoundError(f"ROW ONE site marker not found at {marker_path}")

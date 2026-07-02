@@ -7,6 +7,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from fashion_radar.utils.dates import parse_datetime_utc
 
+RowOneSectionKey = Literal[
+    "top_stories",
+    "brand_moves",
+    "celebrity_style",
+    "hot_products",
+    "rising_radar",
+]
+
 
 class LocalizedText(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -26,13 +34,7 @@ class RowOneLink(BaseModel):
 class RowOneSection(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    key: Literal[
-        "top_stories",
-        "brand_moves",
-        "celebrity_style",
-        "hot_products",
-        "rising_radar",
-    ]
+    key: RowOneSectionKey
     title: LocalizedText
     dek: LocalizedText
 
@@ -41,10 +43,13 @@ class RowOneStory(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
-    section_key: str
+    section_key: RowOneSectionKey
     headline: str
     summary: LocalizedText
     why_it_matters: LocalizedText
+    editorial_takeaway: LocalizedText
+    signal_context: LocalizedText
+    reader_path: LocalizedText
     source_name: str
     source_url: str | None = None
     published_at: datetime | None = None
@@ -73,5 +78,5 @@ class RowOneEdition(BaseModel):
     def normalize_datetime(cls, value: str | datetime) -> datetime:
         return parse_datetime_utc(value)
 
-    def section_stories(self, section_key: str) -> list[RowOneStory]:
+    def section_stories(self, section_key: RowOneSectionKey) -> list[RowOneStory]:
         return [story for story in self.stories if story.section_key == section_key]

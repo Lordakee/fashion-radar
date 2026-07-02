@@ -3,6 +3,7 @@ from __future__ import annotations
 import http.client
 import json
 import re
+import socket
 import threading
 from pathlib import Path
 
@@ -156,6 +157,7 @@ def test_row_one_serve_dry_run_prints_url(tmp_path: Path) -> None:
     site_dir = tmp_path / "site"
     site_dir.mkdir()
     (site_dir / "index.html").write_text("<html>ROW ONE</html>", encoding="utf-8")
+    (site_dir / ".row-one-site").write_text("ROW ONE generated site\n", encoding="utf-8")
 
     result = CliRunner().invoke(
         app,
@@ -180,6 +182,7 @@ def test_row_one_serve_dry_run_guides_wildcard_host(tmp_path: Path) -> None:
     site_dir = tmp_path / "site"
     site_dir.mkdir()
     (site_dir / "index.html").write_text("<html>ROW ONE</html>", encoding="utf-8")
+    (site_dir / ".row-one-site").write_text("ROW ONE generated site\n", encoding="utf-8")
 
     result = CliRunner().invoke(
         app,
@@ -202,6 +205,84 @@ def test_row_one_serve_dry_run_guides_wildcard_host(tmp_path: Path) -> None:
     assert "Bound to 0.0.0.0:8787" in result.output
     assert "no authentication" in result.output
     assert "http://0.0.0.0:8787" not in result.output
+
+
+def test_row_one_serve_dry_run_rejects_unmarked_directory(tmp_path: Path) -> None:
+    site_dir = tmp_path / "site"
+    site_dir.mkdir()
+    (site_dir / "index.html").write_text("<html>ROW ONE</html>", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "serve",
+            "--site-dir",
+            str(site_dir),
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "8787",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "site marker" in result.output
+
+
+def test_row_one_serve_dry_run_does_not_bind_requested_port(tmp_path: Path) -> None:
+    site_dir = tmp_path / "site"
+    site_dir.mkdir()
+    (site_dir / "index.html").write_text("<html>ROW ONE</html>", encoding="utf-8")
+    (site_dir / ".row-one-site").write_text("ROW ONE generated site\n", encoding="utf-8")
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        occupied_port = int(listener.getsockname()[1])
+
+        result = CliRunner().invoke(
+            app,
+            [
+                "row-one",
+                "serve",
+                "--site-dir",
+                str(site_dir),
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(occupied_port),
+                "--dry-run",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert f"http://127.0.0.1:{occupied_port}" in result.output
+
+
+def test_row_one_serve_dry_run_rejects_marked_directory_without_index(tmp_path: Path) -> None:
+    site_dir = tmp_path / "site"
+    site_dir.mkdir()
+    (site_dir / ".row-one-site").write_text("ROW ONE generated site\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "serve",
+            "--site-dir",
+            str(site_dir),
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "8787",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "index.html" in result.output
 
 
 def test_row_one_schedule_prints_refresh_then_build() -> None:

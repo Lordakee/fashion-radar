@@ -144,7 +144,11 @@ from fashion_radar.importers.manual_signals import (
 )
 from fashion_radar.models.report import CandidateReport
 from fashion_radar.models.trend import TrendComparison
-from fashion_radar.row_one.server import format_row_one_site_access_message, serve_row_one_site
+from fashion_radar.row_one.server import (
+    format_row_one_site_access_message,
+    serve_row_one_site,
+    validate_row_one_site_dir,
+)
 from fashion_radar.scheduling import (
     render_cron_example,
     render_github_actions_workflow,
@@ -1429,10 +1433,11 @@ def row_one_serve(
 ) -> None:
     """Serve a generated ROW ONE site locally."""
     access_message = format_row_one_site_access_message(host, port)
-    if dry_run:
-        typer.echo(access_message)
-        return
     try:
+        if dry_run:
+            validate_row_one_site_dir(site_dir)
+            typer.echo(access_message)
+            return
         typer.echo("Serving ROW ONE site")
         typer.echo(access_message)
         serve_row_one_site(site_dir=site_dir, host=host, port=port)

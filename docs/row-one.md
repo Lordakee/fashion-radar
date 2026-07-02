@@ -38,6 +38,18 @@ The bilingual UI uses deterministic labels and fallback text. It does not claim
 to translate source articles. Open Design imagery is optional and not required
 for tests.
 
+## Editorial Synthesis
+
+ROW ONE adds deterministic editorial synthesis to each generated story. The
+synthesis explains the local signal, the report context behind it, and a reader
+path for scanning the story. It is generated only from retained local report and
+item fields such as section, label, mention counts, growth ratio, first-seen
+timing, source name, local item title, and retained item metadata.
+
+This is not translation, not LLM generation, not new scoring, and not demand
+proof. It does not infer domestic/international market grouping unless explicit
+source metadata is added in a future stage.
+
 ## Generated Files
 
 `row-one build` writes a static site under the selected output directory:

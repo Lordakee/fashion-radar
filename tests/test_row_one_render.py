@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 
 import pytest
+from pydantic import ValidationError
 
 from fashion_radar.row_one.models import (
     LocalizedText,
@@ -29,6 +31,18 @@ def _edition() -> RowOneEdition:
         why_it_matters=LocalizedText(
             zh="这条信号进入今日重点。",
             en="This signal belongs in Top Stories.",
+        ),
+        editorial_takeaway=LocalizedText(
+            zh="The Row 是今日重点信号。",
+            en="The Row is today's priority signal.",
+        ),
+        signal_context=LocalizedText(
+            zh="本地报告显示它来自 1 个来源。",
+            en="The local report shows one supporting source.",
+        ),
+        reader_path=LocalizedText(
+            zh="先看摘要，再打开证据链接。",
+            en="Read the brief, then open the evidence link.",
         ),
         source_name="Vogue Business",
         source_url="https://example.com/the-row",
@@ -92,7 +106,27 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert "ROW ONE" in index_html
     assert 'data-lang-toggle="zh"' in index_html
     assert 'data-lang-toggle="en"' in index_html
+    script = (tmp_path / "assets" / "row-one.js").read_text(encoding="utf-8")
+    assert "document.documentElement.lang" in script
+    assert "zh-Hans" in script
+    assert re.search(r'document\.documentElement\.lang\s*=.*"en"', script)
+    assert 'class="story-takeaway"' in index_html
+    assert "The Row 是今日重点信号。" in index_html
     assert "The Row &lt;signals&gt; &quot;quiet&quot; demand" in index_html
+    assert "The Row is today&#x27;s priority signal." in index_html
+    detail_panel_match = re.search(
+        r'<section class="detail-panel">(?P<panel>.*?)</section>',
+        detail_html,
+        re.S,
+    )
+    assert detail_panel_match is not None
+    detail_panel = detail_panel_match.group("panel")
+    assert "编辑整理" in detail_panel
+    assert "如何阅读这条信号" in detail_panel
+    assert "本地报告显示它来自 1 个来源。" in detail_panel
+    assert "先看摘要，再打开证据链接。" in detail_panel
+    assert "The local report shows one supporting source." in detail_html
+    assert "Read the brief, then open the evidence link." in detail_html
     assert "javascript:alert" not in index_html
     assert "javascript:alert" not in detail_html
     assert "Unsafe evidence" in detail_html
@@ -211,6 +245,13 @@ def test_render_row_one_site_writes_json_payload(tmp_path) -> None:
     assert payload["brand"] == "ROW ONE"
     assert payload["stories"][0]["id"] == "the-row-signal-1234567890"
     assert payload["stories"][0]["summary"]["zh"].startswith("来源摘要")
+    assert (
+        payload["stories"][0]["editorial_takeaway"]["en"] == "The Row is today's priority signal."
+    )
+    assert payload["stories"][0]["signal_context"]["zh"] == "本地报告显示它来自 1 个来源。"
+    assert payload["stories"][0]["reader_path"]["en"] == (
+        "Read the brief, then open the evidence link."
+    )
     assert payload["stories"][0]["source_url"] == "https://example.com/the-row"
     assert payload["stories"][0]["evidence"][1]["url"] is None
 
@@ -224,3 +265,19 @@ def test_render_row_one_site_sanitizes_json_source_url(tmp_path) -> None:
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
     assert payload["stories"][0]["source_url"] is None
+
+
+def test_row_one_story_rejects_unknown_section_key() -> None:
+    with pytest.raises(ValidationError):
+        RowOneStory(
+            id="bad-section-1234567890",
+            section_key="unknown",
+            headline="Bad section",
+            summary=LocalizedText(zh="摘要", en="Summary"),
+            why_it_matters=LocalizedText(zh="原因", en="Why"),
+            editorial_takeaway=LocalizedText(zh="整理", en="Takeaway"),
+            signal_context=LocalizedText(zh="背景", en="Context"),
+            reader_path=LocalizedText(zh="路径", en="Path"),
+            source_name="ROW ONE",
+            detail_path="details/bad-section-1234567890.html",
+        )

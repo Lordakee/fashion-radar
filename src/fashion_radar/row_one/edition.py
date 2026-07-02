@@ -13,11 +13,12 @@ from fashion_radar.row_one.models import (
     RowOneEdition,
     RowOneLink,
     RowOneSection,
+    RowOneSectionKey,
     RowOneStory,
 )
 from fashion_radar.utils.dates import parse_datetime_utc
 
-SECTION_CAPS: dict[str, int] = {
+SECTION_CAPS: dict[RowOneSectionKey, int] = {
     "top_stories": 6,
     "brand_moves": 8,
     "celebrity_style": 8,
@@ -123,17 +124,19 @@ def _entity_stories(
     entities: Iterable[EntityReport],
     *,
     entity_type: str,
-    section_key: str,
+    section_key: RowOneSectionKey,
 ) -> list[RowOneStory]:
     matched = [entity for entity in entities if entity.entity_type == entity_type]
-    matched.sort(key=lambda entity: (-entity.heat_score, entity.entity_name.lower()))
+    matched.sort(
+        key=lambda entity: (-entity.heat_score, entity.entity_name.casefold(), entity.entity_name)
+    )
     return [_story_from_entity(entity, section_key=section_key) for entity in matched]
 
 
 def _candidate_stories(
     candidates: Iterable[CandidateReport],
     *,
-    section_key: str,
+    section_key: RowOneSectionKey,
     candidate_types: set[str],
     include_matching: bool,
 ) -> list[RowOneStory]:
@@ -142,7 +145,9 @@ def _candidate_stories(
         for candidate in candidates
         if (candidate.candidate_type in candidate_types) is include_matching
     ]
-    matched.sort(key=lambda candidate: (-candidate.score, candidate.phrase.lower()))
+    matched.sort(
+        key=lambda candidate: (-candidate.score, candidate.phrase.casefold(), candidate.phrase)
+    )
     return [_story_from_candidate(candidate, section_key=section_key) for candidate in matched]
 
 
@@ -154,8 +159,14 @@ def _top_stories(
 ) -> list[RowOneStory]:
     stories: list[RowOneStory] = []
     seen: set[str] = set()
-    ranked_entities = sorted(report.entities, key=lambda entity: -entity.heat_score)
-    ranked_candidates = sorted(report.candidates, key=lambda candidate: -candidate.score)
+    ranked_entities = sorted(
+        report.entities,
+        key=lambda entity: (-entity.heat_score, entity.entity_name.casefold(), entity.entity_name),
+    )
+    ranked_candidates = sorted(
+        report.candidates,
+        key=lambda candidate: (-candidate.score, candidate.phrase.casefold(), candidate.phrase),
+    )
 
     def add_story(story: RowOneStory) -> None:
         if story.id in seen or len(stories) >= limit:
@@ -174,13 +185,17 @@ def _top_stories(
     return stories
 
 
-def _story_from_entity(entity: EntityReport, *, section_key: str) -> RowOneStory:
+def _story_from_entity(entity: EntityReport, *, section_key: RowOneSectionKey) -> RowOneStory:
     item = entity.representative_items[0] if entity.representative_items else None
     source_name = item.source_name if item is not None else "Fashion Radar"
     source_url = _safe_url(item.source_url if item is not None else None)
     item_summary = item.summary if item is not None else None
     title = item.title if item is not None else entity.entity_name
     story_id = _story_id(section_key, title, source_url or source_name)
+    editorial_takeaway, signal_context, reader_path = _entity_synthesis(
+        entity,
+        section_key=section_key,
+    )
     return RowOneStory(
         id=story_id,
         section_key=section_key,
@@ -196,6 +211,9 @@ def _story_from_entity(entity: EntityReport, *, section_key: str) -> RowOneStory
                 f"{entity.heat_score:.1f} heat score across {entity.distinct_sources} sources."
             ),
         ),
+        editorial_takeaway=editorial_takeaway,
+        signal_context=signal_context,
+        reader_path=reader_path,
         source_name=source_name,
         source_url=source_url,
         published_at=item.published_at if item is not None else None,
@@ -211,13 +229,21 @@ def _story_from_entity(entity: EntityReport, *, section_key: str) -> RowOneStory
     )
 
 
-def _story_from_candidate(candidate: CandidateReport, *, section_key: str) -> RowOneStory:
+def _story_from_candidate(
+    candidate: CandidateReport,
+    *,
+    section_key: RowOneSectionKey,
+) -> RowOneStory:
     item = candidate.representative_items[0] if candidate.representative_items else None
     source_name = item.source_name if item is not None else "Fashion Radar"
     source_url = _safe_url(item.source_url if item is not None else None)
     item_summary = item.summary if item is not None else None
     title = item.title if item is not None else candidate.phrase
     story_id = _story_id(section_key, title, source_url or source_name)
+    editorial_takeaway, signal_context, reader_path = _candidate_synthesis(
+        candidate,
+        section_key=section_key,
+    )
     return RowOneStory(
         id=story_id,
         section_key=section_key,
@@ -233,6 +259,9 @@ def _story_from_candidate(candidate: CandidateReport, *, section_key: str) -> Ro
                 f"{candidate.score:.1f} across {candidate.distinct_sources} sources."
             ),
         ),
+        editorial_takeaway=editorial_takeaway,
+        signal_context=signal_context,
+        reader_path=reader_path,
         source_name=source_name,
         source_url=source_url,
         published_at=item.published_at if item is not None else candidate.first_seen_at,
@@ -248,12 +277,21 @@ def _story_from_candidate(candidate: CandidateReport, *, section_key: str) -> Ro
     )
 
 
-def _story_from_recent_item(item: Mapping[str, object], *, section_key: str) -> RowOneStory:
+def _story_from_recent_item(
+    item: Mapping[str, object],
+    *,
+    section_key: RowOneSectionKey,
+) -> RowOneStory:
     title = _string_value(item.get("title")) or "Untitled fashion signal"
     source_name = _string_value(item.get("source_name")) or "Fashion Radar"
     source_url = _safe_url(_string_value(item.get("url")))
     summary = _string_value(item.get("summary")) or title
     story_id = _story_id(section_key, title, source_url or source_name)
+    editorial_takeaway, signal_context, reader_path = _recent_item_synthesis(
+        title,
+        source_name=source_name,
+        section_key=section_key,
+    )
     return RowOneStory(
         id=story_id,
         section_key=section_key,
@@ -263,12 +301,120 @@ def _story_from_recent_item(item: Mapping[str, object], *, section_key: str) -> 
             zh=f"这条来自 {source_name} 的新近信号进入今日编辑精选。",
             en=f"This recent signal from {source_name} is part of today's editorial selection.",
         ),
+        editorial_takeaway=editorial_takeaway,
+        signal_context=signal_context,
+        reader_path=reader_path,
         source_name=source_name,
         source_url=source_url,
         published_at=_optional_datetime(item.get("collected_at")),
         detail_path=f"details/{story_id}.html",
         tags=["recent"],
         evidence=[RowOneLink(title=title, url=source_url, source_name=source_name)],
+    )
+
+
+def _entity_synthesis(
+    entity: EntityReport,
+    *,
+    section_key: RowOneSectionKey,
+) -> tuple[LocalizedText, LocalizedText, LocalizedText]:
+    section = _section_title(section_key)
+    baseline = entity.baseline_mentions
+    if entity.growth_ratio is None:
+        signal_context = LocalizedText(
+            zh=(
+                f"本地窗口记录 {entity.current_mentions} 次当前提及，对比基线 "
+                f"{baseline} 次，暂无增长倍数。"
+            ),
+            en=(
+                f"The local window shows {entity.current_mentions} current mentions versus "
+                f"{baseline} baseline; growth ratio is unavailable."
+            ),
+        )
+    else:
+        growth = _growth_ratio_label(entity.growth_ratio)
+        signal_context = LocalizedText(
+            zh=(
+                f"本地窗口记录 {entity.current_mentions} 次当前提及，对比基线 "
+                f"{baseline} 次，增长倍数 {growth}。"
+            ),
+            en=(
+                f"The local window shows {entity.current_mentions} current mentions versus "
+                f"{baseline} baseline, a {growth}x growth ratio."
+            ),
+        )
+    return (
+        LocalizedText(
+            zh=f"{entity.entity_name} 是今日 {section.zh} 中最值得先看的信号之一。",
+            en=f"{entity.entity_name} is one of today's priority signals in {section.en}.",
+        ),
+        signal_context,
+        LocalizedText(
+            zh=f"先按 {entity.label} 标签阅读，再对照{section.zh}中的同类信号。",
+            en=(
+                f"Read it as a {entity.label} signal, then compare it with nearby "
+                f"{section.en} stories."
+            ),
+        ),
+    )
+
+
+def _candidate_synthesis(
+    candidate: CandidateReport,
+    *,
+    section_key: RowOneSectionKey,
+) -> tuple[LocalizedText, LocalizedText, LocalizedText]:
+    section = _section_title(section_key)
+    baseline = candidate.baseline_mentions
+    first_seen = candidate.first_seen_at.date().isoformat()
+    return (
+        LocalizedText(
+            zh=f"{candidate.phrase} 正被 ROW ONE 归入{section.zh}观察。",
+            en=f"{candidate.phrase} is being tracked by ROW ONE inside {section.en}.",
+        ),
+        LocalizedText(
+            zh=(
+                f"本地窗口记录 {candidate.current_mentions} 次当前提及，对比基线 "
+                f"{baseline} 次，首次出现于 {first_seen}。"
+            ),
+            en=(
+                f"The local window shows {candidate.current_mentions} current mentions versus "
+                f"{baseline} baseline, first seen on {first_seen}."
+            ),
+        ),
+        LocalizedText(
+            zh=f"把它作为 {candidate.label} 的{section.zh}线索，而不是已验证需求证明。",
+            en=f"Treat it as a {candidate.label} {section.en} signal, not demand proof.",
+        ),
+    )
+
+
+def _recent_item_synthesis(
+    title: str,
+    *,
+    source_name: str,
+    section_key: RowOneSectionKey,
+) -> tuple[LocalizedText, LocalizedText, LocalizedText]:
+    section = _section_title(section_key)
+    return (
+        LocalizedText(
+            zh=f"《{title}》这条来自 {source_name} 的新近内容被纳入今日{section.zh}。",
+            en=f"{title} from {source_name} is included in today's {section.en}.",
+        ),
+        LocalizedText(
+            zh=f"这是一条来自 {source_name} 的本地保留条目，尚未额外推断市场地域或需求规模。",
+            en=(
+                f"This is a retained local item from {source_name}; ROW ONE does not "
+                "infer market region or demand size from it."
+            ),
+        ),
+        LocalizedText(
+            zh=f"把它作为 {source_name} 的快速阅读入口，再进入原始来源核对细节。",
+            en=(
+                f"Use it as a fast {source_name} reading entry point, then open the "
+                "original source for details."
+            ),
+        ),
     )
 
 
@@ -292,14 +438,14 @@ def _edition_summary(stories: Sequence[RowOneStory]) -> LocalizedText:
     )
 
 
-def _section_title(section_key: str) -> LocalizedText:
+def _section_title(section_key: RowOneSectionKey) -> LocalizedText:
     for section in SECTION_DEFINITIONS:
         if section.key == section_key:
             return section.title
     return LocalizedText(zh="ROW ONE", en="ROW ONE")
 
 
-def _story_id(section_key: str, title: str, discriminator: str) -> str:
+def _story_id(section_key: RowOneSectionKey, title: str, discriminator: str) -> str:
     slug = _slug(title) or "story"
     digest = hashlib.sha1(f"{section_key}|{title}|{discriminator}".encode()).hexdigest()
     return f"{slug}-{digest[:10]}"
@@ -336,3 +482,7 @@ def _optional_datetime(value: object) -> datetime | None:
     if isinstance(value, (str, datetime)):
         return parse_datetime_utc(value)
     return None
+
+
+def _growth_ratio_label(value: float | None) -> str:
+    return f"{value:.1f}" if value is not None else "n/a"

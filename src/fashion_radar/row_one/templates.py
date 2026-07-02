@@ -5,7 +5,7 @@ from html import escape
 from pathlib import PurePosixPath
 from urllib.parse import urlsplit
 
-from fashion_radar.row_one.models import RowOneEdition, RowOneLink, RowOneStory
+from fashion_radar.row_one.models import RowOneEdition, RowOneLink, RowOneSectionKey, RowOneStory
 
 _DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$")
 
@@ -89,6 +89,28 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
       <p>
         <span data-lang="en">{_esc(story.why_it_matters.en)}</span>
         <span data-lang="zh">{_esc(story.why_it_matters.zh)}</span>
+      </p>
+    </section>
+    <section class="detail-panel">
+      <p class="story-section">
+        <span data-lang="en">Editorial Synthesis</span>
+        <span data-lang="zh">编辑整理</span>
+      </p>
+      <h2>
+        <span data-lang="en">How To Read This Signal</span>
+        <span data-lang="zh">如何阅读这条信号</span>
+      </h2>
+      <p>
+        <span data-lang="en">{_esc(story.editorial_takeaway.en)}</span>
+        <span data-lang="zh">{_esc(story.editorial_takeaway.zh)}</span>
+      </p>
+      <p>
+        <span data-lang="en">{_esc(story.signal_context.en)}</span>
+        <span data-lang="zh">{_esc(story.signal_context.zh)}</span>
+      </p>
+      <p>
+        <span data-lang="en">{_esc(story.reader_path.en)}</span>
+        <span data-lang="zh">{_esc(story.reader_path.zh)}</span>
       </p>
     </section>
     <section>
@@ -209,6 +231,12 @@ main { padding: 36px min(7vw, 88px) 72px; }
   letter-spacing: 0;
   line-height: 1;
 }
+.story-takeaway {
+  color: var(--ink);
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 1.06rem;
+  margin: 8px 0;
+}
 .story-card p, .detail-article p { color: var(--muted); line-height: 1.55; }
 .story-meta {
   color: var(--accent);
@@ -235,6 +263,13 @@ main { padding: 36px min(7vw, 88px) 72px; }
   color: var(--accent);
   margin-top: 36px;
 }
+.detail-panel {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin: 34px 0;
+  padding: 22px 0;
+}
+.detail-panel h2 { margin-top: 8px; }
 .evidence-item {
   padding: 14px 0;
   border-top: 1px solid var(--line);
@@ -258,6 +293,7 @@ def row_one_js() -> str:
   const buttons = Array.from(document.querySelectorAll("[data-lang-toggle]"));
   const setLang = (lang) => {
     document.body.classList.toggle("lang-zh", lang === "zh");
+    document.documentElement.lang = lang === "zh" ? "zh-Hans" : "en";
     buttons.forEach((button) => {
       button.setAttribute("aria-pressed", button.dataset.langToggle === lang ? "true" : "false");
     });
@@ -270,7 +306,7 @@ def row_one_js() -> str:
 """
 
 
-def _render_section(edition: RowOneEdition, section_key: str) -> str:
+def _render_section(edition: RowOneEdition, section_key: RowOneSectionKey) -> str:
     section = next(section for section in edition.sections if section.key == section_key)
     stories = edition.section_stories(section_key)
     cards = "\n".join(_render_story_card(story) for story in stories)
@@ -303,6 +339,10 @@ def _render_story_card(story: RowOneStory) -> str:
     <p class="story-meta">{_esc(story.source_name)}</p>
     <h3><a href="{detail_href}">{_esc(story.headline)}</a></h3>
   </div>
+  <p class="story-takeaway">
+    <span data-lang="en">{_esc(story.editorial_takeaway.en)}</span>
+    <span data-lang="zh">{_esc(story.editorial_takeaway.zh)}</span>
+  </p>
   <p>
     <span data-lang="en">{_esc(story.summary.en)}</span>
     <span data-lang="zh">{_esc(story.summary.zh)}</span>
@@ -356,7 +396,7 @@ def _safe_external_url(url: str | None) -> str | None:
     return url
 
 
-def _section_title(edition: RowOneEdition, section_key: str):
+def _section_title(edition: RowOneEdition, section_key: RowOneSectionKey):
     for section in edition.sections:
         if section.key == section_key:
             return section.title
