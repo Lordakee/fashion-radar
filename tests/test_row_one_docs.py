@@ -1,0 +1,141 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+README = ROOT / "README.md"
+ROW_ONE_DOC = ROOT / "docs" / "row-one.md"
+ARCHITECTURE_DOC = ROOT / "docs" / "architecture.md"
+CLI_REFERENCE = ROOT / "docs" / "cli-reference.md"
+SCHEDULING_DOC = ROOT / "docs" / "scheduling.md"
+UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
+
+
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def _normalized(text: str) -> str:
+    return " ".join(text.split()).casefold()
+
+
+def _section(text: str, heading: str) -> str:
+    marker = f"## {heading}"
+    assert marker in text
+    return text.split(marker, 1)[1].split("\n## ", 1)[0]
+
+
+def test_row_one_docs_keep_local_static_site_boundary() -> None:
+    section = _section(_read(ROW_ONE_DOC), "Boundary")
+    normalized = _normalized(section)
+
+    for phrase in (
+        "row one is a local static site generator",
+        "built from existing fashion radar daily report data",
+        "presentation-only",
+        "does not collect sources",
+        "does not run entity matching",
+        "does not persist new scoring artifacts",
+        "reuses the existing daily report and scoring logic",
+        "does not call translation services",
+        "does not call llms",
+        "does not add paid apis",
+        "does not deploy or publish the site",
+        "provides no demand proof and no platform coverage verification",
+    ):
+        assert phrase in normalized
+
+
+def test_row_one_docs_describe_generated_files_and_cleanup_boundary() -> None:
+    section = _section(_read(ROW_ONE_DOC), "Generated Files")
+    normalized = _normalized(section)
+
+    for phrase in (
+        "`index.html`",
+        "`details/`",
+        "`assets/row-one.css`",
+        "`assets/row-one.js`",
+        "`data/edition.json`",
+        "`.row-one-site` marker",
+        "`--latest-only` removes only known row one generated children",
+        "does not delete unrelated files in the output directory",
+    ):
+        assert phrase in normalized
+
+
+def test_row_one_docs_include_user_required_phrases() -> None:
+    normalized = _normalized(_read(ROW_ONE_DOC))
+
+    for phrase in (
+        "row one",
+        "row-one build",
+        "row-one serve",
+        "row-one schedule",
+        "04:00 local scheduling",
+        "latest-only cleanup",
+        "ip:port local-network serving",
+        "fashion-radar row-one build",
+        "fashion-radar run",
+        "--latest-only",
+        "open design imagery is optional and not required for tests.",
+    ):
+        assert phrase in normalized
+
+
+def test_row_one_cli_docs_list_build_serve_and_schedule_commands() -> None:
+    normalized = _normalized(_read(CLI_REFERENCE))
+
+    for phrase in (
+        "`row-one build`",
+        "`row-one serve`",
+        "`row-one schedule`",
+        "`--output-dir`",
+        "`--latest-only`",
+        "`--site-dir`",
+        "`--host`",
+        "`--port`",
+        "`--dry-run`",
+    ):
+        assert phrase in normalized
+
+
+def test_row_one_scheduling_docs_keep_two_step_refresh_order() -> None:
+    normalized = _normalized(_read(SCHEDULING_DOC))
+
+    for phrase in (
+        "`row-one schedule`",
+        "two-step refresh",
+        "`fashion-radar run`",
+        "`fashion-radar row-one build --latest-only`",
+        "refresh the daily report before rebuilding the row one site",
+        "uv run fashion-radar row-one schedule",
+        '--output-dir "$pwd/reports/row-one/site"',
+    ):
+        assert phrase in normalized
+
+
+def test_row_one_upload_checklist_covers_subcommand_help() -> None:
+    normalized = _normalized(_read(UPLOAD_CHECKLIST))
+
+    for phrase in (
+        "row-one build --help",
+        "row-one serve --help",
+        "row-one schedule --help",
+        "row-one build`, `row-one serve`, and `row-one schedule` subcommand help",
+    ):
+        assert phrase in normalized
+
+
+def test_row_one_readme_and_architecture_are_discoverable_and_bounded() -> None:
+    for path in (README, ARCHITECTURE_DOC):
+        normalized = _normalized(_read(path))
+
+        for phrase in (
+            "row one",
+            "local static site",
+            "existing daily report data",
+            "no new data acquisition",
+            "no demand proof",
+            "no platform coverage verification",
+        ):
+            assert phrase in normalized

@@ -144,9 +144,12 @@ from fashion_radar.importers.manual_signals import (
 )
 from fashion_radar.models.report import CandidateReport
 from fashion_radar.models.trend import TrendComparison
+from fashion_radar.row_one.server import format_row_one_site_access_message, serve_row_one_site
 from fashion_radar.scheduling import (
     render_cron_example,
     render_github_actions_workflow,
+    render_row_one_cron_example,
+    render_row_one_systemd_service,
     render_systemd_service,
     render_systemd_timer,
     validate_hhmm,
@@ -186,12 +189,14 @@ from fashion_radar.workflows import (
     default_database_path,
     match_stored_items,
     write_daily_report_files,
+    write_row_one_site_files,
 )
 
 app = typer.Typer(
     help="Fashion Radar command line interface.",
     context_settings={"max_content_width": 120},
 )
+row_one_app = typer.Typer(help="ROW ONE local daily site commands.")
 external_tool_readiness_shutil = external_tool_readiness_module.shutil
 CONFIG_DIR_OPTION = typer.Option(
     default_factory=default_config_dir,
@@ -211,6 +216,16 @@ PROJECT_DIR_OPTION = typer.Option(
 )
 HOST_OPTION = typer.Option("127.0.0.1", help="Dashboard host address.")
 PORT_OPTION = typer.Option(8501, min=1, max=65535, help="Dashboard port.")
+ROW_ONE_PORT_OPTION = typer.Option(8787, min=1, max=65535, help="ROW ONE site port.")
+ROW_ONE_OUTPUT_DIR_OPTION = typer.Option(
+    Path("reports/row-one/site"),
+    help="ROW ONE generated site output directory.",
+)
+ROW_ONE_SITE_DIR_OPTION = typer.Option(
+    Path("reports/row-one/site"),
+    help="ROW ONE generated site directory.",
+)
+ROW_ONE_HOST_OPTION = typer.Option("127.0.0.1", help="ROW ONE site host address.")
 AS_OF_OPTION = typer.Option(..., help="UTC report timestamp, for example 2026-06-11T12:00:00Z.")
 NOW_OPTION = typer.Option(None, help="UTC collection timestamp override.")
 RETENTION_DAYS_OPTION = typer.Option(30, min=1, help="Retention window in days.")
@@ -1363,6 +1378,116 @@ def schedule_example(
         typer.echo(render_systemd_timer(time=time))
     else:
         typer.echo(render_github_actions_workflow(time=time))
+
+
+@row_one_app.command(name="build")
+def row_one_build(
+    config_dir: Path = CONFIG_DIR_OPTION,
+    data_dir: Path = DATA_DIR_OPTION,
+    reports_dir: Path = REPORTS_DIR_OPTION,
+    as_of: str = AS_OF_OPTION,
+    output_dir: Path = ROW_ONE_OUTPUT_DIR_OPTION,
+    latest_only: bool = typer.Option(
+        False,
+        help="Remove known ROW ONE generated children before writing the site.",
+    ),
+) -> None:
+    """Build the local ROW ONE static daily site."""
+    try:
+        scoring_config = load_scoring_config(config_dir / "scoring.yaml")
+        entity_config = None
+        entity_config_path = config_dir / "entities.yaml"
+        if entity_config_path.exists():
+            entity_config = load_entity_config(entity_config_path)
+        result = write_row_one_site_files(
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+            output_dir=output_dir,
+            scoring=scoring_config.scoring,
+            candidate_discovery=scoring_config.candidate_discovery,
+            entity_config=entity_config,
+            as_of=as_of,
+            latest_only=latest_only,
+        )
+    except ConfigError as exc:
+        typer.echo(f"Invalid config: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    except Exception as exc:
+        typer.echo(f"ROW ONE build failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    typer.echo(f"Wrote ROW ONE site: {result.index_path}")
+    typer.echo(f"Wrote {result.story_count} stories")
+
+
+@row_one_app.command(name="serve")
+def row_one_serve(
+    site_dir: Path = ROW_ONE_SITE_DIR_OPTION,
+    host: str = ROW_ONE_HOST_OPTION,
+    port: int = ROW_ONE_PORT_OPTION,
+    dry_run: bool = typer.Option(False, help="Print the site URL without serving."),
+) -> None:
+    """Serve a generated ROW ONE site locally."""
+    access_message = format_row_one_site_access_message(host, port)
+    if dry_run:
+        typer.echo(access_message)
+        return
+    try:
+        typer.echo("Serving ROW ONE site")
+        typer.echo(access_message)
+        serve_row_one_site(site_dir=site_dir, host=host, port=port)
+    except Exception as exc:
+        typer.echo(f"Could not serve ROW ONE site: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+
+@row_one_app.command(name="schedule")
+def row_one_schedule(
+    mode: Literal["cron", "systemd"] = typer.Option(
+        "cron",
+        help="Snippet type to print.",
+    ),
+    project_dir: Path = PROJECT_DIR_OPTION,
+    config_dir: Path = CONFIG_DIR_OPTION,
+    data_dir: Path = DATA_DIR_OPTION,
+    reports_dir: Path = REPORTS_DIR_OPTION,
+    output_dir: Path = ROW_ONE_OUTPUT_DIR_OPTION,
+    time: str = typer.Option("04:00", help="Daily run time in 24-hour HH:MM format."),
+) -> None:
+    """Print ROW ONE daily scheduling examples without installing them."""
+    try:
+        validate_hhmm(time)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+
+    if mode == "cron":
+        typer.echo(
+            render_row_one_cron_example(
+                project_dir=str(project_dir),
+                config_dir=str(config_dir),
+                data_dir=str(data_dir),
+                reports_dir=str(reports_dir),
+                output_dir=str(output_dir),
+                time=time,
+            )
+        )
+    else:
+        typer.echo("# ~/.config/systemd/user/row-one.service")
+        typer.echo(
+            render_row_one_systemd_service(
+                project_dir=str(project_dir),
+                config_dir=str(config_dir),
+                data_dir=str(data_dir),
+                reports_dir=str(reports_dir),
+                output_dir=str(output_dir),
+            )
+        )
+        typer.echo("# ~/.config/systemd/user/row-one.timer")
+        typer.echo(render_systemd_timer(time=time))
+
+
+app.add_typer(row_one_app, name="row-one")
 
 
 @app.command()

@@ -25,6 +25,7 @@ YAML config
   -> score current vs baseline windows
   -> discover candidate signals from retained local items
   -> write Markdown/JSON/HTML reports
+  -> optionally build ROW ONE local static site from existing daily report data and local state
   -> optionally package local digest artifacts
   -> compare local trend deltas on demand
   -> inspect read-only dashboard
@@ -36,6 +37,14 @@ YAML config
 - **Config:** Pydantic models load `sources.yaml`, `entities.yaml`, and
   `scoring.yaml`. Optional entity packs are static `entities.yaml` templates
   users can copy and edit; they do not add runtime behavior.
+- **ROW ONE:** Presentation-only local static site generation over existing
+  daily report data and local state. It reuses the existing daily report and
+  scoring logic over local SQLite rows, maps the resulting report model and
+  recent local rows into ROW ONE edition models, renders static HTML/CSS/JS/JSON,
+  and can serve the output with Python's stdlib HTTP server. It performs no new
+  data acquisition, no entity matching, no source collection, no new scoring
+  logic, no persisted scoring state, no demand proof, and no platform coverage
+  verification.
 - **Entity-Pack Quality:** Local read-only diagnostics lint one entity YAML or
   entity-pack YAML file for invalid config, empty packs, aliases that cannot
   match, matcher-context surprises, product parent-brand precision issues,
@@ -428,6 +437,10 @@ coverage verification. See
 [source-boundaries.md](source-boundaries.md).
 
 ## Dashboard Boundary
+
+ROW ONE is separate from the dashboard. ROW ONE is a local static site over
+existing daily report data, not a Streamlit dashboard tab. Serving ROW ONE does
+not add new data acquisition, demand proof, or platform coverage verification.
 
 The dashboard is optional and imports Streamlit only when the dashboard command
 or app is used. Refreshing the dashboard reads local SQLite/report state only; it

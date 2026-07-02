@@ -5,6 +5,8 @@ from fashion_radar.scheduling import (
     raw_as_of_shell,
     render_cron_example,
     render_github_actions_workflow,
+    render_row_one_cron_example,
+    render_row_one_systemd_service,
     render_systemd_service,
     render_systemd_timer,
     systemd_as_of_shell,
@@ -92,6 +94,61 @@ def test_render_systemd_service_quotes_paths_with_spaces() -> None:
     assert "WorkingDirectory=/opt/Fashion Radar" in service
     assert 'Environment="FASHION_RADAR_CONFIG_DIR=/opt/Fashion Radar/configs"' in service
     assert 'Environment="FASHION_RADAR_REPORTS_DIR=/opt/Fashion Radar/reports"' in service
+
+
+def test_render_row_one_cron_uses_one_timestamp_shared_env_and_grouped_log() -> None:
+    text = render_row_one_cron_example(
+        project_dir="/opt/fashion-radar",
+        config_dir="/opt/fashion-radar/configs",
+        data_dir="/opt/fashion-radar/data",
+        reports_dir="/opt/fashion-radar/reports",
+        output_dir="/opt/fashion-radar/reports/row-one/site",
+        time="04:00",
+    )
+
+    assert "0 4 * * *" in text
+    assert text.count("date -u") == 1
+    assert 'AS_OF="$(date -u +\\%Y-\\%m-\\%dT\\%H:\\%M:\\%SZ)"' in text
+    assert 'uv run fashion-radar run --as-of "$AS_OF"' in text
+    assert 'uv run fashion-radar row-one build --as-of "$AS_OF"' in text
+    assert "export FASHION_RADAR_CONFIG_DIR=/opt/fashion-radar/configs" in text
+    assert "FASHION_RADAR_DATA_DIR=/opt/fashion-radar/data" in text
+    assert "FASHION_RADAR_REPORTS_DIR=/opt/fashion-radar/reports" in text
+    assert '{ uv run fashion-radar run --as-of "$AS_OF" && ' in text
+    assert "--latest-only; } >> /opt/fashion-radar/reports/row-one-cron.log 2>&1" in text
+
+
+def test_render_row_one_cron_quotes_output_dir_with_spaces_and_single_quotes() -> None:
+    text = render_row_one_cron_example(
+        project_dir="/opt/Fashion Radar",
+        config_dir="/opt/Fashion Radar/configs",
+        data_dir="/opt/Fashion Radar/data",
+        reports_dir="/opt/Fashion Radar/reports",
+        output_dir="/tmp/ROW ONE's site",
+        time="04:00",
+    )
+
+    assert "cd '/opt/Fashion Radar'" in text
+    assert "--output-dir '/tmp/ROW ONE'\"'\"'s site'" in text
+    assert ">> '/opt/Fashion Radar/reports/row-one-cron.log' 2>&1" in text
+
+
+def test_render_row_one_systemd_uses_one_timestamp_and_output_env() -> None:
+    service = render_row_one_systemd_service(
+        project_dir="/opt/Fashion Radar",
+        config_dir="/opt/Fashion Radar/configs",
+        data_dir="/opt/Fashion Radar/data",
+        reports_dir="/opt/Fashion Radar/reports",
+        output_dir="/tmp/ROW ONE's site",
+    )
+
+    assert service.count("date -u") == 1
+    assert 'AS_OF="$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)"' in service
+    assert 'uv run fashion-radar run --as-of "$AS_OF"' in service
+    assert 'uv run fashion-radar row-one build --as-of "$AS_OF"' in service
+    assert '--output-dir "$ROW_ONE_OUTPUT_DIR" --latest-only' in service
+    assert 'Environment="ROW_ONE_OUTPUT_DIR=/tmp/ROW ONE\'s site"' in service
+    assert "ROW ONE'\"'\"'s site" not in service
 
 
 def test_render_github_actions_workflow_contains_schedule_and_no_secrets() -> None:

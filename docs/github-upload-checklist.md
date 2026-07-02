@@ -111,7 +111,9 @@ Stage 41 docs freshness check:
 - [ ] Import/review examples that use `$PWD/data` pass `--data-dir "$PWD/data"`
       consistently.
 - [ ] Installed-wheel help smoke covers every documented command, including
-      the Stage 57 `heat-movers` entry.
+      the Stage 57 `heat-movers` entry, the Stage 260 `row-one` parent command,
+      and the `row-one build`, `row-one serve`, and `row-one schedule`
+      subcommand help.
 - [ ] Stage 57 `heat-movers` docs describe local observed heat movement for
       one configured source set, compare configured sources and imported local
       signals, say output needs review, and say there is no demand proof or
@@ -434,10 +436,13 @@ for cmd in \
   import-signals import-signals-dir imported-signals imported-signals-summary \
   imported-entity-deltas imported-entity-evidence imported-candidates imported-candidate-evidence \
   imported-review-workflow collect match report candidates trends trend-explanations heat-movers \
-  schedule-example dashboard clean-old-data run
+  row-one schedule-example dashboard clean-old-data run
 do
   "$tmp_env/venv/bin/fashion-radar" "$cmd" --help
 done
+"$tmp_env/venv/bin/fashion-radar" row-one build --help
+"$tmp_env/venv/bin/fashion-radar" row-one serve --help
+"$tmp_env/venv/bin/fashion-radar" row-one schedule --help
 tmp_run="$(mktemp -d)"
 mkdir -p "$tmp_run/exports"
 mkdir -p "$tmp_run/config"

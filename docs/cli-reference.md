@@ -16,6 +16,7 @@ does not add connectors.
 | Setup | `init`, `migrate-db`, `doctor` | [first-run.md](first-run.md) |
 | Local sample/import | `community-signal-lint`, `import-signals`, `import-signals-dir` | [first-run.md](first-run.md) |
 | Match/report/review | `match`, `report`, `candidates`, `trends`, `trend-explanations`, `imported-signals` | [first-run.md](first-run.md) |
+| Daily site | `row-one build`, `row-one serve`, `row-one schedule` | [row-one.md](row-one.md) |
 | Dashboard | `dashboard` | [first-run.md](first-run.md) |
 | Optional entity matching | `entity-pack-lint` | [entity-packs.md](entity-packs.md) |
 | Cleanup | Reset The Repo-Local Sample | [first-run.md](first-run.md) |
@@ -89,6 +90,15 @@ validates deterministic sample output content, not only command execution.
 - `schedule-example`: print safe scheduling snippets without installing them.
   Run `fashion-radar schedule-example --help` for current mode, time, project,
   config, data, and reports options.
+- `row-one`: parent command for ROW ONE local daily site helpers.
+- `row-one build`: build the ROW ONE local static site from existing daily
+  report data; requires `--as-of` and supports `--config-dir`, `--data-dir`,
+  `--reports-dir`, `--output-dir`, and `--latest-only`.
+- `row-one serve`: serve a generated ROW ONE site; supports `--site-dir`,
+  `--host`, `--port`, and `--dry-run`.
+- `row-one schedule`: print ROW ONE scheduling snippets without installing
+  timers; supports `--time`, `--project-dir`, `--config-dir`, `--data-dir`,
+  `--reports-dir`, `--output-dir`, and `--mode`.
 
 ## Local Import And Community Handoff
 

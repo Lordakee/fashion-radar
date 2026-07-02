@@ -63,6 +63,9 @@ brands, or verify platform coverage.
   phrases that need review, and source caveats from configured sources and
   imported local signals. It provides no demand proof and no platform coverage
   verification.
+- Generates the optional ROW ONE local static site from existing daily report
+  data for editorial review, with no new data acquisition, no demand proof, and
+  no platform coverage verification.
 - Can package optional local digest artifacts such as latest report copies, a
   report index, and a local `.eml` handoff file.
 - Provides an optional local Streamlit dashboard for read-only inspection.
@@ -85,6 +88,11 @@ Instagram, TikTok, X, or Xiaohongshu coverage claim, and no login-cookie,
 proxy-pool, CAPTCHA-bypass, or paywall-bypass behavior by default; login-based
 social-platform collection is opt-in and use-at-your-own-risk (Phase 2 adds
 Xiaohongshu).
+
+ROW ONE is a local static site built from existing daily report data. It adds
+no new data acquisition, no scraping, no platform APIs, no paid APIs, no
+translation service, no deployment automation, no demand proof, and no platform
+coverage verification. See [docs/row-one.md](docs/row-one.md).
 
 The external tool handoff templates are sanitized CSV/JSON local file handoff
 templates for user-controlled external/community tools:
@@ -637,6 +645,23 @@ Or run the workflow serially:
 uv run fashion-radar run --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ```
 
+Build and serve the optional ROW ONE local static site from existing daily
+report data:
+
+```bash
+AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar run --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$AS_OF"
+uv run fashion-radar row-one build --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --as-of "$AS_OF" --latest-only
+uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787
+uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 0.0.0.0 --port 8787
+uv run fashion-radar row-one schedule --time 04:00
+```
+
+ROW ONE supports IP:port local-network serving when you explicitly bind
+`--host 0.0.0.0`; open `http://<LAN-IP>:8787`, not `http://0.0.0.0:8787`,
+from another device. The local ROW ONE server has no authentication layer. Open
+Design imagery is optional and not required for tests.
+
 Package local digest artifacts after a report or serial run:
 
 ```bash
@@ -691,6 +716,9 @@ database state. Candidate signals may be stale until a new report is generated.
 Trend explanations remain a CLI-only read-only sidecar over configured sources
 and imported local signals; they provide no demand proof and no platform
 coverage verification.
+
+ROW ONE is separate from the Streamlit dashboard. It is a local static site and
+server generated from existing daily report data, not a dashboard tab.
 
 There is no authentication layer. Do not bind `--host 0.0.0.0` or any non-local
 address on an untrusted network unless you understand that the dashboard may be

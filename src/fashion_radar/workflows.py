@@ -25,6 +25,8 @@ from fashion_radar.html_report import render_html_report
 from fashion_radar.models.entity import EntityDefinition
 from fashion_radar.models.source import SourceDefinition, SourceType
 from fashion_radar.reports import build_daily_report, render_json_report, render_markdown_report
+from fashion_radar.row_one.edition import build_row_one_edition
+from fashion_radar.row_one.render import RowOneRenderResult, render_row_one_site
 from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
 from fashion_radar.utils.dates import parse_datetime_utc
 
@@ -92,6 +94,53 @@ def write_daily_report_files(
     html_path = reports_dir / f"fashion-radar-{as_of_utc.date().isoformat()}.html"
     html_path.write_text(render_html_report(report, recent_items=recent_items), encoding="utf-8")
     return markdown_path, json_path
+
+
+def write_row_one_site_files(
+    *,
+    data_dir: Path,
+    reports_dir: Path,
+    output_dir: Path,
+    scoring: ScoringSettings,
+    as_of: str | datetime,
+    candidate_discovery: CandidateDiscoverySettings | None = None,
+    entity_config: EntityConfig | None = None,
+    latest_only: bool = False,
+) -> RowOneRenderResult:
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    engine = create_sqlite_engine(default_database_path(data_dir))
+    try:
+        initialize_schema(engine)
+        as_of_utc = parse_datetime_utc(as_of)
+        report = build_daily_report(
+            engine,
+            scoring=scoring,
+            candidate_discovery=candidate_discovery,
+            entity_config=entity_config,
+            as_of=as_of_utc,
+        )
+        window_start = as_of_utc - timedelta(days=scoring.current_window_days)
+        with engine.connect() as conn:
+            rows = conn.execute(
+                select(
+                    items_table.c.source_name,
+                    items_table.c.url,
+                    items_table.c.title,
+                    items_table.c.summary,
+                    items_table.c.collected_at,
+                )
+                .where(
+                    items_table.c.collected_at > window_start.isoformat(),
+                    items_table.c.collected_at <= as_of_utc.isoformat(),
+                )
+                .order_by(items_table.c.collected_at.desc())
+                .limit(50)
+            ).mappings()
+            recent_items = [dict(row) for row in rows]
+        edition = build_row_one_edition(report=report, recent_items=recent_items, as_of=as_of_utc)
+        return render_row_one_site(edition, output_dir, latest_only=latest_only)
+    finally:
+        engine.dispose()
 
 
 def collect_configured_sources(

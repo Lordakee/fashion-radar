@@ -82,6 +82,40 @@ PATH=/usr/local/bin:/usr/bin:/bin
 """
 
 
+def render_row_one_cron_example(
+    *,
+    project_dir: str,
+    config_dir: str,
+    data_dir: str,
+    reports_dir: str,
+    output_dir: str,
+    time: str,
+) -> str:
+    minute, hour = _cron_parts(time)
+    log_path = f"{reports_dir}/row-one-cron.log"
+    command = (
+        f"{minute} {hour} * * * cd {_shell_quote(project_dir)} && "
+        f'AS_OF="{cron_as_of_shell()}" && '
+        f"export FASHION_RADAR_CONFIG_DIR={_shell_quote(config_dir)} "
+        f"FASHION_RADAR_DATA_DIR={_shell_quote(data_dir)} "
+        f"FASHION_RADAR_REPORTS_DIR={_shell_quote(reports_dir)} "
+        'PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH" && '
+        '{ uv run fashion-radar run --as-of "$AS_OF" && '
+        'uv run fashion-radar row-one build --as-of "$AS_OF" '
+        f"--output-dir {_shell_quote(output_dir)} --latest-only; }} "
+        f">> {_shell_quote(log_path)} 2>&1"
+    )
+    return f"""# Add with `crontab -e` after reviewing paths.
+# cron uses the machine's local timezone.
+# ROW ONE scheduled refresh runs Fashion Radar first, then builds the site.
+# Scheduled time: {time}
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+
+{command}
+"""
+
+
 def render_systemd_service(
     *,
     project_dir: str,
@@ -99,6 +133,34 @@ Environment={_systemd_quote_assignment(f"FASHION_RADAR_CONFIG_DIR={config_dir}")
 Environment={_systemd_quote_assignment(f"FASHION_RADAR_DATA_DIR={data_dir}")}
 Environment={_systemd_quote_assignment(f"FASHION_RADAR_REPORTS_DIR={reports_dir}")}
 ExecStart=/usr/bin/env bash -lc 'uv run fashion-radar run --as-of "{systemd_as_of_shell()}"'
+"""
+
+
+def render_row_one_systemd_service(
+    *,
+    project_dir: str,
+    config_dir: str,
+    data_dir: str,
+    reports_dir: str,
+    output_dir: str,
+) -> str:
+    command = (
+        f'AS_OF="{systemd_as_of_shell()}" && '
+        'uv run fashion-radar run --as-of "$AS_OF" && '
+        'uv run fashion-radar row-one build --as-of "$AS_OF" '
+        '--output-dir "$ROW_ONE_OUTPUT_DIR" --latest-only'
+    )
+    return f"""[Unit]
+Description=ROW ONE daily site refresh
+
+[Service]
+Type=oneshot
+WorkingDirectory={_systemd_path(project_dir)}
+Environment={_systemd_quote_assignment(f"FASHION_RADAR_CONFIG_DIR={config_dir}")}
+Environment={_systemd_quote_assignment(f"FASHION_RADAR_DATA_DIR={data_dir}")}
+Environment={_systemd_quote_assignment(f"FASHION_RADAR_REPORTS_DIR={reports_dir}")}
+Environment={_systemd_quote_assignment(f"ROW_ONE_OUTPUT_DIR={output_dir}")}
+ExecStart=/usr/bin/env bash -lc '{command}'
 """
 
 

@@ -46,16 +46,32 @@ uv run fashion-radar schedule-example --mode systemd --project-dir "$PWD" --conf
 uv run fashion-radar schedule-example --mode github-actions --project-dir "$PWD" --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports"
 ```
 
-You can pass explicit paths:
+## ROW ONE Daily Site
+
+Use `row-one schedule` to print ROW ONE snippets for a two-step refresh. The
+snippet runs `fashion-radar run` first, then
+`fashion-radar row-one build --latest-only` with the same timestamp to refresh
+the daily report before rebuilding the ROW ONE site.
 
 ```bash
-uv run fashion-radar schedule-example \
+uv run fashion-radar row-one schedule --time 04:00
+```
+
+This is 04:00 local scheduling for cron and systemd. The generated ROW ONE site
+can be served later with `row-one serve`; use `--host 0.0.0.0` only when you
+explicitly want IP:port local-network serving.
+
+You can pass explicit paths to the ROW ONE scheduler:
+
+```bash
+uv run fashion-radar row-one schedule \
   --mode cron \
   --project-dir "$PWD" \
   --config-dir "$PWD/configs" \
   --data-dir "$PWD/data" \
   --reports-dir "$PWD/reports" \
-  --time 08:00
+  --output-dir "$PWD/reports/row-one/site" \
+  --time 04:00
 ```
 
 ## Timezones
