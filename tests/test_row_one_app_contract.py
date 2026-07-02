@@ -19,6 +19,7 @@ from fashion_radar.row_one.render import render_row_one_site
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = ROOT / "schemas" / "row-one-app.schema.json"
+MANIFEST_SCHEMA = ROOT / "schemas" / "row-one-manifest.schema.json"
 AS_OF = datetime(2026, 7, 2, 4, 0, tzinfo=UTC)
 
 
@@ -81,15 +82,64 @@ def _schema_validator() -> Draft202012Validator:
     return Draft202012Validator(schema, format_checker=FormatChecker())
 
 
+def _manifest_schema_validator() -> Draft202012Validator:
+    schema = json.loads(MANIFEST_SCHEMA.read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(schema, format_checker=FormatChecker())
+
+
 def _payload(tmp_path: Path, edition: RowOneEdition | None = None) -> dict[str, object]:
     render_row_one_site(edition or _edition(), tmp_path)
     return json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
+
+
+def _manifest_payload(tmp_path: Path, edition: RowOneEdition | None = None) -> dict[str, object]:
+    render_row_one_site(edition or _edition(), tmp_path)
+    return json.loads((tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"))
 
 
 def test_row_one_app_contract_schema_validates_generated_payload(tmp_path: Path) -> None:
     payload = _payload(tmp_path)
 
     _schema_validator().validate(payload)
+
+
+def test_row_one_manifest_schema_validates_generated_payload(tmp_path: Path) -> None:
+    manifest = _manifest_payload(tmp_path)
+
+    _manifest_schema_validator().validate(manifest)
+
+
+def test_row_one_manifest_points_to_app_contract_and_site_paths(tmp_path: Path) -> None:
+    manifest = _manifest_payload(tmp_path)
+
+    assert manifest["contract_version"] == "row-one-manifest/v1"
+    assert manifest["brand"] == "ROW ONE"
+    assert manifest["manifest_schema_path"] == "schemas/row-one-manifest.schema.json"
+    assert manifest["app_contract"] == {
+        "version": "row-one-app/v1",
+        "path": "data/edition.json",
+        "schema_path": "schemas/row-one-app.schema.json",
+    }
+    assert manifest["site"] == {
+        "index_path": "index.html",
+        "data_path": "data/edition.json",
+        "manifest_path": "data/manifest.json",
+        "assets_path": "assets/",
+        "details_path": "details/",
+    }
+
+
+def test_row_one_manifest_counts_match_app_payload(tmp_path: Path) -> None:
+    app_payload = _payload(tmp_path)
+    manifest = json.loads((tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"))
+
+    assert manifest["generated_at"] == app_payload["generated_at"]
+    assert manifest["edition_date"] == app_payload["edition_date"]
+    assert manifest["counts"]["story_count"] == app_payload["story_count"]
+    assert manifest["counts"]["section_count"] == len(app_payload["sections"])
+    assert manifest["counts"]["evidence_count"] == app_payload["evidence_count"]
+    assert manifest["readiness"]["status"] == "ready"
 
 
 def test_row_one_app_payload_has_stable_counts(tmp_path: Path) -> None:
@@ -262,3 +312,60 @@ def test_empty_row_one_app_payload_validates(tmp_path: Path) -> None:
     assert payload["evidence_count"] == 0
     assert payload["stories"] == []
     _schema_validator().validate(payload)
+
+
+def test_empty_row_one_manifest_payload_validates(tmp_path: Path) -> None:
+    edition = RowOneEdition(
+        generated_at=AS_OF,
+        edition_date=AS_OF,
+        summary=LocalizedText(zh="暂无信号。", en="No signals yet."),
+        sections=[
+            RowOneSection(
+                key="top_stories",
+                title=LocalizedText(zh="今日重点", en="Top Stories"),
+                dek=LocalizedText(zh="今日最值得先看的时尚信号。", en="Read first."),
+            )
+        ],
+        stories=[],
+    )
+
+    manifest = _manifest_payload(tmp_path, edition)
+
+    assert manifest["counts"]["story_count"] == 0
+    assert manifest["readiness"]["status"] == "empty"
+    _manifest_schema_validator().validate(manifest)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        (
+            lambda payload: payload.__setitem__("contract_version", "row-one-manifest/v2"),
+            "was expected",
+        ),
+        (lambda payload: payload.__setitem__("extra", True), "Additional properties"),
+        (lambda payload: payload.__setitem__("generated_at", "not-a-date"), "does not match"),
+        (
+            lambda payload: payload["app_contract"].__setitem__("path", "/abs/edition.json"),
+            "was expected",
+        ),
+        (
+            lambda payload: payload["readiness"].__setitem__("status", "partial"),
+            "is not one of",
+        ),
+        (
+            lambda payload: payload["capabilities"].__setitem__("absolute_urls", True),
+            "Additional properties",
+        ),
+    ],
+)
+def test_row_one_manifest_schema_rejects_contract_drift(
+    tmp_path: Path,
+    mutation,
+    match: str,
+) -> None:
+    manifest = copy.deepcopy(_manifest_payload(tmp_path))
+    mutation(manifest)
+
+    with pytest.raises(ValidationError, match=match):
+        _manifest_schema_validator().validate(manifest)

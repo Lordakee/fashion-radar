@@ -165,6 +165,44 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert '<a href="https://example.com/evidence"' in detail_html
 
 
+def test_render_row_one_site_includes_lead_story_block(tmp_path) -> None:
+    render_row_one_site(_edition(), tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert 'class="lead-story"' in index_html
+    assert "Lead Story" in index_html
+    assert "今日头条" in index_html
+    assert "The Row &lt;signals&gt; &quot;quiet&quot; demand" in index_html
+    assert "The Row is today&#x27;s priority signal." in index_html
+
+
+def test_render_row_one_site_includes_index_and_detail_metadata(tmp_path) -> None:
+    render_row_one_site(_edition(), tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert (
+        '<meta name="description" content="ROW ONE organized 1 local fashion signal for today.">'
+    ) in index_html
+    assert '<meta property="og:title" content="ROW ONE' in index_html
+    assert '<meta property="og:type" content="website">' in index_html
+    assert '<meta name="twitter:card" content="summary">' in index_html
+
+    assert (
+        '<meta name="description" content="Original source summary: The Row signal '
+        'with &lt;angle&gt; detail.">'
+    ) in detail_html
+    assert '<meta property="og:title" content="The Row &lt;signals&gt;' in detail_html
+    assert '<meta property="og:type" content="article">' in detail_html
+    assert (
+        '<meta name="twitter:title" content="The Row &lt;signals&gt; &quot;quiet&quot; demand">'
+    ) in detail_html
+
+
 def test_render_row_one_site_writes_edition_contents_navigation(tmp_path) -> None:
     render_row_one_site(_edition(), tmp_path)
 

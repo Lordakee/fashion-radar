@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Lordakee/fashion-radar/blob/main/schemas/row-one-manifest.schema.json",
+  "title": "Fashion Radar ROW ONE Manifest Payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "brand",
+    "generated_at",
+    "edition_date",
+    "manifest_schema_path",
+    "app_contract",
+    "site",
+    "counts",
+    "readiness",
+    "capabilities"
+  ],
+  "properties": {
+    "contract_version": { "const": "row-one-manifest/v1" },
+    "brand": { "type": "string", "minLength": 1 },
+    "generated_at": { "$ref": "#/$defs/utcTimestamp" },
+    "edition_date": { "$ref": "#/$defs/utcTimestamp" },
+    "manifest_schema_path": { "const": "schemas/row-one-manifest.schema.json" },
+    "app_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "path", "schema_path"],
+      "properties": {
+        "version": { "const": "row-one-app/v1" },
+        "path": { "const": "data/edition.json" },
+        "schema_path": { "const": "schemas/row-one-app.schema.json" }
+      }
+    },
+    "site": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index_path", "data_path", "manifest_path", "assets_path", "details_path"],
+      "properties": {
+        "index_path": { "const": "index.html" },
+        "data_path": { "const": "data/edition.json" },
+        "manifest_path": { "const": "data/manifest.json" },
+        "assets_path": { "const": "assets/" },
+        "details_path": { "const": "details/" }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["story_count", "section_count", "evidence_count"],
+      "properties": {
+        "story_count": { "type": "integer", "minimum": 0 },
+        "section_count": { "type": "integer", "minimum": 0 },
+        "evidence_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["ready", "empty"] }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bilingual",
+        "static_site",
+        "detail_pages",
+        "sanitized_external_urls",
+        "latest_only_cleanup",
+        "seo_metadata"
+      ],
+      "properties": {
+        "bilingual": { "const": true },
+        "static_site": { "const": true },
+        "detail_pages": { "const": true },
+        "sanitized_external_urls": { "const": true },
+        "latest_only_cleanup": { "const": true },
+        "seo_metadata": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "utcTimestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    }
+  }
+}

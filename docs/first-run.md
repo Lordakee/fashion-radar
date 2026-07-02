@@ -120,6 +120,20 @@ Open `http://127.0.0.1:8501` after the server starts. Run the manual repo-local
 sample flow first when you want the dashboard to open against the generated
 sample report in `reports/`.
 
+## Inspect The Sample In ROW ONE
+
+Use the same repo-local sample data to build the ROW ONE local static site:
+
+```bash
+AS_OF="2026-06-13T12:00:00Z"
+uv run fashion-radar row-one build --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --output-dir reports/row-one/site --as-of "$AS_OF" --latest-only
+uv run fashion-radar row-one preview --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --output-dir reports/row-one/site --as-of "$AS_OF" --latest-only --dry-run-serve-url
+uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787
+```
+
+Open `http://127.0.0.1:8787` locally. The generated ROW ONE site under
+`reports/row-one/site` is a local artifact and should not be committed.
+
 ## Automated First-Run Smoke
 
 In a source checkout, the automated local sample smoke uses temporary config,

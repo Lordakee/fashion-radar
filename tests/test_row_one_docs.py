@@ -158,6 +158,34 @@ def test_row_one_docs_describe_daily_readiness_preview() -> None:
         assert phrase in normalized
 
 
+def test_row_one_docs_describe_manifest_and_editorial_polish() -> None:
+    row_one_doc = _read(ROW_ONE_DOC)
+    readme = _read(ROOT / "README.md")
+    first_run = _read(ROOT / "docs" / "first-run.md")
+    checklist = _read(ROOT / "docs" / "github-upload-checklist.md")
+
+    for phrase in (
+        "`data/manifest.json`",
+        "`row-one-manifest/v1`",
+        "`schemas/row-one-manifest.schema.json`",
+        "app discovery manifest",
+        "lead story",
+        "SEO/social metadata",
+    ):
+        assert phrase.lower() in row_one_doc.lower()
+
+    assert "Inspect The Sample In ROW ONE".lower() in first_run.lower()
+    assert 'row-one preview --config-dir "$PWD/configs"'.lower() in first_run.lower()
+    assert (
+        "row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787".lower()
+        in first_run.lower()
+    )
+    assert "docs/row-one.md" in readme
+    assert "ROW ONE local static site" in readme
+    assert "data/manifest.json" in checklist
+    assert "do not upload generated ROW ONE site artifacts".lower() in checklist.lower()
+
+
 def test_row_one_cli_docs_list_build_preview_serve_and_schedule_commands() -> None:
     normalized = _normalized(_read(CLI_REFERENCE))
 

@@ -115,6 +115,9 @@ Stage 41 docs freshness check:
       and the `row-one build`, `row-one preview`, `row-one local-ops`,
       `row-one serve`, and `row-one schedule`
       subcommand help.
+- [ ] ROW ONE source-checkout docs describe `data/manifest.json`, the
+      `row-one-manifest/v1` discovery contract, and how to build/preview/serve
+      the local site. Do not upload generated ROW ONE site artifacts.
 - [ ] Stage 57 `heat-movers` docs describe local observed heat movement for
       one configured source set, compare configured sources and imported local
       signals, say output needs review, and say there is no demand proof or

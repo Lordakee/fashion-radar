@@ -83,6 +83,7 @@ SDIST_FILES = [
     "examples/community-tool-handoff-directory.example/json/community-tool-b.json",
     "schemas/community-signals.schema.json",
     "schemas/row-one-app.schema.json",
+    "schemas/row-one-manifest.schema.json",
     "scripts/check_first_run_smoke.py",
     "src/fashion_radar/cli.py",
     "src/fashion_radar/__main__.py",
@@ -543,6 +544,24 @@ def test_rejects_sdist_without_row_one_doc(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "sdist archive missing required file: docs/row-one.md" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_rejects_sdist_without_row_one_manifest_schema(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(
+        build_dir,
+        files=[path for path in SDIST_FILES if path != "schemas/row-one-manifest.schema.json"],
+    )
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "sdist archive missing required file: schemas/row-one-manifest.schema.json" in result.stderr
+    )
     assert "Traceback" not in result.stderr
 
 

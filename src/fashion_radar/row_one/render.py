@@ -17,6 +17,8 @@ from fashion_radar.row_one.utils import isoformat_z, safe_external_url, utc_date
 
 GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data")
 ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v1"
+ROW_ONE_MANIFEST_CONTRACT_VERSION = "row-one-manifest/v1"
+ROW_ONE_MANIFEST_SCHEMA_PATH = "schemas/row-one-manifest.schema.json"
 
 
 @dataclass(frozen=True)
@@ -46,6 +48,11 @@ def render_row_one_site(
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "edition.json").write_text(
         json.dumps(app_payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    manifest_payload = build_row_one_manifest_payload(edition, app_payload)
+    (data_dir / "manifest.json").write_text(
+        json.dumps(manifest_payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     return RowOneRenderResult(
@@ -103,6 +110,49 @@ def build_row_one_app_payload(edition: RowOneEdition) -> dict[str, object]:
         "stories": stories,
         "story_count": len(stories),
         "evidence_count": sum(_safe_evidence_count(story.evidence) for story in edition.stories),
+    }
+
+
+def build_row_one_manifest_payload(
+    edition: RowOneEdition,
+    app_payload: dict[str, object] | None = None,
+) -> dict[str, object]:
+    app_payload = app_payload or build_row_one_app_payload(edition)
+    story_count = int(app_payload["story_count"])
+    return {
+        "contract_version": ROW_ONE_MANIFEST_CONTRACT_VERSION,
+        "brand": edition.brand,
+        "generated_at": app_payload["generated_at"],
+        "edition_date": app_payload["edition_date"],
+        "manifest_schema_path": ROW_ONE_MANIFEST_SCHEMA_PATH,
+        "app_contract": {
+            "version": ROW_ONE_APP_CONTRACT_VERSION,
+            "path": "data/edition.json",
+            "schema_path": "schemas/row-one-app.schema.json",
+        },
+        "site": {
+            "index_path": "index.html",
+            "data_path": "data/edition.json",
+            "manifest_path": "data/manifest.json",
+            "assets_path": "assets/",
+            "details_path": "details/",
+        },
+        "counts": {
+            "story_count": story_count,
+            "section_count": len(edition.sections),
+            "evidence_count": app_payload["evidence_count"],
+        },
+        "readiness": {
+            "status": "ready" if story_count > 0 else "empty",
+        },
+        "capabilities": {
+            "bilingual": True,
+            "static_site": True,
+            "detail_pages": True,
+            "sanitized_external_urls": True,
+            "latest_only_cleanup": True,
+            "seo_metadata": True,
+        },
     }
 
 

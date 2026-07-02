@@ -90,6 +90,7 @@ SDIST_REQUIRED_PATHS = [
     "examples/community-tool-handoff-directory.example/json/community-tool-b.json",
     "schemas/community-signals.schema.json",
     "schemas/row-one-app.schema.json",
+    "schemas/row-one-manifest.schema.json",
     "scripts/check_first_run_smoke.py",
     "src/fashion_radar/cli.py",
     "src/fashion_radar/__main__.py",

@@ -83,6 +83,18 @@ not collect sources, run platform integrations, call LLMs, generate images,
 deploy the site, or change matching, ranking, scoring, story IDs, cleanup,
 server, or schedule behavior.
 
+## App Discovery Manifest
+
+`data/manifest.json` is the `row-one-manifest/v1` app discovery manifest. It is
+validated by `schemas/row-one-manifest.schema.json` and points clients to
+`data/edition.json`, the `row-one-app/v1` edition payload, and stable generated
+site paths such as `index.html`, `assets/`, and `details/`.
+
+The manifest contains only discovery metadata, counts, readiness status, and
+capabilities. It does not duplicate story arrays, section arrays, absolute
+host/port URLs, LAN preview URLs, local machine paths, source collection output,
+or deployment state.
+
 ## Daily Readiness And Preview
 
 ROW ONE adds a deterministic daily readiness and preview layer for the generated
@@ -108,6 +120,10 @@ This is a display/readiness surface only. It does not change the
 `row-one-app/v1` JSON contract, source collection, matching, scoring, ranking,
 or scheduling semantics.
 
+The homepage also renders a lead story presentation block and the index/detail
+HTML include deterministic SEO/social metadata derived from existing edition and
+story summaries.
+
 ## Generated Files
 
 `row-one build` writes a static site under the selected output directory:
@@ -117,6 +133,7 @@ or scheduling semantics.
 - `assets/row-one.css`
 - `assets/row-one.js`
 - `data/edition.json`
+- `data/manifest.json`
 - `.row-one-site` marker
 
 The latest-only cleanup is intentionally narrow. `--latest-only` removes only known ROW ONE generated children:

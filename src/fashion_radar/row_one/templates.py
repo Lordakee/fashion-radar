@@ -21,12 +21,25 @@ _DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$"
 def render_index_html(edition: RowOneEdition) -> str:
     contents_nav = _render_edition_nav(edition)
     status_strip = _render_edition_status(edition)
+    lead_story = _lead_story(edition)
+    lead_story_block = (
+        _render_lead_story(lead_story, _section_title(edition, lead_story.section_key))
+        if lead_story
+        else ""
+    )
     story_cards = "\n".join(_render_section(edition, section.key) for section in edition.sections)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+{
+        _render_meta_tags(
+            title=f"{edition.brand} — {edition.edition_date.date().isoformat()}",
+            description=edition.summary.en,
+            page_type="website",
+        )
+    }
 <title>{_esc(edition.brand)} — {_esc(edition.edition_date.date().isoformat())}</title>
 <link rel="stylesheet" href="assets/row-one.css">
 </head>
@@ -47,6 +60,7 @@ def render_index_html(edition: RowOneEdition) -> str:
 {status_strip}
 <main>
 {contents_nav}
+{lead_story_block}
 {story_cards}
 </main>
 <script src="assets/row-one.js"></script>
@@ -64,6 +78,13 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+{
+        _render_meta_tags(
+            title=story.headline,
+            description=story.summary.en,
+            page_type="article",
+        )
+    }
 <title>{_esc(story.headline)} — {_esc(edition.brand)}</title>
 <link rel="stylesheet" href="../assets/row-one.css">
 </head>
@@ -274,6 +295,41 @@ main { padding: 36px min(7vw, 88px) 72px; }
   font-size: 0.86rem;
   line-height: 1.35;
 }
+.lead-story {
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 32px 0;
+}
+.lead-story-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
+  gap: 32px;
+  align-items: end;
+}
+.lead-story h2 {
+  margin: 10px 0 0;
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(3rem, 8vw, 7.5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.9;
+}
+.lead-story h2 a, .lead-story-link {
+  color: var(--ink);
+  text-decoration: none;
+}
+.lead-story-link {
+  border-bottom: 1px solid var(--accent);
+  color: var(--accent);
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-top: 12px;
+  padding-bottom: 4px;
+  text-transform: uppercase;
+}
 .section-block {
   display: grid;
   grid-template-columns: minmax(180px, 0.45fr) minmax(0, 1fr);
@@ -390,6 +446,7 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .edition-status > div:last-child { border-bottom: 0; }
   main { padding: 24px 20px 56px; }
   .edition-nav-grid { grid-template-columns: 1fr; }
+  .lead-story-grid { grid-template-columns: 1fr; gap: 18px; }
   .section-block { grid-template-columns: 1fr; gap: 18px; }
   .story-grid { grid-template-columns: 1fr; }
   .detail-header { padding: 18px 20px; }
@@ -511,6 +568,63 @@ def row_one_js() -> str:
   setLang("en");
 })();
 """
+
+
+def _meta_description(text: str, *, limit: int = 180) -> str:
+    normalized = " ".join(text.split())
+    if len(normalized) <= limit:
+        return normalized
+    return normalized[: limit - 1].rstrip() + "…"
+
+
+def _render_meta_tags(*, title: str, description: str, page_type: str) -> str:
+    safe_title = _esc(title)
+    safe_description = _esc(_meta_description(description))
+    safe_type = _esc(page_type)
+    return f"""<meta name="description" content="{safe_description}">
+<meta property="og:title" content="{safe_title}">
+<meta property="og:description" content="{safe_description}">
+<meta property="og:type" content="{safe_type}">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{safe_title}">
+<meta name="twitter:description" content="{safe_description}">"""
+
+
+def _lead_story(edition: RowOneEdition) -> RowOneStory | None:
+    top_stories = edition.section_stories("top_stories")
+    if top_stories:
+        return top_stories[0]
+    return edition.stories[0] if edition.stories else None
+
+
+def _render_lead_story(story: RowOneStory, section_title: LocalizedText) -> str:
+    detail_href = _internal_detail_href(story.detail_path)
+    return f"""<section class="lead-story" aria-label="Lead story">
+  <p class="story-section">
+    <span data-lang="en">Lead Story</span>
+    <span data-lang="zh">今日头条</span>
+  </p>
+  <div class="lead-story-grid">
+    <div>
+      <h2><a href="{detail_href}">{_esc(story.headline)}</a></h2>
+      {_render_story_orientation(story, section_title)}
+    </div>
+    <div>
+      <p class="story-takeaway">
+        <span data-lang="en">{_esc(story.editorial_takeaway.en)}</span>
+        <span data-lang="zh">{_esc(story.editorial_takeaway.zh)}</span>
+      </p>
+      <p>
+        <span data-lang="en">{_esc(story.summary.en)}</span>
+        <span data-lang="zh">{_esc(story.summary.zh)}</span>
+      </p>
+      <a class="lead-story-link" href="{detail_href}">
+        <span data-lang="en">Read the brief</span>
+        <span data-lang="zh">查看详情</span>
+      </a>
+    </div>
+  </div>
+</section>"""
 
 
 def _render_section(edition: RowOneEdition, section_key: RowOneSectionKey) -> str:
