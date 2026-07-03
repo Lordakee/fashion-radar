@@ -486,7 +486,9 @@
         "story_type",
         "headline",
         "summary",
+        "why_it_matters",
         "editorial_takeaway",
+        "signal_context",
         "reader_path",
         "detail_href",
         "display",
@@ -518,7 +520,13 @@
         "summary": {
           "$ref": "#/$defs/localizedText"
         },
+        "why_it_matters": {
+          "$ref": "#/$defs/localizedText"
+        },
         "editorial_takeaway": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "signal_context": {
           "$ref": "#/$defs/localizedText"
         },
         "reader_path": {

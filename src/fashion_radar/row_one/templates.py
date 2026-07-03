@@ -114,6 +114,7 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
     source_link = _external_link(story.source_url, story.source_name, css_class="source-link")
     visual = _render_story_visual(story, section_title, context="detail-visual")
     article_contents = _render_article_contents()
+    detail_information_map = _render_detail_information_map(story, section_title)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -153,6 +154,7 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
     {visual}
     <p class="story-source">{source_link}</p>
     {article_contents}
+    {detail_information_map}
     <section id="summary">
       <h2>
         <span data-lang="en">Summary</span>
@@ -838,6 +840,67 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   text-decoration: none;
   text-transform: uppercase;
 }
+.detail-information-map {
+  background: var(--panel);
+  border: 1px solid var(--ink);
+  margin: 28px 0;
+  padding: 20px;
+}
+.detail-information-map-header {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.detail-information-map-header p,
+.detail-information-map-header h2 {
+  margin: 0;
+}
+.detail-information-map-header p {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+.detail-information-map-header h2 {
+  color: var(--ink);
+  font-size: 1.2rem;
+  letter-spacing: 0;
+  margin-top: 0;
+  text-transform: none;
+}
+.detail-information-map-grid {
+  background: var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+.detail-information-map-card {
+  background: var(--panel);
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+}
+.detail-information-map-card h3,
+.detail-information-map-card p {
+  margin: 0;
+  min-width: 0;
+}
+.detail-information-map-card h3 {
+  color: var(--ink);
+  font-size: 0.82rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+.detail-information-map-card p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+.detail-information-map-card a {
+  color: var(--accent);
+  text-decoration: none;
+}
 .detail-panel {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -1320,6 +1383,100 @@ def _render_article_contents() -> str:
 </nav>"""
 
 
+def _render_detail_information_map(story: RowOneStory, section_title: LocalizedText) -> str:
+    published = _published_label(story)
+    safe_evidence_count = _safe_evidence_count(story.evidence)
+    evidence_label_en = (
+        f"{safe_evidence_count} evidence link"
+        if safe_evidence_count == 1
+        else f"{safe_evidence_count} evidence links"
+    )
+    evidence_label_zh = f"{safe_evidence_count} 条线索"
+    heat_delta = f"{story.heat_delta:+d}" if isinstance(story.heat_delta, int) else "n/a"
+    return f"""<section class="detail-information-map" aria-label="Detail information map">
+  <div class="detail-information-map-header">
+    <p>
+      <span data-lang="en">Structured story scan</span>
+      <span data-lang="zh">结构化故事速览</span>
+    </p>
+    <h2>
+      <span data-lang="en">Detail Information Map</span>
+      <span data-lang="zh">详情信息地图</span>
+    </h2>
+  </div>
+  <div class="detail-information-map-grid">
+    <article class="detail-information-map-card">
+      <h3>
+        <span data-lang="en">Story Context</span>
+        <span data-lang="zh">故事背景</span>
+      </h3>
+      <p>
+        <span data-lang="en">{_esc(section_title.en)}</span>
+        <span data-lang="zh">{_esc(section_title.zh)}</span>
+      </p>
+      <p>{_esc(story.source_name)}</p>
+      <p>
+        <span data-lang="en">{_esc(published.en)}</span>
+        <span data-lang="zh">{_esc(published.zh)}</span>
+      </p>
+    </article>
+    <article class="detail-information-map-card">
+      <h3>
+        <span data-lang="en">Signal Shape</span>
+        <span data-lang="zh">信号形态</span>
+      </h3>
+      <p>{_esc(_story_type_label(story))}</p>
+      <p>{_esc(_joined_tags(story))}</p>
+      <p>
+        <span data-lang="en">Heat delta</span>
+        <span data-lang="zh">热度变化</span>: {_esc(heat_delta)}
+      </p>
+    </article>
+    <article class="detail-information-map-card">
+      <h3>
+        <span data-lang="en">Evidence</span>
+        <span data-lang="zh">证据</span>
+      </h3>
+      <p>
+        <span data-lang="en">{_esc(evidence_label_en)}</span>
+        <span data-lang="zh">{_esc(evidence_label_zh)}</span>
+      </p>
+      <p>{_esc(story.source_name)}</p>
+    </article>
+    <article class="detail-information-map-card">
+      <h3>
+        <span data-lang="en">Read Order</span>
+        <span data-lang="zh">阅读顺序</span>
+      </h3>
+      <p>
+        <a href="#summary">
+          <span data-lang="en">Summary</span>
+          <span data-lang="zh">摘要</span>
+        </a>
+      </p>
+      <p>
+        <a href="#why-it-matters">
+          <span data-lang="en">Why It Matters</span>
+          <span data-lang="zh">为什么重要</span>
+        </a>
+      </p>
+      <p>
+        <a href="#signal-context">
+          <span data-lang="en">Signal Context</span>
+          <span data-lang="zh">信号背景</span>
+        </a>
+      </p>
+      <p>
+        <a href="#evidence-trail">
+          <span data-lang="en">Evidence Trail</span>
+          <span data-lang="zh">来源线索</span>
+        </a>
+      </p>
+    </article>
+  </div>
+</section>"""
+
+
 def row_one_js() -> str:
     return """(() => {
   const buttons = Array.from(document.querySelectorAll("[data-lang-toggle]"));
@@ -1571,6 +1728,18 @@ def _published_label(story: RowOneStory) -> LocalizedText:
         zh=story.published_at.strftime("%Y-%m-%d"),
         en=story.published_at.strftime("%b %d, %Y"),
     )
+
+
+def _story_type_label(story: RowOneStory) -> str:
+    return story.story_type.replace("_", " ").title()
+
+
+def _joined_tags(story: RowOneStory) -> str:
+    return ", ".join(story.tags) if story.tags else "No tags"
+
+
+def _safe_evidence_count(evidence: list[RowOneLink]) -> int:
+    return sum(1 for link in evidence if _safe_external_url(link.url) is not None)
 
 
 def _render_evidence(link: RowOneLink) -> str:

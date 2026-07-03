@@ -198,6 +198,28 @@ def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
     assert "row-one-app/v1` json contract" not in row_one
 
 
+def test_row_one_docs_describe_card_synthesis_and_detail_information_map() -> None:
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    readme = _normalized(_read(README))
+
+    for phrase in (
+        "why_it_matters",
+        "signal_context",
+        "detail information map",
+        "derived from existing row one story data",
+        "links only to existing detail-page anchors",
+        "does not change collection, matching, scoring, ranking, or story ids",
+    ):
+        assert phrase in row_one
+
+    for phrase in (
+        "why_it_matters",
+        "signal_context",
+        "detail information map",
+    ):
+        assert phrase in readme
+
+
 def test_row_one_docs_describe_stage_282_story_directory() -> None:
     row_one = _normalized(_read(ROW_ONE_DOC))
     readme = _normalized(_read(README))

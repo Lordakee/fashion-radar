@@ -76,7 +76,9 @@ brands, or verify platform coverage.
   render section rails, a daily briefing, and route lookups from local JSON
   without scraping HTML. The generated experience is a
   professional static website with an edition rail and article contents for
-  local editorial review.
+  local editorial review. ROW ONE content cards also include `why_it_matters`
+  and `signal_context`, and generated detail pages can render a Detail
+  Information Map from existing story fields.
 - Can package optional local digest artifacts such as latest report copies, a
   report index, and a local `.eml` handoff file.
 - Provides an optional local Streamlit dashboard for read-only inspection.
@@ -120,6 +122,9 @@ HTML scraping, and it does not change collection, matching, scoring, sorting,
 story IDs, or source acquisition.
 The ROW ONE homepage briefing path reuses `daily_digest.blocks` as a compact
 reading path, links to existing detail pages, and is not a new data layer.
+The content-card explanation fields and Detail Information Map are presentation
+surfaces derived from existing ROW ONE stories; they do not change collection,
+matching, scoring, ranking, story IDs, sorting, or source acquisition.
 For local app/ops preflight, `row-one status --json` provides additive top-level
 fields such as counts, readiness, refresh_time, local_url, lan_url_hint, and
 edition_path while preserving the nested runtime and manifest payloads.

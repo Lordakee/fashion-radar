@@ -265,6 +265,9 @@ def test_row_one_app_payload_groups_content_sections_for_clients(tmp_path: Path)
         assert [card["id"] for card in content_section["cards"]] == [
             story["id"] for story in section_stories
         ]
+        for card, story in zip(content_section["cards"], section_stories, strict=True):
+            assert card["why_it_matters"] == story["why_it_matters"]
+            assert card["signal_context"] == story["signal_context"]
 
 
 def test_row_one_app_payload_includes_story_directory_for_clients(tmp_path: Path) -> None:
@@ -308,6 +311,9 @@ def test_row_one_app_payload_includes_daily_digest_for_clients(tmp_path: Path) -
     assert list(blocks) == ["read_first", "key_takeaways", "signals_to_watch"]
     assert blocks["read_first"]["story_ids"] == [stories[0]["id"]]
     assert [card["id"] for card in blocks["read_first"]["cards"]] == [stories[0]["id"]]
+    read_first_card = blocks["read_first"]["cards"][0]
+    assert read_first_card["why_it_matters"] == stories[0]["why_it_matters"]
+    assert read_first_card["signal_context"] == stories[0]["signal_context"]
     assert blocks["key_takeaways"]["story_ids"] == [stories[0]["id"]]
     assert blocks["signals_to_watch"]["story_ids"] == []
     _schema_validator().validate(payload)
@@ -387,6 +393,10 @@ def test_row_one_app_daily_digest_includes_briefing_topics_for_clients(
         assert topic["evidence_count"] == sum(card["evidence_count"] for card in topic["cards"])
         assert topic["lead_story_id"] == topic["story_ids"][0]
         assert [card["id"] for card in topic["cards"]] == topic["story_ids"]
+        topic_stories = [story for story in payload["stories"] if story["id"] in topic["story_ids"]]
+        for card, story in zip(topic["cards"], topic_stories, strict=True):
+            assert card["why_it_matters"] == story["why_it_matters"]
+            assert card["signal_context"] == story["signal_context"]
         assert topic["source_refs"]
     assert topics[0]["title"] == {"zh": "The Row", "en": "The Row"}
     assert topics[0]["label"] == {"zh": "品牌", "en": "Brand"}
@@ -529,6 +539,8 @@ def test_row_one_app_content_cards_mirror_story_display_fields(tmp_path: Path) -
         "story_type": story["story_type"],
         "headline": story["headline"],
         "summary": story["summary"],
+        "why_it_matters": story["why_it_matters"],
+        "signal_context": story["signal_context"],
         "editorial_takeaway": story["editorial_takeaway"],
         "reader_path": story["reader_path"],
         "detail_href": story["detail_href"],
@@ -1001,6 +1013,14 @@ def test_row_one_app_schema_rejects_display_image_urls_sanitizer_rejects(
         (
             lambda payload: payload["story_directory"]["routes"][0].pop("published_date"),
             "'published_date' is a required property",
+        ),
+        (
+            lambda payload: payload["content_sections"][0]["cards"][0].pop("why_it_matters"),
+            "'why_it_matters' is a required property",
+        ),
+        (
+            lambda payload: payload["content_sections"][0]["cards"][0].pop("signal_context"),
+            "'signal_context' is a required property",
         ),
         (
             lambda payload: payload["story_directory"]["routes"][0].__setitem__(

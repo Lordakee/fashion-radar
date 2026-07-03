@@ -243,6 +243,56 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert '<a href="https://example.com/evidence"' in detail_html
 
 
+def test_render_row_one_detail_includes_information_map(tmp_path) -> None:
+    render_row_one_site(_edition(), tmp_path)
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'class="detail-information-map"' in detail_html
+    assert "Detail Information Map" in detail_html
+    assert "详情信息地图" in detail_html
+    assert "Story Context" in detail_html
+    assert "Signal Shape" in detail_html
+    assert "Evidence" in detail_html
+    assert "Read Order" in detail_html
+    assert "Top Stories" in detail_html
+    assert "Vogue Business" in detail_html
+    assert "Jul 02, 2026" in detail_html
+    assert "2026-07-02" in detail_html
+    assert "1 evidence link" in detail_html
+    assert "brand, hot" in detail_html
+    assert 'href="#summary"' in detail_html
+    assert 'href="#why-it-matters"' in detail_html
+    assert 'href="#signal-context"' in detail_html
+    assert 'href="#evidence-trail"' in detail_html
+    assert detail_html.index('class="article-contents"') < detail_html.index(
+        'class="detail-information-map"'
+    )
+    assert detail_html.index('class="detail-information-map"') < detail_html.index('id="summary"')
+
+
+def test_render_row_one_detail_information_map_escapes_story_values(tmp_path) -> None:
+    edition = _edition()
+    edition.stories[0].source_name = "Vogue <signals> Business"
+    render_row_one_site(edition, tmp_path)
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    map_match = re.search(
+        r'<section class="detail-information-map"(?P<map>.*?)</section>',
+        detail_html,
+        re.S,
+    )
+
+    assert map_match is not None
+    map_html = map_match.group("map")
+    assert "Vogue &lt;signals&gt; Business" in map_html
+    assert "Vogue <signals> Business" not in map_html
+
+
 def test_render_row_one_site_includes_lead_story_block(tmp_path) -> None:
     render_row_one_site(_edition(), tmp_path)
 
@@ -884,6 +934,12 @@ def test_render_row_one_site_writes_json_payload(tmp_path) -> None:
             "published_date": story["published_date"],
         }
     ]
+    content_card = payload["content_sections"][0]["cards"][0]
+    digest_card = payload["daily_digest"]["blocks"][0]["cards"][0]
+    assert content_card["why_it_matters"] == story["why_it_matters"]
+    assert content_card["signal_context"] == story["signal_context"]
+    assert digest_card["why_it_matters"] == story["why_it_matters"]
+    assert digest_card["signal_context"] == story["signal_context"]
 
 
 def test_render_row_one_site_story_directory_preserves_story_order_and_routes(tmp_path) -> None:

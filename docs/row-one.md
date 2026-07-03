@@ -58,8 +58,10 @@ source metadata is added in a future stage.
 ROW ONE includes a deterministic reader orientation layer for the generated
 static site. The homepage renders edition contents with section jump links and
 current story counts. Story cards include lightweight story-card metadata such
-as section, source, date, and evidence count. Detail pages include a back to
-section link so readers can return to the relevant homepage section.
+as section, source, date, evidence count, `why_it_matters`, and
+`signal_context`. Detail pages include a back to section link and a Detail
+Information Map built from existing story fields so readers can understand the
+story context without leaving the generated page.
 
 This remains presentation-only. Reader orientation does not change ranking,
 scoring, story IDs, source collection, JSON contract semantics, or publishing.
@@ -113,15 +115,24 @@ adds `content_sections`, `detail_sections`, `evidence_summary`, and
 `daily_digest` so app clients render section rails and a daily briefing from the
 JSON payload instead of reconstructing them from page markup. `content_sections`
 describes homepage rails with section labels, anchors, counts, and story
-references. `detail_sections` describes detail-page rails, including the current
-story context and adjacent section navigation. `evidence_summary` gives compact
-evidence-link counts and readiness metadata for client badges. `daily_digest`
+references. App cards in `content_sections`, `daily_digest.blocks`, and
+`daily_digest.briefing_topics` include the existing `why_it_matters` and
+`signal_context` story synthesis fields, so clients can render organized story
+cards without opening the full story object first. `detail_sections` describes
+detail-page rails, including the current story context and adjacent section
+navigation. `evidence_summary` gives compact evidence-link counts and readiness
+metadata for client badges. `daily_digest`
 is the app-facing Today's Briefing surface: `read_first` selects the first story
 to open, `key_takeaways` summarizes the first story from each non-empty section,
 and `signals_to_watch` lists only positive local raw mention deltas. Together
 these fields let app clients render section rails without scraping HTML and
 app clients can render a daily briefing without scraping HTML. It does not add
 source collection and does not prove demand.
+
+The detail page renders a Detail Information Map derived from existing ROW ONE
+story data: section, source, date, story type, tags, heat delta, evidence count,
+and links only to existing detail-page anchors. This does not change collection,
+matching, scoring, ranking, or story IDs.
 
 `story_directory` is the app-facing route index for existing ROW ONE stories.
 It gives app clients a route lookup surface derived only from the stories already
