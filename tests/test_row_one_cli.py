@@ -329,6 +329,166 @@ def test_row_one_local_ops_help_is_discoverable() -> None:
     assert "--port" in result.output
 
 
+def test_row_one_install_local_dry_run_prints_systemd_files(tmp_path: Path) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "reports" / "row-one" / "site"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "install-local",
+            "--dry-run",
+            "--project-dir",
+            str(tmp_path),
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--output-dir",
+            str(output_dir),
+            "--time",
+            "04:00",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8787",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "ROW ONE local install dry run" in result.output
+    assert f"Target unit directory: {Path.home() / '.config' / 'systemd' / 'user'}" in result.output
+    assert "# ~/.config/systemd/user/row-one-refresh.service" in result.output
+    assert "# ~/.config/systemd/user/row-one-refresh.timer" in result.output
+    assert "# ~/.config/systemd/user/row-one-serve.service" in result.output
+    assert "Description=ROW ONE daily site refresh" in result.output
+    assert "Description=ROW ONE fixed local web server" in result.output
+    assert "OnCalendar=*-*-* 04:00:00" in result.output
+    assert "uv run fashion-radar row-one refresh" in result.output
+    assert "uv run fashion-radar row-one serve" in result.output
+    assert '--host "$ROW_ONE_HOST"' in result.output
+    assert "systemctl --user daemon-reload" in result.output
+    assert "systemctl --user enable --now row-one-refresh.timer" in result.output
+    assert "systemctl --user enable --now row-one-serve.service" in result.output
+    assert "Open from LAN: http://<LAN-IP>:8787" in result.output
+    assert not (tmp_path / ".config" / "systemd" / "user").exists()
+
+
+def test_row_one_install_local_dry_run_prints_custom_unit_dir(tmp_path: Path) -> None:
+    unit_dir = tmp_path / "custom-systemd-user"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "install-local",
+            "--dry-run",
+            "--project-dir",
+            str(tmp_path),
+            "--unit-dir",
+            str(unit_dir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"Target unit directory: {unit_dir}" in result.output
+    assert f"# {unit_dir / 'row-one-refresh.service'}" in result.output
+    assert f"# {unit_dir / 'row-one-refresh.timer'}" in result.output
+    assert f"# {unit_dir / 'row-one-serve.service'}" in result.output
+    assert not unit_dir.exists()
+
+
+def test_row_one_install_local_writes_user_systemd_units(tmp_path: Path) -> None:
+    unit_dir = tmp_path / "systemd-user"
+    output_dir = tmp_path / "reports" / "row-one" / "site"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "install-local",
+            "--project-dir",
+            str(tmp_path),
+            "--config-dir",
+            str(tmp_path / "configs"),
+            "--data-dir",
+            str(tmp_path / "data"),
+            "--reports-dir",
+            str(tmp_path / "reports"),
+            "--output-dir",
+            str(output_dir),
+            "--time",
+            "04:00",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8787",
+            "--unit-dir",
+            str(unit_dir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "ROW ONE local install" in result.output
+    assert f"Wrote units to: {unit_dir}" in result.output
+    assert "Before enabling on a fresh install, generate the site once:" in result.output
+    refresh_service = (unit_dir / "row-one-refresh.service").read_text(encoding="utf-8")
+    refresh_timer = (unit_dir / "row-one-refresh.timer").read_text(encoding="utf-8")
+    serve_service = (unit_dir / "row-one-serve.service").read_text(encoding="utf-8")
+    assert "uv run fashion-radar row-one refresh" in refresh_service
+    assert f'Environment="ROW_ONE_OUTPUT_DIR={output_dir}"' in refresh_service
+    assert "OnCalendar=*-*-* 04:00:00" in refresh_timer
+    assert "uv run fashion-radar row-one serve" in serve_service
+    assert f'Environment="ROW_ONE_SITE_DIR={output_dir}"' in serve_service
+    assert 'Environment="ROW_ONE_HOST=0.0.0.0"' in serve_service
+    assert 'Environment="ROW_ONE_PORT=8787"' in serve_service
+    assert (
+        'Environment="PATH=%h/.local/bin:%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin"'
+        in serve_service
+    )
+
+
+def test_row_one_install_local_refuses_existing_unit_without_force(tmp_path: Path) -> None:
+    unit_dir = tmp_path / "systemd-user"
+    unit_dir.mkdir()
+    (unit_dir / "row-one-serve.service").write_text("custom user service\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "install-local",
+            "--project-dir",
+            str(tmp_path),
+            "--unit-dir",
+            str(unit_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "already exists" in result.output
+    assert "Use --force" in result.output
+    assert (unit_dir / "row-one-serve.service").read_text(
+        encoding="utf-8"
+    ) == "custom user service\n"
+
+
+def test_row_one_install_local_help_is_discoverable() -> None:
+    result = CliRunner().invoke(app, ["row-one", "install-local", "--help"])
+
+    assert result.exit_code == 0
+    assert "Render or install ROW ONE user systemd units" in result.output
+    assert "--dry-run" in result.output
+    assert "--time" in result.output
+    assert "--host" in result.output
+    assert "--port" in result.output
+
+
 def test_row_one_build_command_writes_non_ascii_story_detail_path(tmp_path: Path) -> None:
     config_dir = tmp_path / "configs"
     data_dir = tmp_path / "data"

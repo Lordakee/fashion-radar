@@ -77,6 +77,7 @@ def test_row_one_docs_include_user_required_phrases() -> None:
         "row-one preview",
         "row-one status",
         "row-one local-ops",
+        "row-one install-local",
         "row-one serve",
         "row-one schedule",
         "04:00 local scheduling",
@@ -87,6 +88,7 @@ def test_row_one_docs_include_user_required_phrases() -> None:
         "fashion-radar row-one refresh",
         "fashion-radar row-one preview",
         "fashion-radar row-one status",
+        "fashion-radar row-one install-local",
         "--latest-only",
         "prints snippets only",
         "does not install timers",
@@ -281,6 +283,7 @@ def test_row_one_cli_docs_list_build_preview_serve_and_schedule_commands() -> No
         "`row-one preview`",
         "`row-one status`",
         "`row-one local-ops`",
+        "`row-one install-local`",
         "`row-one serve`",
         "`row-one schedule`",
         "`--output-dir`",
@@ -289,6 +292,31 @@ def test_row_one_cli_docs_list_build_preview_serve_and_schedule_commands() -> No
         "`--host`",
         "`--port`",
         "`--dry-run`",
+        "`--unit-dir`",
+    ):
+        assert phrase in normalized
+
+
+def test_row_one_docs_describe_local_systemd_install() -> None:
+    normalized = _normalized(_read(ROW_ONE_DOC))
+
+    for phrase in (
+        "`row-one install-local`",
+        "`row-one install-local --dry-run`",
+        "user-level systemd units",
+        "`row-one-refresh.service`",
+        "`row-one-refresh.timer`",
+        "`row-one-serve.service`",
+        "`~/.config/systemd/user`",
+        "`--force`",
+        "existing unit files are not overwritten unless `--force` is passed",
+        "`path` entry for `%h/.local/bin` and `%h/.cargo/bin`",
+        "generate the site once before starting the serve unit",
+        "systemctl --user daemon-reload",
+        "systemctl --user enable --now row-one-refresh.timer",
+        "systemctl --user enable --now row-one-serve.service",
+        "the generated timer runs the single row one refresh command",
+        "the generated serve service keeps the selected `--output-dir` available",
     ):
         assert phrase in normalized
 

@@ -155,6 +155,7 @@ from fashion_radar.scheduling import (
     render_cron_example,
     render_github_actions_workflow,
     render_row_one_cron_example,
+    render_row_one_serve_systemd_service,
     render_row_one_systemd_service,
     render_systemd_service,
     render_systemd_timer,
@@ -232,6 +233,10 @@ ROW_ONE_SITE_DIR_OPTION = typer.Option(
     help="ROW ONE generated site directory.",
 )
 ROW_ONE_HOST_OPTION = typer.Option("127.0.0.1", help="ROW ONE site host address.")
+ROW_ONE_UNIT_DIR_OPTION = typer.Option(
+    default_factory=lambda: Path.home() / ".config" / "systemd" / "user",
+    help="User systemd unit directory.",
+)
 AS_OF_OPTION = typer.Option(..., help="UTC report timestamp, for example 2026-06-11T12:00:00Z.")
 NOW_OPTION = typer.Option(None, help="UTC collection timestamp override.")
 RETENTION_DAYS_OPTION = typer.Option(30, min=1, help="Retention window in days.")
@@ -1809,6 +1814,153 @@ def row_one_local_ops(
         )
     except ValueError as exc:
         typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+
+
+def _row_one_systemd_unit_payloads(
+    *,
+    project_dir: Path,
+    config_dir: Path,
+    data_dir: Path,
+    reports_dir: Path,
+    output_dir: Path,
+    time: str,
+    host: str,
+    port: int,
+) -> dict[str, str]:
+    validate_hhmm(time)
+    return {
+        "row-one-refresh.service": render_row_one_systemd_service(
+            project_dir=str(project_dir),
+            config_dir=str(config_dir),
+            data_dir=str(data_dir),
+            reports_dir=str(reports_dir),
+            output_dir=str(output_dir),
+        ),
+        "row-one-refresh.timer": render_systemd_timer(time=time),
+        "row-one-serve.service": render_row_one_serve_systemd_service(
+            project_dir=str(project_dir),
+            site_dir=str(output_dir),
+            host=host,
+            port=port,
+        ),
+    }
+
+
+def _render_row_one_install_summary(
+    *,
+    unit_payloads: dict[str, str],
+    host: str,
+    port: int,
+    dry_run: bool,
+    unit_dir: Path,
+    output_dir: Path,
+) -> str:
+    heading = "ROW ONE local install dry run" if dry_run else "ROW ONE local install"
+    lines = [heading, f"Target unit directory: {unit_dir}"]
+    for name, payload in unit_payloads.items():
+        lines.append("")
+        lines.append(f"# {_format_row_one_unit_path(unit_dir / name)}")
+        lines.append(payload.rstrip())
+    if not dry_run:
+        lines.append("")
+        lines.append(f"Wrote units to: {unit_dir}")
+    lines.extend(
+        [
+            "",
+            "Before enabling on a fresh install, generate the site once:",
+            'AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"',
+            (f'uv run fashion-radar row-one refresh --as-of "$AS_OF" --output-dir "{output_dir}"'),
+            "",
+            "Enable:",
+            "systemctl --user daemon-reload",
+            "systemctl --user enable --now row-one-refresh.timer",
+            "systemctl --user enable --now row-one-serve.service",
+            "",
+            "Access:",
+            format_row_one_site_access_message(host, port),
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _format_row_one_unit_path(path: Path) -> str:
+    default_unit_dir = Path.home() / ".config" / "systemd" / "user"
+    try:
+        relative = path.relative_to(default_unit_dir)
+    except ValueError:
+        return str(path)
+    return str(Path("~/.config/systemd/user") / relative)
+
+
+def _write_row_one_systemd_units(
+    *,
+    unit_payloads: dict[str, str],
+    unit_dir: Path,
+    force: bool,
+) -> None:
+    existing = [unit_dir / name for name in unit_payloads if (unit_dir / name).exists()]
+    if existing and not force:
+        formatted = ", ".join(str(path) for path in existing)
+        raise FileExistsError(f"ROW ONE systemd unit already exists: {formatted}. Use --force.")
+    unit_dir.mkdir(parents=True, exist_ok=True)
+    for name, payload in unit_payloads.items():
+        (unit_dir / name).write_text(payload, encoding="utf-8")
+
+
+@row_one_app.command(name="install-local")
+def row_one_install_local(
+    project_dir: Path = PROJECT_DIR_OPTION,
+    config_dir: Path = CONFIG_DIR_OPTION,
+    data_dir: Path = DATA_DIR_OPTION,
+    reports_dir: Path = REPORTS_DIR_OPTION,
+    output_dir: Path = ROW_ONE_OUTPUT_DIR_OPTION,
+    time: str = typer.Option(
+        "04:00",
+        help="Daily ROW ONE refresh time in 24-hour HH:MM format.",
+    ),
+    host: str = ROW_ONE_HOST_OPTION,
+    port: int = ROW_ONE_PORT_OPTION,
+    dry_run: bool = typer.Option(
+        False,
+        help="Print the user systemd units without writing files.",
+    ),
+    unit_dir: Path = ROW_ONE_UNIT_DIR_OPTION,
+    force: bool = typer.Option(False, help="Overwrite existing ROW ONE systemd units."),
+) -> None:
+    """Render or install ROW ONE user systemd units for local daily service."""
+    try:
+        unit_payloads = _row_one_systemd_unit_payloads(
+            project_dir=project_dir,
+            config_dir=config_dir,
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+            output_dir=output_dir,
+            time=time,
+            host=host,
+            port=port,
+        )
+        if not dry_run:
+            _write_row_one_systemd_units(
+                unit_payloads=unit_payloads,
+                unit_dir=unit_dir,
+                force=force,
+            )
+        typer.echo(
+            _render_row_one_install_summary(
+                unit_payloads=unit_payloads,
+                host=host,
+                port=port,
+                dry_run=dry_run,
+                unit_dir=unit_dir,
+                output_dir=output_dir,
+            )
+        )
+    except (FileExistsError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    except Exception as exc:
+        typer.echo(f"ROW ONE local install failed: {exc}", err=True)
         raise typer.Exit(1) from exc
 
 

@@ -16,6 +16,7 @@ uv run fashion-radar row-one refresh --as-of "$AS_OF" --output-dir reports/row-o
 uv run fashion-radar row-one preview --as-of "$AS_OF" --latest-only --dry-run-serve-url
 uv run fashion-radar row-one status --site-dir reports/row-one/site
 uv run fashion-radar row-one local-ops --time 04:00 --host 0.0.0.0 --port 8787
+uv run fashion-radar row-one install-local --dry-run --time 04:00 --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one schedule --time 04:00
@@ -223,6 +224,13 @@ continue so user files are not silently removed.
   refresh, fixed IP:port serving, preview, and cron snippets. It prints
   snippets only and does not install timers, build the site, start the server,
   or mutate files.
+- `row-one install-local`: renders or writes user-level systemd units for the
+  local ROW ONE daily site. With `--dry-run`, it prints the refresh service,
+  refresh timer, serve service, and enable commands without writing files.
+  Without `--dry-run`, it writes `row-one-refresh.service`,
+  `row-one-refresh.timer`, and `row-one-serve.service` to the selected
+  `--unit-dir` (default: `~/.config/systemd/user`). Existing unit files are not
+  overwritten unless `--force` is passed.
 - `row-one serve`: serves a generated site directory. Important flags:
   `--site-dir`, `--host`, `--port`, and `--dry-run`.
 - `row-one schedule`: prints examples for 04:00 local scheduling without
@@ -241,9 +249,34 @@ Use:
 ```bash
 uv run fashion-radar row-one schedule --time 04:00
 uv run fashion-radar row-one local-ops --time 04:00 --host 0.0.0.0 --port 8787
+uv run fashion-radar row-one install-local --dry-run --time 04:00 --host 0.0.0.0 --port 8787
 ```
 
-Both commands print snippets only; they do not install cron jobs or systemd
-timers. `row-one local-ops` also prints fixed IP:port serving guidance, including
-`Open from LAN: http://<LAN-IP>:8787`, and the manual preview/serve commands for
-the latest-only local ROW ONE site.
+`row-one schedule` and `row-one local-ops` print snippets only; they do not
+install cron jobs or systemd timers. `row-one local-ops` also prints fixed
+IP:port serving guidance, including `Open from LAN: http://<LAN-IP>:8787`, and
+the manual preview/serve commands for the latest-only local ROW ONE site.
+
+`row-one install-local --dry-run` prints the complete user systemd unit files and
+the enable commands. After reviewing the output, run the same command without
+`--dry-run` to write the unit files. The generated units include a user-systemd
+`PATH` entry for `%h/.local/bin` and `%h/.cargo/bin` so `uv` can be found in
+common user installs. If this is a fresh install, generate the site once before
+starting the serve unit:
+
+```bash
+AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+uv run fashion-radar row-one refresh --as-of "$AS_OF" --output-dir reports/row-one/site
+```
+
+Then enable the timer and fixed local server with:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now row-one-refresh.timer
+systemctl --user enable --now row-one-serve.service
+```
+
+The generated timer runs the single ROW ONE refresh command at the selected local
+time (default `04:00`). The generated serve service keeps the selected
+`--output-dir` available on the fixed `--host` and `--port`.

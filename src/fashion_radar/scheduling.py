@@ -5,6 +5,7 @@ import shlex
 from dataclasses import dataclass
 
 HHMM_PATTERN = re.compile(r"^(?P<hour>[01][0-9]|2[0-3]):(?P<minute>[0-5][0-9])$")
+SYSTEMD_USER_PATH = "%h/.local/bin:%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
 
 
 @dataclass(frozen=True)
@@ -43,10 +44,10 @@ def _shell_quote(value: str) -> str:
     return shlex.quote(value)
 
 
-def _systemd_quote_assignment(value: str) -> str:
-    escaped = (
-        value.replace("\\", "\\\\").replace('"', r"\"").replace("%", "%%").replace("\n", r"\n")
-    )
+def _systemd_quote_assignment(value: str, *, escape_percent: bool = True) -> str:
+    if escape_percent:
+        value = value.replace("%", "%%")
+    escaped = value.replace("\\", "\\\\").replace('"', r"\"").replace("\n", r"\n")
     return f'"{escaped}"'
 
 
@@ -131,6 +132,7 @@ WorkingDirectory={_systemd_path(project_dir)}
 Environment={_systemd_quote_assignment(f"FASHION_RADAR_CONFIG_DIR={config_dir}")}
 Environment={_systemd_quote_assignment(f"FASHION_RADAR_DATA_DIR={data_dir}")}
 Environment={_systemd_quote_assignment(f"FASHION_RADAR_REPORTS_DIR={reports_dir}")}
+Environment={_systemd_quote_assignment(f"PATH={SYSTEMD_USER_PATH}", escape_percent=False)}
 ExecStart=/usr/bin/env bash -lc 'uv run fashion-radar run --as-of "{systemd_as_of_shell()}"'
 """
 
@@ -158,7 +160,41 @@ Environment={_systemd_quote_assignment(f"FASHION_RADAR_CONFIG_DIR={config_dir}")
 Environment={_systemd_quote_assignment(f"FASHION_RADAR_DATA_DIR={data_dir}")}
 Environment={_systemd_quote_assignment(f"FASHION_RADAR_REPORTS_DIR={reports_dir}")}
 Environment={_systemd_quote_assignment(f"ROW_ONE_OUTPUT_DIR={output_dir}")}
+Environment={_systemd_quote_assignment(f"PATH={SYSTEMD_USER_PATH}", escape_percent=False)}
 ExecStart=/usr/bin/env bash -lc '{command}'
+"""
+
+
+def render_row_one_serve_systemd_service(
+    *,
+    project_dir: str,
+    site_dir: str,
+    host: str,
+    port: int,
+) -> str:
+    command = (
+        "uv run fashion-radar row-one serve "
+        '--site-dir "$ROW_ONE_SITE_DIR" '
+        '--host "$ROW_ONE_HOST" '
+        '--port "$ROW_ONE_PORT"'
+    )
+    return f"""[Unit]
+Description=ROW ONE fixed local web server
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory={_systemd_path(project_dir)}
+Environment={_systemd_quote_assignment(f"ROW_ONE_SITE_DIR={site_dir}")}
+Environment={_systemd_quote_assignment(f"ROW_ONE_HOST={host}")}
+Environment={_systemd_quote_assignment(f"ROW_ONE_PORT={port}")}
+Environment={_systemd_quote_assignment(f"PATH={SYSTEMD_USER_PATH}", escape_percent=False)}
+ExecStart=/usr/bin/env bash -lc '{command}'
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
 """
 
 

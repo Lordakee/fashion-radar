@@ -7,6 +7,7 @@ from fashion_radar.scheduling import (
     render_cron_example,
     render_github_actions_workflow,
     render_row_one_cron_example,
+    render_row_one_serve_systemd_service,
     render_row_one_systemd_service,
     render_systemd_service,
     render_systemd_timer,
@@ -211,7 +212,30 @@ def test_render_row_one_systemd_uses_one_timestamp_and_output_env() -> None:
     assert "fashion-radar row-one build" not in service
     assert "--latest-only" not in service
     assert 'Environment="ROW_ONE_OUTPUT_DIR=/tmp/ROW ONE\'s site"' in service
+    assert 'Environment="PATH=%h/.local/bin:%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin"' in service
     assert "ROW ONE'\"'\"'s site" not in service
+
+
+def test_render_row_one_serve_systemd_service_uses_fixed_site_and_socket() -> None:
+    service = render_row_one_serve_systemd_service(
+        project_dir="/opt/Fashion Radar",
+        site_dir="/tmp/ROW ONE's site",
+        host="0.0.0.0",
+        port=8787,
+    )
+
+    assert "[Service]" in service
+    assert "Type=simple" in service
+    assert "Restart=on-failure" in service
+    assert "WorkingDirectory=/opt/Fashion Radar" in service
+    assert "uv run fashion-radar row-one serve" in service
+    assert '--site-dir "$ROW_ONE_SITE_DIR"' in service
+    assert '--host "$ROW_ONE_HOST"' in service
+    assert '--port "$ROW_ONE_PORT"' in service
+    assert 'Environment="ROW_ONE_SITE_DIR=/tmp/ROW ONE\'s site"' in service
+    assert 'Environment="ROW_ONE_HOST=0.0.0.0"' in service
+    assert 'Environment="ROW_ONE_PORT=8787"' in service
+    assert 'Environment="PATH=%h/.local/bin:%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin"' in service
 
 
 def test_render_github_actions_workflow_contains_schedule_and_no_secrets() -> None:

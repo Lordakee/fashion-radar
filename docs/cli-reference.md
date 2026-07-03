@@ -16,7 +16,7 @@ does not add connectors.
 | Setup | `init`, `migrate-db`, `doctor` | [first-run.md](first-run.md) |
 | Local sample/import | `community-signal-lint`, `import-signals`, `import-signals-dir` | [first-run.md](first-run.md) |
 | Match/report/review | `match`, `report`, `candidates`, `trends`, `trend-explanations`, `imported-signals` | [first-run.md](first-run.md) |
-| Daily site | `row-one build`, `row-one preview`, `row-one status`, `row-one local-ops`, `row-one serve`, `row-one schedule` | [row-one.md](row-one.md) |
+| Daily site | `row-one build`, `row-one preview`, `row-one status`, `row-one local-ops`, `row-one install-local`, `row-one serve`, `row-one schedule` | [row-one.md](row-one.md) |
 | Dashboard | `dashboard` | [first-run.md](first-run.md) |
 | Optional entity matching | `entity-pack-lint` | [entity-packs.md](entity-packs.md) |
 | Cleanup | Reset The Repo-Local Sample | [first-run.md](first-run.md) |
@@ -111,6 +111,13 @@ validates deterministic sample output content, not only command execution.
   `--config-dir`, `--data-dir`, `--reports-dir`, `--output-dir`, `--time`,
   `--host`, and `--port`. It prints snippets only and does not install timers,
   build the site, start the server, or mutate files.
+- `row-one install-local`: render or write user-level systemd units for ROW ONE
+  local daily operation; supports `--project-dir`, `--config-dir`, `--data-dir`,
+  `--reports-dir`, `--output-dir`, `--time`, `--host`, `--port`, `--dry-run`,
+  `--unit-dir`, and `--force`. With `--dry-run`, it prints the refresh service,
+  refresh timer, serve service, and enable commands without writing files.
+  Without `--dry-run`, it writes the units to `--unit-dir` and refuses to
+  overwrite existing units unless `--force` is passed.
 - `row-one serve`: serve a generated ROW ONE site; supports `--site-dir`,
   `--host`, `--port`, and `--dry-run`.
 - `row-one schedule`: print ROW ONE scheduling snippets without installing
