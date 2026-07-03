@@ -95,14 +95,19 @@ hrefs (`detail_href` and `href`), published dates, evidence counts
 (`evidence_count`), and sanitized URLs.
 
 The active app version is `row-one-app/v3`. Its content organization surface
-adds `content_sections`, `detail_sections`, and `evidence_summary` so app
-clients render section rails from the JSON payload instead of reconstructing
-them from page markup. `content_sections` describes homepage rails with section
-labels, anchors, counts, and story references. `detail_sections` describes
-detail-page rails, including the current story context and adjacent section
-navigation. `evidence_summary` gives compact evidence-link counts and readiness
-metadata for client badges. Together these fields let app clients render section
-rails without scraping HTML.
+adds `content_sections`, `detail_sections`, `evidence_summary`, and
+`daily_digest` so app clients render section rails and a daily briefing from the
+JSON payload instead of reconstructing them from page markup. `content_sections`
+describes homepage rails with section labels, anchors, counts, and story
+references. `detail_sections` describes detail-page rails, including the current
+story context and adjacent section navigation. `evidence_summary` gives compact
+evidence-link counts and readiness metadata for client badges. `daily_digest`
+is the app-facing Today's Briefing surface: `read_first` selects the first story
+to open, `key_takeaways` summarizes the first story from each non-empty section,
+and `signals_to_watch` lists only positive local raw mention deltas. Together
+these fields let app clients render section rails without scraping HTML and
+app clients can render a daily briefing without scraping HTML. It does not add
+source collection and does not prove demand.
 
 Unsafe external URLs are written as `null`. Missing story publication timestamps
 are represented as `null` in both `published_at` and `published_date`. The

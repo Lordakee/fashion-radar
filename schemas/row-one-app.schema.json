@@ -11,6 +11,7 @@
     "summary",
     "sections",
     "content_sections",
+    "daily_digest",
     "stories",
     "story_count",
     "evidence_count"
@@ -49,6 +50,9 @@
       "items": {
         "$ref": "#/$defs/contentSection"
       }
+    },
+    "daily_digest": {
+      "$ref": "#/$defs/dailyDigest"
     },
     "stories": {
       "type": "array",
@@ -538,6 +542,132 @@
         "evidence_count": {
           "type": "integer",
           "minimum": 0
+        }
+      }
+    },
+    "dailyDigest": {
+      "type": "object",
+      "required": ["title", "dek", "story_count", "evidence_count", "lead_story_id", "blocks"],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "dek": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "story_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lead_story_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/readFirstDigestBlock"
+            },
+            {
+              "$ref": "#/$defs/keyTakeawaysDigestBlock"
+            },
+            {
+              "$ref": "#/$defs/signalsToWatchDigestBlock"
+            }
+          ]
+        }
+      }
+    },
+    "readFirstDigestBlock": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/digestBlock"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "key": {
+              "const": "read_first"
+            }
+          }
+        }
+      ]
+    },
+    "keyTakeawaysDigestBlock": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/digestBlock"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "key": {
+              "const": "key_takeaways"
+            }
+          }
+        }
+      ]
+    },
+    "signalsToWatchDigestBlock": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/digestBlock"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "key": {
+              "const": "signals_to_watch"
+            }
+          }
+        }
+      ]
+    },
+    "digestBlock": {
+      "type": "object",
+      "required": ["key", "title", "dek", "story_count", "story_ids", "cards"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "enum": ["read_first", "key_takeaways", "signals_to_watch"]
+        },
+        "title": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "dek": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "story_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "story_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "cards": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contentCard"
+          }
         }
       }
     },

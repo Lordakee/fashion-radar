@@ -194,6 +194,31 @@ def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
     assert "row-one-app/v1` json contract" not in row_one
 
 
+def test_row_one_docs_describe_stage_275_daily_digest() -> None:
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    readme = _normalized(_read(README))
+
+    for phrase in (
+        "daily_digest",
+        "today's briefing",
+        "read_first",
+        "key_takeaways",
+        "signals_to_watch",
+        "positive local raw mention deltas",
+        "app clients can render a daily briefing",
+        "without scraping html",
+        "does not add source collection",
+        "does not prove demand",
+    ):
+        assert phrase in row_one
+
+    for phrase in (
+        "daily_digest",
+        "app clients can render section rails and a daily briefing",
+    ):
+        assert phrase in readme
+
+
 def test_row_one_docs_describe_stage_272_editorial_web_experience() -> None:
     row_one = _normalized(_read(ROW_ONE_DOC))
     readme = _normalized(_read(README))

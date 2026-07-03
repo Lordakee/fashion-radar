@@ -126,6 +126,7 @@ def build_row_one_app_payload(edition: RowOneEdition) -> dict[str, object]:
         "content_sections": [
             _content_section_payload(section, stories) for section in edition.sections
         ],
+        "daily_digest": _daily_digest_payload(edition, stories),
         "stories": stories,
         "story_count": len(stories),
         "evidence_count": sum(_safe_evidence_count(story.evidence) for story in edition.stories),
@@ -246,6 +247,117 @@ def _content_section_payload(
         "story_ids": story_ids,
         "cards": [_content_card_payload(story) for story in section_stories],
     }
+
+
+def _daily_digest_payload(
+    edition: RowOneEdition,
+    stories: list[dict[str, object]],
+) -> dict[str, object]:
+    read_first_stories = _read_first_digest_stories(stories)
+    return {
+        "title": {"zh": "今日简报", "en": "Today's Briefing"},
+        "dek": _daily_digest_dek(stories),
+        "story_count": len(stories),
+        "evidence_count": sum(int(story["evidence_count"]) for story in stories),
+        "lead_story_id": str(read_first_stories[0]["id"]) if read_first_stories else None,
+        "blocks": [
+            _digest_block_payload(
+                "read_first",
+                {"zh": "先读", "en": "Read First"},
+                {
+                    "zh": "今日最值得先打开的一条 ROW ONE 信号。",
+                    "en": "The first ROW ONE signal to open today.",
+                },
+                read_first_stories,
+            ),
+            _digest_block_payload(
+                "key_takeaways",
+                {"zh": "重点整理", "en": "Key Takeaways"},
+                {
+                    "zh": "按栏目顺序整理每个非空板块的第一条信号。",
+                    "en": "The first signal from each non-empty section, in section order.",
+                },
+                _key_takeaway_digest_stories(edition, stories),
+            ),
+            _digest_block_payload(
+                "signals_to_watch",
+                {"zh": "升温信号", "en": "Signals To Watch"},
+                {
+                    "zh": "仅按本地原始提及增量筛出的正向变化信号。",
+                    "en": "Positive local raw mention deltas worth watching.",
+                },
+                _signals_to_watch_digest_stories(stories),
+            ),
+        ],
+    }
+
+
+def _daily_digest_dek(stories: list[dict[str, object]]) -> dict[str, str]:
+    if not stories:
+        return {
+            "zh": "暂无可整理的 ROW ONE 故事。",
+            "en": "No ROW ONE stories are available to organize yet.",
+        }
+    return {
+        "zh": f"ROW ONE 将今日 {len(stories)} 条本地时尚信号整理成可直接阅读的简报。",
+        "en": f"ROW ONE organized {len(stories)} local fashion signals into an app-ready briefing.",
+    }
+
+
+def _digest_block_payload(
+    key: str,
+    title: dict[str, str],
+    dek: dict[str, str],
+    stories: list[dict[str, object]],
+) -> dict[str, object]:
+    story_ids = [str(story["id"]) for story in stories]
+    return {
+        "key": key,
+        "title": title,
+        "dek": dek,
+        "story_count": len(stories),
+        "story_ids": story_ids,
+        "cards": [_content_card_payload(story) for story in stories],
+    }
+
+
+def _read_first_digest_stories(stories: list[dict[str, object]]) -> list[dict[str, object]]:
+    top_story = next((story for story in stories if story["section_key"] == "top_stories"), None)
+    if top_story is not None:
+        return [top_story]
+    return stories[:1]
+
+
+def _key_takeaway_digest_stories(
+    edition: RowOneEdition,
+    stories: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    takeaways: list[dict[str, object]] = []
+    for section in edition.sections:
+        story = next((item for item in stories if item["section_key"] == section.key), None)
+        if story is not None:
+            takeaways.append(story)
+        if len(takeaways) >= 5:
+            break
+    return takeaways
+
+
+def _signals_to_watch_digest_stories(
+    stories: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    signals = [
+        story
+        for story in stories
+        if isinstance(story["heat_delta"], int) and int(story["heat_delta"]) > 0
+    ]
+    signals.sort(
+        key=lambda story: (
+            -int(story["heat_delta"]),
+            str(story["headline"]).casefold(),
+            str(story["headline"]),
+        )
+    )
+    return signals[:5]
 
 
 def _content_card_payload(story: dict[str, object]) -> dict[str, object]:

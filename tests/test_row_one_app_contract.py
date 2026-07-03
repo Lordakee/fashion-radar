@@ -247,6 +247,105 @@ def test_row_one_app_payload_groups_content_sections_for_clients(tmp_path: Path)
         ]
 
 
+def test_row_one_app_payload_includes_daily_digest_for_clients(tmp_path: Path) -> None:
+    payload = _payload(tmp_path)
+    digest = payload["daily_digest"]
+    stories = payload["stories"]
+    blocks = {block["key"]: block for block in digest["blocks"]}
+
+    assert digest["title"] == {"zh": "今日简报", "en": "Today's Briefing"}
+    assert digest["story_count"] == payload["story_count"]
+    assert digest["evidence_count"] == payload["evidence_count"]
+    assert digest["lead_story_id"] == stories[0]["id"]
+    assert list(blocks) == ["read_first", "key_takeaways", "signals_to_watch"]
+    assert blocks["read_first"]["story_ids"] == [stories[0]["id"]]
+    assert [card["id"] for card in blocks["read_first"]["cards"]] == [stories[0]["id"]]
+    assert blocks["key_takeaways"]["story_ids"] == [stories[0]["id"]]
+    assert blocks["signals_to_watch"]["story_ids"] == []
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_daily_digest_signal_block_uses_positive_raw_deltas(
+    tmp_path: Path,
+) -> None:
+    edition = _edition()
+    first = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "id": "first-signal-1111111111",
+            "headline": "First Signal",
+            "detail_path": "details/first-signal-1111111111.html",
+            "heat_delta": 3,
+        },
+    )
+    second = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "id": "second-signal-2222222222",
+            "headline": "Second Signal",
+            "detail_path": "details/second-signal-2222222222.html",
+            "heat_delta": 9,
+        },
+    )
+    flat = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "id": "flat-signal-3333333333",
+            "headline": "Flat Signal",
+            "detail_path": "details/flat-signal-3333333333.html",
+            "heat_delta": 0,
+        },
+    )
+    edition.stories = [first, flat, second]
+
+    payload = _payload(tmp_path, edition)
+    signals = next(
+        block for block in payload["daily_digest"]["blocks"] if block["key"] == "signals_to_watch"
+    )
+
+    assert signals["story_ids"] == ["second-signal-2222222222", "first-signal-1111111111"]
+    assert [card["heat_delta"] for card in signals["cards"]] == [9, 3]
+    assert [card["heat_delta_metric"] for card in signals["cards"]] == [
+        "raw_mention_delta",
+        "raw_mention_delta",
+    ]
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_daily_digest_lead_matches_read_first_fallback(
+    tmp_path: Path,
+) -> None:
+    edition = _edition()
+    brand_story = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "id": "brand-move-1111111111",
+            "section_key": "brand_moves",
+            "headline": "Brand Move",
+            "detail_path": "details/brand-move-1111111111.html",
+        },
+    )
+    top_story = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "id": "top-story-2222222222",
+            "section_key": "top_stories",
+            "headline": "Top Story",
+            "detail_path": "details/top-story-2222222222.html",
+        },
+    )
+    edition.stories = [brand_story, top_story]
+
+    payload = _payload(tmp_path, edition)
+    digest = payload["daily_digest"]
+    read_first = digest["blocks"][0]
+
+    assert digest["lead_story_id"] == "top-story-2222222222"
+    assert read_first["key"] == "read_first"
+    assert read_first["story_ids"] == ["top-story-2222222222"]
+    _schema_validator().validate(payload)
+
+
 def test_row_one_app_content_cards_mirror_story_display_fields(tmp_path: Path) -> None:
     payload = _payload(tmp_path)
     story = payload["stories"][0]
@@ -609,6 +708,17 @@ def test_row_one_app_schema_rejects_display_image_urls_sanitizer_rejects(
     ("mutation", "match"),
     [
         (lambda payload: payload.__setitem__("contract_version", "row-one-app/v2"), "was expected"),
+        (lambda payload: payload.pop("daily_digest"), "'daily_digest' is a required property"),
+        (
+            lambda payload: payload["daily_digest"]["blocks"].pop(),
+            "is too short",
+        ),
+        (
+            lambda payload: payload["daily_digest"]["blocks"][0].__setitem__(
+                "key", "signals_to_watch"
+            ),
+            "was expected",
+        ),
         (lambda payload: payload.__setitem__("extra", True), "Additional properties"),
         (lambda payload: payload["stories"][0].__setitem__("section_key", "unknown"), "not one"),
         (
@@ -700,6 +810,51 @@ def test_empty_row_one_app_payload_validates(tmp_path: Path) -> None:
     assert payload["story_count"] == 0
     assert payload["evidence_count"] == 0
     assert payload["stories"] == []
+    assert payload["daily_digest"] == {
+        "title": {"zh": "今日简报", "en": "Today's Briefing"},
+        "dek": {
+            "zh": "暂无可整理的 ROW ONE 故事。",
+            "en": "No ROW ONE stories are available to organize yet.",
+        },
+        "story_count": 0,
+        "evidence_count": 0,
+        "lead_story_id": None,
+        "blocks": [
+            {
+                "key": "read_first",
+                "title": {"zh": "先读", "en": "Read First"},
+                "dek": {
+                    "zh": "今日最值得先打开的一条 ROW ONE 信号。",
+                    "en": "The first ROW ONE signal to open today.",
+                },
+                "story_count": 0,
+                "story_ids": [],
+                "cards": [],
+            },
+            {
+                "key": "key_takeaways",
+                "title": {"zh": "重点整理", "en": "Key Takeaways"},
+                "dek": {
+                    "zh": "按栏目顺序整理每个非空板块的第一条信号。",
+                    "en": "The first signal from each non-empty section, in section order.",
+                },
+                "story_count": 0,
+                "story_ids": [],
+                "cards": [],
+            },
+            {
+                "key": "signals_to_watch",
+                "title": {"zh": "升温信号", "en": "Signals To Watch"},
+                "dek": {
+                    "zh": "仅按本地原始提及增量筛出的正向变化信号。",
+                    "en": "Positive local raw mention deltas worth watching.",
+                },
+                "story_count": 0,
+                "story_ids": [],
+                "cards": [],
+            },
+        ],
+    }
     assert payload["content_sections"] == [
         {
             "key": "top_stories",
