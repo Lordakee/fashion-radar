@@ -146,7 +146,7 @@ def test_row_one_docs_describe_versioned_app_json_contract() -> None:
 
     for phrase in (
         "app json contract",
-        "`data/edition.json` is the row-one-app/v2 app-facing contract",
+        "`data/edition.json` is the row-one-app/v3 app-facing contract",
         "`schemas/row-one-app.schema.json`",
         "section counts",
         "detail hrefs",
@@ -167,7 +167,7 @@ def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
     readme = _normalized(_read(README))
 
     for phrase in (
-        "row-one-app/v2",
+        "row-one-app/v3",
         "content_sections",
         "detail_sections",
         "evidence_summary",
@@ -182,7 +182,7 @@ def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
         assert phrase in row_one
 
     for phrase in (
-        "row-one-app/v2",
+        "row-one-app/v3",
         "content_sections",
         "detail_sections",
         "evidence_summary",
@@ -205,7 +205,7 @@ def test_row_one_docs_describe_stage_272_editorial_web_experience() -> None:
         "article contents",
         "evidence trail",
         "retained source row",
-        "uses existing row-one-app/v2 content organization",
+        "uses existing row-one-app/v3 content organization",
     ):
         assert phrase in row_one
 

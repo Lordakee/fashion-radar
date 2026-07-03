@@ -27,7 +27,7 @@
       "additionalProperties": false,
       "required": ["version", "path", "schema_path"],
       "properties": {
-        "version": { "const": "row-one-app/v2" },
+        "version": { "const": "row-one-app/v3" },
         "path": { "const": "data/edition.json" },
         "schema_path": { "const": "schemas/row-one-app.schema.json" }
       }
@@ -71,7 +71,8 @@
         "detail_pages",
         "sanitized_external_urls",
         "latest_only_cleanup",
-        "seo_metadata"
+        "seo_metadata",
+        "structured_story_metadata"
       ],
       "properties": {
         "bilingual": { "const": true },
@@ -79,7 +80,8 @@
         "detail_pages": { "const": true },
         "sanitized_external_urls": { "const": true },
         "latest_only_cleanup": { "const": true },
-        "seo_metadata": { "const": true }
+        "seo_metadata": { "const": true },
+        "structured_story_metadata": { "const": true }
       }
     }
   },

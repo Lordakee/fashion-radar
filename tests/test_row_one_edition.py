@@ -116,10 +116,12 @@ def test_build_row_one_edition_groups_editorial_sections() -> None:
     report = _report(
         entities=[
             _entity("The Row", "brand", score=9.2),
+            _entity("Phoebe Philo", "designer", score=8.9),
             _entity("Zendaya", "celebrity", score=8.4),
         ],
         candidates=[
             _candidate("market loafer", "shoe", score=7.8),
+            _candidate("Atelier Grey", "brand_or_designer", score=7.1),
             _candidate("atelier grey", "unknown", score=6.5),
         ],
     )
@@ -136,10 +138,18 @@ def test_build_row_one_edition_groups_editorial_sections() -> None:
     ]
     assert edition.sections[0].title.zh == "今日重点"
     assert edition.sections[0].title.en == "Top Stories"
-    assert edition.section_stories("brand_moves")[0].headline == "The Row lead"
+    brand_headlines = [story.headline for story in edition.section_stories("brand_moves")]
+    assert brand_headlines == [
+        "The Row lead",
+        "Phoebe Philo lead",
+        "Atelier Grey spotted",
+    ]
     assert edition.section_stories("celebrity_style")[0].headline == "Zendaya lead"
     assert edition.section_stories("hot_products")[0].headline == "market loafer spotted"
     assert edition.section_stories("rising_radar")[0].headline == "atelier grey spotted"
+    assert "Atelier Grey spotted" not in [
+        story.headline for story in edition.section_stories("rising_radar")
+    ]
     story = edition.stories[0]
     assert story.detail_path.startswith("details/")
     assert story.editorial_takeaway.zh
@@ -148,6 +158,116 @@ def test_build_row_one_edition_groups_editorial_sections() -> None:
     assert story.signal_context.en
     assert story.reader_path.zh
     assert story.reader_path.en
+
+
+def test_build_row_one_edition_adds_structured_entity_metadata() -> None:
+    entity = _entity("Phoebe Philo", "designer", score=9.4)
+
+    edition = build_row_one_edition(report=_report(entities=[entity]), recent_items=[], as_of=AS_OF)
+    story = edition.section_stories("brand_moves")[0]
+
+    assert story.story_type == "tracked_entity"
+    assert story.market_region is None
+    assert story.source_region is None
+    assert story.heat_delta == 4
+    assert [ref.model_dump(mode="json") for ref in story.entity_refs] == [
+        {"name": "Phoebe Philo", "type": "designer", "label": "hot"}
+    ]
+    assert [ref.model_dump(mode="json") for ref in story.designer_refs] == [
+        {"name": "Phoebe Philo", "type": "designer", "label": "hot"}
+    ]
+    assert story.product_refs == []
+
+
+def test_build_row_one_edition_adds_structured_candidate_metadata() -> None:
+    product = _candidate("market loafer", "shoe", score=7.8)
+    signal = _candidate("atelier grey", "unknown", score=6.5)
+
+    edition = build_row_one_edition(
+        report=_report(candidates=[product, signal]),
+        recent_items=[],
+        as_of=AS_OF,
+    )
+
+    product_story = edition.section_stories("hot_products")[0]
+    signal_story = edition.section_stories("rising_radar")[0]
+    assert product_story.story_type == "candidate_signal"
+    assert product_story.heat_delta == 4
+    assert [ref.model_dump(mode="json") for ref in product_story.product_refs] == [
+        {"name": "market loafer", "type": "shoe", "label": "rising"}
+    ]
+    assert product_story.entity_refs == []
+    assert product_story.designer_refs == []
+    assert signal_story.product_refs == []
+    assert signal_story.heat_delta == 4
+
+
+def test_build_row_one_edition_recent_item_passes_explicit_regions_only() -> None:
+    recent_item = {
+        "source_name": "Local Desk",
+        "url": "https://example.com/local",
+        "title": "Shanghai buyer desk watches new tailoring",
+        "summary": "Domestic buyer signal.",
+        "collected_at": AS_OF.isoformat(),
+        "market_region": "domestic",
+        "source_region": "cn",
+    }
+
+    story = build_row_one_edition(
+        report=_report(),
+        recent_items=[recent_item],
+        as_of=AS_OF,
+    ).section_stories("top_stories")[0]
+
+    assert story.story_type == "recent_item"
+    assert story.market_region == "domestic"
+    assert story.source_region == "cn"
+    assert story.heat_delta is None
+    assert story.entity_refs == []
+    assert story.product_refs == []
+    assert story.designer_refs == []
+
+
+def test_build_row_one_edition_omits_blank_recent_item_regions() -> None:
+    recent_item = {
+        "source_name": "Local Desk",
+        "url": "https://example.com/local",
+        "title": "Shanghai buyer desk watches new tailoring",
+        "summary": "Domestic buyer signal.",
+        "collected_at": AS_OF.isoformat(),
+        "market_region": "   ",
+        "source_region": "\t\n",
+    }
+
+    story = build_row_one_edition(
+        report=_report(),
+        recent_items=[recent_item],
+        as_of=AS_OF,
+    ).section_stories("top_stories")[0]
+
+    assert story.market_region is None
+    assert story.source_region is None
+
+
+def test_build_row_one_edition_ranks_brand_candidates_with_entities() -> None:
+    report = _report(
+        entities=[
+            _entity(f"Brand {index}", "brand", score=10 - (index * 0.1)) for index in range(8)
+        ],
+        candidates=[
+            _candidate("Breakout Studio", "brand_or_designer", score=99.0),
+        ],
+    )
+
+    stories = build_row_one_edition(
+        report=report,
+        recent_items=[],
+        as_of=AS_OF,
+    ).section_stories("brand_moves")
+
+    assert len(stories) == 8
+    assert stories[0].headline == "Breakout Studio spotted"
+    assert "Brand 7 lead" not in [story.headline for story in stories]
 
 
 def test_build_row_one_edition_assigns_deterministic_display_metadata() -> None:

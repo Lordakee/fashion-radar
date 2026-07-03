@@ -25,7 +25,7 @@ from fashion_radar.row_one.templates import (
 from fashion_radar.row_one.utils import isoformat_z, safe_external_url, utc_datetime
 
 GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data")
-ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v2"
+ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v3"
 ROW_ONE_MANIFEST_CONTRACT_VERSION = "row-one-manifest/v1"
 ROW_ONE_MANIFEST_SCHEMA_PATH = "schemas/row-one-manifest.schema.json"
 ROW_ONE_RUNTIME_CONTRACT_VERSION = "row-one-runtime/v1"
@@ -171,6 +171,7 @@ def build_row_one_manifest_payload(
             "sanitized_external_urls": True,
             "latest_only_cleanup": True,
             "seo_metadata": True,
+            "structured_story_metadata": True,
         },
     }
 
@@ -250,6 +251,7 @@ def _content_section_payload(
 def _content_card_payload(story: dict[str, object]) -> dict[str, object]:
     return {
         "id": story["id"],
+        "story_type": story["story_type"],
         "headline": story["headline"],
         "summary": story["summary"],
         "editorial_takeaway": story["editorial_takeaway"],
@@ -257,8 +259,15 @@ def _content_card_payload(story: dict[str, object]) -> dict[str, object]:
         "detail_href": story["detail_href"],
         "display": story["display"],
         "source_name": story["source_name"],
+        "market_region": story["market_region"],
+        "source_region": story["source_region"],
         "published_date": story["published_date"],
         "tags": story["tags"],
+        "entity_refs": story["entity_refs"],
+        "product_refs": story["product_refs"],
+        "designer_refs": story["designer_refs"],
+        "heat_delta": story["heat_delta"],
+        "heat_delta_metric": story["heat_delta_metric"],
         "evidence_count": story["evidence_count"],
     }
 
@@ -270,6 +279,7 @@ def _story_payload(edition: RowOneEdition, story: RowOneStory) -> dict[str, obje
     return {
         "id": story.id,
         "section_key": story.section_key,
+        "story_type": story.story_type,
         "section": {
             "key": section.key,
             "title": section.title.model_dump(mode="json"),
@@ -283,6 +293,8 @@ def _story_payload(edition: RowOneEdition, story: RowOneStory) -> dict[str, obje
         "reader_path": story.reader_path.model_dump(mode="json"),
         "source_name": story.source_name,
         "source_url": safe_external_url(story.source_url),
+        "market_region": story.market_region,
+        "source_region": story.source_region,
         "display": _display_payload(display_for_story(story)),
         "published_at": isoformat_z(published_at_utc) if published_at_utc else None,
         "published_date": published_at_utc.date().isoformat() if published_at_utc else None,
@@ -290,11 +302,20 @@ def _story_payload(edition: RowOneEdition, story: RowOneStory) -> dict[str, obje
         "href": detail_href,
         "detail_href": detail_href,
         "tags": list(story.tags),
+        "entity_refs": [_reference_payload(ref) for ref in story.entity_refs],
+        "product_refs": [_reference_payload(ref) for ref in story.product_refs],
+        "designer_refs": [_reference_payload(ref) for ref in story.designer_refs],
+        "heat_delta": story.heat_delta,
+        "heat_delta_metric": "raw_mention_delta" if story.heat_delta is not None else None,
         "evidence_count": _safe_evidence_count(story.evidence),
         "evidence": [_evidence_payload(link) for link in story.evidence],
         "detail_sections": _detail_sections_payload(story),
         "evidence_summary": _evidence_summary_payload(story),
     }
+
+
+def _reference_payload(reference) -> dict[str, object]:
+    return reference.model_dump(mode="json")
 
 
 def _display_payload(display: RowOneStoryDisplay) -> dict[str, object]:

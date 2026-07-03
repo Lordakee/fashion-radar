@@ -18,7 +18,7 @@
   "additionalProperties": false,
   "properties": {
     "contract_version": {
-      "const": "row-one-app/v2"
+      "const": "row-one-app/v3"
     },
     "brand": {
       "type": "string",
@@ -152,6 +152,7 @@
       "required": [
         "id",
         "section_key",
+        "story_type",
         "section",
         "headline",
         "summary",
@@ -161,6 +162,8 @@
         "reader_path",
         "source_name",
         "source_url",
+        "market_region",
+        "source_region",
         "display",
         "published_at",
         "published_date",
@@ -168,6 +171,11 @@
         "href",
         "detail_href",
         "tags",
+        "entity_refs",
+        "product_refs",
+        "designer_refs",
+        "heat_delta",
+        "heat_delta_metric",
         "evidence_count",
         "evidence",
         "detail_sections",
@@ -181,6 +189,9 @@
         },
         "section_key": {
           "$ref": "#/$defs/sectionKey"
+        },
+        "story_type": {
+          "enum": ["tracked_entity", "candidate_signal", "recent_item"]
         },
         "section": {
           "$ref": "#/$defs/storySection"
@@ -210,6 +221,12 @@
         },
         "source_url": {
           "$ref": "#/$defs/safeExternalUrl"
+        },
+        "market_region": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_region": {
+          "$ref": "#/$defs/nullableString"
         },
         "display": {
           "$ref": "#/$defs/storyDisplay"
@@ -254,6 +271,44 @@
             "minLength": 1
           }
         },
+        "entity_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/storyReference"
+          }
+        },
+        "product_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/storyReference"
+          }
+        },
+        "designer_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/storyReference"
+          }
+        },
+        "heat_delta": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "heat_delta_metric": {
+          "anyOf": [
+            {
+              "const": "raw_mention_delta"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "evidence_count": {
           "type": "integer",
           "minimum": 0
@@ -272,6 +327,36 @@
         },
         "evidence_summary": {
           "$ref": "#/$defs/evidenceSummary"
+        }
+      }
+    },
+    "nullableString": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "storyReference": {
+      "type": "object",
+      "required": ["name", "type", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -336,6 +421,7 @@
       "type": "object",
       "required": [
         "id",
+        "story_type",
         "headline",
         "summary",
         "editorial_takeaway",
@@ -343,8 +429,15 @@
         "detail_href",
         "display",
         "source_name",
+        "market_region",
+        "source_region",
         "published_date",
         "tags",
+        "entity_refs",
+        "product_refs",
+        "designer_refs",
+        "heat_delta",
+        "heat_delta_metric",
         "evidence_count"
       ],
       "additionalProperties": false,
@@ -352,6 +445,9 @@
         "id": {
           "type": "string",
           "minLength": 1
+        },
+        "story_type": {
+          "enum": ["tracked_entity", "candidate_signal", "recent_item"]
         },
         "headline": {
           "type": "string",
@@ -376,6 +472,12 @@
           "type": "string",
           "minLength": 1
         },
+        "market_region": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "source_region": {
+          "$ref": "#/$defs/nullableString"
+        },
         "published_date": {
           "anyOf": [
             {
@@ -394,6 +496,44 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "entity_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/storyReference"
+          }
+        },
+        "product_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/storyReference"
+          }
+        },
+        "designer_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/storyReference"
+          }
+        },
+        "heat_delta": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "heat_delta_metric": {
+          "anyOf": [
+            {
+              "const": "raw_mention_delta"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "evidence_count": {
           "type": "integer",

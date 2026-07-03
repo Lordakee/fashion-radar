@@ -18,6 +18,7 @@ def _edition() -> RowOneEdition:
     story = RowOneStory(
         id="the-row-signal-1234567890",
         section_key="top_stories",
+        story_type="tracked_entity",
         headline="The Row signal",
         summary=LocalizedText(
             zh="来源摘要：The Row signal.",

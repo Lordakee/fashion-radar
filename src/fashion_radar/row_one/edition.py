@@ -13,6 +13,7 @@ from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneEdition,
     RowOneLink,
+    RowOneReference,
     RowOneSection,
     RowOneSectionKey,
     RowOneStory,
@@ -28,6 +29,9 @@ SECTION_CAPS: dict[RowOneSectionKey, int] = {
 }
 
 PRODUCT_CANDIDATE_TYPES = {"bag", "shoe", "product"}
+BRAND_ENTITY_TYPES = {"brand", "designer"}
+BRAND_CANDIDATE_TYPES = {"brand_or_designer"}
+RISING_RADAR_EXCLUDED_CANDIDATE_TYPES = PRODUCT_CANDIDATE_TYPES | BRAND_CANDIDATE_TYPES
 SECTION_DEFINITIONS: tuple[RowOneSection, ...] = (
     RowOneSection(
         key="top_stories",
@@ -76,10 +80,14 @@ def build_row_one_edition(
     edition_date = parse_datetime_utc(as_of) if as_of is not None else report.metadata.report_date
     stories: list[RowOneStory] = []
 
-    brand_stories = _entity_stories(report.entities, entity_type="brand", section_key="brand_moves")
+    brand_stories = _brand_stories(
+        entities=report.entities,
+        candidates=report.candidates,
+        section_key="brand_moves",
+    )
     celebrity_stories = _entity_stories(
         report.entities,
-        entity_type="celebrity",
+        entity_types={"celebrity"},
         section_key="celebrity_style",
     )
     product_stories = _candidate_stories(
@@ -91,7 +99,7 @@ def build_row_one_edition(
     rising_stories = _candidate_stories(
         report.candidates,
         section_key="rising_radar",
-        candidate_types=PRODUCT_CANDIDATE_TYPES,
+        candidate_types=RISING_RADAR_EXCLUDED_CANDIDATE_TYPES,
         include_matching=False,
     )
     top_stories = _top_stories(
@@ -124,10 +132,10 @@ def build_row_one_edition(
 def _entity_stories(
     entities: Iterable[EntityReport],
     *,
-    entity_type: str,
+    entity_types: set[str],
     section_key: RowOneSectionKey,
 ) -> list[RowOneStory]:
-    matched = [entity for entity in entities if entity.entity_type == entity_type]
+    matched = [entity for entity in entities if entity.entity_type in entity_types]
     matched.sort(
         key=lambda entity: (-entity.heat_score, entity.entity_name.casefold(), entity.entity_name)
     )
@@ -150,6 +158,41 @@ def _candidate_stories(
         key=lambda candidate: (-candidate.score, candidate.phrase.casefold(), candidate.phrase)
     )
     return [_story_from_candidate(candidate, section_key=section_key) for candidate in matched]
+
+
+def _brand_stories(
+    *,
+    entities: Iterable[EntityReport],
+    candidates: Iterable[CandidateReport],
+    section_key: RowOneSectionKey,
+) -> list[RowOneStory]:
+    ranked_entities = [
+        (
+            entity.heat_score,
+            entity.entity_name.casefold(),
+            entity.entity_name,
+            _story_from_entity(entity, section_key=section_key),
+        )
+        for entity in entities
+        if entity.entity_type in BRAND_ENTITY_TYPES
+    ]
+    ranked_candidates = [
+        (
+            candidate.score,
+            candidate.phrase.casefold(),
+            candidate.phrase,
+            _story_from_candidate(candidate, section_key=section_key),
+        )
+        for candidate in candidates
+        if candidate.candidate_type in BRAND_CANDIDATE_TYPES
+    ]
+    return [
+        story
+        for _, _, _, story in sorted(
+            [*ranked_entities, *ranked_candidates],
+            key=lambda item: (-item[0], item[1], item[2]),
+        )
+    ]
 
 
 def _top_stories(
@@ -200,6 +243,7 @@ def _story_from_entity(entity: EntityReport, *, section_key: RowOneSectionKey) -
     return RowOneStory(
         id=story_id,
         section_key=section_key,
+        story_type="tracked_entity",
         display=display_for_section(section_key),
         headline=title,
         summary=_localized_summary(item_summary or title),
@@ -221,6 +265,13 @@ def _story_from_entity(entity: EntityReport, *, section_key: RowOneSectionKey) -
         published_at=item.published_at if item is not None else None,
         detail_path=f"details/{story_id}.html",
         tags=[entity.entity_type, entity.label, entity.entity_name],
+        entity_refs=[_reference(entity.entity_name, entity.entity_type, entity.label)],
+        designer_refs=(
+            [_reference(entity.entity_name, entity.entity_type, entity.label)]
+            if entity.entity_type == "designer"
+            else []
+        ),
+        heat_delta=entity.current_mentions - entity.baseline_mentions,
         evidence=[
             RowOneLink(
                 title=item.title if item is not None else title,
@@ -249,6 +300,7 @@ def _story_from_candidate(
     return RowOneStory(
         id=story_id,
         section_key=section_key,
+        story_type="candidate_signal",
         display=display_for_section(section_key),
         headline=title,
         summary=_localized_summary(item_summary or title),
@@ -270,6 +322,17 @@ def _story_from_candidate(
         published_at=item.published_at if item is not None else candidate.first_seen_at,
         detail_path=f"details/{story_id}.html",
         tags=[candidate.candidate_type, candidate.label, candidate.phrase],
+        product_refs=(
+            [_reference(candidate.phrase, candidate.candidate_type, candidate.label)]
+            if candidate.candidate_type in PRODUCT_CANDIDATE_TYPES
+            else []
+        ),
+        entity_refs=(
+            [_reference(candidate.phrase, candidate.candidate_type, candidate.label)]
+            if candidate.candidate_type in BRAND_CANDIDATE_TYPES
+            else []
+        ),
+        heat_delta=candidate.current_mentions - candidate.baseline_mentions,
         evidence=[
             RowOneLink(
                 title=item.title if item is not None else title,
@@ -298,6 +361,7 @@ def _story_from_recent_item(
     return RowOneStory(
         id=story_id,
         section_key=section_key,
+        story_type="recent_item",
         display=display_for_section(section_key),
         headline=title,
         summary=_localized_summary(summary),
@@ -313,8 +377,14 @@ def _story_from_recent_item(
         published_at=_optional_datetime(item.get("collected_at")),
         detail_path=f"details/{story_id}.html",
         tags=["recent"],
+        market_region=_string_value(item.get("market_region")),
+        source_region=_string_value(item.get("source_region")),
         evidence=[RowOneLink(title=title, url=source_url, source_name=source_name)],
     )
+
+
+def _reference(name: str, reference_type: str, label: str) -> RowOneReference:
+    return RowOneReference(name=name, type=reference_type, label=label)
 
 
 def _entity_synthesis(
@@ -475,7 +545,7 @@ def _safe_url(url: str | None) -> str | None:
 def _string_value(value: object) -> str | None:
     if not isinstance(value, str):
         return None
-    return _collapse_whitespace(value)
+    return _collapse_whitespace(value) or None
 
 
 def _collapse_whitespace(value: str) -> str:

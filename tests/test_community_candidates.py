@@ -286,6 +286,57 @@ def test_preview_community_candidates_single_token_threshold_filters_candidates(
     assert preview.candidates == []
 
 
+def test_preview_community_candidates_filters_generic_single_token_noise(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "community.csv"
+    _write_csv(
+        path,
+        [
+            {
+                "url": "https://example.com/noise-a",
+                "title": "New Plus More Is Spring York",
+                "published_at": "2026-06-13T09:00:00Z",
+                "source_name": "Community A",
+                "collected_at": "2026-06-13T10:00:00Z",
+            },
+            {
+                "url": "https://example.com/noise-b",
+                "title": "New Plus More Is Spring York",
+                "published_at": "2026-06-13T09:30:00Z",
+                "source_name": "Community B",
+                "collected_at": "2026-06-13T10:30:00Z",
+            },
+            {
+                "url": "https://example.com/product",
+                "title": "Le Teckel bag appears again",
+                "published_at": "2026-06-13T11:00:00Z",
+                "source_name": "Community C",
+                "collected_at": "2026-06-13T11:30:00Z",
+            },
+        ],
+    )
+
+    preview = _preview(
+        path,
+        settings=CandidateDiscoverySettings(
+            review_min_current_mentions=1,
+            review_min_distinct_sources=1,
+            min_single_token_mentions=1,
+            min_single_token_distinct_sources=1,
+        ),
+    )
+
+    phrases = {candidate.phrase for candidate in preview.candidates}
+    assert "Le Teckel bag" in phrases
+    assert not {"New", "Plus", "More", "Is", "Spring", "York"} & phrases
+    assert "New Plus" not in phrases
+    assert "Plus More" not in phrases
+    assert "More Is" not in phrases
+    assert "Is Spring" not in phrases
+    assert "Spring York" not in phrases
+
+
 def test_preview_community_candidates_disabled_returns_rows_without_candidates(
     tmp_path: Path,
 ) -> None:

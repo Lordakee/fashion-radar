@@ -60,6 +60,16 @@ GENERIC_STOP_KEYS = {
     "sunday",
 }
 
+GENERIC_SINGLE_TOKEN_STOP_KEYS = {
+    "generic",
+    "is",
+    "more",
+    "new",
+    "plus",
+    "spring",
+    "york",
+}
+
 _BOUNDARY_WORDS = {
     "and",
     "as",
@@ -69,6 +79,7 @@ _BOUNDARY_WORDS = {
     "for",
     "from",
     "in",
+    "is",
     "of",
     "on",
     "reports",
@@ -585,7 +596,11 @@ def _single_token_candidates(tokens: list[_Token]) -> list[CandidatePhrase]:
     for token in tokens:
         if not _is_title_token(token):
             continue
-        if token.normalized in FASHION_ANCHORS or token.normalized in _BOUNDARY_WORDS:
+        if (
+            token.normalized in FASHION_ANCHORS
+            or token.normalized in _BOUNDARY_WORDS
+            or token.normalized in GENERIC_SINGLE_TOKEN_STOP_KEYS
+        ):
             continue
         candidates.append(_candidate_from_tokens([token], "unknown", "single_token"))
     return candidates
@@ -644,6 +659,8 @@ def _should_reject_candidate(
     if len(key.split()) > settings.max_phrase_words:
         return True
     if key in GENERIC_STOP_KEYS or key in known_keys or key in source_keys:
+        return True
+    if all(token in GENERIC_SINGLE_TOKEN_STOP_KEYS for token in key.split()):
         return True
     if any(_contains_token_span(key, source_key) for source_key in source_keys):
         return True

@@ -25,6 +25,7 @@ def _edition() -> RowOneEdition:
     story = RowOneStory(
         id="the-row-signal-1234567890",
         section_key="top_stories",
+        story_type="tracked_entity",
         headline='The Row <signals> "quiet" demand',
         summary=LocalizedText(
             zh="来源摘要：The Row signal with <angle> detail.",
@@ -554,7 +555,7 @@ def test_render_row_one_site_writes_json_payload(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
-    assert payload["contract_version"] == "row-one-app/v2"
+    assert payload["contract_version"] == "row-one-app/v3"
     assert payload["brand"] == "ROW ONE"
     assert payload["generated_at"] == "2026-07-02T04:00:00Z"
     assert payload["edition_date"] == "2026-07-02T04:00:00Z"
@@ -602,7 +603,7 @@ def test_render_row_one_site_sanitizes_json_source_url(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
-    assert payload["contract_version"] == "row-one-app/v2"
+    assert payload["contract_version"] == "row-one-app/v3"
     assert payload["stories"][0]["source_url"] is None
     assert payload["stories"][0]["evidence"][1]["url"] is None
     assert payload["stories"][0]["evidence"][1]["href"] is None
@@ -613,6 +614,7 @@ def test_row_one_story_rejects_unknown_section_key() -> None:
         RowOneStory(
             id="bad-section-1234567890",
             section_key="unknown",
+            story_type="tracked_entity",
             headline="Bad section",
             summary=LocalizedText(zh="摘要", en="Summary"),
             why_it_matters=LocalizedText(zh="原因", en="Why"),

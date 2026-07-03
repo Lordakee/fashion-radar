@@ -522,7 +522,7 @@ def test_row_one_build_command_writes_non_ascii_story_detail_path(tmp_path: Path
 
     assert result.exit_code == 0, result.output
     payload = json.loads((output_dir / "data" / "edition.json").read_text(encoding="utf-8"))
-    assert payload["contract_version"] == "row-one-app/v2"
+    assert payload["contract_version"] == "row-one-app/v3"
     story = next(
         story for story in payload["stories"] if story["headline"] == "上海新锐设计师品牌升温"
     )
@@ -941,7 +941,7 @@ def test_row_one_serve_cli_process_serves_generated_site(tmp_path: Path) -> None
         assert len(fetched) == 6
         assert "ROW ONE" in fetched["/"]
         assert '"contract_version": "row-one-manifest/v1"' in fetched["/data/manifest.json"]
-        assert '"contract_version": "row-one-app/v2"' in fetched["/data/edition.json"]
+        assert '"contract_version": "row-one-app/v3"' in fetched["/data/edition.json"]
         assert '"contract_version": "row-one-runtime/v1"' in fetched["/data/runtime.json"]
         assert "RowOneSerif" in fetched["/assets/row-one.css"]
         assert "row-one:language" in fetched["/assets/row-one.js"]

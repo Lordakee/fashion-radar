@@ -16,6 +16,7 @@ RowOneSectionKey = Literal[
 ]
 RowOneDisplayVariant = Literal["editorial", "portrait", "product", "signal"]
 RowOneDisplayAccent = Literal["ink", "graphite", "steel", "cobalt", "rose"]
+RowOneStoryType = Literal["tracked_entity", "candidate_signal", "recent_item"]
 
 
 class LocalizedText(BaseModel):
@@ -58,11 +59,20 @@ class RowOneStoryDisplay(BaseModel):
     image: RowOneStoryImage | None = None
 
 
+class RowOneReference(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    type: str
+    label: str
+
+
 class RowOneStory(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
     section_key: RowOneSectionKey
+    story_type: RowOneStoryType
     headline: str
     summary: LocalizedText
     why_it_matters: LocalizedText
@@ -76,6 +86,12 @@ class RowOneStory(BaseModel):
     tags: list[str] = Field(default_factory=list)
     evidence: list[RowOneLink] = Field(default_factory=list)
     display: RowOneStoryDisplay | None = None
+    market_region: str | None = None
+    source_region: str | None = None
+    entity_refs: list[RowOneReference] = Field(default_factory=list)
+    product_refs: list[RowOneReference] = Field(default_factory=list)
+    designer_refs: list[RowOneReference] = Field(default_factory=list)
+    heat_delta: int | None = None
 
     @field_validator("published_at", mode="before")
     @classmethod

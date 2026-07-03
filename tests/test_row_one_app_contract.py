@@ -57,6 +57,7 @@ def _edition(
             RowOneStory(
                 id="the-row-signal-1234567890",
                 section_key="top_stories",
+                story_type="tracked_entity",
                 headline="The Row signal",
                 summary=LocalizedText(zh="来源摘要。", en="Source summary."),
                 why_it_matters=LocalizedText(zh="值得关注。", en="Worth watching."),
@@ -139,7 +140,7 @@ def test_row_one_manifest_points_to_app_contract_and_site_paths(tmp_path: Path) 
     assert manifest["brand"] == "ROW ONE"
     assert manifest["manifest_schema_path"] == "schemas/row-one-manifest.schema.json"
     assert manifest["app_contract"] == {
-        "version": "row-one-app/v2",
+        "version": "row-one-app/v3",
         "path": "data/edition.json",
         "schema_path": "schemas/row-one-app.schema.json",
     }
@@ -253,6 +254,7 @@ def test_row_one_app_content_cards_mirror_story_display_fields(tmp_path: Path) -
 
     assert card == {
         "id": story["id"],
+        "story_type": story["story_type"],
         "headline": story["headline"],
         "summary": story["summary"],
         "editorial_takeaway": story["editorial_takeaway"],
@@ -260,10 +262,32 @@ def test_row_one_app_content_cards_mirror_story_display_fields(tmp_path: Path) -
         "detail_href": story["detail_href"],
         "display": story["display"],
         "source_name": story["source_name"],
+        "market_region": story["market_region"],
+        "source_region": story["source_region"],
         "published_date": story["published_date"],
         "tags": story["tags"],
+        "entity_refs": story["entity_refs"],
+        "product_refs": story["product_refs"],
+        "designer_refs": story["designer_refs"],
+        "heat_delta": story["heat_delta"],
+        "heat_delta_metric": story["heat_delta_metric"],
         "evidence_count": story["evidence_count"],
     }
+
+
+def test_row_one_app_stories_include_structured_signal_fields(tmp_path: Path) -> None:
+    payload = _payload(tmp_path)
+    story = payload["stories"][0]
+
+    assert story["story_type"] == "tracked_entity"
+    assert story["market_region"] is None
+    assert story["source_region"] is None
+    assert story["heat_delta"] is None
+    assert story["heat_delta_metric"] is None
+    assert story["entity_refs"] == []
+    assert story["product_refs"] == []
+    assert story["designer_refs"] == []
+    _schema_validator().validate(payload)
 
 
 def test_row_one_app_stories_include_detail_sections_and_evidence_summary(
@@ -584,7 +608,7 @@ def test_row_one_app_schema_rejects_display_image_urls_sanitizer_rejects(
 @pytest.mark.parametrize(
     ("mutation", "match"),
     [
-        (lambda payload: payload.__setitem__("contract_version", "row-one-app/v3"), "was expected"),
+        (lambda payload: payload.__setitem__("contract_version", "row-one-app/v2"), "was expected"),
         (lambda payload: payload.__setitem__("extra", True), "Additional properties"),
         (lambda payload: payload["stories"][0].__setitem__("section_key", "unknown"), "not one"),
         (
@@ -672,7 +696,7 @@ def test_empty_row_one_app_payload_validates(tmp_path: Path) -> None:
 
     payload = _payload(tmp_path, edition)
 
-    assert payload["contract_version"] == "row-one-app/v2"
+    assert payload["contract_version"] == "row-one-app/v3"
     assert payload["story_count"] == 0
     assert payload["evidence_count"] == 0
     assert payload["stories"] == []

@@ -998,6 +998,53 @@ def test_daily_report_includes_untracked_candidate_signals(tmp_path) -> None:
         assert forbidden not in markdown
 
 
+def test_daily_report_filters_generic_single_token_noise_from_candidates(tmp_path) -> None:
+    engine = create_sqlite_engine(tmp_path / "fashion.db")
+    initialize_schema(engine)
+    repository = ItemRepository(engine)
+    for index, source_name in enumerate(("Fashionista", "WWD"), start=1):
+        repository.upsert_item(
+            CollectedItem(
+                source_name=source_name,
+                source_type=SourceType.RSS,
+                url=f"https://example.com/noise-{index}",
+                title="New Plus More Is Spring York",
+                published_at=AS_OF - timedelta(hours=index),
+                summary="Generic title-case words should not become candidates.",
+            ),
+            collected_at=AS_OF - timedelta(hours=index),
+        )
+    repository.upsert_item(
+        CollectedItem(
+            source_name="Vogue Business",
+            source_type=SourceType.RSS,
+            url="https://example.com/le-teckel",
+            title="Le Teckel bag gains buyer attention",
+            published_at=AS_OF - timedelta(hours=3),
+            summary="Le Teckel bag demand is accelerating.",
+        ),
+        collected_at=AS_OF - timedelta(hours=3),
+    )
+
+    report = build_daily_report(
+        engine,
+        scoring=ScoringSettings(),
+        candidate_discovery=CandidateDiscoverySettings(
+            review_min_current_mentions=1,
+            review_min_distinct_sources=1,
+            min_single_token_mentions=1,
+            min_single_token_distinct_sources=1,
+        ),
+        entity_config=None,
+        as_of=AS_OF,
+        generated_at=AS_OF,
+    )
+
+    phrases = {candidate.phrase for candidate in report.candidates}
+    assert "Le Teckel bag" in phrases
+    assert not {"New", "Plus", "More", "Is", "Spring", "York"} & phrases
+
+
 def test_empty_candidate_section_is_useful(tmp_path) -> None:
     engine = create_sqlite_engine(tmp_path / "fashion.db")
     initialize_schema(engine)

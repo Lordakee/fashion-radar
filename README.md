@@ -71,7 +71,7 @@ brands, or verify platform coverage.
 - Generates the optional ROW ONE local static site from existing daily report
   data for editorial review, with no new data acquisition, no demand proof, and
   no platform coverage verification. The active app JSON payload is
-  `row-one-app/v2`; `content_sections`, `detail_sections`, and
+  `row-one-app/v3`; `content_sections`, `detail_sections`, and
   `evidence_summary` let app clients render section rails from local JSON. The
   generated experience is a professional static website with an edition rail
   and article contents for local editorial review.
@@ -101,7 +101,7 @@ Xiaohongshu).
 ROW ONE is a local static site built from existing daily report data. It adds
 no new data acquisition, no scraping, no platform APIs, no paid APIs, no
 translation service, no deployment automation, no demand proof, and no platform
-coverage verification. Its active app contract is `row-one-app/v2`, with
+coverage verification. Its active app contract is `row-one-app/v3`, with
 `content_sections`, `detail_sections`, and `evidence_summary` so app clients
 can render section rails without scraping HTML. See [docs/row-one.md](docs/row-one.md).
 
