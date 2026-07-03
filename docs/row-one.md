@@ -70,7 +70,7 @@ ROW ONE renders a professional static website presentation for editorial review.
 The homepage edition rail, article contents, evidence trail, and retained source
 row labels help readers scan the generated site while staying within the
 existing local data model. This editorial web experience uses existing
-row-one-app/v3 content organization and adds homepage briefing topics: the ROW
+row-one-app/v4 content organization and adds homepage briefing topics: the ROW
 ONE homepage renders the first four `daily_digest.briefing_topics` from the same
 app payload written to `data/edition.json` as a presentation-only briefing topic
 index with organized topic groups, topic labels, `story_ids`, `cards`, evidence
@@ -101,14 +101,14 @@ required for tests.
 
 ## App JSON Contract
 
-`data/edition.json` is the row-one-app/v3 app-facing contract for clients that
+`data/edition.json` is the row-one-app/v4 app-facing contract for clients that
 need to render the latest ROW ONE edition without scraping HTML. The payload is
 validated by `schemas/row-one-app.schema.json` and includes localized edition
 summary text, section counts (`story_count`), section anchors, story detail
 hrefs (`detail_href` and `href`), published dates, evidence counts
 (`evidence_count`), and sanitized URLs.
 
-The active app version is `row-one-app/v3`. Its content organization surface
+The active app version is `row-one-app/v4`. Its content organization surface
 adds `content_sections`, `detail_sections`, `evidence_summary`, and
 `daily_digest` so app clients render section rails and a daily briefing from the
 JSON payload instead of reconstructing them from page markup. `content_sections`
@@ -122,6 +122,12 @@ and `signals_to_watch` lists only positive local raw mention deltas. Together
 these fields let app clients render section rails without scraping HTML and
 app clients can render a daily briefing without scraping HTML. It does not add
 source collection and does not prove demand.
+
+`story_directory` is the app-facing route index for existing ROW ONE stories.
+It gives app clients a route lookup surface derived only from the stories already
+present in the edition payload, so clients can open story detail routes without
+scraping HTML. It does not collect sources, does not change matching, scoring,
+sorting, or story IDs, and does not introduce a separate story discovery layer.
 
 `daily_digest.briefing_topics` is the app-ready briefing organization surface
 for showing organized topic groups instead of a flat list of links. Each topic
@@ -149,7 +155,7 @@ server, or schedule behavior.
 
 `data/manifest.json` is the `row-one-manifest/v1` app discovery manifest. It is
 validated by `schemas/row-one-manifest.schema.json` and points clients to
-`data/edition.json`, the `row-one-app/v3` edition payload, and stable generated
+`data/edition.json`, the `row-one-app/v4` edition payload, and stable generated
 site paths such as `index.html`, `assets/`, and `details/`.
 
 The manifest contains only discovery metadata, counts, readiness status, and
@@ -184,7 +190,7 @@ checks. The top-level JSON exposes `counts`, `readiness`, `refresh_time`,
 `serve`, `contracts`, and `refresh` objects projected from the validated
 runtime, manifest, and app payloads. These fields are CLI status output only;
 they do not add fields to `row-one-runtime/v1`, `row-one-manifest/v1`, or
-`row-one-app/v3`.
+`row-one-app/v4`.
 
 The canonical first-run local serving boundary is fixed IP:port `127.0.0.1:8787`
 for local-only testing. Use `0.0.0.0:8787` only for explicit LAN serving, and
@@ -216,7 +222,7 @@ The CLI preview uses compact English status labels for terminal output; the
 homepage Latest Edition status strip renders bilingual English/Chinese labels.
 
 This is a display/readiness surface only. It does not change the
-`row-one-app/v3` JSON contract, source collection, matching, scoring, ranking,
+`row-one-app/v4` JSON contract, source collection, matching, scoring, ranking,
 or scheduling semantics.
 
 The homepage also renders a lead story presentation block and the index/detail

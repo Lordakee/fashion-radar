@@ -3805,6 +3805,135 @@ def test_validate_candidates_and_trends_pin_expected_first_run_state() -> None:
         smoke.validate_trends("trends", wrong_kind)
 
 
+def test_validate_row_one_manifest_requires_v4_app_contract() -> None:
+    edition_payload = {
+        "contract_version": "row-one-app/v4",
+        "generated_at": "2026-06-13T12:00:00Z",
+        "edition_date": "2026-06-13T12:00:00Z",
+        "story_count": 0,
+        "evidence_count": 0,
+        "sections": [
+            {"key": "top_stories"},
+            {"key": "brand_moves"},
+            {"key": "celebrity_style"},
+            {"key": "hot_products"},
+            {"key": "rising_radar"},
+        ],
+        "story_directory": {"story_count": 0, "story_ids": [], "routes": []},
+        "stories": [],
+    }
+    manifest_payload = {
+        "contract_version": "row-one-manifest/v1",
+        "brand": "ROW ONE",
+        "generated_at": "2026-06-13T12:00:00Z",
+        "edition_date": "2026-06-13T12:00:00Z",
+        "app_contract": {
+            "version": "row-one-app/v4",
+            "path": "data/edition.json",
+            "schema_path": "schemas/row-one-app.schema.json",
+        },
+        "site": {
+            "index_path": "index.html",
+            "manifest_path": "data/manifest.json",
+        },
+        "counts": {
+            "story_count": 0,
+            "section_count": 5,
+            "evidence_count": 0,
+        },
+        "readiness": {"status": "empty"},
+    }
+
+    smoke.validate_row_one_manifest(manifest_payload, edition_payload)
+
+    manifest_payload["app_contract"]["version"] = "row-one-app/v3"  # type: ignore[index]
+    with pytest.raises(smoke.SmokeError, match="app_contract version"):
+        smoke.validate_row_one_manifest(manifest_payload, edition_payload)
+
+
+def test_validate_row_one_runtime_requires_story_directory_routes() -> None:
+    story = {
+        "id": "the-row-route-1111111111",
+        "detail_href": "details/the-row-route-1111111111.html",
+        "section_key": "top_stories",
+        "section": {"href": "#top_stories"},
+        "published_date": "2026-06-13",
+    }
+    edition_payload = {
+        "contract_version": "row-one-app/v4",
+        "generated_at": "2026-06-13T12:00:00Z",
+        "edition_date": "2026-06-13T12:00:00Z",
+        "story_count": 1,
+        "evidence_count": 0,
+        "sections": [
+            {"key": "top_stories"},
+            {"key": "brand_moves"},
+            {"key": "celebrity_style"},
+            {"key": "hot_products"},
+            {"key": "rising_radar"},
+        ],
+        "stories": [story],
+        "story_directory": {
+            "story_count": 1,
+            "story_ids": ["the-row-route-1111111111"],
+            "routes": [
+                {
+                    "story_id": "the-row-route-1111111111",
+                    "detail_href": "details/the-row-route-1111111111.html",
+                    "section_key": "top_stories",
+                    "section_href": "#top_stories",
+                    "published_date": "2026-06-13",
+                }
+            ],
+        },
+    }
+    manifest_payload = {
+        "counts": {
+            "story_count": 1,
+            "section_count": 5,
+            "evidence_count": 0,
+        },
+        "readiness": {"status": "ready"},
+    }
+    runtime_payload = {
+        "contract_version": "row-one-runtime/v1",
+        "runtime_schema_path": "schemas/row-one-runtime.schema.json",
+        "brand": "ROW ONE",
+        "generated_at": "2026-06-13T12:00:00Z",
+        "edition_date": "2026-06-13T12:00:00Z",
+        "site": {
+            "index_path": "index.html",
+            "manifest_path": "data/manifest.json",
+            "edition_path": "data/edition.json",
+            "runtime_path": "data/runtime.json",
+        },
+        "refresh": {
+            "recommended_time": "04:00",
+            "command": 'fashion-radar row-one refresh --as-of "$AS_OF"',
+            "latest_only_cleanup": True,
+        },
+        "serve": {
+            "default_host": "127.0.0.1",
+            "default_port": 8787,
+            "local_url": "http://127.0.0.1:8787",
+            "lan_url_hint": "http://<LAN-IP>:8787",
+        },
+        "counts": {
+            "story_count": 1,
+            "section_count": 5,
+            "evidence_count": 0,
+        },
+        "readiness": {"status": "ready", "zh": "ready", "en": "ready"},
+    }
+
+    smoke.validate_row_one_runtime(runtime_payload, manifest_payload, edition_payload)
+
+    routes = edition_payload["story_directory"]["routes"]  # type: ignore[index]
+    routes[0]["detail_href"] = "details/drifted-route.html"  # type: ignore[index]
+    with pytest.raises(smoke.SmokeError, match="story_directory routes\\[0\\] detail_href"):
+        smoke.validate_row_one_runtime(runtime_payload, manifest_payload, edition_payload)
+
+
 def test_validate_trends_rejects_non_object_delta_entries() -> None:
     payload = trends_payload()
     deltas = payload["deltas"]
@@ -4284,6 +4413,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                 encoding="utf-8",
             )
             edition_payload = {
+                "contract_version": "row-one-app/v4",
                 "generated_at": "2026-06-13T12:00:00Z",
                 "edition_date": "2026-06-13T12:00:00Z",
                 "story_count": 0,
@@ -4295,6 +4425,8 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                     {"key": "hot_products"},
                     {"key": "rising_radar"},
                 ],
+                "story_directory": {"story_count": 0, "story_ids": [], "routes": []},
+                "stories": [],
             }
             manifest_payload = {
                 "contract_version": "row-one-manifest/v1",
@@ -4302,7 +4434,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                 "generated_at": "2026-06-13T12:00:00Z",
                 "edition_date": "2026-06-13T12:00:00Z",
                 "app_contract": {
-                    "version": "row-one-app/v3",
+                    "version": "row-one-app/v4",
                     "path": "data/edition.json",
                     "schema_path": "schemas/row-one-app.schema.json",
                 },

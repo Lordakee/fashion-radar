@@ -12,6 +12,7 @@
     "sections",
     "content_sections",
     "daily_digest",
+    "story_directory",
     "stories",
     "story_count",
     "evidence_count"
@@ -19,7 +20,7 @@
   "additionalProperties": false,
   "properties": {
     "contract_version": {
-      "const": "row-one-app/v3"
+      "const": "row-one-app/v4"
     },
     "brand": {
       "type": "string",
@@ -53,6 +54,9 @@
     },
     "daily_digest": {
       "$ref": "#/$defs/dailyDigest"
+    },
+    "story_directory": {
+      "$ref": "#/$defs/storyDirectory"
     },
     "stories": {
       "type": "array",
@@ -94,6 +98,26 @@
         "rising_radar"
       ]
     },
+    "sectionHref": {
+      "type": "string",
+      "pattern": "^#(top_stories|brand_moves|celebrity_style|hot_products|rising_radar)$"
+    },
+    "storyId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}$"
+    },
+    "nullablePublishedDate": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "safeExternalUrl": {
       "anyOf": [
         {
@@ -110,6 +134,51 @@
       "type": "string",
       "pattern": "^details/[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\\.html$"
     },
+    "storyDirectory": {
+      "type": "object",
+      "required": ["story_count", "story_ids", "routes"],
+      "additionalProperties": false,
+      "properties": {
+        "story_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "story_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/storyId"
+          }
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/storyDirectoryRoute"
+          }
+        }
+      }
+    },
+    "storyDirectoryRoute": {
+      "type": "object",
+      "required": ["story_id", "detail_href", "section_key", "section_href", "published_date"],
+      "additionalProperties": false,
+      "properties": {
+        "story_id": {
+          "$ref": "#/$defs/storyId"
+        },
+        "detail_href": {
+          "$ref": "#/$defs/detailHref"
+        },
+        "section_key": {
+          "$ref": "#/$defs/sectionKey"
+        },
+        "section_href": {
+          "$ref": "#/$defs/sectionHref"
+        },
+        "published_date": {
+          "$ref": "#/$defs/nullablePublishedDate"
+        }
+      }
+    },
     "section": {
       "type": "object",
       "required": ["key", "title", "dek", "href", "story_count"],
@@ -125,8 +194,7 @@
           "$ref": "#/$defs/localizedText"
         },
         "href": {
-          "type": "string",
-          "pattern": "^#(top_stories|brand_moves|celebrity_style|hot_products|rising_radar)$"
+          "$ref": "#/$defs/sectionHref"
         },
         "story_count": {
           "type": "integer",
@@ -146,8 +214,7 @@
           "$ref": "#/$defs/localizedText"
         },
         "href": {
-          "type": "string",
-          "pattern": "^#(top_stories|brand_moves|celebrity_style|hot_products|rising_radar)$"
+          "$ref": "#/$defs/sectionHref"
         }
       }
     },
@@ -248,16 +315,7 @@
           ]
         },
         "published_date": {
-          "anyOf": [
-            {
-              "type": "string",
-              "format": "date",
-              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/nullablePublishedDate"
         },
         "detail_path": {
           "$ref": "#/$defs/detailHref"

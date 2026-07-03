@@ -160,7 +160,7 @@ def test_row_one_manifest_points_to_app_contract_and_site_paths(tmp_path: Path) 
     assert manifest["brand"] == "ROW ONE"
     assert manifest["manifest_schema_path"] == "schemas/row-one-manifest.schema.json"
     assert manifest["app_contract"] == {
-        "version": "row-one-app/v3",
+        "version": "row-one-app/v4",
         "path": "data/edition.json",
         "schema_path": "schemas/row-one-app.schema.json",
     }
@@ -265,6 +265,34 @@ def test_row_one_app_payload_groups_content_sections_for_clients(tmp_path: Path)
         assert [card["id"] for card in content_section["cards"]] == [
             story["id"] for story in section_stories
         ]
+
+
+def test_row_one_app_payload_includes_story_directory_for_clients(tmp_path: Path) -> None:
+    payload = _payload(tmp_path)
+    stories = payload["stories"]
+    directory = payload["story_directory"]
+
+    assert directory["story_count"] == payload["story_count"]
+    assert directory["story_ids"] == [story["id"] for story in stories]
+    assert len(directory["routes"]) == len(stories)
+
+    for route, story in zip(directory["routes"], stories, strict=True):
+        assert set(route) == {
+            "story_id",
+            "detail_href",
+            "section_key",
+            "section_href",
+            "published_date",
+        }
+        assert route == {
+            "story_id": story["id"],
+            "detail_href": story["detail_href"],
+            "section_key": story["section_key"],
+            "section_href": story["section"]["href"],
+            "published_date": story["published_date"],
+        }
+
+    _schema_validator().validate(payload)
 
 
 def test_row_one_app_payload_includes_daily_digest_for_clients(tmp_path: Path) -> None:
@@ -951,6 +979,64 @@ def test_row_one_app_schema_rejects_display_image_urls_sanitizer_rejects(
             ),
             "was expected",
         ),
+        (
+            lambda payload: payload.pop("story_directory"),
+            "'story_directory' is a required property",
+        ),
+        (
+            lambda payload: payload["story_directory"].__setitem__("extra", True),
+            "Additional properties",
+        ),
+        (
+            lambda payload: payload["story_directory"]["routes"][0].__setitem__(
+                "headline",
+                "The Row signal",
+            ),
+            "Additional properties",
+        ),
+        (
+            lambda payload: payload["story_directory"]["routes"][0].pop("story_id"),
+            "'story_id' is a required property",
+        ),
+        (
+            lambda payload: payload["story_directory"]["routes"][0].pop("published_date"),
+            "'published_date' is a required property",
+        ),
+        (
+            lambda payload: payload["story_directory"]["routes"][0].__setitem__(
+                "story_id",
+                "Bad ID!",
+            ),
+            "does not match",
+        ),
+        (
+            lambda payload: payload["story_directory"]["routes"][0].__setitem__(
+                "detail_href",
+                "../escape.html",
+            ),
+            "does not match",
+        ),
+        (
+            lambda payload: payload["story_directory"]["routes"][0].__setitem__(
+                "section_key",
+                "unknown",
+            ),
+            "not one",
+        ),
+        (
+            lambda payload: payload["story_directory"]["routes"][0].__setitem__(
+                "section_href",
+                "top_stories",
+            ),
+            "does not match",
+        ),
+        (
+            lambda payload: payload["story_directory"]["routes"][0].__setitem__(
+                "published_date",
+                "2026-7-2",
+            ),
+            "not valid under any",
+        ),
         (lambda payload: payload.__setitem__("extra", True), "Additional properties"),
         (lambda payload: payload["stories"][0].__setitem__("section_key", "unknown"), "not one"),
         (
@@ -1038,10 +1124,15 @@ def test_empty_row_one_app_payload_validates(tmp_path: Path) -> None:
 
     payload = _payload(tmp_path, edition)
 
-    assert payload["contract_version"] == "row-one-app/v3"
+    assert payload["contract_version"] == "row-one-app/v4"
     assert payload["story_count"] == 0
     assert payload["evidence_count"] == 0
     assert payload["stories"] == []
+    assert payload["story_directory"] == {
+        "story_count": 0,
+        "story_ids": [],
+        "routes": [],
+    }
     assert payload["daily_digest"] == {
         "title": {"zh": "今日简报", "en": "Today's Briefing"},
         "dek": {

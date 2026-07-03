@@ -1125,6 +1125,19 @@ def validate_row_one_manifest(
         else None,
         "data/edition.json",
     )
+    app_contract = manifest_payload.get("app_contract")
+    if not isinstance(app_contract, dict):
+        raise SmokeError("row-one manifest app_contract must be a JSON object")
+    assert_equal(
+        "row-one manifest app_contract version",
+        app_contract.get("version"),
+        "row-one-app/v4",
+    )
+    assert_equal(
+        "row-one manifest app_contract schema_path",
+        app_contract.get("schema_path"),
+        "schemas/row-one-app.schema.json",
+    )
     site = manifest_payload.get("site")
     if not isinstance(site, dict):
         raise SmokeError("row-one manifest site must be a JSON object")
@@ -1164,6 +1177,67 @@ def validate_row_one_manifest(
         raise SmokeError("row-one manifest readiness must be a JSON object")
     expected_status = "ready" if counts.get("story_count") else "empty"
     assert_equal("row-one manifest readiness status", readiness.get("status"), expected_status)
+
+
+def validate_row_one_story_directory(edition_payload: Any) -> None:
+    if not isinstance(edition_payload, dict):
+        raise SmokeError("row-one edition must be a JSON object")
+    assert_equal(
+        "row-one edition contract_version",
+        edition_payload.get("contract_version"),
+        "row-one-app/v4",
+    )
+    stories = edition_payload.get("stories")
+    if not isinstance(stories, list):
+        raise SmokeError("row-one edition stories must be a JSON array")
+    story_directory = edition_payload.get("story_directory")
+    if not isinstance(story_directory, dict):
+        raise SmokeError("row-one edition story_directory must be a JSON object")
+
+    assert_equal(
+        "row-one story_directory story_count",
+        story_directory.get("story_count"),
+        len(stories),
+    )
+    expected_story_ids = []
+    story_by_id: dict[Any, dict[str, Any]] = {}
+    for index, story in enumerate(stories):
+        if not isinstance(story, dict):
+            raise SmokeError(f"row-one edition stories[{index}] must be a JSON object")
+        story_id = story.get("id")
+        expected_story_ids.append(story_id)
+        story_by_id[story_id] = story
+    assert_equal(
+        "row-one story_directory story_ids",
+        story_directory.get("story_ids"),
+        expected_story_ids,
+    )
+
+    routes = story_directory.get("routes")
+    if not isinstance(routes, list):
+        raise SmokeError("row-one story_directory routes must be a JSON array")
+    assert_equal("row-one story_directory routes length", len(routes), len(stories))
+    for index, route in enumerate(routes):
+        if not isinstance(route, dict):
+            raise SmokeError(f"row-one story_directory routes[{index}] must be a JSON object")
+        story_id = route.get("story_id")
+        story = story_by_id.get(story_id)
+        if story is None:
+            raise SmokeError(f"row-one story_directory routes[{index}] story_id is unknown")
+        section = story.get("section")
+        if not isinstance(section, dict):
+            raise SmokeError(f"row-one edition stories[{index}] section must be a JSON object")
+        for key, expected in (
+            ("detail_href", story.get("detail_href")),
+            ("section_key", story.get("section_key")),
+            ("section_href", section.get("href")),
+            ("published_date", story.get("published_date")),
+        ):
+            assert_equal(
+                f"row-one story_directory routes[{index}] {key}",
+                route.get(key),
+                expected,
+            )
 
 
 def validate_row_one_runtime(
@@ -1254,6 +1328,7 @@ def validate_row_one_runtime(
     assert_equal("row-one runtime readiness en", readiness.get("en"), readiness.get("status"))
     if not isinstance(readiness.get("zh"), str) or not readiness.get("zh"):
         raise SmokeError("row-one runtime readiness zh must be a non-empty string")
+    validate_row_one_story_directory(edition_payload)
 
 
 def validate_import_signals_dry_run(output: str) -> None:

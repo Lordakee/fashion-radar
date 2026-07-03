@@ -146,7 +146,7 @@ def test_row_one_docs_describe_versioned_app_json_contract() -> None:
 
     for phrase in (
         "app json contract",
-        "`data/edition.json` is the row-one-app/v3 app-facing contract",
+        "`data/edition.json` is the row-one-app/v4 app-facing contract",
         "`schemas/row-one-app.schema.json`",
         "section counts",
         "detail hrefs",
@@ -167,7 +167,7 @@ def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
     readme = _normalized(_read(README))
 
     for phrase in (
-        "row-one-app/v3",
+        "row-one-app/v4",
         "content_sections",
         "detail_sections",
         "evidence_summary",
@@ -182,7 +182,7 @@ def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
         assert phrase in row_one
 
     for phrase in (
-        "row-one-app/v3",
+        "row-one-app/v4",
         "content_sections",
         "detail_sections",
         "evidence_summary",
@@ -192,6 +192,30 @@ def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
 
     assert "row-one-app/v1 app-facing contract" not in row_one
     assert "row-one-app/v1` json contract" not in row_one
+
+
+def test_row_one_docs_describe_stage_282_story_directory() -> None:
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    readme = _normalized(_read(README))
+
+    for phrase in (
+        "story_directory",
+        "app-facing route index",
+        "derived only from the stories already present in the edition payload",
+        "without scraping html",
+        "does not collect sources",
+        "does not change matching, scoring, sorting, or story ids",
+        "does not introduce a separate story discovery layer",
+    ):
+        assert phrase in row_one
+
+    for phrase in (
+        "story_directory",
+        "app-facing route index derived only from existing row one stories",
+        "without html scraping",
+        "does not change collection, matching, scoring, sorting, story ids",
+    ):
+        assert phrase in readme
 
 
 def test_row_one_docs_describe_stage_275_daily_digest() -> None:
@@ -295,7 +319,7 @@ def test_row_one_docs_describe_stage_272_editorial_web_experience() -> None:
         "article contents",
         "evidence trail",
         "retained source row",
-        "uses existing row-one-app/v3 content organization",
+        "uses existing row-one-app/v4 content organization",
     ):
         assert phrase in row_one
 

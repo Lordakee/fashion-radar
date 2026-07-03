@@ -535,7 +535,7 @@ def test_row_one_build_command_writes_non_ascii_story_detail_path(tmp_path: Path
 
     assert result.exit_code == 0, result.output
     payload = json.loads((output_dir / "data" / "edition.json").read_text(encoding="utf-8"))
-    assert payload["contract_version"] == "row-one-app/v3"
+    assert payload["contract_version"] == "row-one-app/v4"
     story = next(
         story for story in payload["stories"] if story["headline"] == "上海新锐设计师品牌升温"
     )
@@ -546,6 +546,18 @@ def test_row_one_build_command_writes_non_ascii_story_detail_path(tmp_path: Path
     assert detail_path.endswith(".html")
     assert detail_path.isascii()
     assert "%" not in detail_path
+    assert payload["story_directory"]["story_count"] == payload["story_count"]
+    assert story["id"] in payload["story_directory"]["story_ids"]
+    route = next(
+        route for route in payload["story_directory"]["routes"] if route["story_id"] == story["id"]
+    )
+    assert route == {
+        "story_id": story["id"],
+        "detail_href": detail_path,
+        "section_key": story["section_key"],
+        "section_href": story["section"]["href"],
+        "published_date": story["published_date"],
+    }
     assert (output_dir / detail_path).exists()
     index_html = (output_dir / "index.html").read_text(encoding="utf-8")
     assert 'class="edition-nav"' in index_html
@@ -746,7 +758,7 @@ def test_row_one_status_json_outputs_machine_readable_payload(tmp_path: Path) ->
     assert payload["runtime"]["contract_version"] == "row-one-runtime/v1"
     assert payload["manifest"]["contract_version"] == "row-one-manifest/v1"
     assert payload["contracts"] == {
-        "app": "row-one-app/v3",
+        "app": "row-one-app/v4",
         "manifest": "row-one-manifest/v1",
         "runtime": "row-one-runtime/v1",
     }
@@ -882,7 +894,7 @@ def test_row_one_status_rejects_missing_runtime_payload(tmp_path: Path) -> None:
         ),
         (
             lambda _runtime, _manifest, edition: edition.update(
-                {"contract_version": "row-one-app/v4"}
+                {"contract_version": "row-one-app/v3"}
             ),
             "edition contract_version",
         ),
@@ -936,6 +948,32 @@ def test_row_one_status_rejects_runtime_contract_drift(
 
     assert result.exit_code == 1
     assert expected_error in result.output
+
+
+def test_row_one_status_rejects_story_directory_route_drift(tmp_path: Path) -> None:
+    edition = build_row_one_edition(
+        report=_empty_report(),
+        recent_items=[
+            {
+                "source_name": "Local Desk",
+                "url": "https://example.com/story-directory",
+                "title": "The Row route index demand rises",
+                "summary": "Local desk notes route index drift should be rejected.",
+                "collected_at": AS_OF,
+            }
+        ],
+        as_of=AS_OF,
+    )
+    render_row_one_site(edition, tmp_path)
+    edition_path = tmp_path / "data" / "edition.json"
+    payload = json.loads(edition_path.read_text(encoding="utf-8"))
+    payload["story_directory"]["routes"][0]["detail_href"] = "details/drifted-route.html"
+    edition_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "edition.story_directory.routes[0].detail_href" in result.output
 
 
 def test_row_one_schedule_prints_refresh_command() -> None:
@@ -1072,7 +1110,7 @@ def test_row_one_serve_cli_process_serves_generated_site(tmp_path: Path) -> None
         assert len(fetched) == 6
         assert "ROW ONE" in fetched["/"]
         assert '"contract_version": "row-one-manifest/v1"' in fetched["/data/manifest.json"]
-        assert '"contract_version": "row-one-app/v3"' in fetched["/data/edition.json"]
+        assert '"contract_version": "row-one-app/v4"' in fetched["/data/edition.json"]
         assert '"contract_version": "row-one-runtime/v1"' in fetched["/data/runtime.json"]
         assert "RowOneSerif" in fetched["/assets/row-one.css"]
         assert "row-one:language" in fetched["/assets/row-one.js"]

@@ -26,7 +26,7 @@ from fashion_radar.row_one.templates import (
 from fashion_radar.row_one.utils import isoformat_z, safe_external_url, utc_datetime
 
 GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data")
-ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v3"
+ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v4"
 ROW_ONE_MANIFEST_CONTRACT_VERSION = "row-one-manifest/v1"
 ROW_ONE_MANIFEST_SCHEMA_PATH = "schemas/row-one-manifest.schema.json"
 ROW_ONE_RUNTIME_CONTRACT_VERSION = "row-one-runtime/v1"
@@ -128,6 +128,7 @@ def build_row_one_app_payload(edition: RowOneEdition) -> dict[str, object]:
             _content_section_payload(section, stories) for section in edition.sections
         ],
         "daily_digest": _daily_digest_payload(edition, stories),
+        "story_directory": _story_directory_payload(stories),
         "stories": stories,
         "story_count": len(stories),
         "evidence_count": sum(_safe_evidence_count(story.evidence) for story in edition.stories),
@@ -293,6 +294,27 @@ def _daily_digest_payload(
                 _signals_to_watch_digest_stories(stories),
             ),
         ],
+    }
+
+
+def _story_directory_payload(stories: list[dict[str, object]]) -> dict[str, object]:
+    return {
+        "story_count": len(stories),
+        "story_ids": [str(story["id"]) for story in stories],
+        "routes": [_story_directory_route_payload(story) for story in stories],
+    }
+
+
+def _story_directory_route_payload(story: dict[str, object]) -> dict[str, object]:
+    section = story["section"]
+    if not isinstance(section, dict):
+        raise TypeError("ROW ONE story section payload must be an object")
+    return {
+        "story_id": story["id"],
+        "detail_href": story["detail_href"],
+        "section_key": story["section_key"],
+        "section_href": section["href"],
+        "published_date": story["published_date"],
     }
 
 

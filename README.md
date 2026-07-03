@@ -71,9 +71,10 @@ brands, or verify platform coverage.
 - Generates the optional ROW ONE local static site from existing daily report
   data for editorial review, with no new data acquisition, no demand proof, and
   no platform coverage verification. The active app JSON payload is
-  `row-one-app/v3`; `content_sections`, `detail_sections`,
-  `evidence_summary`, and `daily_digest` let app clients render section rails
-  and a daily briefing from local JSON. The generated experience is a
+  `row-one-app/v4`; `content_sections`, `detail_sections`,
+  `evidence_summary`, `daily_digest`, and `story_directory` let app clients
+  render section rails, a daily briefing, and route lookups from local JSON
+  without scraping HTML. The generated experience is a
   professional static website with an edition rail and article contents for
   local editorial review.
 - Can package optional local digest artifacts such as latest report copies, a
@@ -102,7 +103,7 @@ Xiaohongshu).
 ROW ONE is a local static site built from existing daily report data. It adds
 no new data acquisition, no scraping, no platform APIs, no paid APIs, no
 translation service, no deployment automation, no demand proof, and no platform
-coverage verification. Its active app contract is `row-one-app/v3`, with
+coverage verification. Its active app contract is `row-one-app/v4`, with
 `content_sections`, `detail_sections`, `evidence_summary`, and
 `daily_digest` so app clients can render section rails and a daily briefing
 without scraping HTML. `daily_digest.briefing_topics` lets clients render an
@@ -113,6 +114,10 @@ verification, or external enrichment. The ROW ONE homepage can render
 the first four daily_digest.briefing_topics from the same data/edition.json
 payload, while app clients still use data/edition.json without scraping HTML. See
 [docs/row-one.md](docs/row-one.md).
+`story_directory` is an app-facing route index derived only from existing ROW
+ONE stories. It helps app clients resolve story routes from local JSON without
+HTML scraping, and it does not change collection, matching, scoring, sorting,
+story IDs, or source acquisition.
 The ROW ONE homepage briefing path reuses `daily_digest.blocks` as a compact
 reading path, links to existing detail pages, and is not a new data layer.
 For local app/ops preflight, `row-one status --json` provides additive top-level

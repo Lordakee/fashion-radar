@@ -829,7 +829,7 @@ def test_render_row_one_site_writes_json_payload(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
-    assert payload["contract_version"] == "row-one-app/v3"
+    assert payload["contract_version"] == "row-one-app/v4"
     assert payload["brand"] == "ROW ONE"
     assert payload["generated_at"] == "2026-07-02T04:00:00Z"
     assert payload["edition_date"] == "2026-07-02T04:00:00Z"
@@ -868,6 +868,19 @@ def test_render_row_one_site_writes_json_payload(tmp_path) -> None:
     assert story["evidence"][1]["url"] is None
     assert story["evidence"][1]["href"] is None
 
+    story_directory = payload["story_directory"]
+    assert story_directory["story_count"] == 1
+    assert story_directory["story_ids"] == [story["id"]]
+    assert story_directory["routes"] == [
+        {
+            "story_id": story["id"],
+            "detail_href": story["detail_href"],
+            "section_key": story["section_key"],
+            "section_href": story["section"]["href"],
+            "published_date": story["published_date"],
+        }
+    ]
+
 
 def test_render_row_one_site_sanitizes_json_source_url(tmp_path) -> None:
     edition = _edition()
@@ -877,7 +890,7 @@ def test_render_row_one_site_sanitizes_json_source_url(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
-    assert payload["contract_version"] == "row-one-app/v3"
+    assert payload["contract_version"] == "row-one-app/v4"
     assert payload["stories"][0]["source_url"] is None
     assert payload["stories"][0]["evidence"][1]["url"] is None
     assert payload["stories"][0]["evidence"][1]["href"] is None

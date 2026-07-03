@@ -1609,6 +1609,72 @@ def _require_row_one_value(label: str, actual: object, expected: object) -> None
         raise ValueError(f"row-one {label} expected {expected!r}, got {actual!r}")
 
 
+def _validate_row_one_story_directory(edition: dict[str, object]) -> None:
+    stories = edition.get("stories")
+    if not isinstance(stories, list):
+        raise ValueError("row-one edition.stories must be a JSON array")
+    story_directory = _require_row_one_object(
+        edition,
+        "story_directory",
+        label="edition.story_directory",
+    )
+    story_count = len(stories)
+    _require_row_one_value(
+        "edition.story_directory.story_count",
+        story_directory.get("story_count"),
+        story_count,
+    )
+    story_ids = story_directory.get("story_ids")
+    expected_story_ids: list[object] = []
+    story_by_id: dict[object, dict[str, object]] = {}
+    for index, story in enumerate(stories):
+        if not isinstance(story, dict):
+            raise ValueError(f"row-one edition.stories[{index}] must be a JSON object")
+        story_id = story.get("id")
+        expected_story_ids.append(story_id)
+        story_by_id[story_id] = story
+    _require_row_one_value(
+        "edition.story_directory.story_ids",
+        story_ids,
+        expected_story_ids,
+    )
+
+    routes = story_directory.get("routes")
+    if not isinstance(routes, list):
+        raise ValueError("row-one edition.story_directory.routes must be a JSON array")
+    _require_row_one_value(
+        "edition.story_directory.routes length",
+        len(routes),
+        story_count,
+    )
+    for index, route in enumerate(routes):
+        if not isinstance(route, dict):
+            raise ValueError(
+                f"row-one edition.story_directory.routes[{index}] must be a JSON object"
+            )
+        story_id = route.get("story_id")
+        story = story_by_id.get(story_id)
+        if story is None:
+            raise ValueError(
+                f"row-one edition.story_directory.routes[{index}].story_id "
+                f"does not match an edition story"
+            )
+        section = story.get("section")
+        if not isinstance(section, dict):
+            raise ValueError(f"row-one edition.stories[{index}].section must be a JSON object")
+        for key, expected in (
+            ("detail_href", story.get("detail_href")),
+            ("section_key", story.get("section_key")),
+            ("section_href", section.get("href")),
+            ("published_date", story.get("published_date")),
+        ):
+            _require_row_one_value(
+                f"edition.story_directory.routes[{index}].{key}",
+                route.get(key),
+                expected,
+            )
+
+
 def _validate_row_one_status_payloads(
     *,
     manifest: dict[str, object],
@@ -1634,7 +1700,27 @@ def _validate_row_one_status_payloads(
     _require_row_one_value(
         "edition contract_version",
         edition.get("contract_version"),
-        "row-one-app/v3",
+        "row-one-app/v4",
+    )
+    manifest_app_contract = _require_row_one_object(
+        manifest,
+        "app_contract",
+        label="manifest.app_contract",
+    )
+    _require_row_one_value(
+        "manifest.app_contract.version",
+        manifest_app_contract.get("version"),
+        "row-one-app/v4",
+    )
+    _require_row_one_value(
+        "manifest.app_contract.path",
+        manifest_app_contract.get("path"),
+        "data/edition.json",
+    )
+    _require_row_one_value(
+        "manifest.app_contract.schema_path",
+        manifest_app_contract.get("schema_path"),
+        "schemas/row-one-app.schema.json",
     )
 
     site = _require_row_one_object(runtime, "site", label="runtime.site")
@@ -1724,6 +1810,7 @@ def _validate_row_one_status_payloads(
     )
     if not isinstance(runtime_readiness.get("zh"), str) or not runtime_readiness.get("zh"):
         raise ValueError("row-one runtime.readiness.zh must be a non-empty string")
+    _validate_row_one_story_directory(edition)
 
 
 def _build_row_one_status_payload(
