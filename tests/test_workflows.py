@@ -24,6 +24,7 @@ from fashion_radar.workflows import (
     collect_configured_sources,
     default_database_path,
     match_stored_items,
+    prune_stale_daily_report_files,
     write_daily_report_files,
 )
 
@@ -261,6 +262,90 @@ def test_write_daily_report_files_writes_html_with_recent_window_items(
     assert "Future collected title" not in html
     assert "Stale collected title" not in html
     assert "TAIL_MARKER" not in html
+
+
+def test_prune_stale_daily_report_files_removes_old_dated_artifacts(
+    tmp_path: Path,
+) -> None:
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    stale_names = [
+        "fashion-radar-2026-07-01.md",
+        "fashion-radar-2026-07-01.json",
+        "fashion-radar-2026-07-01.html",
+        "fashion-radar-2026-06-30.md",
+    ]
+    current_names = [
+        "fashion-radar-2026-07-02.md",
+        "fashion-radar-2026-07-02.json",
+        "fashion-radar-2026-07-02.html",
+    ]
+    untouched_names = [
+        "latest.md",
+        "latest.json",
+        "report-index.json",
+        "fashion-radar-2026-07-01.eml",
+        "fashion-radar-2026-07-01.txt",
+        "fashion-radar-2026-07-03.md",
+        "fashion-radar-not-a-date.md",
+        "notes.md",
+    ]
+    for name in stale_names + current_names + untouched_names:
+        (reports_dir / name).write_text(name, encoding="utf-8")
+
+    result = prune_stale_daily_report_files(
+        reports_dir=reports_dir,
+        as_of=datetime(2026, 7, 2, 4, 0, tzinfo=UTC),
+    )
+
+    assert result.removed_count == len(stale_names)
+    assert result.kept_current_count == len(current_names)
+    assert result.current_date == "2026-07-02"
+    assert [path.name for path in result.removed_paths] == sorted(stale_names)
+    for name in stale_names:
+        assert not (reports_dir / name).exists()
+    for name in current_names + untouched_names:
+        assert (reports_dir / name).exists()
+
+
+def test_prune_stale_daily_report_files_missing_directory_is_noop(tmp_path: Path) -> None:
+    reports_dir = tmp_path / "missing-reports"
+
+    result = prune_stale_daily_report_files(
+        reports_dir=reports_dir,
+        as_of=datetime(2026, 7, 2, 4, 0, tzinfo=UTC),
+    )
+
+    assert result.removed_count == 0
+    assert result.kept_current_count == 0
+    assert result.current_date == "2026-07-02"
+    assert result.removed_paths == []
+
+
+def test_prune_stale_daily_report_files_tolerates_concurrent_removal(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    stale_path = reports_dir / "fashion-radar-2026-07-01.md"
+    stale_path.write_text("stale", encoding="utf-8")
+    original_unlink = Path.unlink
+
+    def unlink_after_external_removal(path: Path, *args: object, **kwargs: object) -> None:
+        original_unlink(path)
+        original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", unlink_after_external_removal)
+
+    result = prune_stale_daily_report_files(
+        reports_dir=reports_dir,
+        as_of=datetime(2026, 7, 2, 4, 0, tzinfo=UTC),
+    )
+
+    assert result.removed_count == 1
+    assert result.removed_paths == [stale_path]
+    assert not stale_path.exists()
 
 
 def test_clean_old_data_prunes_by_collected_at(tmp_path: Path) -> None:

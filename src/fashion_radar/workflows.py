@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import select
@@ -20,6 +21,7 @@ from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository, PruneResult
 from fashion_radar.db.schema import initialize_schema
 from fashion_radar.db.schema import items as items_table
+from fashion_radar.digests import _parse_daily_report_path
 from fashion_radar.extract.entities import match_entities
 from fashion_radar.html_report import render_html_report
 from fashion_radar.models.entity import EntityDefinition
@@ -47,6 +49,22 @@ def report_output_paths(reports_dir: Path, as_of: datetime) -> tuple[Path, Path]
         reports_dir / f"fashion-radar-{report_date}.md",
         reports_dir / f"fashion-radar-{report_date}.json",
     )
+
+
+_DAILY_REPORT_HTML_ARTIFACT_RE = re.compile(
+    r"^fashion-radar-(?P<report_date>\d{4}-\d{2}-\d{2})\.html$"
+)
+
+
+@dataclass(frozen=True)
+class ReportRetentionResult:
+    current_date: str
+    removed_paths: list[Path]
+    kept_current_count: int
+
+    @property
+    def removed_count(self) -> int:
+        return len(self.removed_paths)
 
 
 def write_daily_report_files(
@@ -94,6 +112,58 @@ def write_daily_report_files(
     html_path = reports_dir / f"fashion-radar-{as_of_utc.date().isoformat()}.html"
     html_path.write_text(render_html_report(report, recent_items=recent_items), encoding="utf-8")
     return markdown_path, json_path
+
+
+def _parse_daily_report_retention_path(path: Path) -> date | None:
+    parsed_daily_path = _parse_daily_report_path(path)
+    if parsed_daily_path is not None:
+        report_date, _extension = parsed_daily_path
+        return report_date
+
+    match = _DAILY_REPORT_HTML_ARTIFACT_RE.fullmatch(path.name)
+    if match is None:
+        return None
+    try:
+        return date.fromisoformat(match.group("report_date"))
+    except ValueError:
+        return None
+
+
+def prune_stale_daily_report_files(
+    *,
+    reports_dir: Path,
+    as_of: str | datetime,
+) -> ReportRetentionResult:
+    current_report_date = parse_datetime_utc(as_of).date()
+    current_date = current_report_date.isoformat()
+    if not reports_dir.exists():
+        return ReportRetentionResult(
+            current_date=current_date,
+            removed_paths=[],
+            kept_current_count=0,
+        )
+
+    removed_paths: list[Path] = []
+    kept_current_count = 0
+    for path in sorted(reports_dir.iterdir(), key=lambda candidate: candidate.name):
+        if not path.is_file():
+            continue
+        report_date = _parse_daily_report_retention_path(path)
+        if report_date is None:
+            continue
+        if report_date == current_report_date:
+            kept_current_count += 1
+            continue
+        if report_date > current_report_date:
+            continue
+        path.unlink(missing_ok=True)
+        removed_paths.append(path)
+
+    return ReportRetentionResult(
+        current_date=current_date,
+        removed_paths=removed_paths,
+        kept_current_count=kept_current_count,
+    )
 
 
 def write_row_one_site_files(

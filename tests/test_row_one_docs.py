@@ -58,11 +58,15 @@ def test_row_one_docs_describe_generated_files_and_cleanup_boundary() -> None:
         "`data/edition.json`",
         "`.row-one-site` marker",
         "`data/runtime.json`",
-        "`--latest-only` removes only known row one generated children",
-        "does not delete unrelated files in the output directory",
-        "site output cleanup",
-        "does not delete dated report artifacts",
-        "`reports/fashion-radar-yyyy-mm-dd.md`",
+        "remove only known row one generated children",
+        "they do not delete unrelated files in the output directory",
+        "row-one refresh",
+        "prunes older generated report artifacts",
+        "`fashion-radar-yyyy-mm-dd.md`",
+        "`fashion-radar-yyyy-mm-dd.json`",
+        "`fashion-radar-yyyy-mm-dd.html`",
+        "does not prune sqlite data",
+        "`fashion-radar-yyyy-mm-dd.eml`",
     ):
         assert phrase in normalized
 

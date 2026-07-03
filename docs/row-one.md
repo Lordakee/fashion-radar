@@ -242,15 +242,24 @@ story summaries.
 - `data/runtime.json`
 - `.row-one-site` marker
 
-The latest-only cleanup is intentionally narrow. `--latest-only` removes only known ROW ONE generated children:
-`index.html`, `.row-one-site`, `details/`, `assets/`, and `data/`. It does not
-delete unrelated files in the output directory. This site output cleanup can
-replace the generated ROW ONE site surface, but it does not delete dated report
-artifacts such as `reports/fashion-radar-YYYY-MM-DD.md`,
-`reports/fashion-radar-YYYY-MM-DD.json`, or
-`reports/fashion-radar-YYYY-MM-DD.html`. If an existing directory has
-generated-looking children but no `.row-one-site` marker, cleanup refuses to
-continue so user files are not silently removed.
+The latest-only cleanup has two local presentation surfaces.
+`row-one build --latest-only` and `row-one preview --latest-only` remove only
+known ROW ONE generated children: `index.html`, `.row-one-site`, `details/`,
+`assets/`, and `data/`. They do not delete unrelated files in the output
+directory. If an existing directory has generated-looking children but no
+`.row-one-site` marker, cleanup refuses to continue so user files are not
+silently removed.
+
+`row-one refresh` is latest-only for the local ROW ONE presentation path: after
+writing the current dated report and rebuilding the site, it prunes older
+generated report artifacts in the selected `--reports-dir` that match
+`fashion-radar-YYYY-MM-DD.md`, `fashion-radar-YYYY-MM-DD.json`, and
+`fashion-radar-YYYY-MM-DD.html`. It keeps the current refresh date's report
+artifacts and does not prune SQLite data, collected rows, matcher rows, source
+config, connectors, or files outside the local reports/site output surfaces.
+Nonmatching digest and note files such as `latest.md`, `latest.json`,
+`report-index.json`, `fashion-radar-YYYY-MM-DD.eml`, and local notes are left
+untouched.
 
 ## Commands
 
@@ -259,7 +268,9 @@ continue so user files are not silently removed.
   `--latest-only`.
 - `row-one refresh`: runs the single local daily refresh command for ROW ONE by
   refreshing the daily report data and generated site in one command. Important
-  flags: `--as-of` and `--output-dir`; latest-only cleanup is built in.
+  flags: `--as-of`, `--reports-dir`, and `--output-dir`; latest-only site cleanup
+  is built in, and older generated dated report artifacts in `--reports-dir` are
+  pruned after the current report is written.
 - `row-one preview`: builds the static ROW ONE site and prints daily readiness
   details. Important flags: `--as-of`, `--output-dir`, `--latest-only`,
   `--host`, `--port`, and `--dry-run-serve-url`.

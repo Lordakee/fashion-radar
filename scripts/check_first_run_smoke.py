@@ -2771,6 +2771,11 @@ def assert_non_empty_file(path: Path) -> None:
         raise SmokeError(f"Expected file is empty: {path}")
 
 
+def assert_not_exists(path: Path) -> None:
+    if path.exists():
+        raise SmokeError(f"Unexpected path exists: {path}")
+
+
 def run_smoke(context: SmokeContext) -> None:
     before_default_artifacts = snapshot_default_artifacts(context.repo_root)
     flow_error: SmokeError | None = None
@@ -3038,6 +3043,36 @@ def run_first_run_flow(context: SmokeContext) -> None:
         run_cli(context, "row-one", "schedule", "--time", "04:00").stdout
     )
     row_one_output_dir = context.reports_dir / "row-one" / "site"
+    stale_report_artifact_names = (
+        "fashion-radar-2026-06-12.md",
+        "fashion-radar-2026-06-12.json",
+        "fashion-radar-2026-06-12.html",
+    )
+    for name in stale_report_artifact_names:
+        (context.reports_dir / name).write_text("stale", encoding="utf-8")
+    untouched_report_note = context.reports_dir / "notes.txt"
+    untouched_report_note.write_text("keep me", encoding="utf-8")
+    run_cli(
+        context,
+        "row-one",
+        "refresh",
+        "--config-dir",
+        str(context.config_dir),
+        "--data-dir",
+        str(context.data_dir),
+        "--reports-dir",
+        str(context.reports_dir),
+        "--output-dir",
+        str(row_one_output_dir),
+        "--as-of",
+        AS_OF,
+    )
+    for name in stale_report_artifact_names:
+        assert_not_exists(context.reports_dir / name)
+    assert_non_empty_file(context.reports_dir / "fashion-radar-2026-06-13.md")
+    assert_non_empty_file(context.reports_dir / "fashion-radar-2026-06-13.json")
+    assert_non_empty_file(context.reports_dir / "fashion-radar-2026-06-13.html")
+    assert_non_empty_file(untouched_report_note)
     row_one_preview = run_cli(
         context,
         "row-one",

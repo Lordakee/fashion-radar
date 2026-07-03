@@ -695,6 +695,10 @@ from another device. The local ROW ONE server has no authentication layer.
 Open Design imagery is optional and not required for tests.
 `row-one refresh` is the single local daily refresh command for ROW ONE: it
 refreshes the daily report data and generated site in one command.
+For the ROW ONE presentation path, `row-one refresh` also keeps generated dated
+report artifacts latest-only in the selected `--reports-dir`, pruning older
+`fashion-radar-YYYY-MM-DD.{md,json,html}` files while leaving SQLite/data
+retention to `clean-old-data`.
 `row-one local-ops` prints a local daily ops runbook for 04:00 refresh, preview,
 fixed IP:port serving, LAN access, cron snippets, latest-only cleanup, and a
 copyable source-checkout command group with its own `AS_OF`, `cd`, and
@@ -947,6 +951,11 @@ fashion-radar-YYYY-MM-DD.eml
 See [docs/daily-digest.md](docs/daily-digest.md).
 
 Use cleanup when you want to prune old collected items:
+
+ROW ONE report artifact pruning is separate from database retention:
+`row-one refresh` may prune older generated dated report files for the local
+presentation path, while `clean-old-data` is the command for pruning old
+collected SQLite rows.
 
 To reset the deterministic repo-local sample, see
 [docs/first-run.md#reset-the-repo-local-sample](docs/first-run.md#reset-the-repo-local-sample).

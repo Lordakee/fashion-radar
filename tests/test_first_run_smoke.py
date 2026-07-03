@@ -1855,6 +1855,20 @@ def expected_first_run_flow_commands(
         ("row-one", "schedule", "--time", "04:00"),
         (
             "row-one",
+            "refresh",
+            "--config-dir",
+            str(context.config_dir),
+            "--data-dir",
+            str(context.data_dir),
+            "--reports-dir",
+            str(context.reports_dir),
+            "--output-dir",
+            str(context.reports_dir / "row-one" / "site"),
+            "--as-of",
+            smoke.AS_OF,
+        ),
+        (
+            "row-one",
             "preview",
             "--config-dir",
             str(context.config_dir),
@@ -4398,6 +4412,33 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                     "Daily ROW ONE schedule\n"
                     "ROW ONE scheduled refresh runs the single refresh command.\n"
                     "04:00 fashion-radar row-one refresh --output-dir reports/row-one/site\n"
+                ),
+                stderr="",
+            )
+
+        if args[:2] == ("row-one", "refresh"):
+            row_one_output_dir = context.reports_dir / "row-one" / "site"
+            row_one_output_dir.mkdir(parents=True, exist_ok=True)
+            (row_one_output_dir / "index.html").write_text("<!doctype html>", encoding="utf-8")
+            (row_one_output_dir / ".row-one-site").write_text(
+                "ROW ONE generated site\n",
+                encoding="utf-8",
+            )
+            for stale_name in (
+                "fashion-radar-2026-06-12.md",
+                "fashion-radar-2026-06-12.json",
+                "fashion-radar-2026-06-12.html",
+            ):
+                stale_path = context.reports_dir / stale_name
+                if stale_path.exists():
+                    stale_path.unlink()
+            return subprocess.CompletedProcess(
+                ["python", "-m", "fashion_radar", *args],
+                0,
+                stdout=(
+                    "ROW ONE refresh\n"
+                    "Latest-only reports: removed 3 stale files for 2026-06-13; "
+                    "kept 3 current files\n"
                 ),
                 stderr="",
             )

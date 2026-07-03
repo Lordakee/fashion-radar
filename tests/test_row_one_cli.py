@@ -200,6 +200,16 @@ def test_row_one_refresh_runs_pipeline_and_writes_site(
         calls.append("write_daily_report_files")
         return reports_dir / "daily.md", reports_dir / "daily.json"
 
+    def prune_stale_daily_report_files(**kwargs: object) -> SimpleNamespace:
+        assert kwargs["reports_dir"] == reports_dir
+        assert kwargs["as_of"] == AS_OF
+        calls.append("prune_stale_daily_report_files")
+        return SimpleNamespace(
+            current_date="2026-07-02",
+            removed_count=3,
+            kept_current_count=3,
+        )
+
     def write_row_one_site_from_cli_options(**kwargs: object) -> SimpleNamespace:
         assert kwargs == {
             "config_dir": config_dir,
@@ -220,6 +230,11 @@ def test_row_one_refresh_runs_pipeline_and_writes_site(
     monkeypatch.setattr(cli_module, "collect_configured_sources", collect_configured_sources)
     monkeypatch.setattr(cli_module, "match_stored_items", match_stored_items)
     monkeypatch.setattr(cli_module, "write_daily_report_files", write_daily_report_files)
+    monkeypatch.setattr(
+        cli_module,
+        "prune_stale_daily_report_files",
+        prune_stale_daily_report_files,
+    )
     monkeypatch.setattr(
         cli_module,
         "_write_row_one_site_from_cli_options",
@@ -254,12 +269,16 @@ def test_row_one_refresh_runs_pipeline_and_writes_site(
         "match_stored_items",
         "write_daily_report_files",
         "_write_row_one_site_from_cli_options",
+        "prune_stale_daily_report_files",
     ]
     assert "ROW ONE refresh" in result.output
     assert "Stored matches: 4" in result.output
     assert f"Markdown report: {reports_dir / 'daily.md'}" in result.output
     assert f"JSON report: {reports_dir / 'daily.json'}" in result.output
     assert f"HTML report: {reports_dir / 'daily.html'}" in result.output
+    assert "Latest-only reports: removed 3 stale files for 2026-07-02; kept 3 current files" in (
+        result.output
+    )
     assert f"Site: {output_dir / 'index.html'}" in result.output
     assert f"JSON: {output_dir / 'data' / 'edition.json'}" in result.output
     assert f"Manifest: {output_dir / 'data' / 'manifest.json'}" in result.output

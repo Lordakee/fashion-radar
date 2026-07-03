@@ -195,6 +195,7 @@ from fashion_radar.workflows import (
     collect_configured_sources,
     default_database_path,
     match_stored_items,
+    prune_stale_daily_report_files,
     write_daily_report_files,
     write_row_one_site_files,
 )
@@ -1515,6 +1516,10 @@ def row_one_refresh(
             as_of=as_of,
             latest_only=True,
         )
+        report_retention = prune_stale_daily_report_files(
+            reports_dir=reports_dir,
+            as_of=as_of,
+        )
     except ConfigError as exc:
         typer.echo(f"Invalid config: {exc}", err=True)
         raise typer.Exit(1) from exc
@@ -1528,6 +1533,12 @@ def row_one_refresh(
     typer.echo(f"Markdown report: {markdown_path}")
     typer.echo(f"JSON report: {json_path}")
     typer.echo(f"HTML report: {markdown_path.with_suffix('.html')}")
+    typer.echo(
+        "Latest-only reports: "
+        f"removed {report_retention.removed_count} stale files for "
+        f"{report_retention.current_date}; "
+        f"kept {report_retention.kept_current_count} current files"
+    )
     typer.echo(f"Site: {site_result.index_path}")
     typer.echo(f"JSON: {site_result.output_dir / 'data' / 'edition.json'}")
     typer.echo(f"Manifest: {site_result.output_dir / 'data' / 'manifest.json'}")
