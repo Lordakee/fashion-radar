@@ -113,6 +113,8 @@ verification, or external enrichment. The ROW ONE homepage can render
 the first four daily_digest.briefing_topics from the same data/edition.json
 payload, while app clients still use data/edition.json without scraping HTML. See
 [docs/row-one.md](docs/row-one.md).
+The ROW ONE homepage briefing path reuses `daily_digest.blocks` as a compact
+reading path, links to existing detail pages, and is not a new data layer.
 For local app/ops preflight, `row-one status --json` provides additive top-level
 fields such as counts, readiness, refresh_time, local_url, lan_url_hint, and
 edition_path while preserving the nested runtime and manifest payloads.

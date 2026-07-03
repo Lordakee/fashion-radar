@@ -80,6 +80,13 @@ not change data/edition.json contract semantics, does not change matching,
 ranking, scoring, story IDs, and does not add source collection or prove demand.
 It does not add acquisition, deployment, or automation expansion.
 
+The homepage briefing path renders a compact briefing path from
+`daily_digest.blocks`, using `key_takeaways` and `signals_to_watch` to show what
+to read next after the lead story. It does not duplicate `read_first`, links
+only to existing detail pages, does not add source collection, does not change
+app JSON contract semantics, and does not change matching, ranking, scoring, or
+story IDs.
+
 ## Display/Media Readiness
 
 Every app story includes a `display` object with `variant`, `accent`, and

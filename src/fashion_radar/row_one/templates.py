@@ -26,6 +26,7 @@ def render_index_html(
 ) -> str:
     contents_nav = _render_edition_nav(edition)
     briefing_topics = _render_briefing_topics(app_payload)
+    briefing_path = _render_briefing_path(app_payload)
     readiness = build_row_one_readiness(edition)
     status_strip = _render_edition_status(edition, readiness)
     summary_note_en = (
@@ -97,6 +98,7 @@ def render_index_html(
 {contents_nav}
 {lead_story_block}
 {briefing_topics}
+{briefing_path}
 {story_cards}
 </main>
 </div>
@@ -513,6 +515,89 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   margin: 0;
   padding: 18px;
 }
+.briefing-path {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.briefing-path-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.45fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.briefing-path-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 4.4vw, 5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.94;
+  margin: 0;
+}
+.briefing-path-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.briefing-path-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+.briefing-path-block {
+  background: var(--paper);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+.briefing-path-block h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.55rem, 2.8vw, 3rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.98;
+  margin: 0;
+}
+.briefing-path-block > p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.briefing-path-card {
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+  text-decoration: none;
+}
+.briefing-path-card h4 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.2rem, 2vw, 2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.briefing-path-card p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.briefing-path-meta {
+  color: var(--accent);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 8px 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
 .lead-story {
   border-top: 1px solid var(--ink);
   border-bottom: 1px solid var(--ink);
@@ -825,6 +910,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .edition-rail-grid { grid-template-columns: 1fr; }
   .briefing-topics-header { grid-template-columns: 1fr; }
   .briefing-topic-grid { grid-template-columns: 1fr; }
+  .briefing-path-header { grid-template-columns: 1fr; }
+  .briefing-path-grid { grid-template-columns: 1fr; }
   .lead-story-grid { grid-template-columns: 1fr; gap: 18px; }
   .section-block { grid-template-columns: 1fr; gap: 18px; }
   .story-grid { grid-template-columns: 1fr; }
@@ -991,6 +1078,140 @@ def _render_briefing_topic_card(topic: dict[str, object]) -> str:
     </span>
   </span>
 </a>"""
+
+
+def _render_briefing_path(app_payload: dict[str, object] | None) -> str:
+    blocks = _app_payload_digest_blocks(app_payload)
+    excluded_story_ids = _read_first_story_ids(blocks)
+    path_blocks = [
+        block
+        for block in blocks
+        if block.get("key") in {"key_takeaways", "signals_to_watch"}
+        and _block_cards(block, excluded_story_ids)
+    ]
+    if not path_blocks:
+        return ""
+    rendered_blocks = "\n".join(
+        _render_briefing_path_block(block, excluded_story_ids) for block in path_blocks
+    )
+    return f"""<section class="briefing-path" aria-label="Briefing path">
+  <div class="briefing-path-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Briefing Path</span>
+        <span data-lang="zh">今日阅读路径</span>
+      </p>
+      <h2>
+        <span data-lang="en">What to read next</span>
+        <span data-lang="zh">接下来读什么</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">A compact reading path from existing daily digest blocks.</span>
+      <span data-lang="zh">复用现有每日简报区块，整理后续阅读顺序。</span>
+    </p>
+  </div>
+  <div class="briefing-path-grid">{rendered_blocks}</div>
+</section>"""
+
+
+def _render_briefing_path_block(
+    block: dict[str, object],
+    excluded_story_ids: set[str],
+) -> str:
+    title = _localized_topic_field(block, "title")
+    dek = _localized_topic_field(block, "dek")
+    cards = _block_cards(block, excluded_story_ids)[:5]
+    rendered_cards = "\n".join(_render_briefing_path_card(card) for card in cards)
+    return f"""<div class="briefing-path-block">
+  <h3>
+    <span data-lang="en">{_esc(title.en)}</span>
+    <span data-lang="zh">{_esc(title.zh)}</span>
+  </h3>
+  <p>
+    <span data-lang="en">{_esc(dek.en)}</span>
+    <span data-lang="zh">{_esc(dek.zh)}</span>
+  </p>
+  {rendered_cards}
+</div>"""
+
+
+def _render_briefing_path_card(card: dict[str, object]) -> str:
+    href = str(card["detail_href"])
+    headline = _topic_localized_card_text(card, "headline")
+    takeaway = _topic_localized_card_text(card, "editorial_takeaway")
+    source_name = _esc(str(card.get("source_name") or "ROW ONE"))
+    published_date = _esc(str(card.get("published_date") or "Undated"))
+    evidence_count = _int_or_zero(card.get("evidence_count"))
+    heat_delta = _int_or_zero(card.get("heat_delta"))
+    evidence_label_en = (
+        "1 evidence link" if evidence_count == 1 else f"{evidence_count} evidence links"
+    )
+    evidence_label_zh = f"{evidence_count} 条证据链接"
+    heat_label_en = f"{heat_delta} heat" if heat_delta > 0 else "steady heat"
+    heat_label_zh = f"{heat_delta} 热度" if heat_delta > 0 else "热度平稳"
+    return f"""<a class="briefing-path-card" href="{_esc(href)}">
+    <span class="briefing-path-meta">
+      <span>{source_name}</span>
+      <span>{published_date}</span>
+      <span data-lang="en">{_esc(evidence_label_en)}</span>
+      <span data-lang="zh">{_esc(evidence_label_zh)}</span>
+      <span data-lang="en">{_esc(heat_label_en)}</span>
+      <span data-lang="zh">{_esc(heat_label_zh)}</span>
+    </span>
+    <h4>
+      <span data-lang="en">{_esc(headline.en)}</span>
+      <span data-lang="zh">{_esc(headline.zh)}</span>
+    </h4>
+    <p>
+      <span data-lang="en">{_esc(takeaway.en)}</span>
+      <span data-lang="zh">{_esc(takeaway.zh)}</span>
+    </p>
+  </a>"""
+
+
+def _int_or_zero(value: object) -> int:
+    if value is None:
+        return 0
+    return int(value)
+
+
+def _app_payload_digest_blocks(
+    app_payload: dict[str, object] | None,
+) -> list[dict[str, object]]:
+    if app_payload is None:
+        return []
+    daily_digest = app_payload.get("daily_digest")
+    if not isinstance(daily_digest, dict):
+        return []
+    blocks = daily_digest.get("blocks")
+    if not isinstance(blocks, list):
+        return []
+    return [block for block in blocks if isinstance(block, dict)]
+
+
+def _read_first_story_ids(blocks: list[dict[str, object]]) -> set[str]:
+    read_first_block = next((block for block in blocks if block.get("key") == "read_first"), None)
+    if read_first_block is None:
+        return set()
+    story_ids = read_first_block.get("story_ids")
+    if not isinstance(story_ids, list):
+        return set()
+    return {str(story_id) for story_id in story_ids}
+
+
+def _block_cards(
+    block: dict[str, object],
+    excluded_story_ids: set[str],
+) -> list[dict[str, object]]:
+    cards = block.get("cards")
+    if not isinstance(cards, list):
+        return []
+    return [
+        card
+        for card in cards
+        if isinstance(card, dict) and str(card.get("id")) not in excluded_story_ids
+    ]
 
 
 def _app_payload_briefing_topics(

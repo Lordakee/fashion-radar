@@ -1851,6 +1851,7 @@ def expected_first_run_flow_commands(
         ("row-one", "preview", "--help"),
         ("row-one", "status", "--help"),
         ("row-one", "local-ops", "--help"),
+        ("row-one", "install-local", "--help"),
         ("row-one", "schedule", "--time", "04:00"),
         (
             "row-one",

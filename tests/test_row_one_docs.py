@@ -511,13 +511,42 @@ def test_row_one_docs_describe_local_ops_source_checkout_commands() -> None:
         assert phrase in readme
 
 
+def test_row_one_docs_describe_stage_281_homepage_briefing_path() -> None:
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    readme = _normalized(_read(README))
+
+    for phrase in (
+        "homepage briefing path",
+        "renders a compact briefing path from `daily_digest.blocks`",
+        "`key_takeaways`",
+        "`signals_to_watch`",
+        "does not duplicate `read_first`",
+        "links only to existing detail pages",
+        "does not add source collection",
+        "does not change app json contract",
+        "does not change matching, ranking, scoring, or story ids",
+    ):
+        assert phrase in row_one
+
+    for phrase in (
+        "homepage briefing path",
+        "reuses `daily_digest.blocks`",
+        "not a new data layer",
+        "links to existing detail pages",
+    ):
+        assert phrase in readme
+
+
 def test_row_one_upload_checklist_covers_subcommand_help() -> None:
     normalized = _normalized(_read(UPLOAD_CHECKLIST))
 
     for phrase in (
         "row-one build --help",
+        "row-one refresh --help",
         "row-one preview --help",
+        "row-one status --help",
         "row-one local-ops --help",
+        "row-one install-local --help",
         "row-one serve --help",
         "row-one schedule --help",
         (

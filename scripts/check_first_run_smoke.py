@@ -2956,6 +2956,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
         ("row-one", "preview", "--help"),
         ("row-one", "status", "--help"),
         ("row-one", "local-ops", "--help"),
+        ("row-one", "install-local", "--help"),
     ):
         run_cli(context, *command_parts)
     validate_row_one_schedule_output(

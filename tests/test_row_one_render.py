@@ -19,6 +19,7 @@ from fashion_radar.row_one.models import (
     RowOneStoryImage,
 )
 from fashion_radar.row_one.render import clean_row_one_site_children, render_row_one_site
+from fashion_radar.row_one.templates import render_index_html
 
 AS_OF = datetime(2026, 7, 2, 4, 0, tzinfo=UTC)
 
@@ -380,6 +381,143 @@ def test_render_row_one_site_omits_briefing_topics_without_explicit_refs(tmp_pat
 
     assert 'class="briefing-topics"' not in index_html
     assert "Briefing Topics" not in index_html
+
+
+def test_render_row_one_site_includes_briefing_path_from_digest_blocks(tmp_path) -> None:
+    edition = _edition()
+    base_story = edition.stories[0]
+    edition.stories = [
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "read-first-1111111111",
+                "section_key": "top_stories",
+                "headline": "Read first story",
+                "detail_path": "details/read-first-1111111111.html",
+                "heat_delta": 0,
+                "entity_refs": [],
+                "product_refs": [],
+                "designer_refs": [],
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "brand-move-2222222222",
+                "section_key": "brand_moves",
+                "headline": "Brand move story",
+                "detail_path": "details/brand-move-2222222222.html",
+                "heat_delta": 4,
+                "entity_refs": [],
+                "product_refs": [],
+                "designer_refs": [],
+            },
+        ),
+    ]
+
+    render_row_one_site(edition, tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    path_match = re.search(
+        r'<section class="briefing-path" aria-label="Briefing path">'
+        r"(?P<path>.*?)</section>",
+        index_html,
+        re.S,
+    )
+
+    assert 'class="briefing-topics"' not in index_html
+    assert path_match is not None
+    path_html = path_match.group("path")
+    assert "Briefing Path" in path_html
+    assert "今日阅读路径" in path_html
+    assert "Key Takeaways" in path_html
+    assert "Signals To Watch" in path_html
+    assert "Read First" not in path_html
+    assert "Read first story" not in path_html
+    assert "Brand move story" in path_html
+    assert "The Row is today&#x27;s priority signal." in path_html
+    assert 'href="details/brand-move-2222222222.html"' in path_html
+    assert 'href="https://example.com/the-row"' not in path_html
+    assert "4 heat" in path_html
+    assert "1 evidence link" in path_html
+    assert index_html.index('class="briefing-path"') < index_html.index('class="section-block"')
+
+
+def test_render_row_one_site_omits_briefing_path_when_digest_blocks_are_empty(tmp_path) -> None:
+    edition = _edition()
+    edition.stories = []
+
+    render_row_one_site(edition, tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert 'class="briefing-path"' not in index_html
+    assert "Briefing Path" not in index_html
+
+
+def test_render_row_one_site_escapes_briefing_path_payload_values() -> None:
+    index_html = render_index_html(
+        _edition(),
+        app_payload={
+            "daily_digest": {
+                "blocks": [
+                    {
+                        "key": "read_first",
+                        "story_count": 1,
+                        "story_ids": ["skip-1111111111"],
+                        "cards": [{"id": "skip-1111111111"}],
+                    },
+                    {
+                        "key": "key_takeaways",
+                        "title": {
+                            "en": 'Path <script>alert("x")</script>',
+                            "zh": "路径 <script>",
+                        },
+                        "dek": {
+                            "en": 'Dek & "quote"',
+                            "zh": "说明 & <tag>",
+                        },
+                        "story_count": 1,
+                        "cards": [
+                            {
+                                "id": "hostile-2222222222",
+                                "detail_href": "details/hostile-2222222222.html",
+                                "headline": {
+                                    "en": 'Headline <img src=x onerror="alert(1)">',
+                                    "zh": "标题 <img>",
+                                },
+                                "editorial_takeaway": {
+                                    "en": "Takeaway <b>bold</b> & more",
+                                    "zh": "观点 <b>",
+                                },
+                                "source_name": 'Source <script>alert("x")</script>',
+                                "published_date": "2026-07-02",
+                                "evidence_count": 1,
+                                "heat_delta": 2,
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+    )
+    path_match = re.search(
+        r'<section class="briefing-path" aria-label="Briefing path">'
+        r"(?P<path>.*?)</section>",
+        index_html,
+        re.S,
+    )
+
+    assert path_match is not None
+    path_html = path_match.group("path")
+    assert "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;" in path_html
+    assert "Dek &amp; &quot;quote&quot;" in path_html
+    assert "&lt;img src=x onerror=&quot;alert(1)&quot;&gt;" in path_html
+    assert "Takeaway &lt;b&gt;bold&lt;/b&gt; &amp; more" in path_html
+    assert "Source &lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;" in path_html
+    assert "<script>" not in path_html
+    assert "<img" not in path_html
+    assert "<b>" not in path_html
 
 
 def test_render_row_one_site_includes_story_display_visual_slots(tmp_path) -> None:

@@ -445,8 +445,11 @@ do
   "$tmp_env/venv/bin/fashion-radar" "$cmd" --help
 done
 "$tmp_env/venv/bin/fashion-radar" row-one build --help
+"$tmp_env/venv/bin/fashion-radar" row-one refresh --help
 "$tmp_env/venv/bin/fashion-radar" row-one preview --help
+"$tmp_env/venv/bin/fashion-radar" row-one status --help
 "$tmp_env/venv/bin/fashion-radar" row-one local-ops --help
+"$tmp_env/venv/bin/fashion-radar" row-one install-local --help
 "$tmp_env/venv/bin/fashion-radar" row-one serve --help
 "$tmp_env/venv/bin/fashion-radar" row-one schedule --help
 tmp_run="$(mktemp -d)"
