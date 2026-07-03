@@ -256,12 +256,14 @@ def test_row_one_docs_describe_stage_277_homepage_briefing_topics() -> None:
 
     for phrase in (
         "homepage briefing topics",
-        "renders `daily_digest.briefing_topics`",
+        "renders the first four `daily_digest.briefing_topics`",
+        "same app payload written to `data/edition.json`",
         "presentation-only briefing topic index",
         "organized topic groups",
         "topic labels",
         "story_ids",
         "cards",
+        "evidence link counts",
         "links to existing detail pages",
         "not a flat link list",
         "does not scrape html",
@@ -274,7 +276,8 @@ def test_row_one_docs_describe_stage_277_homepage_briefing_topics() -> None:
         assert phrase in row_one
 
     for phrase in (
-        "row one homepage can render daily_digest.briefing_topics",
+        "row one homepage can render the first four daily_digest.briefing_topics",
+        "same data/edition.json payload",
         "organized app-ready briefing instead of a flat list of links",
         "app clients still use data/edition.json without scraping html",
     ):

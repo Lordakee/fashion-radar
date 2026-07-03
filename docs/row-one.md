@@ -71,11 +71,12 @@ The homepage edition rail, article contents, evidence trail, and retained source
 row labels help readers scan the generated site while staying within the
 existing local data model. This editorial web experience uses existing
 row-one-app/v3 content organization and adds homepage briefing topics: the ROW
-ONE homepage renders `daily_digest.briefing_topics` as a presentation-only
-briefing topic index with organized topic groups, topic labels, `story_ids`,
-`cards`, and links to existing detail pages. It remains not a flat link list,
-does not scrape HTML, does not infer people from sections or tags, does not
-change data/edition.json contract semantics, does not change matching,
+ONE homepage renders the first four `daily_digest.briefing_topics` from the same
+app payload written to `data/edition.json` as a presentation-only briefing topic
+index with organized topic groups, topic labels, `story_ids`, `cards`, evidence
+link counts, and links to existing detail pages. It remains not a flat link
+list, does not scrape HTML, does not infer people from sections or tags, does
+not change data/edition.json contract semantics, does not change matching,
 ranking, scoring, story IDs, and does not add source collection or prove demand.
 It does not add acquisition, deployment, or automation expansion.
 

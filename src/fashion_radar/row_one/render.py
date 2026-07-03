@@ -52,10 +52,10 @@ def render_row_one_site(
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / ".row-one-site").write_text("ROW ONE generated site\n", encoding="utf-8")
     _write_assets(output_dir)
-    index_path = output_dir / "index.html"
-    index_path.write_text(render_index_html(edition), encoding="utf-8")
-    _write_detail_pages(edition, output_dir / "details")
     app_payload = build_row_one_app_payload(edition)
+    index_path = output_dir / "index.html"
+    index_path.write_text(render_index_html(edition, app_payload=app_payload), encoding="utf-8")
+    _write_detail_pages(edition, output_dir / "details")
     data_dir = output_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "edition.json").write_text(

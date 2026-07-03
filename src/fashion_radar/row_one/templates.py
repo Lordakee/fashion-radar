@@ -4,7 +4,6 @@ import re
 from html import escape
 from pathlib import PurePosixPath
 
-from fashion_radar.row_one.briefing_topics import briefing_topics_payload
 from fashion_radar.row_one.display import display_for_story, safe_story_image_src
 from fashion_radar.row_one.models import (
     LocalizedText,
@@ -20,9 +19,13 @@ from fashion_radar.row_one.utils import safe_external_url
 _DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$")
 
 
-def render_index_html(edition: RowOneEdition) -> str:
+def render_index_html(
+    edition: RowOneEdition,
+    *,
+    app_payload: dict[str, object] | None = None,
+) -> str:
     contents_nav = _render_edition_nav(edition)
-    briefing_topics = _render_briefing_topics(edition)
+    briefing_topics = _render_briefing_topics(app_payload)
     readiness = build_row_one_readiness(edition)
     status_strip = _render_edition_status(edition, readiness)
     summary_note_en = (
@@ -911,9 +914,8 @@ def _render_status_metric(label_en: str, label_zh: str, value_en: str, value_zh:
   </div>"""
 
 
-def _render_briefing_topics(edition: RowOneEdition) -> str:
-    story_payloads = [_topic_story_payload(edition, story) for story in edition.stories]
-    topics = briefing_topics_payload(story_payloads)[:4]
+def _render_briefing_topics(app_payload: dict[str, object] | None) -> str:
+    topics = _app_payload_briefing_topics(app_payload)[:4]
     if not topics:
         return ""
     topic_cards = "\n".join(_render_briefing_topic_card(topic) for topic in topics)
@@ -951,8 +953,10 @@ def _render_briefing_topic_card(topic: dict[str, object]) -> str:
     summary = _topic_localized_card_text(lead_story, "editorial_takeaway") if lead_story else title
     story_label_en = "1 story" if story_count == 1 else f"{story_count} stories"
     story_label_zh = f"{story_count} 条故事"
-    evidence_label_en = "1 source" if evidence_count == 1 else f"{evidence_count} sources"
-    evidence_label_zh = f"{evidence_count} 条来源"
+    evidence_label_en = (
+        "1 evidence link" if evidence_count == 1 else f"{evidence_count} evidence links"
+    )
+    evidence_label_zh = f"{evidence_count} 条证据链接"
     heat_label_en = f"+{heat_delta} heat" if heat_delta > 0 else "steady heat"
     heat_label_zh = f"+{heat_delta} 热度" if heat_delta > 0 else "热度平稳"
     return f"""<a class="briefing-topic-card briefing-topic-card--{topic_type}" href="{_esc(href)}">
@@ -989,24 +993,18 @@ def _render_briefing_topic_card(topic: dict[str, object]) -> str:
 </a>"""
 
 
-def _topic_story_payload(edition: RowOneEdition, story: RowOneStory) -> dict[str, object]:
-    section_title = _section_title(edition, story.section_key)
-    return {
-        "id": story.id,
-        "headline": story.headline,
-        "editorial_takeaway": story.editorial_takeaway.model_dump(mode="json"),
-        "detail_href": _internal_detail_href(story.detail_path),
-        "section_key": story.section_key,
-        "section_title": section_title.model_dump(mode="json"),
-        "source_name": story.source_name,
-        "entity_refs": [reference.model_dump(mode="json") for reference in story.entity_refs],
-        "product_refs": [reference.model_dump(mode="json") for reference in story.product_refs],
-        "designer_refs": [reference.model_dump(mode="json") for reference in story.designer_refs],
-        "heat_delta": story.heat_delta,
-        "evidence_count": sum(
-            1 for link in story.evidence if _safe_external_url(link.url) is not None
-        ),
-    }
+def _app_payload_briefing_topics(
+    app_payload: dict[str, object] | None,
+) -> list[dict[str, object]]:
+    if app_payload is None:
+        return []
+    daily_digest = app_payload.get("daily_digest")
+    if not isinstance(daily_digest, dict):
+        return []
+    topics = daily_digest.get("briefing_topics")
+    if not isinstance(topics, list):
+        return []
+    return [topic for topic in topics if isinstance(topic, dict)]
 
 
 def _localized_topic_field(topic: dict[str, object], field: str) -> LocalizedText:

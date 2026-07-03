@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import UTC, datetime
+from html import escape
 
 import pytest
 from pydantic import ValidationError
@@ -295,11 +296,23 @@ def test_render_row_one_site_includes_briefing_topics_index(tmp_path) -> None:
                 ],
             },
         ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "fifth-topic-5555555555",
+                "headline": "Fifth topic",
+                "detail_path": "details/fifth-topic-5555555555.html",
+                "heat_delta": 0,
+                "entity_refs": [RowOneReference(name="Fifth Brand", type="brand", label="monitor")],
+            },
+        ),
     ]
 
     render_row_one_site(edition, tmp_path)
 
     index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
+    app_topics = edition_payload["daily_digest"]["briefing_topics"]
     topic_match = re.search(
         r'<section class="briefing-topics" aria-label="Briefing topics">'
         r"(?P<topics>.*?)</section>",
@@ -323,6 +336,30 @@ def test_render_row_one_site_includes_briefing_topics_index(tmp_path) -> None:
     assert "Person" in topics_html
     assert "The Row &lt;topic&gt; &quot;brief&quot;" in topics_html
     assert 'href="details/the-row-topic-1111111111.html"' in topics_html
+    topic_cards = re.findall(
+        r'<a class="briefing-topic-card [^"]+" href="[^"]+">.*?</a>',
+        topics_html,
+        re.S,
+    )
+    assert len(topic_cards) == 4
+    for topic, topic_card_html in zip(app_topics[:4], topic_cards, strict=True):
+        lead_card = topic["cards"][0]
+        assert topic["title"]["en"] in topic_card_html
+        assert topic["label"]["en"] in topic_card_html
+        assert f'href="{lead_card["detail_href"]}"' in topic_card_html
+        assert escape(lead_card["headline"]) in topic_card_html
+        assert f"{topic['story_count']} story" in topic_card_html
+        evidence_label = (
+            "1 evidence link"
+            if topic["evidence_count"] == 1
+            else f"{topic['evidence_count']} evidence links"
+        )
+        assert evidence_label in topic_card_html
+    assert app_topics[4]["title"]["en"] == "Fifth Brand"
+    hidden_lead_card = app_topics[4]["cards"][0]
+    assert "Fifth Brand" not in topics_html
+    assert hidden_lead_card["detail_href"] not in topics_html
+    assert escape(hidden_lead_card["headline"]) not in topics_html
     assert 'href="https://example.com/the-row"' not in topics_html
     assert index_html.index('class="edition-nav"') < index_html.index('class="lead-story"')
     assert index_html.index('class="lead-story"') < index_html.index('class="briefing-topics"')

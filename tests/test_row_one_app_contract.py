@@ -356,6 +356,7 @@ def test_row_one_app_daily_digest_includes_briefing_topics_for_clients(
     for topic in topics:
         assert topic["story_count"] == len(topic["story_ids"])
         assert topic["story_count"] == len(topic["cards"])
+        assert topic["evidence_count"] == sum(card["evidence_count"] for card in topic["cards"])
         assert topic["lead_story_id"] == topic["story_ids"][0]
         assert [card["id"] for card in topic["cards"]] == topic["story_ids"]
         assert topic["source_refs"]

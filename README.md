@@ -110,8 +110,8 @@ organized app-ready briefing instead of a flat list of links. `briefing_topics`
 is presentation organization over existing ROW ONE stories; it does not add
 source collection, ranking changes, demand proof, platform coverage
 verification, or external enrichment. The ROW ONE homepage can render
-daily_digest.briefing_topics, while app clients still use data/edition.json
-without scraping HTML. See
+the first four daily_digest.briefing_topics from the same data/edition.json
+payload, while app clients still use data/edition.json without scraping HTML. See
 [docs/row-one.md](docs/row-one.md).
 
 The external tool handoff templates are sanitized CSV/JSON local file handoff
