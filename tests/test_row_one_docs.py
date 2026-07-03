@@ -117,6 +117,21 @@ def test_row_one_docs_describe_reader_orientation_boundary() -> None:
         assert phrase in normalized
 
 
+def test_row_one_docs_describe_display_media_readiness() -> None:
+    normalized = _normalized(_read(ROW_ONE_DOC))
+
+    for phrase in (
+        "display/media readiness",
+        "`display` object",
+        "`display.image` is `null` until a safe image path is available",
+        "safe `assets/...` image paths",
+        "typographic fallback visual",
+        "opendesign imagery is optional and not required for tests.",
+        "open design imagery is optional and not required for tests.",
+    ):
+        assert phrase in normalized
+
+
 def test_row_one_docs_describe_versioned_app_json_contract() -> None:
     normalized = _normalized(_read(ROW_ONE_DOC))
     architecture = _normalized(_read(ARCHITECTURE_DOC))

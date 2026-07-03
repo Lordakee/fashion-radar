@@ -4,6 +4,7 @@ import re
 from html import escape
 from pathlib import PurePosixPath
 
+from fashion_radar.row_one.display import display_for_story, safe_story_image_src
 from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneEdition,
@@ -73,6 +74,7 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
     section_title = _section_title(edition, story.section_key)
     evidence = "\n".join(_render_evidence(link) for link in story.evidence)
     source_link = _external_link(story.source_url, story.source_name, css_class="source-link")
+    visual = _render_story_visual(story, section_title, context="detail-visual")
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -109,6 +111,7 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
       </a>
     </p>
     <h1>{_esc(story.headline)}</h1>
+    {visual}
     <p class="story-source">{source_link}</p>
     <section>
       <h2>
@@ -170,12 +173,14 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
 def row_one_css() -> str:
     return """@font-face { font-family: RowOneSerif; src: local("Georgia"); }
 :root {
-  --paper: #f5f1ea;
-  --ink: #15120f;
-  --muted: #746d64;
-  --line: #d8d0c4;
-  --accent: #7d1f2d;
-  --panel: #fffaf2;
+  --paper: #f4f6f8;
+  --ink: #101216;
+  --muted: #626a73;
+  --line: #d6dce3;
+  --panel: #ffffff;
+  --accent: #2454ff;
+  --steel: #e8edf3;
+  --chrome: #c8d0da;
 }
 * { box-sizing: border-box; }
 body {
@@ -329,6 +334,67 @@ main { padding: 36px min(7vw, 88px) 72px; }
   margin-top: 12px;
   padding-bottom: 4px;
   text-transform: uppercase;
+}
+.story-visual {
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  display: grid;
+  margin: 0;
+  min-height: 220px;
+  overflow: hidden;
+  position: relative;
+}
+.story-visual img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+.story-visual-fallback {
+  align-content: space-between;
+  background:
+    linear-gradient(90deg, rgba(16, 18, 22, 0.08) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(16, 18, 22, 0.08) 1px, transparent 1px),
+    var(--steel);
+  background-size: 28px 28px;
+  color: var(--ink);
+  display: grid;
+  min-height: inherit;
+  padding: 16px;
+}
+.story-visual-mark {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 7vw, 6rem);
+  line-height: 0.88;
+  max-width: 8ch;
+}
+.story-visual-meta {
+  color: var(--accent);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 8px 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.story-visual--editorial { background: var(--panel); }
+.story-visual--portrait { background: var(--chrome); }
+.story-visual--product { background: var(--steel); }
+.story-visual--signal { background: var(--paper); }
+.story-visual--ink { border-color: var(--ink); }
+.story-visual--graphite { border-color: var(--muted); }
+.story-visual--steel { border-color: var(--chrome); }
+.story-visual--cobalt { border-color: var(--accent); }
+.story-visual--rose { border-color: var(--muted); }
+.lead-story-visual { min-height: clamp(280px, 36vw, 520px); }
+.story-card-visual {
+  margin-bottom: 16px;
+  min-height: 180px;
+}
+.detail-visual {
+  margin: 24px 0 30px;
+  min-height: clamp(260px, 45vw, 520px);
 }
 .section-block {
   display: grid;
@@ -555,17 +621,45 @@ def _render_edition_nav_item(
 def row_one_js() -> str:
     return """(() => {
   const buttons = Array.from(document.querySelectorAll("[data-lang-toggle]"));
-  const setLang = (lang) => {
+  const localizedImages = Array.from(document.querySelectorAll("img[data-alt-en]"));
+  const storageKey = "row-one:language";
+  const getStoredLang = () => {
+    try {
+      const stored = window.localStorage.getItem(storageKey);
+      return stored === "zh" || stored === "en" ? stored : null;
+    } catch {
+      return null;
+    }
+  };
+  const persistLang = (lang) => {
+    try {
+      window.localStorage.setItem(storageKey, lang);
+    } catch {
+      // Ignore unavailable storage; language toggles still work for this page view.
+    }
+  };
+  const setLang = (lang, options = {}) => {
     document.body.classList.toggle("lang-zh", lang === "zh");
     document.documentElement.lang = lang === "zh" ? "zh-Hans" : "en";
+    localizedImages.forEach((image) => {
+      if (lang === "zh") {
+        image.setAttribute("alt", image.dataset.altZh || image.dataset.altEn || "");
+      } else {
+        image.setAttribute("alt", image.dataset.altEn || "");
+      }
+    });
     buttons.forEach((button) => {
       button.setAttribute("aria-pressed", button.dataset.langToggle === lang ? "true" : "false");
     });
+    if (options.persist !== false) {
+      persistLang(lang);
+    }
   };
   buttons.forEach((button) => {
     button.addEventListener("click", () => setLang(button.dataset.langToggle || "en"));
   });
-  setLang("en");
+  const initialLang = getStoredLang() || "en";
+  setLang(initialLang, { persist: false });
 })();
 """
 
@@ -599,12 +693,14 @@ def _lead_story(edition: RowOneEdition) -> RowOneStory | None:
 
 def _render_lead_story(story: RowOneStory, section_title: LocalizedText) -> str:
     detail_href = _internal_detail_href(story.detail_path)
+    visual = _render_story_visual(story, section_title, context="lead-story-visual")
     return f"""<section class="lead-story" aria-label="Lead story">
   <p class="story-section">
     <span data-lang="en">Lead Story</span>
     <span data-lang="zh">今日头条</span>
   </p>
   <div class="lead-story-grid">
+    {visual}
     <div>
       <h2><a href="{detail_href}">{_esc(story.headline)}</a></h2>
       {_render_story_orientation(story, section_title)}
@@ -659,6 +755,7 @@ def _render_story_card(
 ) -> str:
     detail_href = _internal_detail_href(story.detail_path)
     return f"""<article class="story-card">
+  {_render_story_visual(story, section_title, context="story-card-visual")}
   <div>
     <h3><a href="{detail_href}">{_esc(story.headline)}</a></h3>
   </div>
@@ -698,6 +795,47 @@ def _render_story_orientation(story: RowOneStory, section_title: LocalizedText) 
     <span data-lang="en">{_esc(en_text)}</span>
     <span data-lang="zh">{_esc(zh_text)}</span>
   </p>"""
+
+
+def _render_story_visual(
+    story: RowOneStory,
+    section_title: LocalizedText,
+    *,
+    context: str,
+) -> str:
+    display = display_for_story(story)
+    class_name = (
+        f"story-visual story-visual--{display.variant} story-visual--{display.accent} {context}"
+    )
+    image = display.image
+    image_src = safe_story_image_src(image.src) if image is not None else None
+    if image is not None and image_src is not None:
+        if context == "detail-visual" and image_src.startswith("assets/"):
+            image_src = f"../{image_src}"
+        return (
+            f'<figure class="{_esc(class_name)}" data-display-variant="{_esc(display.variant)}">'
+            f'<img src="{_esc(image_src)}" alt="{_esc(image.alt.en)}" '
+            f'data-alt-en="{_esc(image.alt.en)}" data-alt-zh="{_esc(image.alt.zh)}">'
+            "</figure>"
+        )
+
+    return f"""<figure class="{_esc(class_name)}" data-display-variant="{_esc(display.variant)}">
+  <div class="story-visual-fallback">
+    <div class="story-visual-mark">{_esc(_story_visual_initials(story))}</div>
+    <div class="story-visual-meta">
+      <span>{_esc(display.variant)}</span>
+      <span data-lang="en">{_esc(section_title.en)}</span>
+      <span data-lang="zh">{_esc(section_title.zh)}</span>
+    </div>
+  </div>
+</figure>"""
+
+
+def _story_visual_initials(story: RowOneStory) -> str:
+    words = re.findall(r"[A-Za-z0-9]+", story.headline.upper())
+    if not words:
+        return "ROW ONE"
+    return " ".join(words[:2])
 
 
 def _published_label(story: RowOneStory) -> LocalizedText:

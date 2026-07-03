@@ -62,6 +62,18 @@ section link so readers can return to the relevant homepage section.
 This remains presentation-only. Reader orientation does not change ranking,
 scoring, story IDs, source collection, JSON contract semantics, or publishing.
 
+## Display/Media Readiness
+
+Every app story includes a `display` object with `variant`, `accent`, and
+`image`. `display.image` is `null` until a safe image path is available. Safe
+image sources are safe `assets/...` image paths generated for the site or safe
+http(s) URLs.
+
+Generated pages render a typographic fallback visual when no image is present.
+OpenDesign is the local image-generation integration name. OpenDesign imagery is
+optional and not required for tests. Open Design imagery is optional and not
+required for tests.
+
 ## App JSON Contract
 
 `data/edition.json` is the row-one-app/v1 app-facing contract for clients that

@@ -150,6 +150,37 @@ def test_build_row_one_edition_groups_editorial_sections() -> None:
     assert story.reader_path.en
 
 
+def test_build_row_one_edition_assigns_deterministic_display_metadata() -> None:
+    report = _report(
+        entities=[
+            _entity("The Row", "brand", score=9.2),
+            _entity("Zendaya", "celebrity", score=8.4),
+        ],
+        candidates=[
+            _candidate("market loafer", "shoe", score=7.8),
+            _candidate("atelier grey", "unknown", score=6.5),
+        ],
+    )
+
+    edition = build_row_one_edition(report=report, recent_items=_recent_items(), as_of=AS_OF)
+
+    expected_display = {
+        "top_stories": ("editorial", "ink"),
+        "brand_moves": ("editorial", "graphite"),
+        "celebrity_style": ("portrait", "rose"),
+        "hot_products": ("product", "cobalt"),
+        "rising_radar": ("signal", "steel"),
+    }
+    for section_key, (variant, accent) in expected_display.items():
+        section_stories = edition.section_stories(section_key)
+        assert section_stories
+        for story in section_stories:
+            assert story.display is not None
+            assert story.display.variant == variant
+            assert story.display.accent == accent
+            assert story.display.image is None
+
+
 def test_build_row_one_edition_uses_collision_safe_detail_paths() -> None:
     duplicate_items = [
         {

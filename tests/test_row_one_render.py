@@ -13,6 +13,8 @@ from fashion_radar.row_one.models import (
     RowOneLink,
     RowOneSection,
     RowOneStory,
+    RowOneStoryDisplay,
+    RowOneStoryImage,
 )
 from fashion_radar.row_one.render import clean_row_one_site_children, render_row_one_site
 
@@ -175,6 +177,90 @@ def test_render_row_one_site_includes_lead_story_block(tmp_path) -> None:
     assert "今日头条" in index_html
     assert "The Row &lt;signals&gt; &quot;quiet&quot; demand" in index_html
     assert "The Row is today&#x27;s priority signal." in index_html
+
+
+def test_render_row_one_site_includes_story_display_visual_slots(tmp_path) -> None:
+    render_row_one_site(_edition(), tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    css = (tmp_path / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    assert "story-visual story-visual--editorial story-visual--ink lead-story-visual" in index_html
+    assert "story-visual story-visual--editorial story-visual--ink story-card-visual" in index_html
+    assert "story-visual story-visual--editorial story-visual--ink detail-visual" in detail_html
+    assert 'data-display-variant="editorial"' in index_html
+    assert 'data-display-variant="editorial"' in detail_html
+    assert "THE ROW" in index_html
+    assert "THE ROW" in detail_html
+    assert "--paper: #f4f6f8;" in css
+    assert "--accent: #2454ff;" in css
+    assert "#f5f1ea" not in css
+    assert "#7d1f2d" not in css
+
+
+def test_render_row_one_site_renders_safe_display_image_and_omits_unsafe_image(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    edition.stories[0].display = RowOneStoryDisplay(
+        variant="editorial",
+        accent="ink",
+        image=RowOneStoryImage(
+            src="assets/images/the-row.png",
+            alt=LocalizedText(zh="The Row 图片", en="The Row image"),
+        ),
+    )
+
+    render_row_one_site(edition, tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert '<img src="assets/images/the-row.png"' in index_html
+    assert 'alt="The Row image"' in index_html
+    assert 'data-alt-en="The Row image"' in index_html
+    assert 'data-alt-zh="The Row 图片"' in index_html
+    assert '<img src="../assets/images/the-row.png"' in detail_html
+    detail_visual_match = re.search(
+        r'<figure class="story-visual story-visual--editorial story-visual--ink detail-visual"'
+        r"[^>]*>(?P<visual>.*?)</figure>",
+        detail_html,
+        re.S,
+    )
+    assert detail_visual_match is not None
+    assert 'src="../assets/images/the-row.png"' in detail_visual_match.group("visual")
+
+    edition.stories[0].display.image.src = "../secret.png"
+    render_row_one_site(edition, tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert "../secret.png" not in index_html
+    assert "../secret.png" not in detail_html
+    assert "story-visual-fallback" in index_html
+    assert "story-visual-fallback" in detail_html
+
+
+def test_row_one_js_persists_language_preference(tmp_path) -> None:
+    render_row_one_site(_edition(), tmp_path)
+
+    script = (tmp_path / "assets" / "row-one.js").read_text(encoding="utf-8")
+
+    assert 'storageKey = "row-one:language"' in script
+    assert 'localizedImages = Array.from(document.querySelectorAll("img[data-alt-en]"))' in script
+    assert "localStorage.getItem(storageKey)" in script
+    assert "localStorage.setItem(storageKey, lang)" in script
+    assert 'stored === "zh" || stored === "en"' in script
+    assert 'image.setAttribute("alt", image.dataset.altZh || image.dataset.altEn || "")' in script
+    assert "setLang(initialLang, { persist: false })" in script
 
 
 def test_render_row_one_site_includes_index_and_detail_metadata(tmp_path) -> None:

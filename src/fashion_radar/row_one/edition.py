@@ -8,6 +8,7 @@ from datetime import datetime
 from urllib.parse import urlsplit
 
 from fashion_radar.models.report import CandidateReport, DailyReport, EntityReport
+from fashion_radar.row_one.display import display_for_section
 from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneEdition,
@@ -199,6 +200,7 @@ def _story_from_entity(entity: EntityReport, *, section_key: RowOneSectionKey) -
     return RowOneStory(
         id=story_id,
         section_key=section_key,
+        display=display_for_section(section_key),
         headline=title,
         summary=_localized_summary(item_summary or title),
         why_it_matters=LocalizedText(
@@ -247,6 +249,7 @@ def _story_from_candidate(
     return RowOneStory(
         id=story_id,
         section_key=section_key,
+        display=display_for_section(section_key),
         headline=title,
         summary=_localized_summary(item_summary or title),
         why_it_matters=LocalizedText(
@@ -295,6 +298,7 @@ def _story_from_recent_item(
     return RowOneStory(
         id=story_id,
         section_key=section_key,
+        display=display_for_section(section_key),
         headline=title,
         summary=_localized_summary(summary),
         why_it_matters=LocalizedText(

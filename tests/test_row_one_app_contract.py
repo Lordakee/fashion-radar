@@ -14,6 +14,8 @@ from fashion_radar.row_one.models import (
     RowOneLink,
     RowOneSection,
     RowOneStory,
+    RowOneStoryDisplay,
+    RowOneStoryImage,
 )
 from fashion_radar.row_one.render import render_row_one_site
 
@@ -28,6 +30,7 @@ def _edition(
     source_url: str | None = "https://example.com/the-row",
     evidence_url: str | None = "https://example.com/evidence",
     published_at: datetime | None = AS_OF,
+    display: RowOneStoryDisplay | None = None,
 ) -> RowOneEdition:
     return RowOneEdition(
         brand="ROW ONE",
@@ -71,6 +74,7 @@ def _edition(
                         source_name="Vogue Business",
                     )
                 ],
+                display=display,
             )
         ],
     )
@@ -253,6 +257,188 @@ def test_row_one_app_payload_sanitizes_urls(tmp_path: Path) -> None:
     _schema_validator().validate(payload)
 
 
+def test_row_one_app_payload_includes_story_display_metadata(tmp_path: Path) -> None:
+    payload = _payload(tmp_path)
+
+    story = payload["stories"][0]
+    assert story["display"] == {
+        "variant": "editorial",
+        "accent": "ink",
+        "image": None,
+    }
+    _schema_validator().validate(payload)
+
+    image_payload = _payload(
+        tmp_path,
+        _edition(
+            display=RowOneStoryDisplay(
+                variant="product",
+                accent="cobalt",
+                image=RowOneStoryImage(
+                    src="assets/images/the-row.png",
+                    alt=LocalizedText(zh="The Row 视觉素材", en="The Row visual"),
+                    credit="ROW ONE",
+                    source_url="https://example.com/image-source",
+                ),
+            )
+        ),
+    )
+
+    assert image_payload["stories"][0]["display"] == {
+        "variant": "product",
+        "accent": "cobalt",
+        "image": {
+            "src": "assets/images/the-row.png",
+            "alt": {"zh": "The Row 视觉素材", "en": "The Row visual"},
+            "credit": "ROW ONE",
+            "source_url": "https://example.com/image-source",
+        },
+    }
+    _schema_validator().validate(image_payload)
+
+
+def test_row_one_app_payload_sanitizes_display_image_sources(tmp_path: Path) -> None:
+    payload = _payload(
+        tmp_path,
+        _edition(
+            display=RowOneStoryDisplay(
+                variant="portrait",
+                accent="rose",
+                image=RowOneStoryImage(
+                    src="../secret.png",
+                    alt=LocalizedText(zh="不安全图片", en="Unsafe image"),
+                    credit="ROW ONE",
+                    source_url="javascript:alert(1)",
+                ),
+            )
+        ),
+    )
+
+    assert payload["stories"][0]["display"] == {
+        "variant": "portrait",
+        "accent": "rose",
+        "image": None,
+    }
+    _schema_validator().validate(payload)
+
+
+@pytest.mark.parametrize(
+    "src",
+    [
+        " assets/images/the-row.png",
+        "assets/images/the-row.png\n",
+        "assets/foo bar.png",
+        "assets/foo+bar.png",
+        "assets/foo%20bar.png",
+    ],
+)
+def test_row_one_app_payload_rejects_schema_invalid_display_asset_paths(
+    tmp_path: Path,
+    src: str,
+) -> None:
+    payload = _payload(
+        tmp_path,
+        _edition(
+            display=RowOneStoryDisplay(
+                variant="product",
+                accent="cobalt",
+                image=RowOneStoryImage(
+                    src=src,
+                    alt=LocalizedText(zh="不安全图片", en="Unsafe image"),
+                    credit="ROW ONE",
+                    source_url="https://example.com/image-source",
+                ),
+            )
+        ),
+    )
+
+    assert payload["stories"][0]["display"] == {
+        "variant": "product",
+        "accent": "cobalt",
+        "image": None,
+    }
+    _schema_validator().validate(payload)
+
+
+@pytest.mark.parametrize(
+    "src",
+    [
+        " https://example.com/foo.png",
+        "https://example.com\\foo.png",
+        "https://example.com/foo bar.png",
+        "https://example.com/foo.png ",
+        "\nhttps://example.com/foo.png",
+        "https://example.com/\nfoo.png",
+        "https:///bad.png",
+        "http://:80/foo.png",
+    ],
+)
+def test_row_one_app_payload_rejects_display_image_urls_sanitizer_rejects(
+    tmp_path: Path,
+    src: str,
+) -> None:
+    payload = _payload(
+        tmp_path,
+        _edition(
+            display=RowOneStoryDisplay(
+                variant="product",
+                accent="cobalt",
+                image=RowOneStoryImage(
+                    src=src,
+                    alt=LocalizedText(zh="不安全图片", en="Unsafe image"),
+                    credit="ROW ONE",
+                    source_url="https://example.com/image-source",
+                ),
+            )
+        ),
+    )
+
+    assert payload["stories"][0]["display"] == {
+        "variant": "product",
+        "accent": "cobalt",
+        "image": None,
+    }
+    _schema_validator().validate(payload)
+
+
+@pytest.mark.parametrize(
+    "src",
+    [
+        " https://example.com/foo.png",
+        "https://example.com\\foo.png",
+        "https://example.com/foo bar.png",
+        "https://example.com/foo.png ",
+        "\nhttps://example.com/foo.png",
+        "https://example.com/\nfoo.png",
+        "https:///bad.png",
+        "http://:80/foo.png",
+    ],
+)
+def test_row_one_app_schema_rejects_display_image_urls_sanitizer_rejects(
+    tmp_path: Path,
+    src: str,
+) -> None:
+    payload = _payload(
+        tmp_path,
+        _edition(
+            display=RowOneStoryDisplay(
+                variant="product",
+                accent="cobalt",
+                image=RowOneStoryImage(
+                    src="assets/images/the-row.png",
+                    alt=LocalizedText(zh="The Row 视觉素材", en="The Row visual"),
+                    credit="ROW ONE",
+                    source_url="https://example.com/image-source",
+                ),
+            )
+        ),
+    )
+    payload["stories"][0]["display"]["image"]["src"] = src
+
+    with pytest.raises(ValidationError, match="not valid under any"):
+        _schema_validator().validate(payload)
+
+
 @pytest.mark.parametrize(
     ("mutation", "match"),
     [
@@ -274,6 +460,10 @@ def test_row_one_app_payload_sanitizes_urls(tmp_path: Path) -> None:
         (
             lambda payload: payload["stories"][0].__setitem__("published_date", "2026-7-2"),
             "not valid under any",
+        ),
+        (
+            lambda payload: payload["stories"][0]["display"].__setitem__("variant", "banner"),
+            "is not one of",
         ),
         (lambda payload: payload["summary"].pop("zh"), "'zh' is a required property"),
     ],

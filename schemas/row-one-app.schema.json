@@ -87,7 +87,7 @@
         {
           "type": "string",
           "format": "uri",
-          "pattern": "^https?://[^\\s/]+"
+          "pattern": "\\Ahttps?://(?:[^\\s\\\\/@\\x00-\\x1F\\x7F]+@)?[A-Za-z0-9][^\\s\\\\/\\x00-\\x1F\\x7F]*(?:/[^\\s\\\\\\x00-\\x1F\\x7F]*)?\\Z"
         },
         {
           "type": "null"
@@ -153,6 +153,7 @@
         "reader_path",
         "source_name",
         "source_url",
+        "display",
         "published_at",
         "published_date",
         "detail_path",
@@ -199,6 +200,9 @@
         },
         "source_url": {
           "$ref": "#/$defs/safeExternalUrl"
+        },
+        "display": {
+          "$ref": "#/$defs/storyDisplay"
         },
         "published_at": {
           "anyOf": [
@@ -251,6 +255,68 @@
           }
         }
       }
+    },
+    "storyDisplay": {
+      "type": "object",
+      "required": ["variant", "accent", "image"],
+      "additionalProperties": false,
+      "properties": {
+        "variant": {
+          "enum": ["editorial", "portrait", "product", "signal"]
+        },
+        "accent": {
+          "enum": ["ink", "graphite", "steel", "cobalt", "rose"]
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/storyImage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "storyImage": {
+      "type": "object",
+      "required": ["src", "alt", "credit", "source_url"],
+      "additionalProperties": false,
+      "properties": {
+        "src": {
+          "$ref": "#/$defs/imageSrc"
+        },
+        "alt": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "credit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_url": {
+          "$ref": "#/$defs/safeExternalUrl"
+        }
+      }
+    },
+    "imageSrc": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uri",
+          "pattern": "\\Ahttps?://(?:[^\\s\\\\/@\\x00-\\x1F\\x7F]+@)?[A-Za-z0-9][^\\s\\\\/\\x00-\\x1F\\x7F]*(?:/[^\\s\\\\\\x00-\\x1F\\x7F]*)?\\Z"
+        },
+        {
+          "type": "string",
+          "pattern": "\\Aassets/(?!.*\\.\\.)(?:[A-Za-z0-9._~-]+/)*[A-Za-z0-9._~-]+\\Z"
+        }
+      ]
     },
     "evidence": {
       "type": "object",

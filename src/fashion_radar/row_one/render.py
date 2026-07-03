@@ -5,7 +5,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from shutil import rmtree
 
-from fashion_radar.row_one.models import RowOneEdition, RowOneLink, RowOneSection, RowOneStory
+from fashion_radar.row_one.display import display_for_story, safe_story_image_src
+from fashion_radar.row_one.models import (
+    RowOneEdition,
+    RowOneLink,
+    RowOneSection,
+    RowOneStory,
+    RowOneStoryDisplay,
+    RowOneStoryImage,
+)
 from fashion_radar.row_one.templates import (
     _validated_detail_relative_path,
     render_detail_html,
@@ -186,6 +194,7 @@ def _story_payload(edition: RowOneEdition, story: RowOneStory) -> dict[str, obje
         "reader_path": story.reader_path.model_dump(mode="json"),
         "source_name": story.source_name,
         "source_url": safe_external_url(story.source_url),
+        "display": _display_payload(display_for_story(story)),
         "published_at": isoformat_z(published_at_utc) if published_at_utc else None,
         "published_date": published_at_utc.date().isoformat() if published_at_utc else None,
         "detail_path": detail_href,
@@ -194,6 +203,28 @@ def _story_payload(edition: RowOneEdition, story: RowOneStory) -> dict[str, obje
         "tags": list(story.tags),
         "evidence_count": _safe_evidence_count(story.evidence),
         "evidence": [_evidence_payload(link) for link in story.evidence],
+    }
+
+
+def _display_payload(display: RowOneStoryDisplay) -> dict[str, object]:
+    return {
+        "variant": display.variant,
+        "accent": display.accent,
+        "image": _image_payload(display.image),
+    }
+
+
+def _image_payload(image: RowOneStoryImage | None) -> dict[str, object] | None:
+    if image is None:
+        return None
+    src = safe_story_image_src(image.src)
+    if src is None:
+        return None
+    return {
+        "src": src,
+        "alt": image.alt.model_dump(mode="json"),
+        "credit": image.credit,
+        "source_url": safe_external_url(image.source_url),
     }
 
 

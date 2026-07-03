@@ -7,6 +7,8 @@ from fashion_radar.row_one.models import (
     RowOneLink,
     RowOneSection,
     RowOneStory,
+    RowOneStoryDisplay,
+    RowOneStoryImage,
 )
 from fashion_radar.row_one.ops import render_row_one_local_ops_runbook
 from fashion_radar.row_one.readiness import RowOneReadiness, build_row_one_readiness
@@ -18,6 +20,8 @@ __all__ = [
     "RowOneReadiness",
     "RowOneSection",
     "RowOneStory",
+    "RowOneStoryDisplay",
+    "RowOneStoryImage",
     "build_row_one_edition",
     "build_row_one_readiness",
     "render_row_one_local_ops_runbook",

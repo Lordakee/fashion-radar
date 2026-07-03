@@ -14,6 +14,8 @@ RowOneSectionKey = Literal[
     "hot_products",
     "rising_radar",
 ]
+RowOneDisplayVariant = Literal["editorial", "portrait", "product", "signal"]
+RowOneDisplayAccent = Literal["ink", "graphite", "steel", "cobalt", "rose"]
 
 
 class LocalizedText(BaseModel):
@@ -39,6 +41,23 @@ class RowOneSection(BaseModel):
     dek: LocalizedText
 
 
+class RowOneStoryImage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    src: str
+    alt: LocalizedText
+    credit: str | None = None
+    source_url: str | None = None
+
+
+class RowOneStoryDisplay(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    variant: RowOneDisplayVariant
+    accent: RowOneDisplayAccent
+    image: RowOneStoryImage | None = None
+
+
 class RowOneStory(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -56,6 +75,7 @@ class RowOneStory(BaseModel):
     detail_path: str
     tags: list[str] = Field(default_factory=list)
     evidence: list[RowOneLink] = Field(default_factory=list)
+    display: RowOneStoryDisplay | None = None
 
     @field_validator("published_at", mode="before")
     @classmethod
