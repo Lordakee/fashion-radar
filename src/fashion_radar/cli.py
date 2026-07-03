@@ -1631,6 +1631,11 @@ def _validate_row_one_status_payloads(
         manifest.get("contract_version"),
         "row-one-manifest/v1",
     )
+    _require_row_one_value(
+        "edition contract_version",
+        edition.get("contract_version"),
+        "row-one-app/v3",
+    )
 
     site = _require_row_one_object(runtime, "site", label="runtime.site")
     for key, expected in (
@@ -1721,6 +1726,58 @@ def _validate_row_one_status_payloads(
         raise ValueError("row-one runtime.readiness.zh must be a non-empty string")
 
 
+def _build_row_one_status_payload(
+    *,
+    site_dir: Path,
+    host: str,
+    port: int,
+    manifest: dict[str, object],
+    edition: dict[str, object],
+    runtime: dict[str, object],
+) -> dict[str, object]:
+    site = _require_row_one_object(runtime, "site", label="runtime.site")
+    counts = _require_row_one_object(runtime, "counts", label="runtime.counts")
+    readiness = _require_row_one_object(runtime, "readiness", label="runtime.readiness")
+    refresh = _require_row_one_object(runtime, "refresh", label="runtime.refresh")
+    serve = _require_row_one_object(runtime, "serve", label="runtime.serve")
+    story_count = counts.get("story_count")
+    return {
+        "ok": True,
+        "site_dir": str(site_dir),
+        "access": format_row_one_site_access_message(host, port),
+        "paths": {
+            "manifest": "data/manifest.json",
+            "edition": "data/edition.json",
+            "runtime": "data/runtime.json",
+        },
+        "manifest": manifest,
+        "runtime": runtime,
+        "site": site,
+        "serve": serve,
+        "refresh": refresh,
+        "contracts": {
+            "app": edition.get("contract_version"),
+            "manifest": manifest.get("contract_version"),
+            "runtime": runtime.get("contract_version"),
+        },
+        "counts": counts,
+        "readiness": readiness,
+        "story_count": story_count,
+        "section_count": counts.get("section_count"),
+        "evidence_count": counts.get("evidence_count"),
+        "readiness_status": readiness.get("status"),
+        "refresh_time": refresh.get("recommended_time"),
+        "generated_at": runtime.get("generated_at"),
+        "edition_date": runtime.get("edition_date"),
+        "index_path": site.get("index_path"),
+        "edition_path": site.get("edition_path"),
+        "manifest_path": site.get("manifest_path"),
+        "runtime_path": site.get("runtime_path"),
+        "local_url": serve.get("local_url"),
+        "lan_url_hint": serve.get("lan_url_hint"),
+    }
+
+
 @row_one_app.command(name="status")
 def row_one_status(
     site_dir: Path = ROW_ONE_SITE_DIR_OPTION,
@@ -1747,19 +1804,14 @@ def row_one_status(
         typer.echo(f"ROW ONE status failed: {exc}", err=True)
         raise typer.Exit(1) from exc
 
-    payload = {
-        "ok": True,
-        "site_dir": str(site_dir),
-        "access": format_row_one_site_access_message(host, port),
-        "paths": {
-            "manifest": "data/manifest.json",
-            "edition": "data/edition.json",
-            "runtime": "data/runtime.json",
-        },
-        "manifest": manifest,
-        "runtime": runtime,
-        "story_count": edition.get("story_count"),
-    }
+    payload = _build_row_one_status_payload(
+        site_dir=site_dir,
+        host=host,
+        port=port,
+        manifest=manifest,
+        edition=edition,
+        runtime=runtime,
+    )
     if json_output:
         typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
         return

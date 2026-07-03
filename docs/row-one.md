@@ -169,6 +169,16 @@ manifest, and edition payloads. It is intended for first-run smoke checks and
 operator preflight checks before serving
 `http://127.0.0.1:8787` or `http://<LAN-IP>:8787`.
 
+`row-one status --json` keeps the nested `runtime` and `manifest` payloads
+intact and adds an additive CLI projection for app and operations preflight
+checks. The top-level JSON exposes `counts`, `readiness`, `refresh_time`,
+`local_url`, `lan_url_hint`, `index_path`, `edition_path`, `manifest_path`, and
+`runtime_path` for direct consumption. It also exposes structured `site`,
+`serve`, `contracts`, and `refresh` objects projected from the validated
+runtime, manifest, and app payloads. These fields are CLI status output only;
+they do not add fields to `row-one-runtime/v1`, `row-one-manifest/v1`, or
+`row-one-app/v3`.
+
 The canonical first-run local serving boundary is fixed IP:port `127.0.0.1:8787`
 for local-only testing. Use `0.0.0.0:8787` only for explicit LAN serving, and
 open `http://<LAN-IP>:8787` from other devices. Daily local refresh examples use

@@ -732,7 +732,117 @@ def test_row_one_status_json_outputs_machine_readable_payload(tmp_path: Path) ->
     }
     assert payload["runtime"]["contract_version"] == "row-one-runtime/v1"
     assert payload["manifest"]["contract_version"] == "row-one-manifest/v1"
+    assert payload["contracts"] == {
+        "app": "row-one-app/v3",
+        "manifest": "row-one-manifest/v1",
+        "runtime": "row-one-runtime/v1",
+    }
     assert payload["story_count"] == 0
+    assert payload["site"] == {
+        "index_path": "index.html",
+        "manifest_path": "data/manifest.json",
+        "edition_path": "data/edition.json",
+        "runtime_path": "data/runtime.json",
+    }
+    assert payload["serve"] == {
+        "default_host": "127.0.0.1",
+        "default_port": 8787,
+        "local_url": "http://127.0.0.1:8787",
+        "lan_url_hint": "http://<LAN-IP>:8787",
+    }
+    assert payload["refresh"]["recommended_time"] == "04:00"
+    assert payload["refresh"]["latest_only_cleanup"] is True
+    assert payload["counts"] == {
+        "story_count": 0,
+        "section_count": 5,
+        "evidence_count": 0,
+    }
+    assert payload["readiness"] == {
+        "status": "empty",
+        "en": "empty",
+        "zh": "暂无故事",
+    }
+    assert payload["refresh_time"] == "04:00"
+    assert payload["local_url"] == "http://127.0.0.1:8787"
+    assert payload["lan_url_hint"] == "http://<LAN-IP>:8787"
+    assert payload["edition_path"] == "data/edition.json"
+    assert payload["manifest_path"] == "data/manifest.json"
+    assert payload["runtime_path"] == "data/runtime.json"
+    assert payload["story_count"] == payload["runtime"]["counts"]["story_count"]
+    assert payload["section_count"] == payload["runtime"]["counts"]["section_count"]
+    assert payload["evidence_count"] == payload["runtime"]["counts"]["evidence_count"]
+    assert payload["readiness_status"] == payload["runtime"]["readiness"]["status"]
+    assert payload["generated_at"] == payload["runtime"]["generated_at"]
+    assert payload["edition_date"] == payload["runtime"]["edition_date"]
+    assert payload["site"] == payload["runtime"]["site"]
+    assert payload["serve"] == payload["runtime"]["serve"]
+    assert payload["refresh"] == payload["runtime"]["refresh"]
+
+
+def test_row_one_status_json_keeps_fixed_runtime_urls_for_wildcard_host(
+    tmp_path: Path,
+) -> None:
+    render_row_one_site(
+        build_row_one_edition(report=_empty_report(), recent_items=[], as_of=AS_OF),
+        tmp_path,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "status",
+            "--site-dir",
+            str(tmp_path),
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8787",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert "Open locally: http://127.0.0.1:8787" in payload["access"]
+    assert "Open from LAN: http://<LAN-IP>:8787" in payload["access"]
+    assert payload["local_url"] == "http://127.0.0.1:8787"
+    assert payload["lan_url_hint"] == "http://<LAN-IP>:8787"
+    assert "http://0.0.0.0:8787" not in json.dumps(payload)
+
+
+def test_row_one_status_json_reports_ready_counts_for_populated_site(
+    tmp_path: Path,
+) -> None:
+    edition = build_row_one_edition(
+        report=_empty_report(),
+        recent_items=[
+            {
+                "source_name": "Local Desk",
+                "url": "https://example.com/status-ready",
+                "title": "The Row showroom appointment demand rises",
+                "summary": "Local desk notes rising interest in quiet luxury appointments.",
+                "collected_at": AS_OF,
+            }
+        ],
+        as_of=AS_OF,
+    )
+    render_row_one_site(edition, tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        ["row-one", "status", "--site-dir", str(tmp_path), "--json"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["story_count"] == 1
+    assert payload["counts"]["story_count"] == 1
+    assert payload["readiness_status"] == "ready"
+    assert payload["readiness"]["status"] == "ready"
+    assert payload["readiness"]["en"] == "ready"
+    assert payload["counts"] == payload["runtime"]["counts"]
+    assert payload["readiness"] == payload["runtime"]["readiness"]
 
 
 def test_row_one_status_rejects_missing_runtime_payload(tmp_path: Path) -> None:
@@ -756,6 +866,12 @@ def test_row_one_status_rejects_missing_runtime_payload(tmp_path: Path) -> None:
                 {"contract_version": "row-one-runtime/v2"}
             ),
             "runtime contract_version",
+        ),
+        (
+            lambda _runtime, _manifest, edition: edition.update(
+                {"contract_version": "row-one-app/v4"}
+            ),
+            "edition contract_version",
         ),
         (
             lambda runtime, _manifest, _edition: runtime["site"].update(
@@ -799,6 +915,8 @@ def test_row_one_status_rejects_runtime_contract_drift(
     edition = json.loads(edition_path.read_text(encoding="utf-8"))
     runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
     mutation(runtime, manifest, edition)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    edition_path.write_text(json.dumps(edition), encoding="utf-8")
     runtime_path.write_text(json.dumps(runtime), encoding="utf-8")
 
     result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
