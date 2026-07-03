@@ -674,6 +674,8 @@ report data:
 ```bash
 AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar row-one refresh --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --output-dir reports/row-one/site --as-of "$AS_OF"
+uv run fashion-radar row-one preview --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --output-dir reports/row-one/site --as-of "$AS_OF" --latest-only --dry-run-serve-url
+uv run fashion-radar row-one status --site-dir reports/row-one/site --json
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one schedule --time 04:00
@@ -682,14 +684,18 @@ uv run fashion-radar row-one local-ops --time 04:00 --host 0.0.0.0 --port 8787
 
 ROW ONE supports IP:port local-network serving when you explicitly bind
 `--host 0.0.0.0`; open `http://<LAN-IP>:8787`, not `http://0.0.0.0:8787`,
-from another device. The local ROW ONE server has no authentication layer. Open
-Design imagery is optional and not required for tests.
+from another device. The local ROW ONE server has no authentication layer.
+Open Design imagery is optional and not required for tests.
 `row-one refresh` is the single local daily refresh command for ROW ONE: it
 refreshes the daily report data and generated site in one command.
 `row-one local-ops` prints a local daily ops runbook for 04:00 refresh, preview,
-fixed IP:port serving, LAN access, cron snippets, and latest-only cleanup. It
-prints snippets only and does not install timers, build the site, start the
-server, or mutate files.
+fixed IP:port serving, LAN access, cron snippets, latest-only cleanup, and a
+copyable source-checkout command group with its own `AS_OF`, `cd`, and
+`row-one status --json` preflight. The group includes
+`uv run fashion-radar row-one refresh`,
+`uv run fashion-radar row-one preview`, `uv run fashion-radar row-one status --site-dir reports/row-one/site --json`,
+and `uv run fashion-radar row-one serve`. It prints snippets only and does not
+install timers, build the site, start the server, or mutate files.
 
 Package local digest artifacts after a report or serial run:
 

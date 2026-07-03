@@ -290,6 +290,8 @@ def test_row_one_local_ops_command_prints_runbook(tmp_path: Path) -> None:
         [
             "row-one",
             "local-ops",
+            "--project-dir",
+            str(tmp_path),
             "--config-dir",
             str(config_dir),
             "--data-dir",
@@ -310,13 +312,24 @@ def test_row_one_local_ops_command_prints_runbook(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert "ROW ONE local daily ops" in result.output
     assert "fashion-radar row-one refresh" in result.output
+    assert "Source checkout commands:" in result.output
+    assert f"cd {tmp_path}" in result.output
+    assert "uv run fashion-radar row-one refresh" in result.output
+    assert "uv run fashion-radar row-one preview" in result.output
+    assert "uv run fashion-radar row-one status" in result.output
+    assert "uv run fashion-radar row-one serve" in result.output
     assert "fashion-radar row-one preview" in result.output
+    assert "fashion-radar row-one status" in result.output
     assert "fashion-radar row-one serve" in result.output
     assert "fashion-radar run" not in result.output
     assert "fashion-radar row-one build" not in result.output
     assert not re.search(r"fashion-radar row-one refresh\b[^\n]*--latest-only", result.output)
     assert "Open from LAN: http://<LAN-IP>:8787" in result.output
     assert "0 4 * * *" in result.output
+    assert not config_dir.exists()
+    assert not data_dir.exists()
+    assert not reports_dir.exists()
+    assert not output_dir.exists()
 
 
 def test_row_one_local_ops_help_is_discoverable() -> None:

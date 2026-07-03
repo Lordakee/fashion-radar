@@ -4412,14 +4412,35 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             )
 
         if args[:2] == ("row-one", "local-ops") and "--help" not in args:
+            row_one_output_dir = context.reports_dir / "row-one" / "site"
             return subprocess.CompletedProcess(
                 ["python", "-m", "fashion_radar", *args],
                 0,
                 stdout=(
                     "ROW ONE local daily ops\n"
-                    "fashion-radar row-one refresh --output-dir reports/row-one/site\n"
-                    "fashion-radar row-one preview --dry-run-serve-url\n"
-                    "fashion-radar row-one serve --host 0.0.0.0 --port 8787\n"
+                    f"fashion-radar row-one refresh --config-dir {context.config_dir} "
+                    f"--data-dir {context.data_dir} --reports-dir {context.reports_dir} "
+                    f'--output-dir {row_one_output_dir} --as-of "$AS_OF"\n'
+                    f"fashion-radar row-one preview --config-dir {context.config_dir} "
+                    f"--data-dir {context.data_dir} --reports-dir {context.reports_dir} "
+                    f'--output-dir {row_one_output_dir} --as-of "$AS_OF" '
+                    "--latest-only --host 0.0.0.0 --port 8787 --dry-run-serve-url\n"
+                    f"fashion-radar row-one status --site-dir {row_one_output_dir} --json\n"
+                    f"fashion-radar row-one serve --site-dir {row_one_output_dir} "
+                    "--host 0.0.0.0 --port 8787\n"
+                    "Source checkout commands:\n"
+                    'AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"\n'
+                    f"cd {context.repo_root}\n"
+                    f"uv run fashion-radar row-one refresh --config-dir {context.config_dir} "
+                    f"--data-dir {context.data_dir} --reports-dir {context.reports_dir} "
+                    f'--output-dir {row_one_output_dir} --as-of "$AS_OF"\n'
+                    f"uv run fashion-radar row-one preview --config-dir {context.config_dir} "
+                    f"--data-dir {context.data_dir} --reports-dir {context.reports_dir} "
+                    f'--output-dir {row_one_output_dir} --as-of "$AS_OF" '
+                    "--latest-only --host 0.0.0.0 --port 8787 --dry-run-serve-url\n"
+                    f"uv run fashion-radar row-one status --site-dir {row_one_output_dir} --json\n"
+                    f"uv run fashion-radar row-one serve --site-dir {row_one_output_dir} "
+                    "--host 0.0.0.0 --port 8787\n"
                     "LAN: http://<LAN-IP>:8787\n"
                     "cron 04:00\n"
                     "Open from LAN: http://<LAN-IP>:8787\n"

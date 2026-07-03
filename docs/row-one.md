@@ -14,7 +14,7 @@ site:
 AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar row-one refresh --as-of "$AS_OF" --output-dir reports/row-one/site
 uv run fashion-radar row-one preview --as-of "$AS_OF" --latest-only --dry-run-serve-url
-uv run fashion-radar row-one status --site-dir reports/row-one/site
+uv run fashion-radar row-one status --site-dir reports/row-one/site --json
 uv run fashion-radar row-one local-ops --time 04:00 --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one install-local --dry-run --time 04:00 --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787
@@ -254,9 +254,9 @@ continue so user files are not silently removed.
   status from `data/runtime.json` without rebuilding or serving the site.
   Important flags: `--site-dir`.
 - `row-one local-ops`: prints a ROW ONE local daily ops runbook for 04:00
-  refresh, fixed IP:port serving, preview, and cron snippets. It prints
-  snippets only and does not install timers, build the site, start the server,
-  or mutate files.
+  refresh, fixed IP:port serving, preview, `row-one status --json` preflight,
+  source checkout commands, and cron snippets. It prints snippets only and does
+  not install timers, build the site, start the server, or mutate files.
 - `row-one install-local`: renders or writes user-level systemd units for the
   local ROW ONE daily site. With `--dry-run`, it prints the refresh service,
   refresh timer, serve service, and enable commands without writing files.
@@ -287,8 +287,25 @@ uv run fashion-radar row-one install-local --dry-run --time 04:00 --host 0.0.0.0
 
 `row-one schedule` and `row-one local-ops` print snippets only; they do not
 install cron jobs or systemd timers. `row-one local-ops` also prints fixed
-IP:port serving guidance, including `Open from LAN: http://<LAN-IP>:8787`, and
-the manual preview/serve commands for the latest-only local ROW ONE site.
+IP:port serving guidance, including `Open from LAN: http://<LAN-IP>:8787`, the
+manual preview/serve commands for the latest-only local ROW ONE site, and a
+copyable source-checkout command group:
+
+```bash
+AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+cd /path/to/fashion-radar
+uv run fashion-radar row-one refresh --config-dir configs --data-dir data --reports-dir reports --output-dir reports/row-one/site --as-of "$AS_OF"
+uv run fashion-radar row-one preview --config-dir configs --data-dir data --reports-dir reports --output-dir reports/row-one/site --as-of "$AS_OF" --latest-only --host 0.0.0.0 --port 8787 --dry-run-serve-url
+uv run fashion-radar row-one status --site-dir reports/row-one/site --json
+uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 0.0.0.0 --port 8787
+```
+
+The source checkout commands include a `row-one status --json` preflight so app
+and operations scripts can validate the generated site before serving it.
+The copyable source-checkout command group includes
+`uv run fashion-radar row-one refresh`, `uv run fashion-radar row-one preview`,
+`uv run fashion-radar row-one status --site-dir reports/row-one/site --json`,
+and `uv run fashion-radar row-one serve`.
 
 `row-one install-local --dry-run` prints the complete user systemd unit files and
 the enable commands. After reviewing the output, run the same command without

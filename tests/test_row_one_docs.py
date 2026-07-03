@@ -480,6 +480,37 @@ def test_row_one_scheduling_docs_describe_single_refresh_command() -> None:
         assert old_phrase not in normalized
 
 
+def test_row_one_docs_describe_local_ops_source_checkout_commands() -> None:
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    readme = _normalized(_read(README))
+
+    for phrase in (
+        "source checkout commands",
+        "`uv run fashion-radar row-one refresh`",
+        "`uv run fashion-radar row-one preview`",
+        "`uv run fashion-radar row-one status --site-dir reports/row-one/site --json`",
+        "`uv run fashion-radar row-one serve`",
+        "`row-one status --json` preflight",
+        "copyable source-checkout command group",
+        'as_of="$(date -u +%y-%m-%dt%h:%m:%sz)"',
+        "cd /path/to/fashion-radar",
+        "--config-dir configs --data-dir data --reports-dir reports",
+        '--output-dir reports/row-one/site --as-of "$as_of"',
+        "--host 0.0.0.0 --port 8787 --dry-run-serve-url",
+        "does not install timers, build the site, start the server, or mutate files",
+    ):
+        assert phrase in row_one
+
+    for phrase in (
+        "uv run fashion-radar row-one preview",
+        "uv run fashion-radar row-one status --site-dir reports/row-one/site --json",
+        "uv run fashion-radar row-one serve",
+        "`row-one status --json` preflight",
+        "source-checkout command group",
+    ):
+        assert phrase in readme
+
+
 def test_row_one_upload_checklist_covers_subcommand_help() -> None:
     normalized = _normalized(_read(UPLOAD_CHECKLIST))
 

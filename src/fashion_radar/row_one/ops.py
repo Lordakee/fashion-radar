@@ -27,6 +27,7 @@ def render_row_one_local_ops_runbook(
 ) -> str:
     validate_hhmm(time)
     access_message = format_row_one_site_access_message(host, port)
+    quoted_project_dir = _shell_quote(project_dir)
     quoted_config_dir = _shell_quote(config_dir)
     quoted_data_dir = _shell_quote(data_dir)
     quoted_reports_dir = _shell_quote(reports_dir)
@@ -38,6 +39,7 @@ def render_row_one_local_ops_runbook(
         f"--output-dir {quoted_output_dir} "
         '--as-of "$AS_OF"'
     )
+    source_refresh_command = f"uv run {refresh_command}"
     preview_command = (
         f"fashion-radar row-one preview --config-dir {quoted_config_dir} "
         f"--data-dir {quoted_data_dir} --reports-dir {quoted_reports_dir} "
@@ -45,10 +47,14 @@ def render_row_one_local_ops_runbook(
         f'--as-of "$AS_OF" --latest-only --host {quoted_host} --port {port} '
         "--dry-run-serve-url"
     )
+    source_preview_command = f"uv run {preview_command}"
+    status_command = f"fashion-radar row-one status --site-dir {quoted_output_dir} --json"
+    source_status_command = f"uv run {status_command}"
     serve_command = (
         f"fashion-radar row-one serve --site-dir {quoted_output_dir} "
         f"--host {quoted_host} --port {port}"
     )
+    source_serve_command = f"uv run {serve_command}"
     cron_snippet = render_row_one_cron_example(
         project_dir=project_dir,
         config_dir=config_dir,
@@ -66,8 +72,19 @@ AS_OF="{raw_as_of_shell()}"
 Preview before serving:
 {preview_command}
 
+Status preflight:
+{status_command}
+
 Serve fixed local URL:
 {serve_command}
+
+Source checkout commands:
+AS_OF="{raw_as_of_shell()}"
+cd {quoted_project_dir}
+{source_refresh_command}
+{source_preview_command}
+{source_status_command}
+{source_serve_command}
 
 Access:
 {access_message}

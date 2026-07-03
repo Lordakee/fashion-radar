@@ -1,3 +1,5 @@
+import shlex
+
 import pytest
 
 from fashion_radar.row_one.ops import render_row_one_local_ops_runbook
@@ -14,6 +16,10 @@ from fashion_radar.scheduling import (
     systemd_as_of_shell,
     validate_hhmm,
 )
+
+
+def _line_starting_with(text: str, prefix: str) -> str:
+    return next(line for line in text.splitlines() if line.startswith(prefix))
 
 
 def test_validate_hhmm_accepts_24_hour_time() -> None:
@@ -157,6 +163,18 @@ def test_render_row_one_local_ops_runbook_prints_refresh_serve_and_cron() -> Non
     assert "ROW ONE local daily ops" in output
     assert 'AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"' in output
     assert "fashion-radar row-one refresh" in output
+    assert "Source checkout commands:" in output
+    source_checkout_block = output.split("Source checkout commands:", maxsplit=1)[1].split(
+        "Access:", maxsplit=1
+    )[0]
+    assert 'AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"' in source_checkout_block
+    assert "cd /repo" in output
+    assert "uv run fashion-radar row-one refresh" in output
+    assert "uv run fashion-radar row-one preview" in output
+    assert (
+        "uv run fashion-radar row-one status --site-dir /repo/reports/row-one/site --json" in output
+    )
+    assert "uv run fashion-radar row-one serve" in output
     assert "fashion-radar run" not in output
     assert "fashion-radar row-one build" not in output
     assert "--config-dir /repo/configs" in output
@@ -164,12 +182,116 @@ def test_render_row_one_local_ops_runbook_prints_refresh_serve_and_cron() -> Non
     assert "--reports-dir /repo/reports" in output
     assert "--output-dir /repo/reports/row-one/site" in output
     assert '--as-of "$AS_OF"' in output
-    refresh_line = next(
-        line for line in output.splitlines() if line.startswith("fashion-radar row-one refresh")
-    )
+    refresh_line = _line_starting_with(output, "fashion-radar row-one refresh")
     assert "--latest-only" not in refresh_line
+    assert shlex.split(refresh_line) == [
+        "fashion-radar",
+        "row-one",
+        "refresh",
+        "--config-dir",
+        "/repo/configs",
+        "--data-dir",
+        "/repo/data",
+        "--reports-dir",
+        "/repo/reports",
+        "--output-dir",
+        "/repo/reports/row-one/site",
+        "--as-of",
+        "$AS_OF",
+    ]
+    assert shlex.split(_line_starting_with(output, "fashion-radar row-one preview")) == [
+        "fashion-radar",
+        "row-one",
+        "preview",
+        "--config-dir",
+        "/repo/configs",
+        "--data-dir",
+        "/repo/data",
+        "--reports-dir",
+        "/repo/reports",
+        "--output-dir",
+        "/repo/reports/row-one/site",
+        "--as-of",
+        "$AS_OF",
+        "--latest-only",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8787",
+        "--dry-run-serve-url",
+    ]
+    assert shlex.split(_line_starting_with(output, "fashion-radar row-one status")) == [
+        "fashion-radar",
+        "row-one",
+        "status",
+        "--site-dir",
+        "/repo/reports/row-one/site",
+        "--json",
+    ]
+    assert shlex.split(_line_starting_with(output, "fashion-radar row-one serve")) == [
+        "fashion-radar",
+        "row-one",
+        "serve",
+        "--site-dir",
+        "/repo/reports/row-one/site",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8787",
+    ]
+    assert shlex.split(_line_starting_with(output, "uv run fashion-radar row-one refresh")) == [
+        "uv",
+        "run",
+        "fashion-radar",
+        "row-one",
+        "refresh",
+        "--config-dir",
+        "/repo/configs",
+        "--data-dir",
+        "/repo/data",
+        "--reports-dir",
+        "/repo/reports",
+        "--output-dir",
+        "/repo/reports/row-one/site",
+        "--as-of",
+        "$AS_OF",
+    ]
+    assert shlex.split(_line_starting_with(output, "uv run fashion-radar row-one preview")) == [
+        "uv",
+        "run",
+        "fashion-radar",
+        "row-one",
+        "preview",
+        "--config-dir",
+        "/repo/configs",
+        "--data-dir",
+        "/repo/data",
+        "--reports-dir",
+        "/repo/reports",
+        "--output-dir",
+        "/repo/reports/row-one/site",
+        "--as-of",
+        "$AS_OF",
+        "--latest-only",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8787",
+        "--dry-run-serve-url",
+    ]
+    assert shlex.split(_line_starting_with(output, "uv run fashion-radar row-one status")) == [
+        "uv",
+        "run",
+        "fashion-radar",
+        "row-one",
+        "status",
+        "--site-dir",
+        "/repo/reports/row-one/site",
+        "--json",
+    ]
     assert "fashion-radar row-one preview" in output
     assert "--dry-run-serve-url" in output
+    assert "fashion-radar row-one status --site-dir /repo/reports/row-one/site --json" in output
     assert "fashion-radar row-one serve" in output
     assert "--host 0.0.0.0" in output
     assert "--port 8787" in output
@@ -179,6 +301,91 @@ def test_render_row_one_local_ops_runbook_prints_refresh_serve_and_cron() -> Non
     assert "ROW ONE scheduled refresh runs the single refresh command." in output
     assert "/repo/reports/row-one/site" in output
     assert "directory marked with a .row-one-site file" in output
+
+
+def test_render_row_one_local_ops_runbook_quotes_source_checkout_project_dir() -> None:
+    output = render_row_one_local_ops_runbook(
+        project_dir="/opt/Fashion Radar",
+        config_dir="/opt/Fashion Radar/configs",
+        data_dir="/opt/Fashion Radar/data",
+        reports_dir="/opt/Fashion Radar/reports",
+        output_dir="/tmp/ROW ONE's site",
+        time="04:00",
+        host="127.0.0.1",
+        port=8787,
+    )
+
+    assert "Source checkout commands:" in output
+    source_checkout_block = output.split("Source checkout commands:", maxsplit=1)[1].split(
+        "Access:", maxsplit=1
+    )[0]
+    assert 'AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"' in source_checkout_block
+    assert "cd '/opt/Fashion Radar'" in output
+    assert (
+        "uv run fashion-radar row-one status --site-dir '/tmp/ROW ONE'\"'\"'s site' --json"
+        in output
+    )
+    assert shlex.split(_line_starting_with(output, "fashion-radar row-one status")) == [
+        "fashion-radar",
+        "row-one",
+        "status",
+        "--site-dir",
+        "/tmp/ROW ONE's site",
+        "--json",
+    ]
+    assert shlex.split(_line_starting_with(output, "uv run fashion-radar row-one refresh")) == [
+        "uv",
+        "run",
+        "fashion-radar",
+        "row-one",
+        "refresh",
+        "--config-dir",
+        "/opt/Fashion Radar/configs",
+        "--data-dir",
+        "/opt/Fashion Radar/data",
+        "--reports-dir",
+        "/opt/Fashion Radar/reports",
+        "--output-dir",
+        "/tmp/ROW ONE's site",
+        "--as-of",
+        "$AS_OF",
+    ]
+    assert shlex.split(_line_starting_with(output, "uv run fashion-radar row-one preview")) == [
+        "uv",
+        "run",
+        "fashion-radar",
+        "row-one",
+        "preview",
+        "--config-dir",
+        "/opt/Fashion Radar/configs",
+        "--data-dir",
+        "/opt/Fashion Radar/data",
+        "--reports-dir",
+        "/opt/Fashion Radar/reports",
+        "--output-dir",
+        "/tmp/ROW ONE's site",
+        "--as-of",
+        "$AS_OF",
+        "--latest-only",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8787",
+        "--dry-run-serve-url",
+    ]
+    assert shlex.split(_line_starting_with(output, "uv run fashion-radar row-one serve")) == [
+        "uv",
+        "run",
+        "fashion-radar",
+        "row-one",
+        "serve",
+        "--site-dir",
+        "/tmp/ROW ONE's site",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8787",
+    ]
 
 
 def test_render_row_one_local_ops_runbook_rejects_invalid_time() -> None:
