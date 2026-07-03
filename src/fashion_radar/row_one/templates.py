@@ -134,22 +134,26 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
       </p>
     </section>
     <section class="detail-panel">
-      <p class="story-section">
-        <span data-lang="en">Editorial Synthesis</span>
-        <span data-lang="zh">编辑整理</span>
-      </p>
       <h2>
-        <span data-lang="en">How To Read This Signal</span>
-        <span data-lang="zh">如何阅读这条信号</span>
+        <span data-lang="en">Editorial Takeaway</span>
+        <span data-lang="zh">编辑整理</span>
       </h2>
       <p>
         <span data-lang="en">{_esc(story.editorial_takeaway.en)}</span>
         <span data-lang="zh">{_esc(story.editorial_takeaway.zh)}</span>
       </p>
+      <h2>
+        <span data-lang="en">Signal Context</span>
+        <span data-lang="zh">信号背景</span>
+      </h2>
       <p>
         <span data-lang="en">{_esc(story.signal_context.en)}</span>
         <span data-lang="zh">{_esc(story.signal_context.zh)}</span>
       </p>
+      <h2>
+        <span data-lang="en">Reader Path</span>
+        <span data-lang="zh">阅读路径</span>
+      </h2>
       <p>
         <span data-lang="en">{_esc(story.reader_path.en)}</span>
         <span data-lang="zh">{_esc(story.reader_path.zh)}</span>
@@ -157,7 +161,7 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
     </section>
     <section>
       <h2>
-        <span data-lang="en">Evidence</span>
+        <span data-lang="en">Evidence Trail</span>
         <span data-lang="zh">来源线索</span>
       </h2>
       <div class="evidence-list">{evidence}</div>

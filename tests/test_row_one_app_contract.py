@@ -139,7 +139,7 @@ def test_row_one_manifest_points_to_app_contract_and_site_paths(tmp_path: Path) 
     assert manifest["brand"] == "ROW ONE"
     assert manifest["manifest_schema_path"] == "schemas/row-one-manifest.schema.json"
     assert manifest["app_contract"] == {
-        "version": "row-one-app/v1",
+        "version": "row-one-app/v2",
         "path": "data/edition.json",
         "schema_path": "schemas/row-one-app.schema.json",
     }
@@ -208,14 +208,99 @@ def test_row_one_app_payload_has_stable_counts(tmp_path: Path) -> None:
 
     stories = payload["stories"]
     sections = payload["sections"]
+    content_sections = payload["content_sections"]
     assert isinstance(stories, list)
     assert isinstance(sections, list)
+    assert isinstance(content_sections, list)
     assert payload["story_count"] == len(stories)
     assert payload["evidence_count"] == sum(story["evidence_count"] for story in stories)
     for section in sections:
         assert section["story_count"] == sum(
             1 for story in stories if story["section_key"] == section["key"]
         )
+    for content_section in content_sections:
+        assert content_section["story_count"] == len(content_section["story_ids"])
+        assert content_section["story_count"] == len(content_section["cards"])
+
+
+def test_row_one_app_payload_groups_content_sections_for_clients(tmp_path: Path) -> None:
+    payload = _payload(tmp_path)
+    sections = payload["sections"]
+    stories = payload["stories"]
+    content_sections = payload["content_sections"]
+
+    assert len(content_sections) == len(sections)
+    for section, content_section in zip(sections, content_sections, strict=True):
+        section_stories = [story for story in stories if story["section_key"] == section["key"]]
+        assert content_section["key"] == section["key"]
+        assert content_section["title"] == section["title"]
+        assert content_section["dek"] == section["dek"]
+        assert content_section["href"] == section["href"]
+        assert content_section["story_count"] == len(section_stories)
+        assert content_section["story_ids"] == [story["id"] for story in section_stories]
+        assert content_section["lead_story_id"] == (
+            section_stories[0]["id"] if section_stories else None
+        )
+        assert [card["id"] for card in content_section["cards"]] == [
+            story["id"] for story in section_stories
+        ]
+
+
+def test_row_one_app_content_cards_mirror_story_display_fields(tmp_path: Path) -> None:
+    payload = _payload(tmp_path)
+    story = payload["stories"][0]
+    card = payload["content_sections"][0]["cards"][0]
+
+    assert card == {
+        "id": story["id"],
+        "headline": story["headline"],
+        "summary": story["summary"],
+        "editorial_takeaway": story["editorial_takeaway"],
+        "reader_path": story["reader_path"],
+        "detail_href": story["detail_href"],
+        "display": story["display"],
+        "source_name": story["source_name"],
+        "published_date": story["published_date"],
+        "tags": story["tags"],
+        "evidence_count": story["evidence_count"],
+    }
+
+
+def test_row_one_app_stories_include_detail_sections_and_evidence_summary(
+    tmp_path: Path,
+) -> None:
+    payload = _payload(tmp_path)
+    story = payload["stories"][0]
+
+    assert [section["key"] for section in story["detail_sections"]] == [
+        "summary",
+        "why_it_matters",
+        "editorial_takeaway",
+        "signal_context",
+        "reader_path",
+        "evidence",
+    ]
+    text_sections = {
+        section["key"]: section
+        for section in story["detail_sections"]
+        if section["key"] != "evidence"
+    }
+    assert text_sections["summary"]["body"] == story["summary"]
+    assert text_sections["why_it_matters"]["body"] == story["why_it_matters"]
+    assert text_sections["editorial_takeaway"]["body"] == story["editorial_takeaway"]
+    assert text_sections["signal_context"]["body"] == story["signal_context"]
+    assert text_sections["reader_path"]["body"] == story["reader_path"]
+    for text_section in text_sections.values():
+        assert text_section["evidence"] == []
+    evidence_section = story["detail_sections"][-1]
+    assert evidence_section["body"] is None
+    assert evidence_section["evidence"] == story["evidence"]
+    assert story["evidence_summary"] == {
+        "safe_link_count": story["evidence_count"],
+        "total_count": len(story["evidence"]),
+        "primary_source_name": story["source_name"],
+        "sources": ["Vogue Business"],
+    }
 
 
 def test_row_one_app_payload_supports_undated_stories(tmp_path: Path) -> None:
@@ -499,7 +584,7 @@ def test_row_one_app_schema_rejects_display_image_urls_sanitizer_rejects(
 @pytest.mark.parametrize(
     ("mutation", "match"),
     [
-        (lambda payload: payload.__setitem__("contract_version", "row-one-app/v2"), "was expected"),
+        (lambda payload: payload.__setitem__("contract_version", "row-one-app/v3"), "was expected"),
         (lambda payload: payload.__setitem__("extra", True), "Additional properties"),
         (lambda payload: payload["stories"][0].__setitem__("section_key", "unknown"), "not one"),
         (
@@ -537,6 +622,39 @@ def test_row_one_app_schema_rejects_contract_drift(
         _schema_validator().validate(payload)
 
 
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        (lambda payload: payload.__setitem__("content_sections", []), "content_sections"),
+        (
+            lambda payload: payload["content_sections"][0].__setitem__("extra", "x"),
+            "Additional properties",
+        ),
+        (
+            lambda payload: payload["stories"][0]["detail_sections"][0].__setitem__(
+                "key",
+                "unknown",
+            ),
+            "not one of",
+        ),
+        (
+            lambda payload: payload["stories"][0].__setitem__("evidence_summary", {}),
+            "'safe_link_count' is a required property",
+        ),
+    ],
+)
+def test_row_one_app_v2_schema_rejects_content_organization_drift(
+    tmp_path: Path,
+    mutation,
+    match: str,
+) -> None:
+    payload = copy.deepcopy(_payload(tmp_path))
+    mutation(payload)
+
+    with pytest.raises(ValidationError, match=match):
+        _schema_validator().validate(payload)
+
+
 def test_empty_row_one_app_payload_validates(tmp_path: Path) -> None:
     edition = RowOneEdition(
         generated_at=AS_OF,
@@ -554,10 +672,22 @@ def test_empty_row_one_app_payload_validates(tmp_path: Path) -> None:
 
     payload = _payload(tmp_path, edition)
 
-    assert payload["contract_version"] == "row-one-app/v1"
+    assert payload["contract_version"] == "row-one-app/v2"
     assert payload["story_count"] == 0
     assert payload["evidence_count"] == 0
     assert payload["stories"] == []
+    assert payload["content_sections"] == [
+        {
+            "key": "top_stories",
+            "title": {"zh": "今日重点", "en": "Top Stories"},
+            "dek": {"zh": "今日最值得先看的时尚信号。", "en": "Read first."},
+            "href": "#top_stories",
+            "story_count": 0,
+            "lead_story_id": None,
+            "story_ids": [],
+            "cards": [],
+        }
+    ]
     _schema_validator().validate(payload)
 
 

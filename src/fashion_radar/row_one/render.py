@@ -25,7 +25,7 @@ from fashion_radar.row_one.templates import (
 from fashion_radar.row_one.utils import isoformat_z, safe_external_url, utc_datetime
 
 GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data")
-ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v1"
+ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v2"
 ROW_ONE_MANIFEST_CONTRACT_VERSION = "row-one-manifest/v1"
 ROW_ONE_MANIFEST_SCHEMA_PATH = "schemas/row-one-manifest.schema.json"
 ROW_ONE_RUNTIME_CONTRACT_VERSION = "row-one-runtime/v1"
@@ -123,6 +123,9 @@ def build_row_one_app_payload(edition: RowOneEdition) -> dict[str, object]:
         "edition_date": isoformat_z(edition.edition_date),
         "summary": edition.summary.model_dump(mode="json"),
         "sections": [_section_payload(edition, section) for section in edition.sections],
+        "content_sections": [
+            _content_section_payload(section, stories) for section in edition.sections
+        ],
         "stories": stories,
         "story_count": len(stories),
         "evidence_count": sum(_safe_evidence_count(story.evidence) for story in edition.stories),
@@ -226,6 +229,40 @@ def _section_payload(edition: RowOneEdition, section: RowOneSection) -> dict[str
     }
 
 
+def _content_section_payload(
+    section: RowOneSection,
+    stories: list[dict[str, object]],
+) -> dict[str, object]:
+    section_stories = [story for story in stories if story["section_key"] == section.key]
+    story_ids = [str(story["id"]) for story in section_stories]
+    return {
+        "key": section.key,
+        "title": section.title.model_dump(mode="json"),
+        "dek": section.dek.model_dump(mode="json"),
+        "href": f"#{section.key}",
+        "story_count": len(section_stories),
+        "lead_story_id": story_ids[0] if story_ids else None,
+        "story_ids": story_ids,
+        "cards": [_content_card_payload(story) for story in section_stories],
+    }
+
+
+def _content_card_payload(story: dict[str, object]) -> dict[str, object]:
+    return {
+        "id": story["id"],
+        "headline": story["headline"],
+        "summary": story["summary"],
+        "editorial_takeaway": story["editorial_takeaway"],
+        "reader_path": story["reader_path"],
+        "detail_href": story["detail_href"],
+        "display": story["display"],
+        "source_name": story["source_name"],
+        "published_date": story["published_date"],
+        "tags": story["tags"],
+        "evidence_count": story["evidence_count"],
+    }
+
+
 def _story_payload(edition: RowOneEdition, story: RowOneStory) -> dict[str, object]:
     section = _section_for_story(edition, story.section_key)
     detail_href = _app_detail_href(story.detail_path)
@@ -255,6 +292,8 @@ def _story_payload(edition: RowOneEdition, story: RowOneStory) -> dict[str, obje
         "tags": list(story.tags),
         "evidence_count": _safe_evidence_count(story.evidence),
         "evidence": [_evidence_payload(link) for link in story.evidence],
+        "detail_sections": _detail_sections_payload(story),
+        "evidence_summary": _evidence_summary_payload(story),
     }
 
 
@@ -298,6 +337,60 @@ def _evidence_payload(link: RowOneLink) -> dict[str, object]:
         "url": safe_url,
         "href": safe_url,
         "source_name": link.source_name,
+    }
+
+
+def _detail_sections_payload(story: RowOneStory) -> list[dict[str, object]]:
+    return [
+        {
+            "key": "summary",
+            "title": {"en": "Summary", "zh": "摘要"},
+            "body": story.summary.model_dump(mode="json"),
+            "evidence": [],
+        },
+        {
+            "key": "why_it_matters",
+            "title": {"en": "Why It Matters", "zh": "为什么重要"},
+            "body": story.why_it_matters.model_dump(mode="json"),
+            "evidence": [],
+        },
+        {
+            "key": "editorial_takeaway",
+            "title": {"en": "Editorial Takeaway", "zh": "编辑整理"},
+            "body": story.editorial_takeaway.model_dump(mode="json"),
+            "evidence": [],
+        },
+        {
+            "key": "signal_context",
+            "title": {"en": "Signal Context", "zh": "信号背景"},
+            "body": story.signal_context.model_dump(mode="json"),
+            "evidence": [],
+        },
+        {
+            "key": "reader_path",
+            "title": {"en": "Reader Path", "zh": "阅读路径"},
+            "body": story.reader_path.model_dump(mode="json"),
+            "evidence": [],
+        },
+        {
+            "key": "evidence",
+            "title": {"en": "Evidence Trail", "zh": "来源线索"},
+            "body": None,
+            "evidence": [_evidence_payload(link) for link in story.evidence],
+        },
+    ]
+
+
+def _evidence_summary_payload(story: RowOneStory) -> dict[str, object]:
+    sources: list[str] = []
+    for link in story.evidence:
+        if link.source_name not in sources:
+            sources.append(link.source_name)
+    return {
+        "safe_link_count": _safe_evidence_count(story.evidence),
+        "total_count": len(story.evidence),
+        "primary_source_name": story.source_name,
+        "sources": sources,
     }
 
 

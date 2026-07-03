@@ -77,12 +77,22 @@ required for tests.
 
 ## App JSON Contract
 
-`data/edition.json` is the row-one-app/v1 app-facing contract for clients that
+`data/edition.json` is the row-one-app/v2 app-facing contract for clients that
 need to render the latest ROW ONE edition without scraping HTML. The payload is
 validated by `schemas/row-one-app.schema.json` and includes localized edition
 summary text, section counts (`story_count`), section anchors, story detail
 hrefs (`detail_href` and `href`), published dates, evidence counts
 (`evidence_count`), and sanitized URLs.
+
+The active app version is `row-one-app/v2`. Its content organization surface
+adds `content_sections`, `detail_sections`, and `evidence_summary` so app
+clients render section rails from the JSON payload instead of reconstructing
+them from page markup. `content_sections` describes homepage rails with section
+labels, anchors, counts, and story references. `detail_sections` describes
+detail-page rails, including the current story context and adjacent section
+navigation. `evidence_summary` gives compact evidence-link counts and readiness
+metadata for client badges. Together these fields let app clients render section
+rails without scraping HTML.
 
 Unsafe external URLs are written as `null`. Missing story publication timestamps
 are represented as `null` in both `published_at` and `published_date`. The
@@ -99,7 +109,7 @@ server, or schedule behavior.
 
 `data/manifest.json` is the `row-one-manifest/v1` app discovery manifest. It is
 validated by `schemas/row-one-manifest.schema.json` and points clients to
-`data/edition.json`, the `row-one-app/v1` edition payload, and stable generated
+`data/edition.json`, the `row-one-app/v2` edition payload, and stable generated
 site paths such as `index.html`, `assets/`, and `details/`.
 
 The manifest contains only discovery metadata, counts, readiness status, and
@@ -156,7 +166,7 @@ The CLI preview uses compact English status labels for terminal output; the
 homepage Latest Edition status strip renders bilingual English/Chinese labels.
 
 This is a display/readiness surface only. It does not change the
-`row-one-app/v1` JSON contract, source collection, matching, scoring, ranking,
+`row-one-app/v2` JSON contract, source collection, matching, scoring, ranking,
 or scheduling semantics.
 
 The homepage also renders a lead story presentation block and the index/detail

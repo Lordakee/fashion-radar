@@ -70,7 +70,9 @@ brands, or verify platform coverage.
   verification.
 - Generates the optional ROW ONE local static site from existing daily report
   data for editorial review, with no new data acquisition, no demand proof, and
-  no platform coverage verification.
+  no platform coverage verification. The active app JSON payload is
+  `row-one-app/v2`; `content_sections`, `detail_sections`, and
+  `evidence_summary` let app clients render section rails from local JSON.
 - Can package optional local digest artifacts such as latest report copies, a
   report index, and a local `.eml` handoff file.
 - Provides an optional local Streamlit dashboard for read-only inspection.
@@ -97,7 +99,9 @@ Xiaohongshu).
 ROW ONE is a local static site built from existing daily report data. It adds
 no new data acquisition, no scraping, no platform APIs, no paid APIs, no
 translation service, no deployment automation, no demand proof, and no platform
-coverage verification. See [docs/row-one.md](docs/row-one.md).
+coverage verification. Its active app contract is `row-one-app/v2`, with
+`content_sections`, `detail_sections`, and `evidence_summary` so app clients
+can render section rails without scraping HTML. See [docs/row-one.md](docs/row-one.md).
 
 The external tool handoff templates are sanitized CSV/JSON local file handoff
 templates for user-controlled external/community tools:

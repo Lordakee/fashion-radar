@@ -155,10 +155,13 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     )
     assert detail_panel_match is not None
     detail_panel = detail_panel_match.group("panel")
-    assert "编辑整理" in detail_panel
-    assert "如何阅读这条信号" in detail_panel
+    assert '<span data-lang="en">Editorial Takeaway</span>' in detail_panel
+    assert '<span data-lang="zh">编辑整理</span>' in detail_panel
+    assert '<span data-lang="en">Signal Context</span>' in detail_panel
+    assert '<span data-lang="en">Reader Path</span>' in detail_panel
     assert "本地报告显示它来自 1 个来源。" in detail_panel
     assert "先看摘要，再打开证据链接。" in detail_panel
+    assert '<span data-lang="en">Evidence Trail</span>' in detail_html
     assert "The local report shows one supporting source." in detail_html
     assert "Read the brief, then open the evidence link." in detail_html
     assert "javascript:alert" not in index_html
@@ -485,7 +488,7 @@ def test_render_row_one_site_writes_json_payload(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
-    assert payload["contract_version"] == "row-one-app/v1"
+    assert payload["contract_version"] == "row-one-app/v2"
     assert payload["brand"] == "ROW ONE"
     assert payload["generated_at"] == "2026-07-02T04:00:00Z"
     assert payload["edition_date"] == "2026-07-02T04:00:00Z"
@@ -533,7 +536,7 @@ def test_render_row_one_site_sanitizes_json_source_url(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
-    assert payload["contract_version"] == "row-one-app/v1"
+    assert payload["contract_version"] == "row-one-app/v2"
     assert payload["stories"][0]["source_url"] is None
     assert payload["stories"][0]["evidence"][1]["url"] is None
     assert payload["stories"][0]["evidence"][1]["href"] is None

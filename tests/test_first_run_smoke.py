@@ -4301,7 +4301,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                 "generated_at": "2026-06-13T12:00:00Z",
                 "edition_date": "2026-06-13T12:00:00Z",
                 "app_contract": {
-                    "version": "row-one-app/v1",
+                    "version": "row-one-app/v2",
                     "path": "data/edition.json",
                     "schema_path": "schemas/row-one-app.schema.json",
                 },

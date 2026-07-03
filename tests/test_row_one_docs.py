@@ -144,7 +144,7 @@ def test_row_one_docs_describe_versioned_app_json_contract() -> None:
 
     for phrase in (
         "app json contract",
-        "`data/edition.json` is the row-one-app/v1 app-facing contract",
+        "`data/edition.json` is the row-one-app/v2 app-facing contract",
         "`schemas/row-one-app.schema.json`",
         "section counts",
         "detail hrefs",
@@ -158,6 +158,38 @@ def test_row_one_docs_describe_versioned_app_json_contract() -> None:
     ):
         assert phrase in normalized
     assert "versioned app json" in architecture
+
+
+def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    readme = _normalized(_read(README))
+
+    for phrase in (
+        "row-one-app/v2",
+        "content_sections",
+        "detail_sections",
+        "evidence_summary",
+        "section rails",
+        "app clients render section rails",
+        "app clients render section rails without scraping html",
+        "content organization",
+        "homepage rails",
+        "detail-page rails",
+        "active app version",
+    ):
+        assert phrase in row_one
+
+    for phrase in (
+        "row-one-app/v2",
+        "content_sections",
+        "detail_sections",
+        "evidence_summary",
+        "app clients can render section rails",
+    ):
+        assert phrase in readme
+
+    assert "row-one-app/v1 app-facing contract" not in row_one
+    assert "row-one-app/v1` json contract" not in row_one
 
 
 def test_row_one_docs_describe_daily_readiness_preview() -> None:
