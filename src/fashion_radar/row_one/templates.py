@@ -13,7 +13,7 @@ from fashion_radar.row_one.models import (
     RowOneSectionKey,
     RowOneStory,
 )
-from fashion_radar.row_one.readiness import build_row_one_readiness
+from fashion_radar.row_one.readiness import RowOneReadiness, build_row_one_readiness
 from fashion_radar.row_one.utils import safe_external_url
 
 _DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$")
@@ -21,7 +21,12 @@ _DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$"
 
 def render_index_html(edition: RowOneEdition) -> str:
     contents_nav = _render_edition_nav(edition)
-    status_strip = _render_edition_status(edition)
+    readiness = build_row_one_readiness(edition)
+    status_strip = _render_edition_status(edition, readiness)
+    summary_note_en = (
+        f"{readiness.story_count} stories · {readiness.safe_evidence_count} evidence links"
+    )
+    summary_note_zh = f"{readiness.story_count} 条故事 · {readiness.safe_evidence_count} 条证据链接"
     lead_story = _lead_story(edition)
     lead_story_block = (
         _render_lead_story(lead_story, _section_title(edition, lead_story.section_key))
@@ -45,25 +50,50 @@ def render_index_html(edition: RowOneEdition) -> str:
 <link rel="stylesheet" href="assets/row-one.css">
 </head>
 <body>
+<div class="site-shell">
 <header class="site-header">
-  <div class="edition-kicker">Daily Fashion Intelligence</div>
-  <h1>{_esc(edition.brand)}</h1>
-  <p class="edition-date">{_esc(edition.edition_date.strftime("%B %d, %Y"))}</p>
-  <div class="language-toggle" aria-label="Language">
-    <button type="button" data-lang-toggle="en" aria-pressed="true">EN</button>
-    <button type="button" data-lang-toggle="zh" aria-pressed="false">中文</button>
+  <div class="site-header-inner">
+    <div class="site-title-block">
+      <div class="edition-kicker">Daily Fashion Intelligence</div>
+      <h1>{_esc(edition.brand)}</h1>
+      <p class="edition-date">{_esc(edition.edition_date.strftime("%B %d, %Y"))}</p>
+      <p class="site-dek">
+        <span data-lang="en">Local signals, edited for fashion context.</span>
+        <span data-lang="zh">本地信号，以时尚语境整理。</span>
+      </p>
+      <div class="language-toggle" aria-label="Language">
+        <button type="button" data-lang-toggle="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang-toggle="zh" aria-pressed="false">中文</button>
+      </div>
+      <p class="edition-summary">
+        <span data-lang="en">{_esc(edition.summary.en)}</span>
+        <span data-lang="zh">{_esc(edition.summary.zh)}</span>
+      </p>
+    </div>
+    <aside class="edition-summary-panel" aria-label="Edition summary">
+      <p class="summary-kicker">
+        <span data-lang="en">Edition</span>
+        <span data-lang="zh">每日版本</span>
+      </p>
+      <p class="summary-date">{_esc(edition.edition_date.date().isoformat())}</p>
+      <p class="summary-status">
+        <span data-lang="en">{_esc(readiness.readiness.en)}</span>
+        <span data-lang="zh">{_esc(readiness.readiness.zh)}</span>
+      </p>
+      <p class="summary-note">
+        <span data-lang="en">{_esc(summary_note_en)}</span>
+        <span data-lang="zh">{_esc(summary_note_zh)}</span>
+      </p>
+    </aside>
   </div>
-  <p class="edition-summary">
-    <span data-lang="en">{_esc(edition.summary.en)}</span>
-    <span data-lang="zh">{_esc(edition.summary.zh)}</span>
-  </p>
 </header>
 {status_strip}
-<main>
+<main class="site-main" id="main-content">
 {contents_nav}
 {lead_story_block}
 {story_cards}
 </main>
+</div>
 <script src="assets/row-one.js"></script>
 </body>
 </html>
@@ -75,6 +105,7 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
     evidence = "\n".join(_render_evidence(link) for link in story.evidence)
     source_link = _external_link(story.source_url, story.source_name, css_class="source-link")
     visual = _render_story_visual(story, section_title, context="detail-visual")
+    article_contents = _render_article_contents()
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -113,7 +144,8 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
     <h1>{_esc(story.headline)}</h1>
     {visual}
     <p class="story-source">{source_link}</p>
-    <section>
+    {article_contents}
+    <section id="summary">
       <h2>
         <span data-lang="en">Summary</span>
         <span data-lang="zh">摘要</span>
@@ -123,7 +155,7 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
         <span data-lang="zh">{_esc(story.summary.zh)}</span>
       </p>
     </section>
-    <section>
+    <section id="why-it-matters">
       <h2>
         <span data-lang="en">Why It Matters</span>
         <span data-lang="zh">为什么重要</span>
@@ -134,7 +166,7 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
       </p>
     </section>
     <section class="detail-panel">
-      <h2>
+      <h2 id="editorial-takeaway">
         <span data-lang="en">Editorial Takeaway</span>
         <span data-lang="zh">编辑整理</span>
       </h2>
@@ -142,7 +174,7 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
         <span data-lang="en">{_esc(story.editorial_takeaway.en)}</span>
         <span data-lang="zh">{_esc(story.editorial_takeaway.zh)}</span>
       </p>
-      <h2>
+      <h2 id="signal-context">
         <span data-lang="en">Signal Context</span>
         <span data-lang="zh">信号背景</span>
       </h2>
@@ -150,7 +182,7 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
         <span data-lang="en">{_esc(story.signal_context.en)}</span>
         <span data-lang="zh">{_esc(story.signal_context.zh)}</span>
       </p>
-      <h2>
+      <h2 id="reader-path">
         <span data-lang="en">Reader Path</span>
         <span data-lang="zh">阅读路径</span>
       </h2>
@@ -159,12 +191,12 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
         <span data-lang="zh">{_esc(story.reader_path.zh)}</span>
       </p>
     </section>
-    <section>
+    <section id="evidence-trail">
       <h2>
         <span data-lang="en">Evidence Trail</span>
         <span data-lang="zh">来源线索</span>
       </h2>
-      <div class="evidence-list">{evidence}</div>
+      <div class="evidence-trail">{evidence}</div>
     </section>
   </article>
 </main>
@@ -195,12 +227,72 @@ body {
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
 }
+.site-shell {
+  min-height: 100vh;
+}
 .site-header {
   min-height: 52vh;
   padding: 44px min(7vw, 88px) 32px;
   border-bottom: 1px solid var(--ink);
   display: grid;
   align-content: space-between;
+}
+.site-header-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.42fr);
+  gap: 32px;
+  align-items: end;
+}
+.site-title-block {
+  display: grid;
+  gap: 14px;
+}
+.site-dek {
+  color: var(--ink);
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.35rem, 2.4vw, 2.6rem);
+  line-height: 1.05;
+  margin: 0;
+  max-width: 820px;
+}
+.edition-summary-panel {
+  align-self: end;
+  border: 1px solid var(--ink);
+  background: rgba(255, 255, 255, 0.54);
+  padding: 20px;
+}
+.summary-kicker,
+.summary-date,
+.summary-status,
+.summary-note {
+  margin: 0;
+}
+.summary-kicker {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.summary-date {
+  color: var(--ink);
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 2rem;
+  line-height: 1;
+  margin-top: 12px;
+}
+.summary-status {
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-top: 14px;
+  text-transform: uppercase;
+}
+.summary-note {
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin-top: 8px;
 }
 .edition-kicker, .story-section {
   color: var(--accent);
@@ -238,7 +330,7 @@ h1 {
 }
 .language-toggle button:last-child { border-right: 0; }
 .language-toggle button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
-main { padding: 36px min(7vw, 88px) 72px; }
+main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .edition-status {
   display: grid;
   grid-template-columns: minmax(150px, 1.2fr) repeat(5, minmax(120px, 1fr));
@@ -273,12 +365,18 @@ main { padding: 36px min(7vw, 88px) 72px; }
   padding: 24px 0;
   margin-bottom: 32px;
 }
-.edition-nav-grid {
+.edition-rail {
+  margin-top: 18px;
+}
+.edition-rail-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
 }
-.edition-nav-item {
+.edition-nav-item,
+.edition-rail-item {
   border: 1px solid var(--line);
   color: var(--ink);
   display: grid;
@@ -286,6 +384,34 @@ main { padding: 36px min(7vw, 88px) 72px; }
   min-height: 150px;
   padding: 16px;
   text-decoration: none;
+}
+.edition-rail-item {
+  background: var(--paper);
+  border: 0;
+  grid-template-columns: 36px minmax(0, 1fr);
+  min-height: 168px;
+}
+.rail-item-index {
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.rail-item-copy {
+  display: grid;
+  gap: 8px;
+}
+.rail-item-title {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.rail-item-count {
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 .edition-nav-title {
   font-family: RowOneSerif, Georgia, serif;
@@ -428,6 +554,52 @@ main { padding: 36px min(7vw, 88px) 72px; }
   display: grid;
   align-content: space-between;
 }
+.story-card-header,
+.story-card-body,
+.story-card-footer {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+.story-card-header {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+.story-card-body {
+  display: grid;
+}
+.story-card-footer {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  margin-top: 14px;
+  padding-top: 12px;
+  text-transform: uppercase;
+}
+.story-detail-link {
+  color: var(--accent);
+  font-weight: 700;
+}
+.story-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+.story-tag-list span {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  padding: 5px 7px;
+  text-transform: uppercase;
+}
 .story-card a {
   color: var(--ink);
   text-decoration: none;
@@ -479,6 +651,25 @@ main { padding: 36px min(7vw, 88px) 72px; }
   color: var(--accent);
   margin-top: 36px;
 }
+.article-contents {
+  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 28px 0;
+  padding: 14px 0;
+}
+.article-contents a {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 8px 10px;
+  text-decoration: none;
+  text-transform: uppercase;
+}
 .detail-panel {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -501,12 +692,45 @@ main { padding: 36px min(7vw, 88px) 72px; }
   padding: 14px 0;
   border-top: 1px solid var(--line);
 }
+.evidence-trail {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+.evidence-item--safe,
+.evidence-item--retained {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  padding: 14px;
+}
+.evidence-item--retained {
+  border-left-color: var(--muted);
+  color: var(--muted);
+}
+.evidence-label,
+.evidence-retained-label {
+  color: var(--accent);
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.evidence-retained-label {
+  color: var(--muted);
+}
+.evidence-retained-title {
+  display: block;
+}
 [data-lang="zh"] { display: none; }
 body.lang-zh [data-lang="en"] { display: none; }
 body.lang-zh [data-lang="zh"] { display: inline; }
 body.lang-zh p [data-lang="zh"] { display: inline; }
 @media (max-width: 760px) {
   .site-header { min-height: 46vh; padding: 28px 20px; }
+  .site-header-inner { grid-template-columns: 1fr; }
   .edition-status { grid-template-columns: 1fr; }
   .edition-status > div {
     border-right: 0;
@@ -515,7 +739,7 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   }
   .edition-status > div:last-child { border-bottom: 0; }
   main { padding: 24px 20px 56px; }
-  .edition-nav-grid { grid-template-columns: 1fr; }
+  .edition-rail-grid { grid-template-columns: 1fr; }
   .lead-story-grid { grid-template-columns: 1fr; gap: 18px; }
   .section-block { grid-template-columns: 1fr; gap: 18px; }
   .story-grid { grid-template-columns: 1fr; }
@@ -531,12 +755,18 @@ def _render_edition_nav(edition: RowOneEdition) -> str:
     <span data-lang="en">Edition Contents</span>
     <span data-lang="zh">今日目录</span>
   </p>
-  <div class="edition-nav-grid">{rows}</div>
+  <div class="edition-rail">
+    <div class="edition-rail-grid">{rows}</div>
+  </div>
 </nav>"""
 
 
-def _render_edition_status(edition: RowOneEdition) -> str:
-    readiness = build_row_one_readiness(edition)
+def _render_edition_status(
+    edition: RowOneEdition,
+    readiness: RowOneReadiness | None = None,
+) -> str:
+    if readiness is None:
+        readiness = build_row_one_readiness(edition)
     status_metrics = "\n  ".join(
         (
             _render_status_metric(
@@ -606,20 +836,60 @@ def _render_edition_nav_item(
     story_count = len(edition.section_stories(section.key))
     count_en = "1 story" if story_count == 1 else f"{story_count} stories"
     count_zh = f"{story_count} 条"
-    return f"""<a class="edition-nav-item" href="#{_esc(section.key)}">
-  <span class="edition-nav-title">
-    <span data-lang="en">{_esc(section.title.en)}</span>
-    <span data-lang="zh">{_esc(section.title.zh)}</span>
-  </span>
-  <span class="edition-nav-count">
-    <span data-lang="en">{_esc(count_en)}</span>
-    <span data-lang="zh">{_esc(count_zh)}</span>
-  </span>
-  <span class="edition-nav-dek">
-    <span data-lang="en">{_esc(section.dek.en)}</span>
-    <span data-lang="zh">{_esc(section.dek.zh)}</span>
+    index = next(
+        (
+            position
+            for position, candidate in enumerate(edition.sections, start=1)
+            if candidate.key == section.key
+        ),
+        1,
+    )
+    return f"""<a class="edition-nav-item edition-rail-item" href="#{_esc(section.key)}">
+  <span class="rail-item-index">{index:02d}</span>
+  <span class="rail-item-copy">
+    <span class="edition-nav-title rail-item-title">
+      <span data-lang="en">{_esc(section.title.en)}</span>
+      <span data-lang="zh">{_esc(section.title.zh)}</span>
+    </span>
+    <span class="edition-nav-count rail-item-count">
+      <span data-lang="en">{_esc(count_en)}</span>
+      <span data-lang="zh">{_esc(count_zh)}</span>
+    </span>
+    <span class="edition-nav-dek">
+      <span data-lang="en">{_esc(section.dek.en)}</span>
+      <span data-lang="zh">{_esc(section.dek.zh)}</span>
+    </span>
   </span>
 </a>"""
+
+
+def _render_article_contents() -> str:
+    return """<nav class="article-contents" aria-label="Article contents">
+  <a href="#summary">
+    <span data-lang="en">Summary</span>
+    <span data-lang="zh">摘要</span>
+  </a>
+  <a href="#why-it-matters">
+    <span data-lang="en">Why It Matters</span>
+    <span data-lang="zh">为什么重要</span>
+  </a>
+  <a href="#editorial-takeaway">
+    <span data-lang="en">Editorial Takeaway</span>
+    <span data-lang="zh">编辑判断</span>
+  </a>
+  <a href="#signal-context">
+    <span data-lang="en">Signal Context</span>
+    <span data-lang="zh">信号背景</span>
+  </a>
+  <a href="#reader-path">
+    <span data-lang="en">Reader Path</span>
+    <span data-lang="zh">阅读路径</span>
+  </a>
+  <a href="#evidence-trail">
+    <span data-lang="en">Evidence Trail</span>
+    <span data-lang="zh">证据链</span>
+  </a>
+</nav>"""
 
 
 def row_one_js() -> str:
@@ -758,20 +1028,44 @@ def _render_story_card(
     section_title: LocalizedText,
 ) -> str:
     detail_href = _internal_detail_href(story.detail_path)
+    published = _published_label(story)
+    evidence_count = sum(1 for link in story.evidence if _safe_external_url(link.url) is not None)
+    source_name = _esc(story.source_name)
+    evidence_label_en = "1 source" if evidence_count == 1 else f"{evidence_count} sources"
+    evidence_label_zh = f"{evidence_count} 条来源"
+    tags = "".join(f"<span>{_esc(tag)}</span>" for tag in story.tags)
+    tags_block = f'\n  <p class="story-tag-list">{tags}</p>' if tags else ""
     return f"""<article class="story-card">
   {_render_story_visual(story, section_title, context="story-card-visual")}
-  <div>
-    <h3><a href="{detail_href}">{_esc(story.headline)}</a></h3>
+  <div class="story-card-header">
+    <span class="story-source">{source_name}</span>
+    <span class="story-date">
+      <span data-lang="en">{_esc(published.en)}</span>
+      <span data-lang="zh">{_esc(published.zh)}</span>
+    </span>
   </div>
-  {_render_story_orientation(story, section_title)}
-  <p class="story-takeaway">
-    <span data-lang="en">{_esc(story.editorial_takeaway.en)}</span>
-    <span data-lang="zh">{_esc(story.editorial_takeaway.zh)}</span>
-  </p>
-  <p>
-    <span data-lang="en">{_esc(story.summary.en)}</span>
-    <span data-lang="zh">{_esc(story.summary.zh)}</span>
-  </p>
+  <div class="story-card-body">
+    <h3><a href="{detail_href}">{_esc(story.headline)}</a></h3>
+    {_render_story_orientation(story, section_title)}
+    <p class="story-takeaway">
+      <span data-lang="en">{_esc(story.editorial_takeaway.en)}</span>
+      <span data-lang="zh">{_esc(story.editorial_takeaway.zh)}</span>
+    </p>
+    <p>
+      <span data-lang="en">{_esc(story.summary.en)}</span>
+      <span data-lang="zh">{_esc(story.summary.zh)}</span>
+    </p>
+  </div>
+  <div class="story-card-footer">
+    <span class="story-evidence-count">
+      <span data-lang="en">{_esc(evidence_label_en)}</span>
+      <span data-lang="zh">{_esc(evidence_label_zh)}</span>
+    </span>
+    <a class="story-detail-link" href="{detail_href}">
+      <span data-lang="en">Read brief</span>
+      <span data-lang="zh">阅读简报</span>
+    </a>
+  </div>{tags_block}
 </article>"""
 
 
@@ -852,11 +1146,26 @@ def _published_label(story: RowOneStory) -> LocalizedText:
 
 
 def _render_evidence(link: RowOneLink) -> str:
+    safe_url = _safe_external_url(link.url)
+    if safe_url is None:
+        return f"""<div class="evidence-item evidence-item--retained">
+  <span class="evidence-retained-label">
+    <span data-lang="en">Retained source row</span>
+    <span data-lang="zh">保留的来源行</span>
+  </span>
+  <span class="evidence-retained-title">{_esc(link.title)}</span>
+  <p class="story-meta">{_esc(link.source_name)}</p>
+</div>"""
+
     rendered = _external_link(link.url, link.title)
-    return (
-        f'<div class="evidence-item">{rendered}'
-        f'<p class="story-meta">{_esc(link.source_name)}</p></div>'
-    )
+    return f"""<div class="evidence-item evidence-item--safe">
+  <span class="evidence-label">
+    <span data-lang="en">Source</span>
+    <span data-lang="zh">来源</span>
+  </span>
+  {rendered}
+  <p class="story-meta">{_esc(link.source_name)}</p>
+</div>"""
 
 
 def _external_link(url: str | None, text: str, *, css_class: str | None = None) -> str:

@@ -72,7 +72,9 @@ brands, or verify platform coverage.
   data for editorial review, with no new data acquisition, no demand proof, and
   no platform coverage verification. The active app JSON payload is
   `row-one-app/v2`; `content_sections`, `detail_sections`, and
-  `evidence_summary` let app clients render section rails from local JSON.
+  `evidence_summary` let app clients render section rails from local JSON. The
+  generated experience is a professional static website with an edition rail
+  and article contents for local editorial review.
 - Can package optional local digest artifacts such as latest report copies, a
   report index, and a local `.eml` handoff file.
 - Provides an optional local Streamlit dashboard for read-only inspection.

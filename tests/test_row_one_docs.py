@@ -192,6 +192,29 @@ def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
     assert "row-one-app/v1` json contract" not in row_one
 
 
+def test_row_one_docs_describe_stage_272_editorial_web_experience() -> None:
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    readme = _normalized(_read(README))
+
+    for phrase in (
+        "editorial web experience",
+        "professional static website",
+        "edition rail",
+        "article contents",
+        "evidence trail",
+        "retained source row",
+        "uses existing row-one-app/v2 content organization",
+    ):
+        assert phrase in row_one
+
+    for phrase in (
+        "professional static website",
+        "edition rail",
+        "article contents",
+    ):
+        assert phrase in readme
+
+
 def test_row_one_docs_describe_daily_readiness_preview() -> None:
     normalized = _normalized(_read(ROW_ONE_DOC))
 

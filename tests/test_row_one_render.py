@@ -116,10 +116,43 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert "ROW ONE" in index_html
     assert 'data-lang-toggle="zh"' in index_html
     assert 'data-lang-toggle="en"' in index_html
+    assert 'class="site-shell"' in index_html
+    assert 'class="site-header-inner"' in index_html
+    assert "Local signals" in index_html
+    assert "本地信号" in index_html
+    assert 'class="edition-summary-panel"' in index_html
     script = (tmp_path / "assets" / "row-one.js").read_text(encoding="utf-8")
     assert "document.documentElement.lang" in script
     assert "zh-Hans" in script
     assert re.search(r'document\.documentElement\.lang\s*=.*"en"', script)
+    assert 'class="edition-rail"' in index_html
+    assert 'class="edition-nav-item edition-rail-item"' in index_html
+    rail_match = re.search(
+        r'<nav class="edition-nav" aria-label="Edition contents">(?P<nav>.*?)</nav>',
+        index_html,
+        re.S,
+    )
+    assert rail_match is not None
+    rail_html = rail_match.group("nav")
+    assert 'class="edition-rail-grid"' in rail_html
+    assert 'class="edition-nav-item edition-rail-item"' in rail_html
+    assert "Top Stories" in rail_html
+    assert "Brand Moves" in rail_html
+    assert "1 story" in rail_html
+    assert "0 stories" in rail_html
+    assert 'class="story-card-header"' in index_html
+    assert 'class="story-card-body"' in index_html
+    assert 'class="story-card-footer"' in index_html
+    assert 'class="story-tag-list"' in index_html
+    tag_list_match = re.search(
+        r'<p class="story-tag-list">(?P<tags>.*?)</p>',
+        index_html,
+        re.S,
+    )
+    assert tag_list_match is not None
+    tag_list_html = tag_list_match.group("tags")
+    assert "<span>brand</span>" in tag_list_html
+    assert "<span>hot</span>" in tag_list_html
     assert 'class="story-takeaway"' in index_html
     orientation_match = re.search(
         r'<p class="story-orientation">(?P<orientation>.*?)</p>',
@@ -141,6 +174,12 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert "2026-07-02" not in en_orientation_html
     assert "1 evidence link" in orientation_html
     assert "1 条线索" in orientation_html
+    assert 'class="story-date"' in index_html
+    assert '<span data-lang="zh">2026-07-02</span>' in index_html
+    assert '<span data-lang="en">1 source</span>' in index_html
+    assert '<span data-lang="zh">1 条来源</span>' in index_html
+    assert '<span data-lang="en">Read brief</span>' in index_html
+    assert '<span data-lang="zh">阅读简报</span>' in index_html
     assert '<p class="story-meta">Vogue Business</p>' not in index_html
     assert "The Row 是今日重点信号。" in index_html
     assert "The Row &lt;signals&gt; &quot;quiet&quot; demand" in index_html
@@ -161,7 +200,31 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert '<span data-lang="en">Reader Path</span>' in detail_panel
     assert "本地报告显示它来自 1 个来源。" in detail_panel
     assert "先看摘要，再打开证据链接。" in detail_panel
+    assert 'class="article-contents"' in detail_html
+    contents_match = re.search(
+        r'<nav class="article-contents" aria-label="Article contents">(?P<contents>.*?)</nav>',
+        detail_html,
+        re.S,
+    )
+    assert contents_match is not None
+    contents_html = contents_match.group("contents")
+    assert contents_html.index("Summary") < contents_html.index("Why It Matters")
+    assert contents_html.index("Why It Matters") < contents_html.index("Editorial Takeaway")
+    assert contents_html.index("Editorial Takeaway") < contents_html.index("Signal Context")
+    assert contents_html.index("Signal Context") < contents_html.index("Reader Path")
+    assert contents_html.index("Reader Path") < contents_html.index("Evidence Trail")
+    assert 'href="#summary"' in contents_html
+    assert 'href="#why-it-matters"' in contents_html
+    assert 'href="#editorial-takeaway"' in contents_html
+    assert 'href="#signal-context"' in contents_html
+    assert 'href="#reader-path"' in contents_html
+    assert 'href="#evidence-trail"' in contents_html
     assert '<span data-lang="en">Evidence Trail</span>' in detail_html
+    assert 'class="evidence-trail"' in detail_html
+    assert 'class="evidence-item evidence-item--safe"' in detail_html
+    assert 'class="evidence-item evidence-item--retained"' in detail_html
+    assert "Retained source row" in detail_html
+    assert "保留的来源行" in detail_html
     assert "The local report shows one supporting source." in detail_html
     assert "Read the brief, then open the evidence link." in detail_html
     assert "javascript:alert" not in index_html
@@ -200,6 +263,7 @@ def test_render_row_one_site_includes_story_display_visual_slots(tmp_path) -> No
     assert "THE ROW" in detail_html
     assert "--paper: #f4f6f8;" in css
     assert "--accent: #2454ff;" in css
+    assert ".edition-nav-grid" not in css
     assert "#f5f1ea" not in css
     assert "#7d1f2d" not in css
 
@@ -311,6 +375,8 @@ def test_render_row_one_site_writes_edition_contents_navigation(tmp_path) -> Non
     )
     assert nav_match is not None
     nav_html = nav_match.group("nav")
+    assert 'class="edition-rail"' in nav_html
+    assert 'class="edition-nav-item edition-rail-item"' in nav_html
     assert "Top Stories" in nav_html
     assert "Brand Moves" in nav_html
     assert "1 story" in nav_html

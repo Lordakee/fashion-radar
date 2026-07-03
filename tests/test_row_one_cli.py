@@ -376,6 +376,8 @@ def test_row_one_build_command_writes_non_ascii_story_detail_path(tmp_path: Path
     assert (output_dir / detail_path).exists()
     index_html = (output_dir / "index.html").read_text(encoding="utf-8")
     assert 'class="edition-nav"' in index_html
+    assert 'class="edition-rail"' in index_html
+    assert 'class="edition-nav-item edition-rail-item"' in index_html
     assert 'href="#top_stories"' in index_html
     assert "上海新锐设计师品牌升温" in index_html
 

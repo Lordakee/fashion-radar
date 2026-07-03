@@ -63,6 +63,15 @@ section link so readers can return to the relevant homepage section.
 This remains presentation-only. Reader orientation does not change ranking,
 scoring, story IDs, source collection, JSON contract semantics, or publishing.
 
+## Editorial Web Experience
+
+ROW ONE renders a professional static website presentation for editorial review.
+The homepage edition rail, article contents, evidence trail, and retained source
+row labels help readers scan the generated site while staying within the
+existing local data model. This editorial web experience uses existing
+row-one-app/v2 content organization and does not add acquisition, deployment, or
+automation expansion.
+
 ## Display/Media Readiness
 
 Every app story includes a `display` object with `variant`, `accent`, and
