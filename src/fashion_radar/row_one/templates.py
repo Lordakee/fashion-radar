@@ -4,6 +4,7 @@ import re
 from html import escape
 from pathlib import PurePosixPath
 
+from fashion_radar.row_one.briefing_topics import briefing_topics_payload
 from fashion_radar.row_one.display import display_for_story, safe_story_image_src
 from fashion_radar.row_one.models import (
     LocalizedText,
@@ -21,6 +22,7 @@ _DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$"
 
 def render_index_html(edition: RowOneEdition) -> str:
     contents_nav = _render_edition_nav(edition)
+    briefing_topics = _render_briefing_topics(edition)
     readiness = build_row_one_readiness(edition)
     status_strip = _render_edition_status(edition, readiness)
     summary_note_en = (
@@ -91,6 +93,7 @@ def render_index_html(edition: RowOneEdition) -> str:
 <main class="site-main" id="main-content">
 {contents_nav}
 {lead_story_block}
+{briefing_topics}
 {story_cards}
 </main>
 </div>
@@ -430,6 +433,83 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   font-size: 0.86rem;
   line-height: 1.35;
 }
+.briefing-topics {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.briefing-topics-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.45fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.briefing-topics-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.2rem, 5vw, 5.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.92;
+  margin: 0;
+}
+.briefing-topics-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.briefing-topic-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+.briefing-topic-card {
+  background: var(--panel);
+  color: var(--ink);
+  display: grid;
+  gap: 14px;
+  min-height: 230px;
+  padding: 18px;
+  text-decoration: none;
+}
+.briefing-topic-card h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.5rem, 2.6vw, 2.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.95;
+  margin: 0;
+}
+.briefing-topic-card p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.briefing-topic-label,
+.briefing-topic-count {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.briefing-topic-meta {
+  align-self: end;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding-top: 12px;
+}
+.briefing-topic-empty {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  margin: 0;
+  padding: 18px;
+}
 .lead-story {
   border-top: 1px solid var(--ink);
   border-bottom: 1px solid var(--ink);
@@ -740,6 +820,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .edition-status > div:last-child { border-bottom: 0; }
   main { padding: 24px 20px 56px; }
   .edition-rail-grid { grid-template-columns: 1fr; }
+  .briefing-topics-header { grid-template-columns: 1fr; }
+  .briefing-topic-grid { grid-template-columns: 1fr; }
   .lead-story-grid { grid-template-columns: 1fr; gap: 18px; }
   .section-block { grid-template-columns: 1fr; gap: 18px; }
   .story-grid { grid-template-columns: 1fr; }
@@ -827,6 +909,133 @@ def _render_status_metric(label_en: str, label_zh: str, value_en: str, value_zh:
       <span data-lang="zh">{_esc(value_zh)}</span>
     </strong>
   </div>"""
+
+
+def _render_briefing_topics(edition: RowOneEdition) -> str:
+    story_payloads = [_topic_story_payload(edition, story) for story in edition.stories]
+    topics = briefing_topics_payload(story_payloads)[:4]
+    if not topics:
+        return ""
+    topic_cards = "\n".join(_render_briefing_topic_card(topic) for topic in topics)
+    return f"""<section class="briefing-topics" aria-label="Briefing topics">
+  <div class="briefing-topics-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Briefing Topics</span>
+        <span data-lang="zh">今日主题</span>
+      </p>
+      <h2>
+        <span data-lang="en">Organized Signals</span>
+        <span data-lang="zh">整理后的时尚信号</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">Organized from explicit ROW ONE story references.</span>
+      <span data-lang="zh">根据 ROW ONE 故事中的明确引用，整理品牌、单品、设计师与人物线索。</span>
+    </p>
+  </div>
+  <div class="briefing-topic-grid">{topic_cards}</div>
+</section>"""
+
+
+def _render_briefing_topic_card(topic: dict[str, object]) -> str:
+    title = _localized_topic_field(topic, "title")
+    label = _localized_topic_field(topic, "label")
+    topic_type = _esc(str(topic["topic_type"]))
+    story_count = int(topic["story_count"])
+    evidence_count = int(topic["evidence_count"])
+    heat_delta = int(topic["positive_heat_delta_sum"])
+    lead_story = _topic_lead_story(topic)
+    href = str(lead_story["detail_href"]) if lead_story is not None else "#main-content"
+    headline = _topic_localized_card_text(lead_story, "headline") if lead_story else title
+    summary = _topic_localized_card_text(lead_story, "editorial_takeaway") if lead_story else title
+    story_label_en = "1 story" if story_count == 1 else f"{story_count} stories"
+    story_label_zh = f"{story_count} 条故事"
+    evidence_label_en = "1 source" if evidence_count == 1 else f"{evidence_count} sources"
+    evidence_label_zh = f"{evidence_count} 条来源"
+    heat_label_en = f"+{heat_delta} heat" if heat_delta > 0 else "steady heat"
+    heat_label_zh = f"+{heat_delta} 热度" if heat_delta > 0 else "热度平稳"
+    return f"""<a class="briefing-topic-card briefing-topic-card--{topic_type}" href="{_esc(href)}">
+  <span class="briefing-topic-label">
+    <span data-lang="en">{_esc(label.en)}</span>
+    <span data-lang="zh">{_esc(label.zh)}</span>
+  </span>
+  <h3>
+    <span data-lang="en">{_esc(title.en)}</span>
+    <span data-lang="zh">{_esc(title.zh)}</span>
+  </h3>
+  <p>
+    <span data-lang="en">{_esc(headline.en)}</span>
+    <span data-lang="zh">{_esc(headline.zh)}</span>
+  </p>
+  <p>
+    <span data-lang="en">{_esc(summary.en)}</span>
+    <span data-lang="zh">{_esc(summary.zh)}</span>
+  </p>
+  <span class="briefing-topic-meta">
+    <span class="briefing-topic-count">
+      <span data-lang="en">{_esc(story_label_en)}</span>
+      <span data-lang="zh">{_esc(story_label_zh)}</span>
+    </span>
+    <span class="briefing-topic-count">
+      <span data-lang="en">{_esc(evidence_label_en)}</span>
+      <span data-lang="zh">{_esc(evidence_label_zh)}</span>
+    </span>
+    <span class="briefing-topic-count">
+      <span data-lang="en">{_esc(heat_label_en)}</span>
+      <span data-lang="zh">{_esc(heat_label_zh)}</span>
+    </span>
+  </span>
+</a>"""
+
+
+def _topic_story_payload(edition: RowOneEdition, story: RowOneStory) -> dict[str, object]:
+    section_title = _section_title(edition, story.section_key)
+    return {
+        "id": story.id,
+        "headline": story.headline,
+        "editorial_takeaway": story.editorial_takeaway.model_dump(mode="json"),
+        "detail_href": _internal_detail_href(story.detail_path),
+        "section_key": story.section_key,
+        "section_title": section_title.model_dump(mode="json"),
+        "source_name": story.source_name,
+        "entity_refs": [reference.model_dump(mode="json") for reference in story.entity_refs],
+        "product_refs": [reference.model_dump(mode="json") for reference in story.product_refs],
+        "designer_refs": [reference.model_dump(mode="json") for reference in story.designer_refs],
+        "heat_delta": story.heat_delta,
+        "evidence_count": sum(
+            1 for link in story.evidence if _safe_external_url(link.url) is not None
+        ),
+    }
+
+
+def _localized_topic_field(topic: dict[str, object], field: str) -> LocalizedText:
+    value = topic[field]
+    if isinstance(value, dict):
+        return LocalizedText(zh=str(value["zh"]), en=str(value["en"]))
+    text = str(value)
+    return LocalizedText(zh=text, en=text)
+
+
+def _topic_lead_story(topic: dict[str, object]) -> dict[str, object] | None:
+    cards = topic.get("cards")
+    if not isinstance(cards, list) or not cards:
+        return None
+    first = cards[0]
+    return first if isinstance(first, dict) else None
+
+
+def _topic_localized_card_text(
+    card: dict[str, object] | None,
+    field: str,
+) -> LocalizedText:
+    if card is None:
+        return LocalizedText(zh="", en="")
+    value = card.get(field)
+    if isinstance(value, dict):
+        return LocalizedText(zh=str(value["zh"]), en=str(value["en"]))
+    text = str(value) if value is not None else ""
+    return LocalizedText(zh=text, en=text)
 
 
 def _render_edition_nav_item(

@@ -11,6 +11,7 @@ from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneEdition,
     RowOneLink,
+    RowOneReference,
     RowOneSection,
     RowOneStory,
     RowOneStoryDisplay,
@@ -221,6 +222,8 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert 'href="#reader-path"' in contents_html
     assert 'href="#evidence-trail"' in contents_html
     assert '<span data-lang="en">Evidence Trail</span>' in detail_html
+    assert 'class="briefing-topics"' not in detail_html
+    assert "Briefing Topics" not in detail_html
     assert 'class="evidence-trail"' in detail_html
     assert 'class="evidence-item evidence-item--safe"' in detail_html
     assert 'class="evidence-item evidence-item--retained"' in detail_html
@@ -244,6 +247,102 @@ def test_render_row_one_site_includes_lead_story_block(tmp_path) -> None:
     assert "今日头条" in index_html
     assert "The Row &lt;signals&gt; &quot;quiet&quot; demand" in index_html
     assert "The Row is today&#x27;s priority signal." in index_html
+
+
+def test_render_row_one_site_includes_briefing_topics_index(tmp_path) -> None:
+    edition = _edition()
+    base_story = edition.stories[0]
+    edition.stories = [
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "the-row-topic-1111111111",
+                "headline": 'The Row <topic> "brief"',
+                "detail_path": "details/the-row-topic-1111111111.html",
+                "heat_delta": 2,
+                "entity_refs": [RowOneReference(name="The Row", type="brand", label="rising")],
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "margaux-topic-2222222222",
+                "headline": "Margaux topic",
+                "detail_path": "details/margaux-topic-2222222222.html",
+                "heat_delta": 7,
+                "product_refs": [RowOneReference(name="Margaux", type="product", label="rising")],
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "olsen-topic-3333333333",
+                "headline": "Designer topic",
+                "detail_path": "details/olsen-topic-3333333333.html",
+                "designer_refs": [
+                    RowOneReference(name="Mary-Kate Olsen", type="designer", label="designer")
+                ],
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "zoe-topic-4444444444",
+                "headline": "Person topic",
+                "detail_path": "details/zoe-topic-4444444444.html",
+                "entity_refs": [
+                    RowOneReference(name="Zoe Kravitz", type="celebrity", label="style")
+                ],
+            },
+        ),
+    ]
+
+    render_row_one_site(edition, tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    topic_match = re.search(
+        r'<section class="briefing-topics" aria-label="Briefing topics">'
+        r"(?P<topics>.*?)</section>",
+        index_html,
+        re.S,
+    )
+
+    assert topic_match is not None
+    topics_html = topic_match.group("topics")
+    assert "Briefing Topics" in topics_html
+    assert "今日主题" in topics_html
+    assert "Organized Signals" in topics_html
+    assert "整理后的时尚信号" in topics_html
+    assert "The Row" in topics_html
+    assert "Margaux" in topics_html
+    assert "Mary-Kate Olsen" in topics_html
+    assert "Zoe Kravitz" in topics_html
+    assert "Brand" in topics_html
+    assert "Product" in topics_html
+    assert "Designer" in topics_html
+    assert "Person" in topics_html
+    assert "The Row &lt;topic&gt; &quot;brief&quot;" in topics_html
+    assert 'href="details/the-row-topic-1111111111.html"' in topics_html
+    assert 'href="https://example.com/the-row"' not in topics_html
+    assert index_html.index('class="edition-nav"') < index_html.index('class="lead-story"')
+    assert index_html.index('class="lead-story"') < index_html.index('class="briefing-topics"')
+    assert index_html.index('class="briefing-topics"') < index_html.index('class="section-block"')
+
+
+def test_render_row_one_site_omits_briefing_topics_without_explicit_refs(tmp_path) -> None:
+    edition = _edition()
+    edition.stories[0].section_key = "celebrity_style"
+    edition.stories[0].headline = "Person topic without explicit refs"
+    edition.stories[0].source_name = "Celebrity Person Desk"
+    edition.stories[0].source_url = "https://example.com/person-source"
+    edition.stories[0].tags = ["person", "celebrity"]
+
+    render_row_one_site(edition, tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert 'class="briefing-topics"' not in index_html
+    assert "Briefing Topics" not in index_html
 
 
 def test_render_row_one_site_includes_story_display_visual_slots(tmp_path) -> None:

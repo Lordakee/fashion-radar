@@ -250,6 +250,37 @@ def test_row_one_docs_describe_stage_276_briefing_topics() -> None:
         assert phrase in readme
 
 
+def test_row_one_docs_describe_stage_277_homepage_briefing_topics() -> None:
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    readme = _normalized(_read(README))
+
+    for phrase in (
+        "homepage briefing topics",
+        "renders `daily_digest.briefing_topics`",
+        "presentation-only briefing topic index",
+        "organized topic groups",
+        "topic labels",
+        "story_ids",
+        "cards",
+        "links to existing detail pages",
+        "not a flat link list",
+        "does not scrape html",
+        "does not infer people from sections or tags",
+        "does not change data/edition.json contract",
+        "does not change matching, ranking, scoring, story ids",
+        "does not add source collection",
+        "does not prove demand",
+    ):
+        assert phrase in row_one
+
+    for phrase in (
+        "row one homepage can render daily_digest.briefing_topics",
+        "organized app-ready briefing instead of a flat list of links",
+        "app clients still use data/edition.json without scraping html",
+    ):
+        assert phrase in readme
+
+
 def test_row_one_docs_describe_stage_272_editorial_web_experience() -> None:
     row_one = _normalized(_read(ROW_ONE_DOC))
     readme = _normalized(_read(README))
