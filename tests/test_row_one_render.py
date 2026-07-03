@@ -18,7 +18,11 @@ from fashion_radar.row_one.models import (
     RowOneStoryDisplay,
     RowOneStoryImage,
 )
-from fashion_radar.row_one.render import clean_row_one_site_children, render_row_one_site
+from fashion_radar.row_one.render import (
+    _story_directory_route_payload,
+    clean_row_one_site_children,
+    render_row_one_site,
+)
 from fashion_radar.row_one.templates import render_index_html
 
 AS_OF = datetime(2026, 7, 2, 4, 0, tzinfo=UTC)
@@ -880,6 +884,67 @@ def test_render_row_one_site_writes_json_payload(tmp_path) -> None:
             "published_date": story["published_date"],
         }
     ]
+
+
+def test_render_row_one_site_story_directory_preserves_story_order_and_routes(tmp_path) -> None:
+    edition = _edition()
+    base_story = edition.stories[0]
+    brand_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "brand-route-1111111111",
+            "section_key": "brand_moves",
+            "headline": "Brand route",
+            "published_at": None,
+            "detail_path": "details/brand-route-1111111111.html",
+        },
+    )
+    top_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "top-route-2222222222",
+            "headline": "Top route",
+            "detail_path": "details/top-route-2222222222.html",
+        },
+    )
+    edition.stories = [brand_story, top_story]
+
+    render_row_one_site(edition, tmp_path)
+
+    payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
+    stories = payload["stories"]
+    story_directory = payload["story_directory"]
+
+    assert story_directory["story_count"] == 2
+    assert story_directory["story_ids"] == ["brand-route-1111111111", "top-route-2222222222"]
+    assert story_directory["story_ids"] == [story["id"] for story in stories]
+    assert story_directory["routes"] == [
+        {
+            "story_id": story["id"],
+            "detail_href": story["detail_href"],
+            "section_key": story["section_key"],
+            "section_href": story["section"]["href"],
+            "published_date": story["published_date"],
+        }
+        for story in stories
+    ]
+    assert story_directory["routes"][0]["section_href"] == "#brand_moves"
+    assert story_directory["routes"][0]["published_date"] is None
+    assert story_directory["routes"][1]["section_href"] == "#top_stories"
+    assert story_directory["routes"][1]["published_date"] == "2026-07-02"
+
+
+def test_story_directory_route_payload_rejects_non_object_section() -> None:
+    with pytest.raises(TypeError, match="story section payload must be an object"):
+        _story_directory_route_payload(
+            {
+                "id": "bad-section-1111111111",
+                "detail_href": "details/bad-section-1111111111.html",
+                "section_key": "top_stories",
+                "section": "#top_stories",
+                "published_date": "2026-07-02",
+            }
+        )
 
 
 def test_render_row_one_site_sanitizes_json_source_url(tmp_path) -> None:
