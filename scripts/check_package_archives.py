@@ -91,6 +91,7 @@ SDIST_REQUIRED_PATHS = [
     "schemas/community-signals.schema.json",
     "schemas/row-one-app.schema.json",
     "schemas/row-one-manifest.schema.json",
+    "schemas/row-one-runtime.schema.json",
     "scripts/check_first_run_smoke.py",
     "src/fashion_radar/cli.py",
     "src/fashion_radar/__main__.py",

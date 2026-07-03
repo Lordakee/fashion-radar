@@ -1849,6 +1849,7 @@ def expected_first_run_flow_commands(
         ("row-one", "serve", "--help"),
         ("row-one", "schedule", "--help"),
         ("row-one", "preview", "--help"),
+        ("row-one", "status", "--help"),
         ("row-one", "local-ops", "--help"),
         ("row-one", "schedule", "--time", "04:00"),
         (
@@ -1866,6 +1867,12 @@ def expected_first_run_flow_commands(
             smoke.AS_OF,
             "--latest-only",
             "--dry-run-serve-url",
+        ),
+        (
+            "row-one",
+            "status",
+            "--site-dir",
+            str(context.reports_dir / "row-one" / "site"),
         ),
         (
             "row-one",
@@ -4307,7 +4314,40 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                     "section_count": 5,
                     "evidence_count": 0,
                 },
-                "readiness": {"status": "empty"},
+                "readiness": {"status": "empty", "zh": "暂无故事", "en": "empty"},
+            }
+            runtime_payload = {
+                "contract_version": "row-one-runtime/v1",
+                "runtime_schema_path": "schemas/row-one-runtime.schema.json",
+                "brand": "ROW ONE",
+                "generated_at": "2026-06-13T12:00:00Z",
+                "edition_date": "2026-06-13T12:00:00Z",
+                "site": {
+                    "index_path": "index.html",
+                    "manifest_path": "data/manifest.json",
+                    "edition_path": "data/edition.json",
+                    "runtime_path": "data/runtime.json",
+                },
+                "refresh": {
+                    "recommended_time": "04:00",
+                    "command": (
+                        'fashion-radar row-one refresh --as-of "$AS_OF" '
+                        "--output-dir reports/row-one/site"
+                    ),
+                    "latest_only_cleanup": True,
+                },
+                "serve": {
+                    "default_host": "127.0.0.1",
+                    "default_port": 8787,
+                    "local_url": "http://127.0.0.1:8787",
+                    "lan_url_hint": "http://<LAN-IP>:8787",
+                },
+                "counts": {
+                    "story_count": 0,
+                    "section_count": 5,
+                    "evidence_count": 0,
+                },
+                "readiness": {"status": "empty", "zh": "暂无故事", "en": "empty"},
             }
             (row_one_data_dir / "edition.json").write_text(
                 json.dumps(edition_payload),
@@ -4315,6 +4355,10 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
             )
             (row_one_data_dir / "manifest.json").write_text(
                 json.dumps(manifest_payload),
+                encoding="utf-8",
+            )
+            (row_one_data_dir / "runtime.json").write_text(
+                json.dumps(runtime_payload),
                 encoding="utf-8",
             )
             return subprocess.CompletedProcess(
@@ -4325,6 +4369,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                     f"Site: {row_one_output_dir / 'index.html'}\n"
                     f"JSON: {row_one_output_dir / 'data' / 'edition.json'}\n"
                     f"Manifest: {row_one_output_dir / 'data' / 'manifest.json'}\n"
+                    f"Runtime: {row_one_output_dir / 'data' / 'runtime.json'}\n"
                     "Stories: 0\n"
                     "Sections: 5\n"
                     "Evidence links: 0\n"
@@ -4332,6 +4377,27 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                     "Hot Products, Rising Radar\n"
                     f"Generated at: {smoke.AS_OF}\n"
                     "Readiness: empty\n"
+                    "Open: http://127.0.0.1:8787\n"
+                ),
+                stderr="",
+            )
+
+        if args[:2] == ("row-one", "status"):
+            row_one_output_dir = context.reports_dir / "row-one" / "site"
+            return subprocess.CompletedProcess(
+                ["python", "-m", "fashion_radar", *args],
+                0,
+                stdout=(
+                    "ROW ONE status\n"
+                    f"Site: {row_one_output_dir}\n"
+                    f"Runtime: {row_one_output_dir / 'data' / 'runtime.json'}\n"
+                    f"JSON: {row_one_output_dir / 'data' / 'edition.json'}\n"
+                    f"Manifest: {row_one_output_dir / 'data' / 'manifest.json'}\n"
+                    "Readiness: empty\n"
+                    "Stories: 0\n"
+                    "Sections: 5\n"
+                    "Evidence links: 0\n"
+                    "Refresh time: 04:00\n"
                     "Open: http://127.0.0.1:8787\n"
                 ),
                 stderr="",

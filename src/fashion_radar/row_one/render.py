@@ -14,6 +14,7 @@ from fashion_radar.row_one.models import (
     RowOneStoryDisplay,
     RowOneStoryImage,
 )
+from fashion_radar.row_one.readiness import build_row_one_readiness
 from fashion_radar.row_one.templates import (
     _validated_detail_relative_path,
     render_detail_html,
@@ -27,6 +28,8 @@ GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data"
 ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v1"
 ROW_ONE_MANIFEST_CONTRACT_VERSION = "row-one-manifest/v1"
 ROW_ONE_MANIFEST_SCHEMA_PATH = "schemas/row-one-manifest.schema.json"
+ROW_ONE_RUNTIME_CONTRACT_VERSION = "row-one-runtime/v1"
+ROW_ONE_RUNTIME_SCHEMA_PATH = "schemas/row-one-runtime.schema.json"
 
 
 @dataclass(frozen=True)
@@ -56,6 +59,11 @@ def render_row_one_site(
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "edition.json").write_text(
         json.dumps(app_payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    runtime_payload = build_row_one_runtime_payload(edition, app_payload)
+    (data_dir / "runtime.json").write_text(
+        json.dumps(runtime_payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     manifest_payload = build_row_one_manifest_payload(edition, app_payload)
@@ -160,6 +168,50 @@ def build_row_one_manifest_payload(
             "sanitized_external_urls": True,
             "latest_only_cleanup": True,
             "seo_metadata": True,
+        },
+    }
+
+
+def build_row_one_runtime_payload(
+    edition: RowOneEdition,
+    app_payload: dict[str, object] | None = None,
+) -> dict[str, object]:
+    app_payload = app_payload or build_row_one_app_payload(edition)
+    readiness = build_row_one_readiness(edition)
+    return {
+        "contract_version": ROW_ONE_RUNTIME_CONTRACT_VERSION,
+        "brand": edition.brand,
+        "generated_at": isoformat_z(edition.generated_at),
+        "edition_date": isoformat_z(edition.edition_date),
+        "runtime_schema_path": ROW_ONE_RUNTIME_SCHEMA_PATH,
+        "site": {
+            "index_path": "index.html",
+            "manifest_path": "data/manifest.json",
+            "edition_path": "data/edition.json",
+            "runtime_path": "data/runtime.json",
+        },
+        "refresh": {
+            "recommended_time": "04:00",
+            "command": (
+                'fashion-radar row-one refresh --as-of "$AS_OF" --output-dir reports/row-one/site'
+            ),
+            "latest_only_cleanup": True,
+        },
+        "serve": {
+            "default_host": "127.0.0.1",
+            "default_port": 8787,
+            "local_url": "http://127.0.0.1:8787",
+            "lan_url_hint": "http://<LAN-IP>:8787",
+        },
+        "counts": {
+            "story_count": int(app_payload["story_count"]),
+            "section_count": len(edition.sections),
+            "evidence_count": int(app_payload["evidence_count"]),
+        },
+        "readiness": {
+            "status": readiness.readiness.en,
+            "zh": readiness.readiness.zh,
+            "en": readiness.readiness.en,
         },
     }
 

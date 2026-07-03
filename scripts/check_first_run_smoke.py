@@ -1166,6 +1166,96 @@ def validate_row_one_manifest(
     assert_equal("row-one manifest readiness status", readiness.get("status"), expected_status)
 
 
+def validate_row_one_runtime(
+    runtime_payload: Any,
+    manifest_payload: Any,
+    edition_payload: Any,
+) -> None:
+    if not isinstance(runtime_payload, dict):
+        raise SmokeError("row-one runtime must be a JSON object")
+
+    assert_equal(
+        "row-one runtime contract_version",
+        runtime_payload.get("contract_version"),
+        "row-one-runtime/v1",
+    )
+    assert_equal("row-one runtime brand", runtime_payload.get("brand"), "ROW ONE")
+    assert_equal(
+        "row-one runtime schema path",
+        runtime_payload.get("runtime_schema_path"),
+        "schemas/row-one-runtime.schema.json",
+    )
+
+    site = runtime_payload.get("site")
+    if not isinstance(site, dict):
+        raise SmokeError("row-one runtime site must be a JSON object")
+    for key, expected in (
+        ("index_path", "index.html"),
+        ("edition_path", "data/edition.json"),
+        ("manifest_path", "data/manifest.json"),
+        ("runtime_path", "data/runtime.json"),
+    ):
+        assert_equal(f"row-one runtime site {key}", site.get(key), expected)
+
+    refresh = runtime_payload.get("refresh")
+    if not isinstance(refresh, dict):
+        raise SmokeError("row-one runtime refresh must be a JSON object")
+    assert_equal("row-one runtime refresh time", refresh.get("recommended_time"), "04:00")
+    assert_equal(
+        "row-one runtime cleanup mode",
+        refresh.get("latest_only_cleanup"),
+        True,
+    )
+    command = refresh.get("command")
+    if not isinstance(command, str) or "fashion-radar row-one refresh" not in command:
+        raise SmokeError("row-one runtime refresh command must run row-one refresh")
+
+    serve = runtime_payload.get("serve")
+    if not isinstance(serve, dict):
+        raise SmokeError("row-one runtime serve must be a JSON object")
+    assert_equal("row-one runtime host", serve.get("default_host"), "127.0.0.1")
+    assert_equal("row-one runtime port", serve.get("default_port"), 8787)
+    assert_equal("row-one runtime local_url", serve.get("local_url"), "http://127.0.0.1:8787")
+    assert_equal(
+        "row-one runtime lan_url_hint",
+        serve.get("lan_url_hint"),
+        "http://<LAN-IP>:8787",
+    )
+    assert_equal(
+        "row-one runtime generated_at",
+        runtime_payload.get("generated_at"),
+        edition_payload.get("generated_at"),
+    )
+    assert_equal(
+        "row-one runtime edition_date",
+        runtime_payload.get("edition_date"),
+        edition_payload.get("edition_date"),
+    )
+
+    counts = runtime_payload.get("counts")
+    if not isinstance(counts, dict):
+        raise SmokeError("row-one runtime counts must be a JSON object")
+    manifest_counts = manifest_payload.get("counts")
+    if not isinstance(manifest_counts, dict):
+        raise SmokeError("row-one manifest counts must be a JSON object")
+    assert_equal("row-one runtime counts", counts, manifest_counts)
+
+    readiness = runtime_payload.get("readiness")
+    if not isinstance(readiness, dict):
+        raise SmokeError("row-one runtime readiness must be a JSON object")
+    manifest_readiness = manifest_payload.get("readiness")
+    if not isinstance(manifest_readiness, dict):
+        raise SmokeError("row-one manifest readiness must be a JSON object")
+    assert_equal(
+        "row-one runtime readiness status",
+        readiness.get("status"),
+        manifest_readiness.get("status"),
+    )
+    assert_equal("row-one runtime readiness en", readiness.get("en"), readiness.get("status"))
+    if not isinstance(readiness.get("zh"), str) or not readiness.get("zh"):
+        raise SmokeError("row-one runtime readiness zh must be a non-empty string")
+
+
 def validate_import_signals_dry_run(output: str) -> None:
     assert_output_contains(
         "import-signals --dry-run",
@@ -2864,6 +2954,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
         ("row-one", "serve", "--help"),
         ("row-one", "schedule", "--help"),
         ("row-one", "preview", "--help"),
+        ("row-one", "status", "--help"),
         ("row-one", "local-ops", "--help"),
     ):
         run_cli(context, *command_parts)
@@ -2896,6 +2987,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
             f"Site: {row_one_output_dir / 'index.html'}",
             f"JSON: {row_one_output_dir / 'data' / 'edition.json'}",
             f"Manifest: {row_one_output_dir / 'data' / 'manifest.json'}",
+            f"Runtime: {row_one_output_dir / 'data' / 'runtime.json'}",
             "Stories:",
             "Sections:",
             "Evidence links:",
@@ -2908,16 +3000,50 @@ def run_first_run_flow(context: SmokeContext) -> None:
     assert_non_empty_file(row_one_output_dir / "index.html")
     row_one_edition_path = row_one_output_dir / "data" / "edition.json"
     row_one_manifest_path = row_one_output_dir / "data" / "manifest.json"
+    row_one_runtime_path = row_one_output_dir / "data" / "runtime.json"
     assert_non_empty_file(row_one_edition_path)
     assert_non_empty_file(row_one_manifest_path)
-    validate_row_one_manifest(
-        validate_json_output(
-            "row-one manifest",
-            row_one_manifest_path.read_text(encoding="utf-8"),
-        ),
-        validate_json_output(
-            "row-one edition",
-            row_one_edition_path.read_text(encoding="utf-8"),
+    assert_non_empty_file(row_one_runtime_path)
+    row_one_edition_payload = validate_json_output(
+        "row-one edition",
+        row_one_edition_path.read_text(encoding="utf-8"),
+    )
+    row_one_manifest_payload = validate_json_output(
+        "row-one manifest",
+        row_one_manifest_path.read_text(encoding="utf-8"),
+    )
+    row_one_runtime_payload = validate_json_output(
+        "row-one runtime",
+        row_one_runtime_path.read_text(encoding="utf-8"),
+    )
+    validate_row_one_manifest(row_one_manifest_payload, row_one_edition_payload)
+    validate_row_one_runtime(
+        row_one_runtime_payload,
+        row_one_manifest_payload,
+        row_one_edition_payload,
+    )
+    row_one_status = run_cli(
+        context,
+        "row-one",
+        "status",
+        "--site-dir",
+        str(row_one_output_dir),
+    ).stdout
+    assert_output_contains_text(
+        "row-one status",
+        row_one_status,
+        (
+            "ROW ONE status",
+            f"Site: {row_one_output_dir}",
+            f"Runtime: {row_one_runtime_path}",
+            f"JSON: {row_one_edition_path}",
+            f"Manifest: {row_one_manifest_path}",
+            "Readiness:",
+            "Stories:",
+            "Sections:",
+            "Evidence links:",
+            "Refresh time: 04:00",
+            "Open: http://127.0.0.1:8787",
         ),
     )
     row_one_serve = run_cli(

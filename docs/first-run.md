@@ -128,11 +128,20 @@ Use the same repo-local sample data to build the ROW ONE local static site:
 AS_OF="2026-06-13T12:00:00Z"
 uv run fashion-radar row-one refresh --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --output-dir reports/row-one/site --as-of "$AS_OF"
 uv run fashion-radar row-one preview --config-dir "$PWD/configs" --data-dir "$PWD/data" --reports-dir "$PWD/reports" --output-dir reports/row-one/site --as-of "$AS_OF" --latest-only --dry-run-serve-url
+uv run fashion-radar row-one status --site-dir reports/row-one/site
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787
 ```
 
 `row-one refresh` is the single local daily refresh command for ROW ONE. It
 refreshes the daily report data and generated site in one local command.
+ROW ONE local ops use a daily `04:00` refresh boundary and fixed local
+IP:port `127.0.0.1:8787`; use `0.0.0.0:8787` only for explicit LAN serving.
+The generated site includes `data/runtime.json` runtime metadata alongside
+`data/edition.json` and `data/manifest.json`, and `row-one status` reads that
+runtime metadata without rebuilding or serving the site. The status command is
+a lightweight runtime contract check for the generated site marker, the three
+JSON objects, fixed runtime paths, `04:00` refresh metadata, `127.0.0.1:8787`
+serve metadata, readiness, counts, and generated timestamps.
 
 Open `http://127.0.0.1:8787` locally. The generated ROW ONE site under
 `reports/row-one/site` is a local artifact and should not be committed.
@@ -154,11 +163,13 @@ working tree. A successful run prints:
 First-run sample smoke passed.
 ```
 
-The source-checkout smoke also validates the ROW ONE manifest output and local
-serve readiness path. It checks that ROW ONE writes the Manifest:
-`data/manifest.json` app discovery file, then runs `row-one serve --dry-run`
-against the generated temporary site so the dry-run URL path is covered without
-starting a long-running server.
+The source-checkout smoke also validates the ROW ONE manifest output, runtime
+status output, and local serve readiness path. It checks that ROW ONE writes the
+Manifest: `data/manifest.json` app discovery file and `data/runtime.json`
+runtime metadata file, runs `row-one status` against the generated temporary
+site as a lightweight runtime contract and cross-file consistency check, then runs
+`row-one serve --dry-run` against the same site so the dry-run URL path is
+covered without starting a long-running server.
 
 ## Installed-Wheel Smoke
 
@@ -175,8 +186,9 @@ uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
 "$tmp_env/venv/bin/python" scripts/check_first_run_smoke.py --repo-root . --python "$tmp_env/venv/bin/python" --installed
 ```
 
-Both automated smoke paths verify temporary dated reports, should not create
-files under repo `data/` or `reports/`, and print
+Both automated smoke paths verify temporary dated reports, generated ROW ONE
+runtime metadata, status output, and local serve readiness. They should not
+create files under repo `data/` or `reports/`, and print
 `First-run sample smoke passed.` on success.
 The automated smoke validates that sample rows import as community signals,
 match the starter entities `The Row`, `The Row Margaux`, and `Ballet Flats`,
@@ -248,7 +260,10 @@ test -f pyproject.toml && test -d examples && { \
 }
 ```
 
-This keeps `data/README.md` and `reports/README.md`.
+This keeps `data/README.md` and `reports/README.md`. ROW ONE latest-only site
+cleanup removes generated site output, including `data/runtime.json` inside the
+site directory, but it does not delete dated Fashion Radar reports such as
+`reports/fashion-radar-YYYY-MM-DD.md`, `.json`, or `.html`.
 
 ## Boundary
 

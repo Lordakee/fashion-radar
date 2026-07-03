@@ -1459,6 +1459,7 @@ def row_one_preview(
     typer.echo(f"Site: {result.index_path}")
     typer.echo(f"JSON: {result.output_dir / 'data' / 'edition.json'}")
     typer.echo(f"Manifest: {result.output_dir / 'data' / 'manifest.json'}")
+    typer.echo(f"Runtime: {result.output_dir / 'data' / 'runtime.json'}")
     typer.echo(f"Stories: {readiness.story_count}")
     typer.echo(f"Sections: {readiness.section_count}")
     typer.echo(f"Evidence links: {readiness.safe_evidence_count}")
@@ -1577,6 +1578,205 @@ def row_one_serve(
     except Exception as exc:
         typer.echo(f"Could not serve ROW ONE site: {exc}", err=True)
         raise typer.Exit(1) from exc
+
+
+def _read_row_one_json_file(path: Path) -> dict[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return payload
+
+
+def _require_row_one_object(
+    payload: dict[str, object],
+    key: str,
+    *,
+    label: str | None = None,
+) -> dict[str, object]:
+    value = payload.get(key)
+    if not isinstance(value, dict):
+        raise ValueError(f"row-one {label or key} must be a JSON object")
+    return value
+
+
+def _require_row_one_value(label: str, actual: object, expected: object) -> None:
+    if actual != expected:
+        raise ValueError(f"row-one {label} expected {expected!r}, got {actual!r}")
+
+
+def _validate_row_one_status_payloads(
+    *,
+    manifest: dict[str, object],
+    edition: dict[str, object],
+    runtime: dict[str, object],
+) -> None:
+    _require_row_one_value(
+        "runtime contract_version",
+        runtime.get("contract_version"),
+        "row-one-runtime/v1",
+    )
+    _require_row_one_value("runtime brand", runtime.get("brand"), "ROW ONE")
+    _require_row_one_value(
+        "runtime schema path",
+        runtime.get("runtime_schema_path"),
+        "schemas/row-one-runtime.schema.json",
+    )
+    _require_row_one_value(
+        "manifest contract_version",
+        manifest.get("contract_version"),
+        "row-one-manifest/v1",
+    )
+
+    site = _require_row_one_object(runtime, "site", label="runtime.site")
+    for key, expected in (
+        ("index_path", "index.html"),
+        ("edition_path", "data/edition.json"),
+        ("manifest_path", "data/manifest.json"),
+        ("runtime_path", "data/runtime.json"),
+    ):
+        _require_row_one_value(f"runtime.site.{key}", site.get(key), expected)
+
+    refresh = _require_row_one_object(runtime, "refresh", label="runtime.refresh")
+    _require_row_one_value(
+        "runtime.refresh.recommended_time",
+        refresh.get("recommended_time"),
+        "04:00",
+    )
+    _require_row_one_value(
+        "runtime.refresh.latest_only_cleanup",
+        refresh.get("latest_only_cleanup"),
+        True,
+    )
+    refresh_command = refresh.get("command")
+    if (
+        not isinstance(refresh_command, str)
+        or "fashion-radar row-one refresh" not in refresh_command
+    ):
+        raise ValueError("row-one runtime.refresh.command must run fashion-radar row-one refresh")
+
+    serve = _require_row_one_object(runtime, "serve", label="runtime.serve")
+    _require_row_one_value(
+        "runtime.serve.default_host",
+        serve.get("default_host"),
+        "127.0.0.1",
+    )
+    _require_row_one_value("runtime.serve.default_port", serve.get("default_port"), 8787)
+    _require_row_one_value(
+        "runtime.serve.local_url",
+        serve.get("local_url"),
+        "http://127.0.0.1:8787",
+    )
+    _require_row_one_value(
+        "runtime.serve.lan_url_hint",
+        serve.get("lan_url_hint"),
+        "http://<LAN-IP>:8787",
+    )
+
+    for key in ("generated_at", "edition_date"):
+        runtime_value = runtime.get(key)
+        _require_row_one_value(f"runtime {key}", runtime_value, edition.get(key))
+        _require_row_one_value(f"manifest {key}", manifest.get(key), edition.get(key))
+
+    runtime_counts = _require_row_one_object(runtime, "counts", label="runtime.counts")
+    manifest_counts = _require_row_one_object(manifest, "counts", label="manifest.counts")
+    _require_row_one_value("runtime counts", runtime_counts, manifest_counts)
+    sections = edition.get("sections")
+    if not isinstance(sections, list):
+        raise ValueError("row-one edition.sections must be a JSON array")
+    for key, expected in (
+        ("story_count", edition.get("story_count")),
+        ("section_count", len(sections)),
+        ("evidence_count", edition.get("evidence_count")),
+    ):
+        _require_row_one_value(f"runtime.counts.{key}", runtime_counts.get(key), expected)
+
+    runtime_readiness = _require_row_one_object(runtime, "readiness", label="runtime.readiness")
+    manifest_readiness = _require_row_one_object(
+        manifest,
+        "readiness",
+        label="manifest.readiness",
+    )
+    expected_status = "ready" if runtime_counts.get("story_count") else "empty"
+    _require_row_one_value(
+        "runtime.readiness.status",
+        runtime_readiness.get("status"),
+        expected_status,
+    )
+    _require_row_one_value(
+        "runtime.readiness.status",
+        runtime_readiness.get("status"),
+        manifest_readiness.get("status"),
+    )
+    _require_row_one_value(
+        "runtime.readiness.en",
+        runtime_readiness.get("en"),
+        runtime_readiness.get("status"),
+    )
+    if not isinstance(runtime_readiness.get("zh"), str) or not runtime_readiness.get("zh"):
+        raise ValueError("row-one runtime.readiness.zh must be a non-empty string")
+
+
+@row_one_app.command(name="status")
+def row_one_status(
+    site_dir: Path = ROW_ONE_SITE_DIR_OPTION,
+    host: str = ROW_ONE_HOST_OPTION,
+    port: int = ROW_ONE_PORT_OPTION,
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Print machine-readable JSON status.",
+    ),
+) -> None:
+    """Validate a generated ROW ONE site and print runtime readiness."""
+    try:
+        validate_row_one_site_dir(site_dir)
+        manifest = _read_row_one_json_file(site_dir / "data" / "manifest.json")
+        edition = _read_row_one_json_file(site_dir / "data" / "edition.json")
+        runtime = _read_row_one_json_file(site_dir / "data" / "runtime.json")
+        _validate_row_one_status_payloads(
+            manifest=manifest,
+            edition=edition,
+            runtime=runtime,
+        )
+    except Exception as exc:
+        typer.echo(f"ROW ONE status failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    payload = {
+        "ok": True,
+        "site_dir": str(site_dir),
+        "access": format_row_one_site_access_message(host, port),
+        "paths": {
+            "manifest": "data/manifest.json",
+            "edition": "data/edition.json",
+            "runtime": "data/runtime.json",
+        },
+        "manifest": manifest,
+        "runtime": runtime,
+        "story_count": edition.get("story_count"),
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+
+    readiness = runtime.get("readiness")
+    readiness_label = readiness.get("en", "unknown") if isinstance(readiness, dict) else "unknown"
+    typer.echo("ROW ONE status")
+    typer.echo(f"Site: {site_dir}")
+    typer.echo(f"Runtime: {site_dir / 'data' / 'runtime.json'}")
+    typer.echo(f"JSON: {site_dir / 'data' / 'edition.json'}")
+    typer.echo(f"Manifest: {site_dir / 'data' / 'manifest.json'}")
+    typer.echo(f"Stories: {payload['story_count']}")
+    counts = runtime.get("counts")
+    if isinstance(counts, dict):
+        typer.echo(f"Sections: {counts.get('section_count', 'unknown')}")
+        typer.echo(f"Evidence links: {counts.get('evidence_count', 'unknown')}")
+    refresh = runtime.get("refresh")
+    if isinstance(refresh, dict):
+        typer.echo(f"Refresh time: {refresh.get('recommended_time', 'unknown')}")
+    typer.echo(f"Generated at: {runtime.get('generated_at', 'unknown')}")
+    typer.echo(f"Readiness: {readiness_label}")
+    typer.echo(payload["access"])
 
 
 @row_one_app.command(name="local-ops")

@@ -57,8 +57,12 @@ def test_row_one_docs_describe_generated_files_and_cleanup_boundary() -> None:
         "`assets/row-one.js`",
         "`data/edition.json`",
         "`.row-one-site` marker",
+        "`data/runtime.json`",
         "`--latest-only` removes only known row one generated children",
         "does not delete unrelated files in the output directory",
+        "site output cleanup",
+        "does not delete dated report artifacts",
+        "`reports/fashion-radar-yyyy-mm-dd.md`",
     ):
         assert phrase in normalized
 
@@ -71,6 +75,7 @@ def test_row_one_docs_include_user_required_phrases() -> None:
         "row-one build",
         "row-one refresh",
         "row-one preview",
+        "row-one status",
         "row-one local-ops",
         "row-one serve",
         "row-one schedule",
@@ -81,6 +86,7 @@ def test_row_one_docs_include_user_required_phrases() -> None:
         "open from lan: http://<lan-ip>:8787",
         "fashion-radar row-one refresh",
         "fashion-radar row-one preview",
+        "fashion-radar row-one status",
         "--latest-only",
         "prints snippets only",
         "does not install timers",
@@ -200,6 +206,11 @@ def test_row_one_docs_describe_manifest_and_editorial_polish() -> None:
         "row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787".lower()
         in first_run.lower()
     )
+    assert "row-one status --site-dir reports/row-one/site".lower() in first_run.lower()
+    assert "data/runtime.json" in first_run
+    assert "127.0.0.1:8787" in first_run
+    assert "0.0.0.0:8787" in first_run
+    assert "04:00" in first_run
     assert "docs/row-one.md" in readme
     assert "ROW ONE local static site" in readme
     assert "ROW ONE manifest and serve dry-run".lower() in readme.lower()
@@ -213,6 +224,7 @@ def test_row_one_cli_docs_list_build_preview_serve_and_schedule_commands() -> No
     for phrase in (
         "`row-one build`",
         "`row-one preview`",
+        "`row-one status`",
         "`row-one local-ops`",
         "`row-one serve`",
         "`row-one schedule`",
@@ -224,6 +236,41 @@ def test_row_one_cli_docs_list_build_preview_serve_and_schedule_commands() -> No
         "`--dry-run`",
     ):
         assert phrase in normalized
+
+
+def test_row_one_docs_describe_runtime_status_contract() -> None:
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    cli = _normalized(_read(CLI_REFERENCE))
+    first_run = _normalized(_read(ROOT / "docs" / "first-run.md"))
+
+    for normalized in (row_one, cli, first_run):
+        for phrase in (
+            "`data/runtime.json`",
+            "runtime status",
+            "`row-one status`",
+            "`data/edition.json`",
+            "`data/manifest.json`",
+            "04:00",
+            "127.0.0.1:8787",
+            "0.0.0.0:8787",
+            "without rebuilding",
+        ):
+            assert phrase in normalized
+
+    for phrase in (
+        "row-one-runtime/v1",
+        "fixed local serve port `8787`",
+        "operator preflight checks",
+        "local operational metadata only",
+        "lightweight runtime contract check",
+        "generated timestamps, counts, and readiness fields must agree",
+    ):
+        assert phrase in row_one
+
+    for normalized in (row_one, cli, first_run):
+        assert "not deep schema validation" not in normalized
+        assert "does not validate cross-file agreement" not in normalized
+        assert "read/parse check" not in normalized
 
 
 def test_row_one_scheduling_docs_describe_single_refresh_command() -> None:

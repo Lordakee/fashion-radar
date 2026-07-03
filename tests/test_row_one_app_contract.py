@@ -22,6 +22,7 @@ from fashion_radar.row_one.render import render_row_one_site
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = ROOT / "schemas" / "row-one-app.schema.json"
 MANIFEST_SCHEMA = ROOT / "schemas" / "row-one-manifest.schema.json"
+RUNTIME_SCHEMA = ROOT / "schemas" / "row-one-runtime.schema.json"
 AS_OF = datetime(2026, 7, 2, 4, 0, tzinfo=UTC)
 
 
@@ -92,6 +93,12 @@ def _manifest_schema_validator() -> Draft202012Validator:
     return Draft202012Validator(schema, format_checker=FormatChecker())
 
 
+def _runtime_schema_validator() -> Draft202012Validator:
+    schema = json.loads(RUNTIME_SCHEMA.read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(schema, format_checker=FormatChecker())
+
+
 def _payload(tmp_path: Path, edition: RowOneEdition | None = None) -> dict[str, object]:
     render_row_one_site(edition or _edition(), tmp_path)
     return json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
@@ -100,6 +107,11 @@ def _payload(tmp_path: Path, edition: RowOneEdition | None = None) -> dict[str, 
 def _manifest_payload(tmp_path: Path, edition: RowOneEdition | None = None) -> dict[str, object]:
     render_row_one_site(edition or _edition(), tmp_path)
     return json.loads((tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"))
+
+
+def _runtime_payload(tmp_path: Path, edition: RowOneEdition | None = None) -> dict[str, object]:
+    render_row_one_site(edition or _edition(), tmp_path)
+    return json.loads((tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"))
 
 
 def test_row_one_app_contract_schema_validates_generated_payload(tmp_path: Path) -> None:
@@ -112,6 +124,12 @@ def test_row_one_manifest_schema_validates_generated_payload(tmp_path: Path) -> 
     manifest = _manifest_payload(tmp_path)
 
     _manifest_schema_validator().validate(manifest)
+
+
+def test_row_one_runtime_schema_validates_generated_payload(tmp_path: Path) -> None:
+    runtime = _runtime_payload(tmp_path)
+
+    _runtime_schema_validator().validate(runtime)
 
 
 def test_row_one_manifest_points_to_app_contract_and_site_paths(tmp_path: Path) -> None:
@@ -132,6 +150,45 @@ def test_row_one_manifest_points_to_app_contract_and_site_paths(tmp_path: Path) 
         "assets_path": "assets/",
         "details_path": "details/",
     }
+    assert "runtime_path" not in manifest["site"]
+
+
+def test_row_one_runtime_payload_describes_local_runtime_contract(tmp_path: Path) -> None:
+    runtime = _runtime_payload(tmp_path)
+
+    assert runtime["contract_version"] == "row-one-runtime/v1"
+    assert runtime["brand"] == "ROW ONE"
+    assert runtime["runtime_schema_path"] == "schemas/row-one-runtime.schema.json"
+    assert runtime["site"] == {
+        "index_path": "index.html",
+        "manifest_path": "data/manifest.json",
+        "edition_path": "data/edition.json",
+        "runtime_path": "data/runtime.json",
+    }
+    assert runtime["refresh"] == {
+        "recommended_time": "04:00",
+        "command": (
+            'fashion-radar row-one refresh --as-of "$AS_OF" --output-dir reports/row-one/site'
+        ),
+        "latest_only_cleanup": True,
+    }
+    assert runtime["serve"] == {
+        "default_host": "127.0.0.1",
+        "default_port": 8787,
+        "local_url": "http://127.0.0.1:8787",
+        "lan_url_hint": "http://<LAN-IP>:8787",
+    }
+    assert runtime["counts"] == {
+        "story_count": 1,
+        "section_count": 2,
+        "evidence_count": 1,
+    }
+    assert runtime["readiness"] == {
+        "status": "ready",
+        "zh": "可阅读",
+        "en": "ready",
+    }
+    _runtime_schema_validator().validate(runtime)
 
 
 def test_row_one_manifest_counts_match_app_payload(tmp_path: Path) -> None:
@@ -559,3 +616,47 @@ def test_row_one_manifest_schema_rejects_contract_drift(
 
     with pytest.raises(ValidationError, match=match):
         _manifest_schema_validator().validate(manifest)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        (
+            lambda payload: payload.__setitem__("unexpected", True),
+            "Additional properties",
+        ),
+        (
+            lambda payload: payload["site"].__setitem__("runtime_path", "runtime.json"),
+            "was expected",
+        ),
+        (
+            lambda payload: payload["serve"].__setitem__("default_port", 8000),
+            "was expected",
+        ),
+        (
+            lambda payload: payload["readiness"].__setitem__("status", "partial"),
+            "is not one of",
+        ),
+        (
+            lambda payload: payload["readiness"].__setitem__("zh", ""),
+            "should be non-empty",
+        ),
+        (
+            lambda payload: payload["refresh"].__setitem__(
+                "command",
+                "fashion-radar row-one refresh --output-dir reports/row-one/site",
+            ),
+            "was expected",
+        ),
+    ],
+)
+def test_row_one_runtime_schema_rejects_contract_drift(
+    tmp_path: Path,
+    mutation,
+    match: str,
+) -> None:
+    runtime = copy.deepcopy(_runtime_payload(tmp_path))
+    mutation(runtime)
+
+    with pytest.raises(ValidationError, match=match):
+        _runtime_schema_validator().validate(runtime)

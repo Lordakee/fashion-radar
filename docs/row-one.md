@@ -14,6 +14,7 @@ site:
 AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar row-one refresh --as-of "$AS_OF" --output-dir reports/row-one/site
 uv run fashion-radar row-one preview --as-of "$AS_OF" --latest-only --dry-run-serve-url
+uv run fashion-radar row-one status --site-dir reports/row-one/site
 uv run fashion-radar row-one local-ops --time 04:00 --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 0.0.0.0 --port 8787
@@ -106,6 +107,30 @@ capabilities. It does not duplicate story arrays, section arrays, absolute
 host/port URLs, LAN preview URLs, local machine paths, source collection output,
 or deployment state.
 
+## Runtime Status
+
+`data/runtime.json` is the row-one-runtime/v1 runtime metadata file for local
+operations and smoke checks. It records the generated site runtime surface:
+site path metadata, `data/edition.json`, `data/manifest.json`, the fixed local
+serve port `8787`, default local serve host `127.0.0.1`, daily refresh time `04:00`,
+latest readiness status, counts, and generated timestamp. It is local
+operational metadata only and is not a deployment record.
+
+`row-one status` reads the generated ROW ONE site directory and prints the
+runtime status without rebuilding the site or starting a server. It performs a
+lightweight runtime contract check: the generated site marker must be present,
+`data/runtime.json`, `data/edition.json`, and `data/manifest.json` must exist
+as JSON objects, runtime paths must match the fixed local contract, and the key
+generated timestamps, counts, and readiness fields must agree across runtime,
+manifest, and edition payloads. It is intended for first-run smoke checks and
+operator preflight checks before serving
+`http://127.0.0.1:8787` or `http://<LAN-IP>:8787`.
+
+The canonical first-run local serving boundary is fixed IP:port `127.0.0.1:8787`
+for local-only testing. Use `0.0.0.0:8787` only for explicit LAN serving, and
+open `http://<LAN-IP>:8787` from other devices. Daily local refresh examples use
+`04:00`.
+
 ## Daily Readiness And Preview
 
 ROW ONE adds a deterministic daily readiness and preview layer for the generated
@@ -148,11 +173,16 @@ story summaries.
 - `assets/row-one.js`
 - `data/edition.json`
 - `data/manifest.json`
+- `data/runtime.json`
 - `.row-one-site` marker
 
 The latest-only cleanup is intentionally narrow. `--latest-only` removes only known ROW ONE generated children:
 `index.html`, `.row-one-site`, `details/`, `assets/`, and `data/`. It does not
-delete unrelated files in the output directory. If an existing directory has
+delete unrelated files in the output directory. This site output cleanup can
+replace the generated ROW ONE site surface, but it does not delete dated report
+artifacts such as `reports/fashion-radar-YYYY-MM-DD.md`,
+`reports/fashion-radar-YYYY-MM-DD.json`, or
+`reports/fashion-radar-YYYY-MM-DD.html`. If an existing directory has
 generated-looking children but no `.row-one-site` marker, cleanup refuses to
 continue so user files are not silently removed.
 
@@ -167,6 +197,9 @@ continue so user files are not silently removed.
 - `row-one preview`: builds the static ROW ONE site and prints daily readiness
   details. Important flags: `--as-of`, `--output-dir`, `--latest-only`,
   `--host`, `--port`, and `--dry-run-serve-url`.
+- `row-one status`: reads a generated ROW ONE site directory and prints runtime
+  status from `data/runtime.json` without rebuilding or serving the site.
+  Important flags: `--site-dir`.
 - `row-one local-ops`: prints a ROW ONE local daily ops runbook for 04:00
   refresh, fixed IP:port serving, preview, and cron snippets. It prints
   snippets only and does not install timers, build the site, start the server,

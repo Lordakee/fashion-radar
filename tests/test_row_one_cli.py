@@ -4,7 +4,10 @@ import http.client
 import json
 import re
 import socket
+import subprocess
+import sys
 import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -509,6 +512,139 @@ def test_row_one_serve_dry_run_rejects_marked_directory_without_index(tmp_path: 
     assert "index.html" in result.output
 
 
+def test_row_one_status_prints_generated_site_readiness(tmp_path: Path) -> None:
+    render_row_one_site(
+        build_row_one_edition(report=_empty_report(), recent_items=[], as_of=AS_OF),
+        tmp_path,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "status",
+            "--site-dir",
+            str(tmp_path),
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8787",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "ROW ONE status" in result.output
+    assert f"Site: {tmp_path}" in result.output
+    assert f"Runtime: {tmp_path / 'data' / 'runtime.json'}" in result.output
+    assert f"JSON: {tmp_path / 'data' / 'edition.json'}" in result.output
+    assert f"Manifest: {tmp_path / 'data' / 'manifest.json'}" in result.output
+    assert "Stories: 0" in result.output
+    assert "Sections: 5" in result.output
+    assert "Evidence links: 0" in result.output
+    assert "Refresh time: 04:00" in result.output
+    assert "Generated at: 2026-07-02T04:00:00Z" in result.output
+    assert "Readiness: empty" in result.output
+    assert "Open locally: http://127.0.0.1:8787" in result.output
+    assert "Open from LAN: http://<LAN-IP>:8787" in result.output
+
+
+def test_row_one_status_json_outputs_machine_readable_payload(tmp_path: Path) -> None:
+    render_row_one_site(
+        build_row_one_edition(report=_empty_report(), recent_items=[], as_of=AS_OF),
+        tmp_path,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["row-one", "status", "--site-dir", str(tmp_path), "--json"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["ok"] is True
+    assert payload["site_dir"] == str(tmp_path)
+    assert payload["paths"] == {
+        "manifest": "data/manifest.json",
+        "edition": "data/edition.json",
+        "runtime": "data/runtime.json",
+    }
+    assert payload["runtime"]["contract_version"] == "row-one-runtime/v1"
+    assert payload["manifest"]["contract_version"] == "row-one-manifest/v1"
+    assert payload["story_count"] == 0
+
+
+def test_row_one_status_rejects_missing_runtime_payload(tmp_path: Path) -> None:
+    render_row_one_site(
+        build_row_one_edition(report=_empty_report(), recent_items=[], as_of=AS_OF),
+        tmp_path,
+    )
+    (tmp_path / "data" / "runtime.json").unlink()
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "data/runtime.json" in result.output
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_error"),
+    [
+        (
+            lambda runtime, _manifest, _edition: runtime.update(
+                {"contract_version": "row-one-runtime/v2"}
+            ),
+            "runtime contract_version",
+        ),
+        (
+            lambda runtime, _manifest, _edition: runtime["site"].update(
+                {"runtime_path": "runtime.json"}
+            ),
+            "runtime.site.runtime_path",
+        ),
+        (
+            lambda runtime, _manifest, _edition: runtime["serve"].update({"default_port": 9999}),
+            "runtime.serve.default_port",
+        ),
+        (
+            lambda runtime, _manifest, _edition: runtime.update(
+                {"generated_at": "2026-07-03T04:00:00Z"}
+            ),
+            "runtime generated_at",
+        ),
+        (
+            lambda runtime, _manifest, _edition: runtime["counts"].update({"story_count": 7}),
+            "runtime counts",
+        ),
+        (
+            lambda runtime, _manifest, _edition: runtime["readiness"].update({"en": "ready"}),
+            "runtime.readiness.en",
+        ),
+    ],
+)
+def test_row_one_status_rejects_runtime_contract_drift(
+    tmp_path: Path,
+    mutation: object,
+    expected_error: str,
+) -> None:
+    render_row_one_site(
+        build_row_one_edition(report=_empty_report(), recent_items=[], as_of=AS_OF),
+        tmp_path,
+    )
+    manifest_path = tmp_path / "data" / "manifest.json"
+    edition_path = tmp_path / "data" / "edition.json"
+    runtime_path = tmp_path / "data" / "runtime.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    edition = json.loads(edition_path.read_text(encoding="utf-8"))
+    runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
+    mutation(runtime, manifest, edition)
+    runtime_path.write_text(json.dumps(runtime), encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert expected_error in result.output
+
+
 def test_row_one_schedule_prints_refresh_command() -> None:
     result = CliRunner().invoke(app, ["row-one", "schedule", "--time", "04:00"])
 
@@ -592,6 +728,81 @@ def test_row_one_server_serves_generated_chinese_detail_link(tmp_path: Path) -> 
 
     assert response.status == 200
     assert "上海新锐设计师品牌升温" in body
+
+
+def test_row_one_serve_cli_process_serves_generated_site(tmp_path: Path) -> None:
+    render_row_one_site(
+        build_row_one_edition(report=_empty_report(), recent_items=[], as_of=AS_OF),
+        tmp_path,
+    )
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = int(sock.getsockname()[1])
+
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "fashion_radar",
+            "row-one",
+            "serve",
+            "--site-dir",
+            str(tmp_path),
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        fetched: dict[str, str] = {}
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and len(fetched) < 6:
+            try:
+                fetched = {
+                    path: _fetch_row_one_cli_process_path(port, path)
+                    for path in (
+                        "/",
+                        "/data/manifest.json",
+                        "/data/edition.json",
+                        "/data/runtime.json",
+                        "/assets/row-one.css",
+                        "/assets/row-one.js",
+                    )
+                }
+            except OSError:
+                time.sleep(0.1)
+
+        assert len(fetched) == 6
+        assert "ROW ONE" in fetched["/"]
+        assert '"contract_version": "row-one-manifest/v1"' in fetched["/data/manifest.json"]
+        assert '"contract_version": "row-one-app/v1"' in fetched["/data/edition.json"]
+        assert '"contract_version": "row-one-runtime/v1"' in fetched["/data/runtime.json"]
+        assert "RowOneSerif" in fetched["/assets/row-one.css"]
+        assert "row-one:language" in fetched["/assets/row-one.js"]
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+
+
+def _fetch_row_one_cli_process_path(port: int, path: str) -> str:
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=0.5)
+    try:
+        connection.request("GET", path)
+        response = connection.getresponse()
+        body = response.read().decode("utf-8")
+    finally:
+        connection.close()
+    if response.status != 200:
+        raise OSError(f"{path} returned HTTP {response.status}")
+    return body
 
 
 def test_format_row_one_site_url() -> None:
