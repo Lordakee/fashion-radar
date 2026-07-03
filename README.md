@@ -103,9 +103,14 @@ ROW ONE is a local static site built from existing daily report data. It adds
 no new data acquisition, no scraping, no platform APIs, no paid APIs, no
 translation service, no deployment automation, no demand proof, and no platform
 coverage verification. Its active app contract is `row-one-app/v3`, with
-`content_sections`, `detail_sections`, `evidence_summary`, and `daily_digest`
-so app clients can render section rails and a daily briefing without scraping
-HTML. See [docs/row-one.md](docs/row-one.md).
+`content_sections`, `detail_sections`, `evidence_summary`, and
+`daily_digest` so app clients can render section rails and a daily briefing
+without scraping HTML. `daily_digest.briefing_topics` lets clients render an
+organized app-ready briefing instead of a flat list of links. `briefing_topics`
+is presentation organization over existing ROW ONE stories; it does not add
+source collection, ranking changes, demand proof, platform coverage
+verification, or external enrichment. See
+[docs/row-one.md](docs/row-one.md).
 
 The external tool handoff templates are sanitized CSV/JSON local file handoff
 templates for user-controlled external/community tools:

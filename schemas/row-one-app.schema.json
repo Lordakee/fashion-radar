@@ -547,7 +547,14 @@
     },
     "dailyDigest": {
       "type": "object",
-      "required": ["title", "dek", "story_count", "evidence_count", "lead_story_id", "blocks"],
+      "required": [
+        "title",
+        "dek",
+        "story_count",
+        "evidence_count",
+        "lead_story_id",
+        "blocks"
+      ],
       "additionalProperties": false,
       "properties": {
         "title": {
@@ -575,6 +582,12 @@
             }
           ]
         },
+        "briefing_topics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/briefingTopic"
+          }
+        },
         "blocks": {
           "type": "array",
           "minItems": 3,
@@ -590,6 +603,171 @@
               "$ref": "#/$defs/signalsToWatchDigestBlock"
             }
           ]
+        }
+      }
+    },
+    "briefingTopic": {
+      "type": "object",
+      "required": [
+        "id",
+        "topic_type",
+        "title",
+        "label",
+        "story_count",
+        "evidence_count",
+        "positive_heat_delta_sum",
+        "max_heat_delta",
+        "lead_story_id",
+        "story_ids",
+        "cards",
+        "source_refs"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "topic_type": {
+                "const": "brand"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "id": {
+                "pattern": "^brand-[0-9a-f]{10}$"
+              },
+              "label": {
+                "const": {
+                  "zh": "品牌",
+                  "en": "Brand"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "topic_type": {
+                "const": "product"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "id": {
+                "pattern": "^product-[0-9a-f]{10}$"
+              },
+              "label": {
+                "const": {
+                  "zh": "单品",
+                  "en": "Product"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "topic_type": {
+                "const": "designer"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "id": {
+                "pattern": "^designer-[0-9a-f]{10}$"
+              },
+              "label": {
+                "const": {
+                  "zh": "设计师",
+                  "en": "Designer"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "topic_type": {
+                "const": "person"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "id": {
+                "pattern": "^person-[0-9a-f]{10}$"
+              },
+              "label": {
+                "const": {
+                  "zh": "人物",
+                  "en": "Person"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(brand|product|designer|person)-[0-9a-f]{10}$"
+        },
+        "topic_type": {
+          "enum": ["brand", "product", "designer", "person"]
+        },
+        "title": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "label": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "story_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "evidence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "positive_heat_delta_sum": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_heat_delta": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lead_story_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "story_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "cards": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/contentCard"
+          }
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/storyReference"
+          }
         }
       }
     },

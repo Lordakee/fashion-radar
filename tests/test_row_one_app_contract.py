@@ -12,6 +12,7 @@ from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneEdition,
     RowOneLink,
+    RowOneReference,
     RowOneSection,
     RowOneStory,
     RowOneStoryDisplay,
@@ -113,6 +114,25 @@ def _manifest_payload(tmp_path: Path, edition: RowOneEdition | None = None) -> d
 def _runtime_payload(tmp_path: Path, edition: RowOneEdition | None = None) -> dict[str, object]:
     render_row_one_site(edition or _edition(), tmp_path)
     return json.loads((tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"))
+
+
+def _contract_drift_topic(payload: dict[str, object], **overrides: object) -> dict[str, object]:
+    topic = {
+        "id": "brand-1234567890",
+        "topic_type": "brand",
+        "title": {"zh": "The Row", "en": "The Row"},
+        "label": {"zh": "品牌", "en": "Brand"},
+        "story_count": 1,
+        "evidence_count": 1,
+        "positive_heat_delta_sum": 0,
+        "max_heat_delta": 0,
+        "lead_story_id": "the-row-signal-1234567890",
+        "story_ids": ["the-row-signal-1234567890"],
+        "cards": [payload["content_sections"][0]["cards"][0]],
+        "source_refs": [{"name": "The Row", "type": "brand", "label": "rising"}],
+    }
+    topic.update(overrides)
+    return topic
 
 
 def test_row_one_app_contract_schema_validates_generated_payload(tmp_path: Path) -> None:
@@ -262,6 +282,130 @@ def test_row_one_app_payload_includes_daily_digest_for_clients(tmp_path: Path) -
     assert [card["id"] for card in blocks["read_first"]["cards"]] == [stories[0]["id"]]
     assert blocks["key_takeaways"]["story_ids"] == [stories[0]["id"]]
     assert blocks["signals_to_watch"]["story_ids"] == []
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_daily_digest_includes_briefing_topics_for_clients(
+    tmp_path: Path,
+) -> None:
+    edition = _edition()
+    brand_story = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "id": "the-row-brand-1111111111",
+            "headline": "The Row Brand",
+            "detail_path": "details/the-row-brand-1111111111.html",
+            "heat_delta": 2,
+            "entity_refs": [
+                RowOneReference(name="The Row", type="brand", label="rising"),
+            ],
+            "designer_refs": [
+                RowOneReference(name="Mary-Kate Olsen", type="designer", label="designer"),
+            ],
+        },
+    )
+    product_story = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "id": "margaux-product-2222222222",
+            "headline": "Margaux Product",
+            "detail_path": "details/margaux-product-2222222222.html",
+            "heat_delta": 7,
+            "product_refs": [
+                RowOneReference(name="Margaux", type="product", label="rising"),
+            ],
+        },
+    )
+    person_story = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "id": "zoe-style-3333333333",
+            "headline": "Zoe Style",
+            "detail_path": "details/zoe-style-3333333333.html",
+            "heat_delta": 0,
+            "entity_refs": [
+                RowOneReference(name="Zoe Kravitz", type="celebrity", label="style"),
+            ],
+        },
+    )
+    repeat_brand_story = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "id": "the-row-brand-4444444444",
+            "headline": "The Row Follow-up",
+            "detail_path": "details/the-row-brand-4444444444.html",
+            "heat_delta": 4,
+            "entity_refs": [
+                RowOneReference(name="the row", type="brand", label="rising"),
+            ],
+        },
+    )
+    edition.stories = [brand_story, product_story, person_story, repeat_brand_story]
+
+    payload = _payload(tmp_path, edition)
+    topics = payload["daily_digest"]["briefing_topics"]
+
+    assert [topic["topic_type"] for topic in topics] == [
+        "brand",
+        "product",
+        "designer",
+        "person",
+    ]
+    topic_ids = [topic["id"] for topic in topics]
+    assert len(topic_ids) == len(set(topic_ids))
+    for topic in topics:
+        assert topic["story_count"] == len(topic["story_ids"])
+        assert topic["story_count"] == len(topic["cards"])
+        assert topic["lead_story_id"] == topic["story_ids"][0]
+        assert [card["id"] for card in topic["cards"]] == topic["story_ids"]
+        assert topic["source_refs"]
+    assert topics[0]["title"] == {"zh": "The Row", "en": "The Row"}
+    assert topics[0]["label"] == {"zh": "品牌", "en": "Brand"}
+    assert topics[0]["story_count"] == 2
+    assert topics[0]["evidence_count"] == 2
+    assert topics[0]["positive_heat_delta_sum"] == 6
+    assert topics[0]["max_heat_delta"] == 4
+    assert topics[0]["lead_story_id"] == "the-row-brand-1111111111"
+    assert topics[0]["story_ids"] == ["the-row-brand-1111111111", "the-row-brand-4444444444"]
+    assert [card["id"] for card in topics[0]["cards"]] == topics[0]["story_ids"]
+    assert topics[0]["source_refs"] == [
+        {"name": "The Row", "type": "brand", "label": "rising"},
+    ]
+    assert topics[1]["title"] == {"zh": "Margaux", "en": "Margaux"}
+    assert topics[1]["positive_heat_delta_sum"] == 7
+    assert topics[2]["label"] == {"zh": "设计师", "en": "Designer"}
+    assert topics[3]["label"] == {"zh": "人物", "en": "Person"}
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_daily_digest_topics_do_not_infer_people_from_section_or_tags(
+    tmp_path: Path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "id": "celebrity-section-1111111111",
+            "section_key": "celebrity_style",
+            "headline": "Celebrity Person Style",
+            "detail_path": "details/celebrity-section-1111111111.html",
+            "source_name": "Celebrity Person Desk",
+            "source_url": "https://example.com/celebrity-person",
+            "tags": ["celebrity", "person"],
+            "evidence": [
+                RowOneLink(
+                    title="Celebrity person evidence",
+                    url="https://example.com/person-evidence",
+                    source_name="People Source",
+                )
+            ],
+        },
+    )
+    edition.stories = [story]
+
+    payload = _payload(tmp_path, edition)
+
+    assert payload["daily_digest"]["briefing_topics"] == []
     _schema_validator().validate(payload)
 
 
@@ -710,6 +854,93 @@ def test_row_one_app_schema_rejects_display_image_urls_sanitizer_rejects(
         (lambda payload: payload.__setitem__("contract_version", "row-one-app/v2"), "was expected"),
         (lambda payload: payload.pop("daily_digest"), "'daily_digest' is a required property"),
         (
+            lambda payload: payload["daily_digest"].__setitem__(
+                "briefing_topics",
+                [
+                    {
+                        "id": "brand-1234567890",
+                        "topic_type": "unknown",
+                        "title": {"zh": "The Row", "en": "The Row"},
+                        "label": {"zh": "品牌", "en": "Brand"},
+                        "story_count": 1,
+                        "evidence_count": 1,
+                        "positive_heat_delta_sum": 0,
+                        "max_heat_delta": 0,
+                        "lead_story_id": "the-row-signal-1234567890",
+                        "story_ids": ["the-row-signal-1234567890"],
+                        "cards": [payload["content_sections"][0]["cards"][0]],
+                        "source_refs": [{"name": "The Row", "type": "brand", "label": "rising"}],
+                    }
+                ],
+            ),
+            "is not one of",
+        ),
+        (
+            lambda payload: payload["daily_digest"].__setitem__(
+                "briefing_topics",
+                [
+                    {
+                        "id": "brand-1234567890",
+                        "topic_type": "brand",
+                        "title": {"zh": "The Row", "en": "The Row"},
+                        "label": {"zh": "品牌", "en": "Brand"},
+                        "story_count": 1,
+                        "evidence_count": 1,
+                        "positive_heat_delta_sum": 0,
+                        "max_heat_delta": 0,
+                        "lead_story_id": "the-row-signal-1234567890",
+                        "story_ids": ["the-row-signal-1234567890"],
+                        "cards": [payload["content_sections"][0]["cards"][0]],
+                        "source_refs": [{"name": "The Row", "type": "brand", "label": "rising"}],
+                        "extra": True,
+                    }
+                ],
+            ),
+            "Additional properties",
+        ),
+        (
+            lambda payload: payload["daily_digest"].__setitem__(
+                "briefing_topics",
+                [_contract_drift_topic(payload, id="person-1234567890")],
+            ),
+            "does not match",
+        ),
+        (
+            lambda payload: payload["daily_digest"].__setitem__(
+                "briefing_topics",
+                [_contract_drift_topic(payload, label={"zh": "人物", "en": "Person"})],
+            ),
+            "was expected",
+        ),
+        (
+            lambda payload: payload["daily_digest"].__setitem__(
+                "briefing_topics",
+                [_contract_drift_topic(payload, story_count=0)],
+            ),
+            "less than the minimum",
+        ),
+        (
+            lambda payload: payload["daily_digest"].__setitem__(
+                "briefing_topics",
+                [_contract_drift_topic(payload, lead_story_id=None)],
+            ),
+            "not of type",
+        ),
+        (
+            lambda payload: payload["daily_digest"].__setitem__(
+                "briefing_topics",
+                [_contract_drift_topic(payload, story_ids=[])],
+            ),
+            "should be non-empty|is too short",
+        ),
+        (
+            lambda payload: payload["daily_digest"].__setitem__(
+                "briefing_topics",
+                [_contract_drift_topic(payload, source_refs=[])],
+            ),
+            "should be non-empty|is too short",
+        ),
+        (
             lambda payload: payload["daily_digest"]["blocks"].pop(),
             "is too short",
         ),
@@ -819,6 +1050,7 @@ def test_empty_row_one_app_payload_validates(tmp_path: Path) -> None:
         "story_count": 0,
         "evidence_count": 0,
         "lead_story_id": None,
+        "briefing_topics": [],
         "blocks": [
             {
                 "key": "read_first",

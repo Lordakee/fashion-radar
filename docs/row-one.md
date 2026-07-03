@@ -109,6 +109,17 @@ these fields let app clients render section rails without scraping HTML and
 app clients can render a daily briefing without scraping HTML. It does not add
 source collection and does not prove demand.
 
+`daily_digest.briefing_topics` is the app-ready briefing organization surface
+for showing organized topic groups instead of a flat list of links. Each topic
+contains stable topic labels, localized title text, `story_ids`, app-ready
+`cards`, evidence counts, heat-delta summary fields, and source references
+derived from explicit ROW ONE story references. Topic order is supplied by the
+payload; stories inside each topic keep the generated ROW ONE story order.
+Empty editions keep `briefing_topics: []`. The topic layer is not a link list,
+does not infer people from sections, tags, headlines, source names, or URLs,
+does not add source collection, does not prove demand, and does not change
+matching, ranking, scoring, story IDs, cleanup, server, or schedule behavior.
+
 Unsafe external URLs are written as `null`. Missing story publication timestamps
 are represented as `null` in both `published_at` and `published_date`. The
 `evidence_count` value counts only safe clickable evidence URLs; evidence entries

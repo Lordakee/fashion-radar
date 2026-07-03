@@ -219,6 +219,37 @@ def test_row_one_docs_describe_stage_275_daily_digest() -> None:
         assert phrase in readme
 
 
+def test_row_one_docs_describe_stage_276_briefing_topics() -> None:
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    readme = _normalized(_read(README))
+
+    for phrase in (
+        "daily_digest.briefing_topics",
+        "app-ready briefing organization surface",
+        "organized topic groups",
+        "instead of a flat list of links",
+        "topic labels",
+        "story_ids",
+        "cards",
+        "without scraping html",
+        "not a link list",
+        "does not infer people from sections",
+        "does not add source collection",
+        "does not prove demand",
+        "does not change matching, ranking, scoring, story ids",
+    ):
+        assert phrase in row_one
+
+    for phrase in (
+        "daily_digest.briefing_topics",
+        "organized app-ready briefing instead of a flat list of links",
+        "does not add source collection",
+        "demand proof",
+        "platform coverage verification",
+    ):
+        assert phrase in readme
+
+
 def test_row_one_docs_describe_stage_272_editorial_web_experience() -> None:
     row_one = _normalized(_read(ROW_ONE_DOC))
     readme = _normalized(_read(README))
