@@ -1468,11 +1468,11 @@ def _render_signal_synthesis_card(signal: dict[str, object]) -> str:
         int(signal.get("max_heat_delta", 0)) if isinstance(signal.get("max_heat_delta"), int) else 0
     )
     label = str(signal.get("label", "")).strip()
-    meta = (
-        f"<span>{_esc(label)}</span>"
-        f"<span>{_esc(story_count)} stories</span>"
-        f"<span>{_esc(evidence_count)} evidence</span>"
-        f"<span>+{_esc(heat_delta)} local delta</span>"
+    meta = _signal_synthesis_meta_label(
+        label=label,
+        story_count=story_count,
+        evidence_count=evidence_count,
+        heat_delta=heat_delta,
     )
     body = f"""<h3>{_esc(name)}</h3>
   <p>
@@ -1483,6 +1483,33 @@ def _render_signal_synthesis_card(signal: dict[str, object]) -> str:
     if href is None:
         return f'<div class="signal-synthesis-card">{body}</div>'
     return f'<a class="signal-synthesis-card" href="{_esc(href)}">{body}</a>'
+
+
+def _signal_synthesis_meta_label(
+    *,
+    label: str,
+    story_count: int,
+    evidence_count: int,
+    heat_delta: int,
+) -> str:
+    story_label_en = "1 story" if story_count == 1 else f"{story_count} stories"
+    story_label_zh = f"{story_count} 条故事"
+    evidence_label_en = (
+        "1 evidence link" if evidence_count == 1 else f"{evidence_count} evidence links"
+    )
+    evidence_label_zh = f"{evidence_count} 条证据链接"
+    heat_label_en = f"+{heat_delta} local delta"
+    heat_label_zh = f"+{heat_delta} 本地增量"
+    return (
+        f'<span data-lang="en">{_esc(label)}</span>'
+        f'<span data-lang="zh">{_esc(label)}</span>'
+        f'<span data-lang="en">{_esc(story_label_en)}</span>'
+        f'<span data-lang="zh">{_esc(story_label_zh)}</span>'
+        f'<span data-lang="en">{_esc(evidence_label_en)}</span>'
+        f'<span data-lang="zh">{_esc(evidence_label_zh)}</span>'
+        f'<span data-lang="en">{_esc(heat_label_en)}</span>'
+        f'<span data-lang="zh">{_esc(heat_label_zh)}</span>'
+    )
 
 
 def _safe_signal_detail_href(href: object) -> str | None:

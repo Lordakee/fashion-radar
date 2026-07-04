@@ -332,6 +332,38 @@ def test_render_row_one_site_includes_signal_synthesis_section(tmp_path) -> None
     assert index_html.index('class="signal-synthesis"') < index_html.index('class="lead-story"')
 
 
+def test_render_row_one_site_localizes_signal_synthesis_meta(tmp_path) -> None:
+    edition = _edition()
+    edition.stories[0] = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "entity_refs": [
+                RowOneReference(name="The Row", type="brand", label="rising"),
+            ],
+        },
+    )
+
+    render_row_one_site(edition, tmp_path)
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    meta_match = re.search(
+        r'<div class="signal-synthesis-meta">(?P<meta>.*?)</div>',
+        index_html,
+        re.S,
+    )
+
+    assert meta_match is not None
+    meta_html = meta_match.group("meta")
+    assert '<span data-lang="en">rising</span>' in meta_html
+    assert '<span data-lang="zh">rising</span>' in meta_html
+    assert '<span data-lang="en">1 story</span>' in meta_html
+    assert '<span data-lang="zh">1 条故事</span>' in meta_html
+    assert '<span data-lang="en">1 evidence link</span>' in meta_html
+    assert '<span data-lang="zh">1 条证据链接</span>' in meta_html
+    assert '<span data-lang="en">+0 local delta</span>' in meta_html
+    assert '<span data-lang="zh">+0 本地增量</span>' in meta_html
+    assert "1 stories" not in meta_html
+
+
 def test_render_row_one_site_omits_empty_signal_synthesis_section() -> None:
     index_html = render_index_html(_edition(), app_payload={"signal_synthesis": {"groups": []}})
 

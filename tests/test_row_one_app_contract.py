@@ -527,6 +527,111 @@ def test_row_one_app_payload_includes_signal_synthesis_for_clients(tmp_path: Pat
     _schema_validator().validate(payload)
 
 
+def test_row_one_app_contract_orders_signal_synthesis_within_group(
+    tmp_path: Path,
+) -> None:
+    edition = _edition()
+    base_story = edition.stories[0]
+
+    def brand_story(
+        *,
+        story_id: str,
+        brand_name: str,
+        heat_delta: int,
+        evidence_count: int = 1,
+    ) -> RowOneStory:
+        return base_story.model_copy(
+            deep=True,
+            update={
+                "id": story_id,
+                "headline": f"{brand_name} signal",
+                "detail_path": f"details/{story_id}.html",
+                "heat_delta": heat_delta,
+                "evidence": [
+                    RowOneLink(
+                        title=f"{brand_name} evidence {index}",
+                        url=f"https://example.com/{story_id}/evidence-{index}",
+                        source_name="ROW ONE Source",
+                    )
+                    for index in range(1, evidence_count + 1)
+                ],
+                "entity_refs": [
+                    RowOneReference(name=brand_name, type="brand", label="rising"),
+                ],
+                "product_refs": [],
+                "designer_refs": [],
+            },
+        )
+
+    edition.stories = [
+        brand_story(story_id="sum-leader-1111111111", brand_name="Sum Leader", heat_delta=5),
+        brand_story(story_id="sum-leader-2222222222", brand_name="Sum Leader", heat_delta=4),
+        brand_story(story_id="max-decoy-3333333333", brand_name="Max Decoy", heat_delta=8),
+        brand_story(
+            story_id="evidence-leader-4444444444",
+            brand_name="Evidence Leader",
+            heat_delta=4,
+            evidence_count=3,
+        ),
+        brand_story(
+            story_id="story-leader-5555555555",
+            brand_name="Story Leader",
+            heat_delta=4,
+            evidence_count=2,
+        ),
+        brand_story(
+            story_id="story-leader-6666666666",
+            brand_name="Story Leader",
+            heat_delta=0,
+            evidence_count=0,
+        ),
+        brand_story(
+            story_id="story-decoy-7777777777",
+            brand_name="Story Decoy",
+            heat_delta=4,
+            evidence_count=2,
+        ),
+        brand_story(story_id="zeta-single-8888888888", brand_name="Zeta Single", heat_delta=4),
+        brand_story(story_id="alpha-name-9999999999", brand_name="Alpha Name", heat_delta=4),
+    ]
+
+    payload = _payload(tmp_path, edition)
+    synthesis = payload["signal_synthesis"]
+    brand_group = next(group for group in synthesis["groups"] if group["key"] == "brand")
+    signals = brand_group["signals"]
+
+    assert [signal["name"] for signal in signals] == [
+        "Sum Leader",
+        "Max Decoy",
+        "Evidence Leader",
+        "Story Leader",
+        "Story Decoy",
+        "Alpha Name",
+        "Zeta Single",
+    ]
+    assert [
+        (
+            signal["name"],
+            signal["positive_heat_delta_sum"],
+            signal["evidence_count"],
+            signal["story_count"],
+        )
+        for signal in signals
+    ] == [
+        ("Sum Leader", 9, 2, 2),
+        ("Max Decoy", 8, 1, 1),
+        ("Evidence Leader", 4, 3, 1),
+        ("Story Leader", 4, 2, 2),
+        ("Story Decoy", 4, 2, 1),
+        ("Alpha Name", 4, 1, 1),
+        ("Zeta Single", 4, 1, 1),
+    ]
+    assert brand_group["signal_count"] == len(signals)
+    assert synthesis["signal_count"] == sum(group["signal_count"] for group in synthesis["groups"])
+    assert synthesis["group_count"] == len(synthesis["groups"])
+    _schema_validator().validate(payload)
+
+
 def test_row_one_app_payload_includes_empty_signal_synthesis_for_clients(tmp_path: Path) -> None:
     edition = _edition()
     edition.stories = []
