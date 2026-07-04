@@ -153,6 +153,15 @@ def test_text_to_local_article_paragraphs_strips_script_and_style_content() -> N
     assert paragraphs == ["The Row opened a new appointment room. Buyers reported a tighter edit."]
 
 
+def test_text_to_local_article_paragraphs_strips_unknown_feed_tags() -> None:
+    paragraphs = text_to_local_article_paragraphs(
+        'Lead <webfeedsFeaturedVisual data-x="1">inline</webfeedsFeaturedVisual> text.',
+        max_chars=200,
+    )
+
+    assert paragraphs == ["Lead inline text."]
+
+
 def test_text_to_local_article_paragraphs_strips_chinese_prefix_and_boilerplate() -> None:
     paragraphs = text_to_local_article_paragraphs(
         "来源摘要：品牌发布了新系列。阅读全文。点击查看全文。",

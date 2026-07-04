@@ -249,6 +249,69 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert '<a href="https://example.com/evidence"' in detail_html
 
 
+def test_render_row_one_site_cleans_story_summary_display_without_changing_payload(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    edition.stories[0].summary.en = (
+        'Original source summary: <a href="https://example.com/story">'
+        '<img src="hero.jpg"></a><p><b><webfeedsFeaturedVisual data-x="1">'
+        "The Row opened a <angle> private showroom."
+        "</webfeedsFeaturedVisual></b></p> "
+        "Read the full story here."
+    )
+    edition.stories[0].summary.zh = (
+        '来源摘要：<a href="https://example.com/story">'
+        '<img src="hero.jpg"></a><p><b><webfeedsFeaturedVisual data-x="1">'
+        "The Row 开设 <angle> 私人展厅。"
+        "</webfeedsFeaturedVisual></b></p>阅读全文。点击查看全文。"
+    )
+
+    render_row_one_site(edition, tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    edition_json = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
+
+    assert index_html.count("The Row opened a &lt;angle&gt; private showroom.") >= 2
+    assert "The Row opened a &lt;angle&gt; private showroom." in detail_html
+    assert index_html.count("The Row 开设 &lt;angle&gt; 私人展厅。") >= 2
+    assert "The Row 开设 &lt;angle&gt; 私人展厅。" in detail_html
+    assert (
+        '<meta name="description" content="The Row opened a &lt;angle&gt; private showroom.">'
+    ) in detail_html
+    assert (
+        '<meta property="og:description" '
+        'content="The Row opened a &lt;angle&gt; private showroom.">'
+    ) in detail_html
+    assert (
+        '<meta name="twitter:description" '
+        'content="The Row opened a &lt;angle&gt; private showroom.">'
+    ) in detail_html
+    assert "Original source summary" not in index_html
+    assert "Original source summary" not in detail_html
+    assert "来源摘要" not in index_html
+    assert "来源摘要" not in detail_html
+    assert "Read the full story here" not in index_html
+    assert "Read the full story here" not in detail_html
+    assert "webfeedsFeaturedVisual" not in index_html
+    assert "webfeedsFeaturedVisual" not in detail_html
+    assert "&lt;p" not in index_html
+    assert "&lt;p" not in detail_html
+    assert "&lt;b" not in index_html
+    assert "&lt;b" not in detail_html
+    assert "阅读全文" not in index_html
+    assert "阅读全文" not in detail_html
+    assert "&lt;img" not in index_html
+    assert "&lt;img" not in detail_html
+    assert "hero.jpg" not in index_html
+    assert "hero.jpg" not in detail_html
+    assert edition_json["stories"][0]["summary"]["en"].startswith("Original source summary:")
+    assert edition_json["stories"][0]["summary"]["zh"].startswith("来源摘要：")
+
+
 def test_render_row_one_detail_includes_information_map(tmp_path) -> None:
     render_row_one_site(_edition(), tmp_path)
 
@@ -1030,8 +1093,13 @@ def test_render_row_one_site_includes_index_and_detail_metadata(tmp_path) -> Non
     assert '<meta name="twitter:card" content="summary">' in index_html
 
     assert (
-        '<meta name="description" content="Original source summary: The Row signal '
-        'with &lt;angle&gt; detail.">'
+        '<meta name="description" content="The Row signal with &lt;angle&gt; detail.">'
+    ) in detail_html
+    assert (
+        '<meta property="og:description" content="The Row signal with &lt;angle&gt; detail.">'
+    ) in detail_html
+    assert (
+        '<meta name="twitter:description" content="The Row signal with &lt;angle&gt; detail.">'
     ) in detail_html
     assert '<meta property="og:title" content="The Row &lt;signals&gt;' in detail_html
     assert '<meta property="og:type" content="article">' in detail_html
@@ -1270,7 +1338,10 @@ def test_render_row_one_site_writes_json_payload(tmp_path) -> None:
         "href": "#top_stories",
     }
     assert story["headline"] == 'The Row <signals> "quiet" demand'
-    assert story["summary"]["zh"].startswith("来源摘要")
+    assert story["summary"] == {
+        "zh": "来源摘要：The Row signal with <angle> detail.",
+        "en": "Original source summary: The Row signal with <angle> detail.",
+    }
     assert story["editorial_takeaway"]["en"] == "The Row is today's priority signal."
     assert story["signal_context"]["zh"] == "本地报告显示它来自 1 个来源。"
     assert story["reader_path"]["en"] == "Read the brief, then open the evidence link."

@@ -15,6 +15,13 @@ from fashion_radar.row_one.models import (
     RowOneStory,
 )
 from fashion_radar.row_one.readiness import RowOneReadiness, build_row_one_readiness
+from fashion_radar.row_one.text import (
+    clean_row_one_sentences,
+    clean_row_one_text,
+    normalize_row_one_paragraph,
+    protect_literal_angle_tokens,
+    restore_literal_angle_tokens,
+)
 from fashion_radar.row_one.utils import safe_external_url
 
 _DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$")
@@ -124,6 +131,8 @@ def render_detail_html(
     local_article: RowOneLocalArticle | None = None,
 ) -> str:
     section_title = _section_title(edition, story.section_key)
+    summary_en = _display_summary_text(story.summary.en)
+    summary_zh = _display_summary_text(story.summary.zh)
     evidence = "\n".join(_render_evidence(link) for link in story.evidence)
     source_link = _external_link(story.source_url, story.source_name, css_class="source-link")
     source_action = _source_action_link(story.source_url)
@@ -139,7 +148,7 @@ def render_detail_html(
 {
         _render_meta_tags(
             title=story.headline,
-            description=story.summary.en,
+            description=summary_en,
             page_type="article",
         )
     }
@@ -178,8 +187,8 @@ def render_detail_html(
         <span data-lang="zh">摘要</span>
       </h2>
       <p>
-        <span data-lang="en">{_esc(story.summary.en)}</span>
-        <span data-lang="zh">{_esc(story.summary.zh)}</span>
+        <span data-lang="en">{_esc(summary_en)}</span>
+        <span data-lang="zh">{_esc(summary_zh)}</span>
       </p>
     </section>
     {local_article_section}
@@ -2066,6 +2075,14 @@ def _meta_description(text: str, *, limit: int = 180) -> str:
     return normalized[: limit - 1].rstrip() + "…"
 
 
+def _display_summary_text(text: str) -> str:
+    fallback = normalize_row_one_paragraph(text)
+    cleaned = clean_row_one_text(protect_literal_angle_tokens(text))
+    sentences = clean_row_one_sentences(cleaned, set())
+    display_text = normalize_row_one_paragraph(" ".join(sentences))
+    return restore_literal_angle_tokens(display_text) or fallback
+
+
 def _render_meta_tags(*, title: str, description: str, page_type: str) -> str:
     safe_title = _esc(title)
     safe_description = _esc(_meta_description(description))
@@ -2089,6 +2106,8 @@ def _lead_story(edition: RowOneEdition) -> RowOneStory | None:
 def _render_lead_story(story: RowOneStory, section_title: LocalizedText) -> str:
     detail_href = _internal_detail_href(story.detail_path)
     visual = _render_story_visual(story, section_title, context="lead-story-visual")
+    summary_en = _display_summary_text(story.summary.en)
+    summary_zh = _display_summary_text(story.summary.zh)
     return f"""<section class="lead-story" aria-label="Lead story">
   <p class="story-section">
     <span data-lang="en">Lead Story</span>
@@ -2106,8 +2125,8 @@ def _render_lead_story(story: RowOneStory, section_title: LocalizedText) -> str:
         <span data-lang="zh">{_esc(story.editorial_takeaway.zh)}</span>
       </p>
       <p>
-        <span data-lang="en">{_esc(story.summary.en)}</span>
-        <span data-lang="zh">{_esc(story.summary.zh)}</span>
+        <span data-lang="en">{_esc(summary_en)}</span>
+        <span data-lang="zh">{_esc(summary_zh)}</span>
       </p>
       <a class="lead-story-link" href="{detail_href}">
         <span data-lang="en">Read the brief</span>
@@ -2154,6 +2173,8 @@ def _render_story_card(
     source_name = _esc(story.source_name)
     evidence_label_en = "1 source" if evidence_count == 1 else f"{evidence_count} sources"
     evidence_label_zh = f"{evidence_count} 条来源"
+    summary_en = _display_summary_text(story.summary.en)
+    summary_zh = _display_summary_text(story.summary.zh)
     tags = "".join(f"<span>{_esc(tag)}</span>" for tag in story.tags)
     tags_block = f'\n  <p class="story-tag-list">{tags}</p>' if tags else ""
     return f"""<article class="story-card">
@@ -2173,8 +2194,8 @@ def _render_story_card(
       <span data-lang="zh">{_esc(story.editorial_takeaway.zh)}</span>
     </p>
     <p>
-      <span data-lang="en">{_esc(story.summary.en)}</span>
-      <span data-lang="zh">{_esc(story.summary.zh)}</span>
+      <span data-lang="en">{_esc(summary_en)}</span>
+      <span data-lang="zh">{_esc(summary_zh)}</span>
     </p>
   </div>
   <div class="story-card-footer">
