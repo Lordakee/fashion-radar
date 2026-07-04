@@ -120,6 +120,7 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
     section_title = _section_title(edition, story.section_key)
     evidence = "\n".join(_render_evidence(link) for link in story.evidence)
     source_link = _external_link(story.source_url, story.source_name, css_class="source-link")
+    source_action = _source_action_link(story.source_url)
     visual = _render_story_visual(story, section_title, context="detail-visual")
     article_contents = _render_article_contents()
     detail_information_map = _render_detail_information_map(story, section_title)
@@ -161,6 +162,7 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
     <h1>{_esc(story.headline)}</h1>
     {visual}
     <p class="story-source">{source_link}</p>
+    {source_action}
     {article_contents}
     {detail_information_map}
     <section id="summary">
@@ -987,9 +989,21 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
 }
-.back-link, .source-link, .evidence-item a {
+.back-link, .source-link, .source-action-link, .evidence-item a {
   color: var(--accent);
   text-decoration: none;
+}
+.source-action {
+  margin: 10px 0 0;
+}
+.source-action-link {
+  border: 1px solid var(--accent);
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 10px 12px;
+  text-transform: uppercase;
 }
 .detail-main { max-width: 920px; margin: 0 auto; }
 .detail-article h1 { font-size: clamp(3rem, 8vw, 7rem); margin: 18px 0 24px; }
@@ -2217,6 +2231,18 @@ def _render_evidence(link: RowOneLink) -> str:
   {rendered}
   <p class="story-meta">{_esc(link.source_name)}</p>
 </div>"""
+
+
+def _source_action_link(url: str | None) -> str:
+    safe_url = _safe_external_url(url)
+    if safe_url is None:
+        return ""
+    return f"""<p class="source-action">
+  <a class="source-action-link" href="{_esc(safe_url)}" target="_blank" rel="noopener">
+    <span data-lang="en">Open Source Article</span>
+    <span data-lang="zh">打开原文</span>
+  </a>
+</p>"""
 
 
 def _external_link(url: str | None, text: str, *, css_class: str | None = None) -> str:

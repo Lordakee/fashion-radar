@@ -232,6 +232,9 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert 'class="briefing-topics"' not in detail_html
     assert 'class="edition-brief"' not in detail_html
     assert "Briefing Topics" not in detail_html
+    assert 'class="source-action-link"' in detail_html
+    assert '<span data-lang="en">Open Source Article</span>' in detail_html
+    assert '<span data-lang="zh">打开原文</span>' in detail_html
     assert 'class="evidence-trail"' in detail_html
     assert 'class="evidence-item evidence-item--safe"' in detail_html
     assert 'class="evidence-item evidence-item--retained"' in detail_html
