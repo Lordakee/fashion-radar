@@ -1772,6 +1772,94 @@ def _validate_row_one_edition_brief(edition: dict[str, object]) -> None:
         )
 
 
+def _validate_row_one_signal_synthesis(edition: dict[str, object]) -> None:
+    synthesis = _require_row_one_object(
+        edition,
+        "signal_synthesis",
+        label="edition.signal_synthesis",
+    )
+    boundaries = _require_row_one_object(
+        synthesis,
+        "boundaries",
+        label="edition.signal_synthesis.boundaries",
+    )
+    _require_row_one_value(
+        "edition.signal_synthesis.boundaries.en",
+        boundaries.get("en"),
+        "Local observed signals; review required.",
+    )
+    _require_row_one_value(
+        "edition.signal_synthesis.boundaries.zh",
+        boundaries.get("zh"),
+        "本地观察，需人工复核。",
+    )
+    stories = edition.get("stories")
+    if not isinstance(stories, list):
+        raise ValueError("row-one edition.stories must be a JSON array")
+    story_by_id = {
+        story.get("id"): story for story in stories if isinstance(story, dict) and story.get("id")
+    }
+    groups = synthesis.get("groups")
+    if not isinstance(groups, list):
+        raise ValueError("row-one edition.signal_synthesis.groups must be a JSON array")
+    _require_row_one_value(
+        "edition.signal_synthesis.group_count",
+        synthesis.get("group_count"),
+        len(groups),
+    )
+    signal_count = 0
+    for group_index, group in enumerate(groups):
+        if not isinstance(group, dict):
+            raise ValueError(
+                f"row-one edition.signal_synthesis.groups[{group_index}] must be an object"
+            )
+        signals = group.get("signals")
+        if not isinstance(signals, list):
+            raise ValueError(
+                f"row-one edition.signal_synthesis.groups[{group_index}].signals "
+                "must be a JSON array"
+            )
+        _require_row_one_value(
+            f"edition.signal_synthesis.groups[{group_index}].signal_count",
+            group.get("signal_count"),
+            len(signals),
+        )
+        signal_count += len(signals)
+        for signal_index, signal in enumerate(signals):
+            if not isinstance(signal, dict):
+                raise ValueError(
+                    "row-one "
+                    f"edition.signal_synthesis.groups[{group_index}].signals[{signal_index}] "
+                    "must be an object"
+                )
+            lead_story_id = signal.get("lead_story_id")
+            story = story_by_id.get(lead_story_id)
+            if story is None:
+                raise ValueError(
+                    "row-one "
+                    f"edition.signal_synthesis.groups[{group_index}].signals[{signal_index}]"
+                    ".lead_story_id is unknown"
+                )
+            _require_row_one_value(
+                "edition.signal_synthesis"
+                f".groups[{group_index}].signals[{signal_index}].lead_story_href",
+                signal.get("lead_story_href"),
+                story.get("detail_href"),
+            )
+            story_ids = signal.get("story_ids")
+            if not isinstance(story_ids, list) or lead_story_id not in story_ids:
+                raise ValueError(
+                    "row-one "
+                    f"edition.signal_synthesis.groups[{group_index}].signals[{signal_index}]"
+                    ".story_ids must include lead_story_id"
+                )
+    _require_row_one_value(
+        "edition.signal_synthesis.signal_count",
+        synthesis.get("signal_count"),
+        signal_count,
+    )
+
+
 def _validate_row_one_status_payloads(
     *,
     manifest: dict[str, object],
@@ -1797,7 +1885,7 @@ def _validate_row_one_status_payloads(
     _require_row_one_value(
         "edition contract_version",
         edition.get("contract_version"),
-        "row-one-app/v5",
+        "row-one-app/v6",
     )
     manifest_app_contract = _require_row_one_object(
         manifest,
@@ -1807,7 +1895,7 @@ def _validate_row_one_status_payloads(
     _require_row_one_value(
         "manifest.app_contract.version",
         manifest_app_contract.get("version"),
-        "row-one-app/v5",
+        "row-one-app/v6",
     )
     _require_row_one_value(
         "manifest.app_contract.path",
@@ -1909,6 +1997,7 @@ def _validate_row_one_status_payloads(
         raise ValueError("row-one runtime.readiness.zh must be a non-empty string")
     _validate_row_one_story_directory(edition)
     _validate_row_one_edition_brief(edition)
+    _validate_row_one_signal_synthesis(edition)
 
 
 def _build_row_one_status_payload(

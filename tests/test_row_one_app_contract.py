@@ -135,6 +135,44 @@ def _contract_drift_topic(payload: dict[str, object], **overrides: object) -> di
     return topic
 
 
+def _contract_drift_signal_group(
+    payload: dict[str, object],
+    *,
+    group_overrides: dict[str, object] | None = None,
+    signal_overrides: dict[str, object] | None = None,
+) -> dict[str, object]:
+    lead_story = payload["stories"][0]
+    signal = {
+        "name": "The Row",
+        "type": "brand",
+        "label": "rising",
+        "story_count": 1,
+        "evidence_count": 1,
+        "positive_heat_delta_sum": 1,
+        "max_heat_delta": 1,
+        "lead_story_id": lead_story["id"],
+        "lead_story_href": lead_story["detail_href"],
+        "summary": {
+            "zh": "The Row 出现在 1 条故事中，最高本地提及增量 +1，带有 1 条证据链接。",
+            "en": (
+                "The Row appears in 1 story, with max local mention delta +1 and 1 evidence link."
+            ),
+        },
+        "story_ids": [lead_story["id"]],
+    }
+    if signal_overrides:
+        signal.update(signal_overrides)
+    group = {
+        "key": "brand",
+        "label": {"zh": "品牌", "en": "Brands"},
+        "signal_count": 1,
+        "signals": [signal],
+    }
+    if group_overrides:
+        group.update(group_overrides)
+    return group
+
+
 def test_row_one_app_contract_schema_validates_generated_payload(tmp_path: Path) -> None:
     payload = _payload(tmp_path)
 
@@ -160,7 +198,7 @@ def test_row_one_manifest_points_to_app_contract_and_site_paths(tmp_path: Path) 
     assert manifest["brand"] == "ROW ONE"
     assert manifest["manifest_schema_path"] == "schemas/row-one-manifest.schema.json"
     assert manifest["app_contract"] == {
-        "version": "row-one-app/v5",
+        "version": "row-one-app/v6",
         "path": "data/edition.json",
         "schema_path": "schemas/row-one-app.schema.json",
     }
@@ -347,7 +385,7 @@ def test_row_one_app_payload_includes_edition_brief_for_clients(tmp_path: Path) 
     payload = _payload(tmp_path, edition)
     brief = payload["edition_brief"]
 
-    assert payload["contract_version"] == "row-one-app/v5"
+    assert payload["contract_version"] == "row-one-app/v6"
     assert brief["title"] == {"zh": "今日总览", "en": "Edition Brief"}
     assert brief["lead_story_id"] == payload["daily_digest"]["lead_story_id"]
     assert brief["lead_story_href"] == payload["stories"][0]["detail_href"]
@@ -424,6 +462,137 @@ def test_row_one_app_payload_includes_empty_edition_brief_for_clients(tmp_path: 
         {"zh": "暂无可整理的故事。", "en": "No stories are ready to organize yet."}
     ]
     assert brief["links"] == []
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_payload_includes_signal_synthesis_for_clients(tmp_path: Path) -> None:
+    edition = _edition()
+    first_story = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "heat_delta": 4,
+            "entity_refs": [RowOneReference(name="The Row", type="brand", label="rising")],
+            "product_refs": [RowOneReference(name="Margaux", type="product", label="bag")],
+            "designer_refs": [
+                RowOneReference(name="Mary-Kate Olsen", type="designer", label="designer")
+            ],
+        },
+    )
+    second_story = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "id": "brand-move-2222222222",
+            "section_key": "brand_moves",
+            "headline": "The Row Brand Move",
+            "detail_path": "details/brand-move-2222222222.html",
+            "heat_delta": 2,
+            "entity_refs": [RowOneReference(name="the row", type="brand", label="rising")],
+            "product_refs": [],
+            "designer_refs": [],
+        },
+    )
+    edition.stories = [first_story, second_story]
+
+    payload = _payload(tmp_path, edition)
+    synthesis = payload["signal_synthesis"]
+
+    assert synthesis["title"] == {"zh": "今日信号整理", "en": "Signal Synthesis"}
+    assert synthesis["boundaries"] == {
+        "zh": "本地观察，需人工复核。",
+        "en": "Local observed signals; review required.",
+    }
+    assert synthesis["group_count"] == 3
+    assert synthesis["signal_count"] == 3
+    assert [group["key"] for group in synthesis["groups"]] == ["brand", "product", "designer"]
+    brand = synthesis["groups"][0]["signals"][0]
+    assert brand == {
+        "name": "The Row",
+        "type": "brand",
+        "label": "rising",
+        "story_count": 2,
+        "evidence_count": 2,
+        "positive_heat_delta_sum": 6,
+        "max_heat_delta": 4,
+        "lead_story_id": "the-row-signal-1234567890",
+        "lead_story_href": "details/the-row-signal-1234567890.html",
+        "summary": {
+            "zh": "The Row 出现在 2 条故事中，最高本地提及增量 +4，带有 2 条证据链接。",
+            "en": (
+                "The Row appears in 2 stories, with max local mention delta +4 "
+                "and 2 evidence links."
+            ),
+        },
+        "story_ids": ["the-row-signal-1234567890", "brand-move-2222222222"],
+    }
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_payload_includes_empty_signal_synthesis_for_clients(tmp_path: Path) -> None:
+    edition = _edition()
+    edition.stories = []
+
+    payload = _payload(tmp_path, edition)
+    synthesis = payload["signal_synthesis"]
+
+    assert synthesis["boundaries"] == {
+        "zh": "本地观察，需人工复核。",
+        "en": "Local observed signals; review required.",
+    }
+    assert synthesis["group_count"] == 0
+    assert synthesis["signal_count"] == 0
+    assert synthesis["groups"] == []
+    assert synthesis["dek"] == {
+        "zh": "暂无可整理的 ROW ONE 信号。",
+        "en": "No ROW ONE signals are ready to organize yet.",
+    }
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_payload_uses_empty_signal_synthesis_dek_when_stories_have_no_refs(
+    tmp_path: Path,
+) -> None:
+    edition = _edition()
+    edition.stories[0].entity_refs = []
+    edition.stories[0].product_refs = []
+    edition.stories[0].designer_refs = []
+
+    payload = _payload(tmp_path, edition)
+    synthesis = payload["signal_synthesis"]
+
+    assert synthesis["group_count"] == 0
+    assert synthesis["signal_count"] == 0
+    assert synthesis["groups"] == []
+    assert synthesis["dek"] == {
+        "zh": "暂无可整理的 ROW ONE 信号。",
+        "en": "No ROW ONE signals are ready to organize yet.",
+    }
+    _schema_validator().validate(payload)
+
+
+def test_signal_synthesis_uses_briefing_topic_reference_mapping(tmp_path: Path) -> None:
+    edition = _edition()
+    edition.stories = [
+        edition.stories[0].model_copy(
+            deep=True,
+            update={
+                "entity_refs": [
+                    RowOneReference(name="Dover Street Market", type="retailer", label="store"),
+                    RowOneReference(name="Zendaya", type="celebrity", label="actor"),
+                ],
+                "product_refs": [],
+                "designer_refs": [],
+            },
+        )
+    ]
+
+    payload = _payload(tmp_path, edition)
+    topics = payload["daily_digest"]["briefing_topics"]
+    synthesis_groups = payload["signal_synthesis"]["groups"]
+
+    assert [topic["topic_type"] for topic in topics] == ["brand", "person"]
+    assert [group["key"] for group in synthesis_groups] == ["brand", "person"]
+    assert synthesis_groups[0]["signals"][0]["name"] == "Dover Street Market"
+    assert synthesis_groups[1]["signals"][0]["name"] == "Zendaya"
     _schema_validator().validate(payload)
 
 
@@ -1052,6 +1221,179 @@ def test_row_one_app_schema_rejects_display_image_urls_sanitizer_rejects(
             ),
             "non-unique elements",
         ),
+        (
+            lambda payload: payload.pop("signal_synthesis"),
+            "'signal_synthesis' is a required property",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__("extra", True),
+            "Additional properties",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [_contract_drift_signal_group(payload, group_overrides={"extra": True})],
+            ),
+            "Additional properties",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [_contract_drift_signal_group(payload, signal_overrides={"extra": True})],
+            ),
+            "Additional properties",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "boundaries",
+                {"zh": "本地观察，需人工复核。"},
+            ),
+            "'en' is a required property",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [
+                    _contract_drift_signal_group(
+                        payload,
+                        group_overrides={"key": "retailer"},
+                    )
+                ],
+            ),
+            "is not one of",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [
+                    _contract_drift_signal_group(
+                        payload,
+                        group_overrides={"label": {"zh": "品牌"}},
+                    )
+                ],
+            ),
+            "'en' is a required property",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [
+                    _contract_drift_signal_group(
+                        payload,
+                        group_overrides={"signal_count": -1},
+                    )
+                ],
+            ),
+            "less than the minimum",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [
+                    _contract_drift_signal_group(
+                        payload,
+                        group_overrides={"signals": []},
+                    )
+                ],
+            ),
+            "is too short|should be non-empty",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [
+                    _contract_drift_signal_group(
+                        payload,
+                        signal_overrides={"type": "retailer"},
+                    )
+                ],
+            ),
+            "is not one of",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [
+                    _contract_drift_signal_group(
+                        payload,
+                        signal_overrides={"story_count": 0},
+                    )
+                ],
+            ),
+            "less than the minimum",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [
+                    _contract_drift_signal_group(
+                        payload,
+                        signal_overrides={"positive_heat_delta_sum": -1},
+                    )
+                ],
+            ),
+            "less than the minimum",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [
+                    _contract_drift_signal_group(
+                        payload,
+                        signal_overrides={"lead_story_id": None},
+                    )
+                ],
+            ),
+            "not of type",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [
+                    _contract_drift_signal_group(
+                        payload,
+                        signal_overrides={"lead_story_id": "../escape"},
+                    )
+                ],
+            ),
+            "does not match",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [
+                    _contract_drift_signal_group(
+                        payload,
+                        signal_overrides={"lead_story_href": "../escape.html"},
+                    )
+                ],
+            ),
+            "does not match",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [
+                    _contract_drift_signal_group(
+                        payload,
+                        signal_overrides={"story_ids": []},
+                    )
+                ],
+            ),
+            "is too short|should be non-empty",
+        ),
+        (
+            lambda payload: payload["signal_synthesis"].__setitem__(
+                "groups",
+                [
+                    _contract_drift_signal_group(
+                        payload,
+                        signal_overrides={"summary": {"zh": "本地观察"}},
+                    )
+                ],
+            ),
+            "'en' is a required property",
+        ),
         (lambda payload: payload.pop("daily_digest"), "'daily_digest' is a required property"),
         (
             lambda payload: payload["daily_digest"].__setitem__(
@@ -1303,7 +1645,7 @@ def test_empty_row_one_app_payload_validates(tmp_path: Path) -> None:
 
     payload = _payload(tmp_path, edition)
 
-    assert payload["contract_version"] == "row-one-app/v5"
+    assert payload["contract_version"] == "row-one-app/v6"
     assert payload["story_count"] == 0
     assert payload["evidence_count"] == 0
     assert payload["stories"] == []

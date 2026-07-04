@@ -554,7 +554,11 @@ def test_row_one_build_command_writes_non_ascii_story_detail_path(tmp_path: Path
 
     assert result.exit_code == 0, result.output
     payload = json.loads((output_dir / "data" / "edition.json").read_text(encoding="utf-8"))
-    assert payload["contract_version"] == "row-one-app/v5"
+    assert payload["contract_version"] == "row-one-app/v6"
+    assert payload["signal_synthesis"]["boundaries"] == {
+        "zh": "本地观察，需人工复核。",
+        "en": "Local observed signals; review required.",
+    }
     story = next(
         story for story in payload["stories"] if story["headline"] == "上海新锐设计师品牌升温"
     )
@@ -777,7 +781,7 @@ def test_row_one_status_json_outputs_machine_readable_payload(tmp_path: Path) ->
     assert payload["runtime"]["contract_version"] == "row-one-runtime/v1"
     assert payload["manifest"]["contract_version"] == "row-one-manifest/v1"
     assert payload["contracts"] == {
-        "app": "row-one-app/v5",
+        "app": "row-one-app/v6",
         "manifest": "row-one-manifest/v1",
         "runtime": "row-one-runtime/v1",
     }
@@ -920,6 +924,22 @@ def test_row_one_status_rejects_missing_runtime_payload(tmp_path: Path) -> None:
         (
             lambda _runtime, _manifest, edition: edition.pop("edition_brief"),
             "edition.edition_brief",
+        ),
+        (
+            lambda _runtime, _manifest, edition: edition.pop("signal_synthesis"),
+            "edition.signal_synthesis",
+        ),
+        (
+            lambda _runtime, _manifest, edition: edition["signal_synthesis"]["boundaries"].update(
+                {"en": "Verified platform heat."}
+            ),
+            "edition.signal_synthesis.boundaries.en",
+        ),
+        (
+            lambda _runtime, _manifest, edition: edition["signal_synthesis"].update(
+                {"signal_count": 99}
+            ),
+            "edition.signal_synthesis.signal_count",
         ),
         (
             lambda _runtime, _manifest, edition: edition["edition_brief"].update(
@@ -1139,7 +1159,7 @@ def test_row_one_serve_cli_process_serves_generated_site(tmp_path: Path) -> None
         assert len(fetched) == 6
         assert "ROW ONE" in fetched["/"]
         assert '"contract_version": "row-one-manifest/v1"' in fetched["/data/manifest.json"]
-        assert '"contract_version": "row-one-app/v5"' in fetched["/data/edition.json"]
+        assert '"contract_version": "row-one-app/v6"' in fetched["/data/edition.json"]
         assert '"contract_version": "row-one-runtime/v1"' in fetched["/data/runtime.json"]
         assert "RowOneSerif" in fetched["/assets/row-one.css"]
         assert "row-one:language" in fetched["/assets/row-one.js"]

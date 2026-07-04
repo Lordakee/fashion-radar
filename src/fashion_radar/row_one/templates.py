@@ -32,6 +32,7 @@ def render_index_html(
         has_topics=bool(briefing_topics),
         has_path=bool(briefing_path),
     )
+    signal_synthesis = _render_signal_synthesis(app_payload)
     readiness = build_row_one_readiness(edition)
     status_strip = _render_edition_status(edition, readiness)
     summary_note_en = (
@@ -102,6 +103,7 @@ def render_index_html(
 <main class="site-main" id="main-content">
 {contents_nav}
 {edition_brief}
+{signal_synthesis}
 {lead_story_block}
 {briefing_topics}
 {briefing_path}
@@ -525,6 +527,97 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   border: 1px solid var(--line);
   padding: 8px 10px;
   text-decoration: none;
+}
+.signal-synthesis {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.signal-synthesis-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.45fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.signal-synthesis-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.2rem, 5vw, 5.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.92;
+  margin: 0;
+}
+.signal-synthesis-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.signal-synthesis-boundary {
+  border: 1px solid var(--line);
+  color: var(--accent);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 8px;
+  letter-spacing: 0.12em;
+  margin: 0 0 18px;
+  padding: 8px 10px;
+  text-transform: uppercase;
+}
+.signal-synthesis-grid {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.signal-synthesis-group {
+  background: var(--panel);
+  display: grid;
+  gap: 14px;
+  min-height: 260px;
+  padding: 18px;
+}
+.signal-synthesis-group-title {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin: 0;
+  text-transform: uppercase;
+}
+.signal-synthesis-card {
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+  text-decoration: none;
+}
+.signal-synthesis-card h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.35rem, 2.3vw, 2.4rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.96;
+  margin: 0;
+}
+.signal-synthesis-card p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.signal-synthesis-meta {
+  color: var(--accent);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.7rem;
+  font-weight: 700;
+  gap: 8px 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 .briefing-topics {
   border-bottom: 1px solid var(--ink);
@@ -1282,6 +1375,120 @@ def _safe_edition_brief_href(
     if _validated_detail_relative_path(href) is not None:
         return href
     return None
+
+
+def _render_signal_synthesis(app_payload: dict[str, object] | None) -> str:
+    synthesis = _app_payload_signal_synthesis(app_payload)
+    if synthesis is None:
+        return ""
+    groups = _signal_synthesis_groups_from_payload(synthesis)
+    rendered_groups = [_render_signal_synthesis_group(group) for group in groups]
+    rendered_groups = [group for group in rendered_groups if group]
+    if not rendered_groups:
+        return ""
+    title = _localized_from_payload(synthesis.get("title"))
+    dek = _localized_from_payload(synthesis.get("dek"))
+    boundaries = _localized_from_payload(synthesis.get("boundaries"))
+    return f"""<section class="signal-synthesis" aria-label="Signal synthesis">
+  <div class="signal-synthesis-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Signal Synthesis</span>
+        <span data-lang="zh">今日信号整理</span>
+      </p>
+      <h2>
+        <span data-lang="en">{_esc(title.en)}</span>
+        <span data-lang="zh">{_esc(title.zh)}</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">{_esc(dek.en)}</span>
+      <span data-lang="zh">{_esc(dek.zh)}</span>
+    </p>
+  </div>
+  <p class="signal-synthesis-boundary">
+    <span data-lang="en">{_esc(boundaries.en)}</span>
+    <span data-lang="zh">{_esc(boundaries.zh)}</span>
+  </p>
+  <div class="signal-synthesis-grid">{"".join(rendered_groups)}</div>
+</section>"""
+
+
+def _app_payload_signal_synthesis(
+    app_payload: dict[str, object] | None,
+) -> dict[str, object] | None:
+    if app_payload is None:
+        return None
+    synthesis = app_payload.get("signal_synthesis")
+    return synthesis if isinstance(synthesis, dict) else None
+
+
+def _signal_synthesis_groups_from_payload(
+    synthesis: dict[str, object],
+) -> list[dict[str, object]]:
+    groups = synthesis.get("groups")
+    if not isinstance(groups, list):
+        return []
+    return [group for group in groups if isinstance(group, dict)]
+
+
+def _render_signal_synthesis_group(group: dict[str, object]) -> str:
+    label = _localized_from_payload(group.get("label"))
+    signals = group.get("signals")
+    if not isinstance(signals, list):
+        return ""
+    cards = [
+        _render_signal_synthesis_card(signal) for signal in signals[:3] if isinstance(signal, dict)
+    ]
+    cards = [card for card in cards if card]
+    if not cards:
+        return ""
+    return f"""<article class="signal-synthesis-group">
+  <p class="signal-synthesis-group-title">
+    <span data-lang="en">{_esc(label.en)}</span>
+    <span data-lang="zh">{_esc(label.zh)}</span>
+  </p>
+  {"".join(cards)}
+</article>"""
+
+
+def _render_signal_synthesis_card(signal: dict[str, object]) -> str:
+    name = str(signal.get("name", "")).strip()
+    if not name:
+        return ""
+    summary = _localized_from_payload(signal.get("summary"))
+    href = _safe_signal_detail_href(signal.get("lead_story_href"))
+    story_count = (
+        int(signal.get("story_count", 0)) if isinstance(signal.get("story_count"), int) else 0
+    )
+    evidence_count = (
+        int(signal.get("evidence_count", 0)) if isinstance(signal.get("evidence_count"), int) else 0
+    )
+    heat_delta = (
+        int(signal.get("max_heat_delta", 0)) if isinstance(signal.get("max_heat_delta"), int) else 0
+    )
+    label = str(signal.get("label", "")).strip()
+    meta = (
+        f"<span>{_esc(label)}</span>"
+        f"<span>{_esc(story_count)} stories</span>"
+        f"<span>{_esc(evidence_count)} evidence</span>"
+        f"<span>+{_esc(heat_delta)} local delta</span>"
+    )
+    body = f"""<h3>{_esc(name)}</h3>
+  <p>
+    <span data-lang="en">{_esc(summary.en)}</span>
+    <span data-lang="zh">{_esc(summary.zh)}</span>
+  </p>
+  <div class="signal-synthesis-meta">{meta}</div>"""
+    if href is None:
+        return f'<div class="signal-synthesis-card">{body}</div>'
+    return f'<a class="signal-synthesis-card" href="{_esc(href)}">{body}</a>'
+
+
+def _safe_signal_detail_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    return href if _validated_detail_relative_path(href) is not None else None
 
 
 def _render_briefing_topics(app_payload: dict[str, object] | None) -> str:

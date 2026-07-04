@@ -26,7 +26,7 @@ from fashion_radar.row_one.templates import (
 from fashion_radar.row_one.utils import isoformat_z, safe_external_url, utc_datetime
 
 GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data")
-ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v5"
+ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v6"
 ROW_ONE_MANIFEST_CONTRACT_VERSION = "row-one-manifest/v1"
 ROW_ONE_MANIFEST_SCHEMA_PATH = "schemas/row-one-manifest.schema.json"
 ROW_ONE_RUNTIME_CONTRACT_VERSION = "row-one-runtime/v1"
@@ -135,6 +135,7 @@ def build_row_one_app_payload(edition: RowOneEdition) -> dict[str, object]:
             story_directory,
             evidence_count,
         ),
+        "signal_synthesis": _signal_synthesis_payload(stories),
         "sections": sections,
         "content_sections": content_sections,
         "daily_digest": daily_digest,
@@ -143,6 +144,172 @@ def build_row_one_app_payload(edition: RowOneEdition) -> dict[str, object]:
         "story_count": len(stories),
         "evidence_count": evidence_count,
     }
+
+
+SIGNAL_SYNTHESIS_GROUPS = (
+    ("brand", {"zh": "品牌", "en": "Brands"}),
+    ("product", {"zh": "单品", "en": "Products"}),
+    ("designer", {"zh": "设计师", "en": "Designers"}),
+    ("person", {"zh": "人物", "en": "People"}),
+)
+SIGNAL_SYNTHESIS_BOUNDARIES = {
+    "zh": "本地观察，需人工复核。",
+    "en": "Local observed signals; review required.",
+}
+
+
+def _signal_synthesis_payload(stories: list[dict[str, object]]) -> dict[str, object]:
+    groups = _signal_synthesis_groups(stories)
+    signal_count = sum(int(group["signal_count"]) for group in groups)
+    return {
+        "title": {"zh": "今日信号整理", "en": "Signal Synthesis"},
+        "dek": _signal_synthesis_dek(len(stories), signal_count),
+        "group_count": len(groups),
+        "signal_count": signal_count,
+        "boundaries": dict(SIGNAL_SYNTHESIS_BOUNDARIES),
+        "groups": groups,
+    }
+
+
+def _signal_synthesis_groups(stories: list[dict[str, object]]) -> list[dict[str, object]]:
+    story_href_by_id = _signal_story_href_map(stories)
+    grouped: dict[str, list[dict[str, object]]] = {
+        key: [] for key, _label in SIGNAL_SYNTHESIS_GROUPS
+    }
+    for topic in briefing_topics_payload(stories):
+        signal = _signal_payload_from_topic(topic, story_href_by_id)
+        if signal is None:
+            continue
+        grouped[str(signal["type"])].append(signal)
+
+    groups: list[dict[str, object]] = []
+    for group_key, group_label in SIGNAL_SYNTHESIS_GROUPS:
+        signals = sorted(grouped[group_key], key=_signal_synthesis_sort_key)
+        if not signals:
+            continue
+        groups.append(
+            {
+                "key": group_key,
+                "label": dict(group_label),
+                "signal_count": len(signals),
+                "signals": signals,
+            }
+        )
+    return groups
+
+
+def _signal_payload_from_topic(
+    topic: dict[str, object],
+    story_href_by_id: dict[str, str],
+) -> dict[str, object] | None:
+    topic_type = str(topic.get("topic_type", ""))
+    if topic_type not in {group_key for group_key, _label in SIGNAL_SYNTHESIS_GROUPS}:
+        return None
+    story_ids = [str(story_id) for story_id in topic.get("story_ids", [])]
+    if not story_ids:
+        return None
+    lead_story_id = str(topic.get("lead_story_id") or story_ids[0])
+    lead_story_href = story_href_by_id.get(lead_story_id)
+    if lead_story_href is None:
+        return None
+    title = topic.get("title")
+    name = ""
+    if isinstance(title, dict):
+        name = str(title.get("en") or title.get("zh") or "").strip()
+    if not name:
+        return None
+    label = _signal_reference_label(topic.get("source_refs"))
+    story_count = int(topic.get("story_count", 0))
+    evidence_count = int(topic.get("evidence_count", 0))
+    positive_heat_delta_sum = int(topic.get("positive_heat_delta_sum", 0))
+    max_heat_delta = int(topic.get("max_heat_delta", 0))
+    return {
+        "name": name,
+        "type": topic_type,
+        "label": label,
+        "story_count": story_count,
+        "evidence_count": evidence_count,
+        "positive_heat_delta_sum": max(positive_heat_delta_sum, 0),
+        "max_heat_delta": max(max_heat_delta, 0),
+        "lead_story_id": lead_story_id,
+        "lead_story_href": lead_story_href,
+        "summary": _signal_summary(
+            name,
+            story_count=story_count,
+            evidence_count=evidence_count,
+            max_heat_delta=max(max_heat_delta, 0),
+        ),
+        "story_ids": story_ids,
+    }
+
+
+def _signal_reference_label(source_refs: object) -> str:
+    if not isinstance(source_refs, list):
+        return ""
+    for source_ref in source_refs:
+        if not isinstance(source_ref, dict):
+            continue
+        label = str(source_ref.get("label", "")).strip()
+        if label:
+            return label
+    return ""
+
+
+def _signal_summary(
+    name: str,
+    *,
+    story_count: int,
+    evidence_count: int,
+    max_heat_delta: int,
+) -> dict[str, str]:
+    story_word = _plural_word(story_count, "story", "stories")
+    evidence_word = _plural_word(evidence_count, "evidence link", "evidence links")
+    return {
+        "zh": (
+            f"{name} 出现在 {story_count} 条故事中，最高本地提及增量 +{max_heat_delta}，"
+            f"带有 {evidence_count} 条证据链接。"
+        ),
+        "en": (
+            f"{name} appears in {story_count} {story_word}, with max local mention delta "
+            f"+{max_heat_delta} and {evidence_count} {evidence_word}."
+        ),
+    }
+
+
+def _signal_synthesis_dek(story_count: int, signal_count: int) -> dict[str, str]:
+    if signal_count == 0:
+        return {
+            "zh": "暂无可整理的 ROW ONE 信号。",
+            "en": "No ROW ONE signals are ready to organize yet.",
+        }
+    signal_word = _plural_word(signal_count, "readable signal", "readable signals")
+    story_word = _plural_word(story_count, "story", "stories")
+    return {
+        "zh": f"ROW ONE 从今日 {story_count} 条故事中整理出 {signal_count} 个可读信号。",
+        "en": (
+            f"ROW ONE organized {signal_count} {signal_word} from {story_count} {story_word} today."
+        ),
+    }
+
+
+def _signal_story_href_map(stories: list[dict[str, object]]) -> dict[str, str]:
+    hrefs: dict[str, str] = {}
+    for story in stories:
+        story_id = str(story.get("id", ""))
+        detail_href = str(story.get("detail_href", ""))
+        if story_id and detail_href:
+            hrefs[story_id] = detail_href
+    return hrefs
+
+
+def _signal_synthesis_sort_key(signal: dict[str, object]) -> tuple[object, ...]:
+    return (
+        -int(signal["positive_heat_delta_sum"]),
+        -int(signal["evidence_count"]),
+        -int(signal["story_count"]),
+        str(signal["name"]).casefold(),
+        str(signal["name"]),
+    )
 
 
 def build_row_one_manifest_payload(

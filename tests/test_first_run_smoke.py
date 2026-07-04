@@ -3819,9 +3819,9 @@ def test_validate_candidates_and_trends_pin_expected_first_run_state() -> None:
         smoke.validate_trends("trends", wrong_kind)
 
 
-def test_validate_row_one_manifest_requires_v5_app_contract() -> None:
+def test_validate_row_one_manifest_requires_v6_app_contract() -> None:
     edition_payload = {
-        "contract_version": "row-one-app/v5",
+        "contract_version": "row-one-app/v6",
         "generated_at": "2026-06-13T12:00:00Z",
         "edition_date": "2026-06-13T12:00:00Z",
         "story_count": 0,
@@ -3855,6 +3855,20 @@ def test_validate_row_one_manifest_requires_v5_app_contract() -> None:
             ],
             "links": [],
         },
+        "signal_synthesis": {
+            "title": {"zh": "今日信号整理", "en": "Signal Synthesis"},
+            "dek": {
+                "zh": "暂无可整理的 ROW ONE 信号。",
+                "en": "No ROW ONE signals are ready to organize yet.",
+            },
+            "group_count": 0,
+            "signal_count": 0,
+            "boundaries": {
+                "zh": "本地观察，需人工复核。",
+                "en": "Local observed signals; review required.",
+            },
+            "groups": [],
+        },
         "sections": [
             {"key": "top_stories"},
             {"key": "brand_moves"},
@@ -3871,7 +3885,7 @@ def test_validate_row_one_manifest_requires_v5_app_contract() -> None:
         "generated_at": "2026-06-13T12:00:00Z",
         "edition_date": "2026-06-13T12:00:00Z",
         "app_contract": {
-            "version": "row-one-app/v5",
+            "version": "row-one-app/v6",
             "path": "data/edition.json",
             "schema_path": "schemas/row-one-app.schema.json",
         },
@@ -3903,7 +3917,7 @@ def test_validate_row_one_runtime_requires_story_directory_routes() -> None:
         "published_date": "2026-06-13",
     }
     edition_payload = {
-        "contract_version": "row-one-app/v5",
+        "contract_version": "row-one-app/v6",
         "generated_at": "2026-06-13T12:00:00Z",
         "edition_date": "2026-06-13T12:00:00Z",
         "story_count": 1,
@@ -3945,6 +3959,20 @@ def test_validate_row_one_runtime_requires_story_directory_routes() -> None:
                     "href": "details/the-row-route-1111111111.html",
                 }
             ],
+        },
+        "signal_synthesis": {
+            "title": {"zh": "今日信号整理", "en": "Signal Synthesis"},
+            "dek": {
+                "zh": "暂无可整理的 ROW ONE 信号。",
+                "en": "No ROW ONE signals are ready to organize yet.",
+            },
+            "group_count": 0,
+            "signal_count": 0,
+            "boundaries": {
+                "zh": "本地观察，需人工复核。",
+                "en": "Local observed signals; review required.",
+            },
+            "groups": [],
         },
         "sections": [
             {"key": "top_stories"},
@@ -4026,6 +4054,16 @@ def test_validate_row_one_runtime_requires_story_directory_routes() -> None:
     drifted_brief["edition_brief"]["story_directory_story_count"] = 2
     with pytest.raises(smoke.SmokeError, match="story_directory_story_count"):
         smoke.validate_row_one_runtime(runtime_payload, manifest_payload, drifted_brief)
+
+    missing_synthesis = dict(edition_payload)
+    missing_synthesis.pop("signal_synthesis")
+    with pytest.raises(smoke.SmokeError, match="signal_synthesis"):
+        smoke.validate_row_one_runtime(runtime_payload, manifest_payload, missing_synthesis)
+
+    drifted_synthesis = json.loads(json.dumps(edition_payload))
+    drifted_synthesis["signal_synthesis"]["boundaries"]["en"] = "Verified platform heat."
+    with pytest.raises(smoke.SmokeError, match="boundaries en"):
+        smoke.validate_row_one_runtime(runtime_payload, manifest_payload, drifted_synthesis)
 
     routes = edition_payload["story_directory"]["routes"]  # type: ignore[index]
     routes[0]["detail_href"] = "details/drifted-route.html"  # type: ignore[index]
@@ -4539,7 +4577,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                 encoding="utf-8",
             )
             edition_payload = {
-                "contract_version": "row-one-app/v5",
+                "contract_version": "row-one-app/v6",
                 "generated_at": "2026-06-13T12:00:00Z",
                 "edition_date": "2026-06-13T12:00:00Z",
                 "story_count": 0,
@@ -4573,6 +4611,20 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                     ],
                     "links": [],
                 },
+                "signal_synthesis": {
+                    "title": {"zh": "今日信号整理", "en": "Signal Synthesis"},
+                    "dek": {
+                        "zh": "暂无可整理的 ROW ONE 信号。",
+                        "en": "No ROW ONE signals are ready to organize yet.",
+                    },
+                    "group_count": 0,
+                    "signal_count": 0,
+                    "boundaries": {
+                        "zh": "本地观察，需人工复核。",
+                        "en": "Local observed signals; review required.",
+                    },
+                    "groups": [],
+                },
                 "sections": [
                     {"key": "top_stories"},
                     {"key": "brand_moves"},
@@ -4589,7 +4641,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                 "generated_at": "2026-06-13T12:00:00Z",
                 "edition_date": "2026-06-13T12:00:00Z",
                 "app_contract": {
-                    "version": "row-one-app/v5",
+                    "version": "row-one-app/v6",
                     "path": "data/edition.json",
                     "schema_path": "schemas/row-one-app.schema.json",
                 },

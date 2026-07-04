@@ -71,10 +71,11 @@ brands, or verify platform coverage.
 - Generates the optional ROW ONE local static site from existing daily report
   data for editorial review, with no new data acquisition, no demand proof, and
   no platform coverage verification. The active app JSON payload is
-  `row-one-app/v5`; `edition_brief`, `content_sections`, `detail_sections`,
-  `evidence_summary`, `daily_digest`, and `story_directory` let app clients
-  render a daily overview, section rails, a daily briefing, and route lookups
-  from local JSON without scraping HTML. The generated experience is a
+  `row-one-app/v6`; `edition_brief`, `signal_synthesis`, `content_sections`,
+  `detail_sections`, `evidence_summary`, `daily_digest`, and `story_directory`
+  let app clients render a daily overview, local observed signal synthesis,
+  section rails, a daily briefing, and route lookups from local JSON without
+  scraping HTML. The generated experience is a
   professional static website with an edition rail and article contents for
   local editorial review. ROW ONE content cards also include `why_it_matters`
   and `signal_context`, and generated detail pages can render a Detail
@@ -105,9 +106,10 @@ Xiaohongshu).
 ROW ONE is a local static site built from existing daily report data. It adds
 no new data acquisition, no scraping, no platform APIs, no paid APIs, no
 translation service, no deployment automation, no demand proof, and no platform
-coverage verification. Its active app contract is `row-one-app/v5`, with
-`edition_brief`, `content_sections`, `detail_sections`, `evidence_summary`, and
-`daily_digest` so app clients can render a daily overview, section rails, and a
+coverage verification. Its active app contract is `row-one-app/v6`, with
+`edition_brief`, `signal_synthesis`, `content_sections`, `detail_sections`,
+`evidence_summary`, and `daily_digest` so app clients can render a daily
+overview, brand/product/designer/person signal summaries, section rails, and a
 daily briefing without scraping HTML. `edition_brief` is derived from existing
 ROW ONE stories, content sections, digest blocks/topics, route data, and safe
 evidence counts; it is not a collection or ranking layer. `daily_digest.briefing_topics`
@@ -118,6 +120,10 @@ verification, or external enrichment. The ROW ONE homepage can render
 the first four daily_digest.briefing_topics from the same data/edition.json
 payload, while app clients still use data/edition.json without scraping HTML. See
 [docs/row-one.md](docs/row-one.md).
+`signal_synthesis` reshapes `daily_digest.briefing_topics` into local observed
+brand/product/designer/person signal summaries with review required boundaries;
+it is not demand proof, platform heat, collection, ranking, or external
+enrichment.
 App clients can render section rails and a daily briefing from `data/edition.json`
 without scraping HTML.
 `story_directory` is an app-facing route index derived only from existing ROW

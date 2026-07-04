@@ -306,6 +306,38 @@ def test_render_row_one_site_includes_lead_story_block(tmp_path) -> None:
     assert "The Row is today&#x27;s priority signal." in index_html
 
 
+def test_render_row_one_site_includes_signal_synthesis_section(tmp_path) -> None:
+    edition = _edition()
+    edition.stories[0] = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "entity_refs": [
+                RowOneReference(name="The Row", type="brand", label="rising"),
+            ],
+        },
+    )
+
+    render_row_one_site(edition, tmp_path)
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert 'class="signal-synthesis"' in index_html
+    assert "Signal Synthesis" in index_html
+    assert "Local observed signals; review required." in index_html
+    assert (
+        "The Row appears in 1 story, with max local mention delta +0 and 1 evidence link."
+        in index_html
+    )
+    assert 'href="details/the-row-signal-1234567890.html"' in index_html
+    assert index_html.index('class="edition-brief"') < index_html.index('class="signal-synthesis"')
+    assert index_html.index('class="signal-synthesis"') < index_html.index('class="lead-story"')
+
+
+def test_render_row_one_site_omits_empty_signal_synthesis_section() -> None:
+    index_html = render_index_html(_edition(), app_payload={"signal_synthesis": {"groups": []}})
+
+    assert 'class="signal-synthesis"' not in index_html
+
+
 def test_render_row_one_site_includes_briefing_topics_index(tmp_path) -> None:
     edition = _edition()
     base_story = edition.stories[0]
@@ -594,6 +626,56 @@ def test_render_row_one_site_escapes_edition_brief_payload_values() -> None:
     assert "details/../escape.html" not in index_html
 
 
+def test_render_row_one_site_escapes_signal_synthesis_payload_values() -> None:
+    index_html = render_index_html(
+        _edition(),
+        app_payload={
+            "signal_synthesis": {
+                "title": {"zh": "<script>标题</script>", "en": "<b>Signal</b>"},
+                "dek": {"zh": "本地 <b>观察</b>", "en": "Local <b>observed</b>"},
+                "boundaries": {
+                    "zh": "本地观察，需人工复核。",
+                    "en": "Local observed signals; review required.",
+                },
+                "group_count": 1,
+                "signal_count": 1,
+                "groups": [
+                    {
+                        "key": "brand",
+                        "label": {"zh": "<b>品牌</b>", "en": "<b>Brands</b>"},
+                        "signal_count": 1,
+                        "signals": [
+                            {
+                                "name": "<img src=x onerror=alert(1)>",
+                                "type": "brand",
+                                "label": "<script>alert(1)</script>",
+                                "story_count": 1,
+                                "evidence_count": 1,
+                                "positive_heat_delta_sum": 1,
+                                "max_heat_delta": 1,
+                                "lead_story_id": "the-row-signal-1234567890",
+                                "lead_story_href": "../escape.html",
+                                "summary": {
+                                    "zh": "<b>危险</b>",
+                                    "en": "<b>Unsafe</b>",
+                                },
+                                "story_ids": ["the-row-signal-1234567890"],
+                            }
+                        ],
+                    }
+                ],
+            }
+        },
+    )
+
+    assert "<script>" not in index_html
+    assert "<img src=x" not in index_html
+    assert "&lt;b&gt;Signal&lt;/b&gt;" in index_html
+    assert "&lt;b&gt;Unsafe&lt;/b&gt;" in index_html
+    assert "&lt;img src=x onerror=alert(1)&gt;" in index_html
+    assert "../escape.html" not in index_html
+
+
 def test_row_one_css_includes_edition_brief_styles(tmp_path) -> None:
     css = render_row_one_site(_edition(), tmp_path).index_path
     css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
@@ -603,6 +685,11 @@ def test_row_one_css_includes_edition_brief_styles(tmp_path) -> None:
         ".edition-brief-metrics",
         ".edition-brief-links",
         ".edition-brief-metric",
+        ".signal-synthesis",
+        ".signal-synthesis-header",
+        ".signal-synthesis-grid",
+        ".signal-synthesis-group",
+        ".signal-synthesis-card",
     ):
         assert selector in css_text
 
@@ -981,7 +1068,7 @@ def test_render_row_one_site_writes_json_payload(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
-    assert payload["contract_version"] == "row-one-app/v5"
+    assert payload["contract_version"] == "row-one-app/v6"
     assert payload["brand"] == "ROW ONE"
     assert payload["generated_at"] == "2026-07-02T04:00:00Z"
     assert payload["edition_date"] == "2026-07-02T04:00:00Z"
@@ -1118,7 +1205,7 @@ def test_render_row_one_site_sanitizes_json_source_url(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
-    assert payload["contract_version"] == "row-one-app/v5"
+    assert payload["contract_version"] == "row-one-app/v6"
     assert payload["stories"][0]["source_url"] is None
     assert payload["stories"][0]["evidence"][1]["url"] is None
     assert payload["stories"][0]["evidence"][1]["href"] is None

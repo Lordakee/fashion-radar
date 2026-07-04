@@ -1131,7 +1131,7 @@ def validate_row_one_manifest(
     assert_equal(
         "row-one manifest app_contract version",
         app_contract.get("version"),
-        "row-one-app/v5",
+        "row-one-app/v6",
     )
     assert_equal(
         "row-one manifest app_contract schema_path",
@@ -1185,7 +1185,7 @@ def validate_row_one_story_directory(edition_payload: Any) -> None:
     assert_equal(
         "row-one edition contract_version",
         edition_payload.get("contract_version"),
-        "row-one-app/v5",
+        "row-one-app/v6",
     )
     stories = edition_payload.get("stories")
     if not isinstance(stories, list):
@@ -1295,6 +1295,82 @@ def validate_row_one_edition_brief(edition_payload: Any) -> None:
         )
 
 
+def validate_row_one_signal_synthesis(edition_payload: Any) -> None:
+    if not isinstance(edition_payload, dict):
+        raise SmokeError("row-one edition must be a JSON object")
+    synthesis = edition_payload.get("signal_synthesis")
+    if not isinstance(synthesis, dict):
+        raise SmokeError("row-one edition signal_synthesis must be a JSON object")
+    boundaries = synthesis.get("boundaries")
+    if not isinstance(boundaries, dict):
+        raise SmokeError("row-one edition signal_synthesis boundaries must be a JSON object")
+    assert_equal(
+        "row-one signal_synthesis boundaries en",
+        boundaries.get("en"),
+        "Local observed signals; review required.",
+    )
+    assert_equal(
+        "row-one signal_synthesis boundaries zh",
+        boundaries.get("zh"),
+        "本地观察，需人工复核。",
+    )
+    stories = edition_payload.get("stories")
+    if not isinstance(stories, list):
+        raise SmokeError("row-one edition stories must be a JSON array")
+    story_by_id = {
+        story.get("id"): story for story in stories if isinstance(story, dict) and story.get("id")
+    }
+    groups = synthesis.get("groups")
+    if not isinstance(groups, list):
+        raise SmokeError("row-one edition signal_synthesis groups must be a JSON array")
+    assert_equal("row-one signal_synthesis group_count", synthesis.get("group_count"), len(groups))
+    signal_count = 0
+    for group_index, group in enumerate(groups):
+        if not isinstance(group, dict):
+            raise SmokeError(f"row-one signal_synthesis groups[{group_index}] must be an object")
+        signals = group.get("signals")
+        if not isinstance(signals, list):
+            raise SmokeError(
+                f"row-one signal_synthesis groups[{group_index}] signals must be a JSON array"
+            )
+        assert_equal(
+            f"row-one signal_synthesis groups[{group_index}] signal_count",
+            group.get("signal_count"),
+            len(signals),
+        )
+        signal_count += len(signals)
+        for signal_index, signal in enumerate(signals):
+            if not isinstance(signal, dict):
+                raise SmokeError(
+                    f"row-one signal_synthesis groups[{group_index}] signals[{signal_index}] "
+                    "must be an object"
+                )
+            lead_story_id = signal.get("lead_story_id")
+            story = story_by_id.get(lead_story_id)
+            if story is None:
+                raise SmokeError(
+                    f"row-one signal_synthesis groups[{group_index}] signals[{signal_index}] "
+                    "lead_story_id is unknown"
+                )
+            assert_equal(
+                f"row-one signal_synthesis groups[{group_index}] signals[{signal_index}] "
+                "lead_story_href",
+                signal.get("lead_story_href"),
+                story.get("detail_href"),
+            )
+            story_ids = signal.get("story_ids")
+            if not isinstance(story_ids, list) or lead_story_id not in story_ids:
+                raise SmokeError(
+                    f"row-one signal_synthesis groups[{group_index}] signals[{signal_index}] "
+                    "story_ids must include lead_story_id"
+                )
+    assert_equal(
+        "row-one signal_synthesis signal_count",
+        synthesis.get("signal_count"),
+        signal_count,
+    )
+
+
 def validate_row_one_runtime(
     runtime_payload: Any,
     manifest_payload: Any,
@@ -1385,6 +1461,7 @@ def validate_row_one_runtime(
         raise SmokeError("row-one runtime readiness zh must be a non-empty string")
     validate_row_one_story_directory(edition_payload)
     validate_row_one_edition_brief(edition_payload)
+    validate_row_one_signal_synthesis(edition_payload)
 
 
 def validate_import_signals_dry_run(output: str) -> None:

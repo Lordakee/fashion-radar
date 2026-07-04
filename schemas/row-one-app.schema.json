@@ -10,6 +10,7 @@
     "edition_date",
     "summary",
     "edition_brief",
+    "signal_synthesis",
     "sections",
     "content_sections",
     "daily_digest",
@@ -21,7 +22,7 @@
   "additionalProperties": false,
   "properties": {
     "contract_version": {
-      "const": "row-one-app/v5"
+      "const": "row-one-app/v6"
     },
     "brand": {
       "type": "string",
@@ -42,6 +43,9 @@
     },
     "edition_brief": {
       "$ref": "#/$defs/editionBrief"
+    },
+    "signal_synthesis": {
+      "$ref": "#/$defs/signalSynthesis"
     },
     "sections": {
       "type": "array",
@@ -313,6 +317,121 @@
         "href": {
           "type": "string",
           "pattern": "^(details/[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\\.html|#briefing-topics|#briefing-path)$"
+        }
+      }
+    },
+    "signalSynthesis": {
+      "type": "object",
+      "required": ["title", "dek", "group_count", "signal_count", "boundaries", "groups"],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "dek": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "group_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "signal_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "boundaries": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/signalSynthesisGroup"
+          }
+        }
+      }
+    },
+    "signalSynthesisGroup": {
+      "type": "object",
+      "required": ["key", "label", "signal_count", "signals"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "enum": ["brand", "product", "designer", "person"]
+        },
+        "label": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "signal_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "signals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/signalSynthesisSignal"
+          }
+        }
+      }
+    },
+    "signalSynthesisSignal": {
+      "type": "object",
+      "required": [
+        "name",
+        "type",
+        "label",
+        "story_count",
+        "evidence_count",
+        "positive_heat_delta_sum",
+        "max_heat_delta",
+        "lead_story_id",
+        "lead_story_href",
+        "summary",
+        "story_ids"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": ["brand", "product", "designer", "person"]
+        },
+        "label": {
+          "type": "string"
+        },
+        "story_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "evidence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "positive_heat_delta_sum": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_heat_delta": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lead_story_id": {
+          "$ref": "#/$defs/storyId"
+        },
+        "lead_story_href": {
+          "$ref": "#/$defs/detailHref"
+        },
+        "summary": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "story_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/storyId"
+          }
         }
       }
     },
