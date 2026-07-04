@@ -71,7 +71,7 @@ brands, or verify platform coverage.
 - Generates the optional ROW ONE local static site from existing daily report
   data for editorial review, with no new data acquisition, no demand proof, and
   no platform coverage verification. The active app JSON payload is
-  `row-one-app/v6`; `edition_brief`, `signal_synthesis`, `content_sections`,
+  `row-one-app/v7`; `edition_brief`, `signal_synthesis`, `content_sections`,
   `detail_sections`, `evidence_summary`, `daily_digest`, and `story_directory`
   let app clients render a daily overview, local observed signal synthesis,
   section rails, a daily briefing, and route lookups from local JSON without
@@ -106,7 +106,7 @@ Xiaohongshu).
 ROW ONE is a local static site built from existing daily report data. It adds
 no new data acquisition, no scraping, no platform APIs, no paid APIs, no
 translation service, no deployment automation, no demand proof, and no platform
-coverage verification. Its active app contract is `row-one-app/v6`, with
+coverage verification. Its active app contract is `row-one-app/v7`, with
 `edition_brief`, `signal_synthesis`, `content_sections`, `detail_sections`,
 `evidence_summary`, and `daily_digest` so app clients can render a daily
 overview, brand/product/designer/person signal summaries, section rails, and a
@@ -124,6 +124,14 @@ payload, while app clients still use data/edition.json without scraping HTML. Se
 brand/product/designer/person signal summaries with review required boundaries;
 it is not demand proof, platform heat, collection, ranking, or external
 enrichment.
+`signal_synthesis.groups[].signals[].story_refs` is an app-facing information
+organization index that carries compact supporting story references inline,
+derived from the same briefing topic source story data. It is not a compliance
+review feature and does not change collection, matching, ranking, scoring,
+sorting, or story IDs.
+`schemas/row-one-app.schema.json` validates this field structurally; `row-one status`
+and the first-run smoke also validate that each story ref mirrors the referenced
+top-level story and keeps `story_refs[].story_id` aligned with `story_ids`.
 App clients can render section rails and a daily briefing from `data/edition.json`
 without scraping HTML.
 `story_directory` is an app-facing route index derived only from existing ROW

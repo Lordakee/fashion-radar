@@ -3819,9 +3819,9 @@ def test_validate_candidates_and_trends_pin_expected_first_run_state() -> None:
         smoke.validate_trends("trends", wrong_kind)
 
 
-def test_validate_row_one_manifest_requires_v6_app_contract() -> None:
+def test_validate_row_one_manifest_requires_v7_app_contract() -> None:
     edition_payload = {
-        "contract_version": "row-one-app/v6",
+        "contract_version": "row-one-app/v7",
         "generated_at": "2026-06-13T12:00:00Z",
         "edition_date": "2026-06-13T12:00:00Z",
         "story_count": 0,
@@ -3885,7 +3885,7 @@ def test_validate_row_one_manifest_requires_v6_app_contract() -> None:
         "generated_at": "2026-06-13T12:00:00Z",
         "edition_date": "2026-06-13T12:00:00Z",
         "app_contract": {
-            "version": "row-one-app/v6",
+            "version": "row-one-app/v7",
             "path": "data/edition.json",
             "schema_path": "schemas/row-one-app.schema.json",
         },
@@ -3917,7 +3917,7 @@ def test_validate_row_one_runtime_requires_story_directory_routes() -> None:
         "published_date": "2026-06-13",
     }
     edition_payload = {
-        "contract_version": "row-one-app/v6",
+        "contract_version": "row-one-app/v7",
         "generated_at": "2026-06-13T12:00:00Z",
         "edition_date": "2026-06-13T12:00:00Z",
         "story_count": 1,
@@ -4069,6 +4069,125 @@ def test_validate_row_one_runtime_requires_story_directory_routes() -> None:
     routes[0]["detail_href"] = "details/drifted-route.html"  # type: ignore[index]
     with pytest.raises(smoke.SmokeError, match="story_directory routes\\[0\\] detail_href"):
         smoke.validate_row_one_runtime(runtime_payload, manifest_payload, edition_payload)
+
+
+def row_one_signal_synthesis_payload_with_story_refs() -> dict[str, object]:
+    story = {
+        "id": "the-row-route-1111111111",
+        "headline": "The Row route",
+        "detail_href": "details/the-row-route-1111111111.html",
+        "section_key": "top_stories",
+        "section": {
+            "href": "#top_stories",
+            "title": {"zh": "头条", "en": "Top Stories"},
+        },
+        "source_name": "Community Tool Export",
+        "published_date": "2026-06-13",
+        "evidence_count": 2,
+        "heat_delta": 3,
+    }
+    return {
+        "stories": [story],
+        "signal_synthesis": {
+            "title": {"zh": "今日信号整理", "en": "Signal Synthesis"},
+            "dek": {
+                "zh": "ROW ONE 将今日 1 条本地时尚信号整理成 1 个信号。",
+                "en": "ROW ONE organized 1 local fashion signals into 1 reviewable signals.",
+            },
+            "group_count": 1,
+            "signal_count": 1,
+            "boundaries": {
+                "zh": "本地观察，需人工复核。",
+                "en": "Local observed signals; review required.",
+            },
+            "groups": [
+                {
+                    "key": "brand",
+                    "label": {"zh": "品牌", "en": "Brands"},
+                    "signal_count": 1,
+                    "signals": [
+                        {
+                            "name": "The Row",
+                            "type": "brand",
+                            "label": "The Row",
+                            "story_count": 1,
+                            "evidence_count": 2,
+                            "positive_heat_delta_sum": 3,
+                            "max_heat_delta": 3,
+                            "lead_story_id": "the-row-route-1111111111",
+                            "lead_story_href": "details/the-row-route-1111111111.html",
+                            "summary": {
+                                "zh": (
+                                    "The Row 出现在 1 条故事中，最高本地提及增量 +3，"
+                                    "带有 2 条证据链接。"
+                                ),
+                                "en": (
+                                    "The Row appears in 1 story with the highest local mention "
+                                    "delta at +3 and 2 evidence links."
+                                ),
+                            },
+                            "story_ids": ["the-row-route-1111111111"],
+                            "story_refs": [
+                                {
+                                    "story_id": "the-row-route-1111111111",
+                                    "headline": "The Row route",
+                                    "section_key": "top_stories",
+                                    "section_title": {"zh": "头条", "en": "Top Stories"},
+                                    "detail_href": "details/the-row-route-1111111111.html",
+                                    "source_name": "Community Tool Export",
+                                    "published_date": "2026-06-13",
+                                    "evidence_count": 2,
+                                    "heat_delta": 3,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        },
+    }
+
+
+def test_validate_row_one_signal_synthesis_requires_story_refs_for_populated_signals() -> None:
+    payload = row_one_signal_synthesis_payload_with_story_refs()
+
+    smoke.validate_row_one_signal_synthesis(payload)
+
+    missing_refs = json.loads(json.dumps(payload))
+    del missing_refs["signal_synthesis"]["groups"][0]["signals"][0]["story_refs"]
+    with pytest.raises(smoke.SmokeError, match="story_refs must be a non-empty JSON array"):
+        smoke.validate_row_one_signal_synthesis(missing_refs)
+
+    empty_refs = json.loads(json.dumps(payload))
+    empty_refs["signal_synthesis"]["groups"][0]["signals"][0]["story_refs"] = []
+    with pytest.raises(smoke.SmokeError, match="story_refs must be a non-empty JSON array"):
+        smoke.validate_row_one_signal_synthesis(empty_refs)
+
+
+def test_validate_row_one_signal_synthesis_story_refs_match_story_ids_and_story_fields() -> None:
+    payload = row_one_signal_synthesis_payload_with_story_refs()
+
+    mismatched_id = json.loads(json.dumps(payload))
+    mismatched_id["signal_synthesis"]["groups"][0]["signals"][0]["story_refs"][0]["story_id"] = (
+        "other-story"
+    )
+    with pytest.raises(smoke.SmokeError, match="story_refs ids"):
+        smoke.validate_row_one_signal_synthesis(mismatched_id)
+
+    missing_story_id = json.loads(json.dumps(payload))
+    del missing_story_id["signal_synthesis"]["groups"][0]["signals"][0]["story_refs"][0]["story_id"]
+    with pytest.raises(smoke.SmokeError, match="story_refs\\[0\\] story_id"):
+        smoke.validate_row_one_signal_synthesis(missing_story_id)
+
+    missing_key = json.loads(json.dumps(payload))
+    del missing_key["signal_synthesis"]["groups"][0]["signals"][0]["story_refs"][0]["source_name"]
+    with pytest.raises(smoke.SmokeError, match="story_refs\\[0\\] source_name"):
+        smoke.validate_row_one_signal_synthesis(missing_key)
+
+    drifted_field = json.loads(json.dumps(payload))
+    drifted_field["signal_synthesis"]["groups"][0]["signals"][0]["story_refs"][0]["heat_delta"] = 4
+    with pytest.raises(smoke.SmokeError, match="story_refs\\[0\\] heat_delta"):
+        smoke.validate_row_one_signal_synthesis(drifted_field)
 
 
 def test_validate_trends_rejects_non_object_delta_entries() -> None:
@@ -4577,7 +4696,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                 encoding="utf-8",
             )
             edition_payload = {
-                "contract_version": "row-one-app/v6",
+                "contract_version": "row-one-app/v7",
                 "generated_at": "2026-06-13T12:00:00Z",
                 "edition_date": "2026-06-13T12:00:00Z",
                 "story_count": 0,
@@ -4641,7 +4760,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                 "generated_at": "2026-06-13T12:00:00Z",
                 "edition_date": "2026-06-13T12:00:00Z",
                 "app_contract": {
-                    "version": "row-one-app/v6",
+                    "version": "row-one-app/v7",
                     "path": "data/edition.json",
                     "schema_path": "schemas/row-one-app.schema.json",
                 },
@@ -4878,6 +4997,9 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
     smoke.run_first_run_flow(context)
 
     assert_first_run_flow_commands(captured, context, example_csv)
+    assert (context.config_dir / "sources.yaml").read_text(encoding="utf-8") == (
+        "version: 1\nsources: []\n"
+    )
     assert (context.reports_dir / "fashion-radar-2026-06-13.html").read_text(
         encoding="utf-8"
     ) == "<!doctype html>"

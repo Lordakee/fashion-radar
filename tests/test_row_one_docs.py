@@ -150,7 +150,7 @@ def test_row_one_docs_describe_versioned_app_json_contract() -> None:
 
     for phrase in (
         "app json contract",
-        "`data/edition.json` is the row-one-app/v6 app-facing contract",
+        "`data/edition.json` is the row-one-app/v7 app-facing contract",
         "`schemas/row-one-app.schema.json`",
         "section counts",
         "detail hrefs",
@@ -171,7 +171,7 @@ def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
     readme = _normalized(_read(README))
 
     for phrase in (
-        "row-one-app/v6",
+        "row-one-app/v7",
         "content_sections",
         "detail_sections",
         "evidence_summary",
@@ -186,7 +186,7 @@ def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
         assert phrase in row_one
 
     for phrase in (
-        "row-one-app/v6",
+        "row-one-app/v7",
         "content_sections",
         "detail_sections",
         "evidence_summary",
@@ -267,6 +267,22 @@ def test_row_one_docs_describe_stage_287_signal_synthesis() -> None:
         "review required",
         "brand/product/designer/person signal summaries",
     ):
+        assert phrase in readme
+
+
+def test_row_one_docs_describe_stage_289_signal_story_refs() -> None:
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    readme = _normalized(_read(README))
+
+    for phrase in (
+        "signal_synthesis.groups[].signals[].story_refs",
+        "app-facing information organization index",
+        "compact supporting story references inline",
+        "derived from the same briefing topic source story data",
+        "not a compliance review feature",
+        "does not change collection, matching, ranking, scoring, sorting, or story ids",
+    ):
+        assert phrase in row_one
         assert phrase in readme
 
 
@@ -390,7 +406,7 @@ def test_row_one_docs_describe_stage_277_homepage_briefing_topics() -> None:
         "not a flat link list",
         "does not scrape html",
         "does not infer people from sections or tags",
-        "row-one-app/v6 content organization",
+        "row-one-app/v7 content organization",
         "does not change matching, ranking, scoring, story ids",
         "does not add source collection",
         "does not prove demand",
@@ -417,7 +433,7 @@ def test_row_one_docs_describe_stage_272_editorial_web_experience() -> None:
         "article contents",
         "evidence trail",
         "retained source row",
-        "uses existing row-one-app/v6 content organization",
+        "uses existing row-one-app/v7 content organization",
     ):
         assert phrase in row_one
 

@@ -8,6 +8,7 @@ from html import escape
 import pytest
 from pydantic import ValidationError
 
+import fashion_radar.row_one.render as row_one_render
 from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneEdition,
@@ -330,6 +331,46 @@ def test_render_row_one_site_includes_signal_synthesis_section(tmp_path) -> None
     assert 'href="details/the-row-signal-1234567890.html"' in index_html
     assert index_html.index('class="edition-brief"') < index_html.index('class="signal-synthesis"')
     assert index_html.index('class="signal-synthesis"') < index_html.index('class="lead-story"')
+
+
+def test_render_row_one_site_rejects_misaligned_signal_story_refs(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    edition = _edition()
+    edition.stories[0] = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "entity_refs": [
+                RowOneReference(name="The Row", type="brand", label="rising"),
+            ],
+        },
+    )
+
+    def divergent_topics(stories: list[dict[str, object]]) -> list[dict[str, object]]:
+        card = dict(stories[0])
+        card["id"] = "different-story-2222222222"
+        return [
+            {
+                "id": "brand-1234567890",
+                "topic_type": "brand",
+                "title": {"zh": "The Row", "en": "The Row"},
+                "label": {"zh": "品牌", "en": "Brand"},
+                "story_count": 1,
+                "evidence_count": 1,
+                "positive_heat_delta_sum": 0,
+                "max_heat_delta": 0,
+                "lead_story_id": "the-row-signal-1234567890",
+                "story_ids": ["the-row-signal-1234567890"],
+                "cards": [card],
+                "source_refs": [{"name": "The Row", "type": "brand", "label": "rising"}],
+            }
+        ]
+
+    monkeypatch.setattr(row_one_render, "briefing_topics_payload", divergent_topics)
+
+    with pytest.raises(ValueError, match="story_refs must align with topic story_ids"):
+        render_row_one_site(edition, tmp_path)
 
 
 def test_render_row_one_site_localizes_signal_synthesis_meta(tmp_path) -> None:
@@ -1100,7 +1141,7 @@ def test_render_row_one_site_writes_json_payload(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
-    assert payload["contract_version"] == "row-one-app/v6"
+    assert payload["contract_version"] == "row-one-app/v7"
     assert payload["brand"] == "ROW ONE"
     assert payload["generated_at"] == "2026-07-02T04:00:00Z"
     assert payload["edition_date"] == "2026-07-02T04:00:00Z"
@@ -1237,7 +1278,7 @@ def test_render_row_one_site_sanitizes_json_source_url(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
-    assert payload["contract_version"] == "row-one-app/v6"
+    assert payload["contract_version"] == "row-one-app/v7"
     assert payload["stories"][0]["source_url"] is None
     assert payload["stories"][0]["evidence"][1]["url"] is None
     assert payload["stories"][0]["evidence"][1]["href"] is None

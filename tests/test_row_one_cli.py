@@ -12,6 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from jsonschema import Draft202012Validator, FormatChecker
 from typer.testing import CliRunner
 
 import fashion_radar.cli as cli_module
@@ -20,7 +21,13 @@ from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
 from fashion_radar.db.schema import initialize_schema
 from fashion_radar.models.item import CollectedItem
-from fashion_radar.models.report import DailyReport, ReportMetadata, empty_daily_brief
+from fashion_radar.models.report import (
+    DailyReport,
+    EntityReport,
+    ReportMetadata,
+    RepresentativeItem,
+    empty_daily_brief,
+)
 from fashion_radar.models.source import SourceType
 from fashion_radar.row_one.edition import build_row_one_edition
 from fashion_radar.row_one.render import render_row_one_site
@@ -33,6 +40,14 @@ from fashion_radar.utils.dates import parse_datetime_utc
 from fashion_radar.workflows import default_database_path
 
 AS_OF = "2026-07-02T04:00:00Z"
+ROOT = Path(__file__).resolve().parents[1]
+ROW_ONE_APP_SCHEMA = ROOT / "schemas" / "row-one-app.schema.json"
+
+
+def _row_one_app_schema_validator() -> Draft202012Validator:
+    schema = json.loads(ROW_ONE_APP_SCHEMA.read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(schema, format_checker=FormatChecker())
 
 
 def _write_minimal_config(config_dir: Path) -> None:
@@ -57,6 +72,45 @@ def _empty_report() -> DailyReport:
         brief=empty_daily_brief(),
         entities=[],
         candidates=[],
+    )
+
+
+def _story_ref_report() -> DailyReport:
+    return DailyReport(
+        metadata=ReportMetadata(generated_at=AS_OF, report_date=AS_OF, item_count=1),
+        brief=empty_daily_brief(),
+        entities=[
+            EntityReport(
+                entity_name="The Row",
+                entity_type="brand",
+                label="rising",
+                heat_score=6.2,
+                current_mentions=4,
+                baseline_mentions=1,
+                distinct_sources=1,
+                representative_items=[
+                    RepresentativeItem(
+                        source_name="Local Desk",
+                        source_url="https://example.com/status-story-refs",
+                        published_at=AS_OF,
+                        title="The Row showroom appointment demand rises",
+                        summary="Local desk notes rising interest in The Row appointments.",
+                    )
+                ],
+            )
+        ],
+        candidates=[],
+    )
+
+
+def _render_status_fixture_site(tmp_path: Path) -> None:
+    render_row_one_site(
+        build_row_one_edition(
+            report=_story_ref_report(),
+            recent_items=[],
+            as_of=AS_OF,
+        ),
+        tmp_path,
     )
 
 
@@ -554,7 +608,7 @@ def test_row_one_build_command_writes_non_ascii_story_detail_path(tmp_path: Path
 
     assert result.exit_code == 0, result.output
     payload = json.loads((output_dir / "data" / "edition.json").read_text(encoding="utf-8"))
-    assert payload["contract_version"] == "row-one-app/v6"
+    assert payload["contract_version"] == "row-one-app/v7"
     assert payload["signal_synthesis"]["boundaries"] == {
         "zh": "本地观察，需人工复核。",
         "en": "Local observed signals; review required.",
@@ -781,7 +835,7 @@ def test_row_one_status_json_outputs_machine_readable_payload(tmp_path: Path) ->
     assert payload["runtime"]["contract_version"] == "row-one-runtime/v1"
     assert payload["manifest"]["contract_version"] == "row-one-manifest/v1"
     assert payload["contracts"] == {
-        "app": "row-one-app/v6",
+        "app": "row-one-app/v7",
         "manifest": "row-one-manifest/v1",
         "runtime": "row-one-runtime/v1",
     }
@@ -906,6 +960,25 @@ def test_row_one_status_rejects_missing_runtime_payload(tmp_path: Path) -> None:
     assert "data/runtime.json" in result.output
 
 
+def test_row_one_status_rejects_semantic_story_refs_drift_that_schema_cannot_express(
+    tmp_path: Path,
+) -> None:
+    _render_status_fixture_site(tmp_path)
+    edition_path = tmp_path / "data" / "edition.json"
+    edition = json.loads(edition_path.read_text(encoding="utf-8"))
+    edition["signal_synthesis"]["groups"][0]["signals"][0]["story_refs"][0]["headline"] = (
+        "Schema-valid but wrong story headline"
+    )
+
+    _row_one_app_schema_validator().validate(edition)
+    edition_path.write_text(json.dumps(edition), encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "story_refs[0].headline" in result.output
+
+
 @pytest.mark.parametrize(
     ("mutation", "expected_error"),
     [
@@ -942,6 +1015,24 @@ def test_row_one_status_rejects_missing_runtime_payload(tmp_path: Path) -> None:
             "edition.signal_synthesis.signal_count",
         ),
         (
+            lambda _runtime, _manifest, edition: edition["signal_synthesis"]["groups"][0][
+                "signals"
+            ][0].pop("story_refs"),
+            "story_refs",
+        ),
+        (
+            lambda _runtime, _manifest, edition: edition["signal_synthesis"]["groups"][0][
+                "signals"
+            ][0]["story_refs"][0].update({"story_id": "unknown-story-9999999999"}),
+            "story_refs ids",
+        ),
+        (
+            lambda _runtime, _manifest, edition: edition["signal_synthesis"]["groups"][0][
+                "signals"
+            ][0]["story_refs"][0].update({"detail_href": "details/drift.html"}),
+            "story_refs[0].detail_href",
+        ),
+        (
             lambda _runtime, _manifest, edition: edition["edition_brief"].update(
                 {"story_directory_story_count": 99}
             ),
@@ -968,7 +1059,7 @@ def test_row_one_status_rejects_missing_runtime_payload(tmp_path: Path) -> None:
             "runtime counts",
         ),
         (
-            lambda runtime, _manifest, _edition: runtime["readiness"].update({"en": "ready"}),
+            lambda runtime, _manifest, _edition: runtime["readiness"].update({"en": "empty"}),
             "runtime.readiness.en",
         ),
     ],
@@ -978,10 +1069,7 @@ def test_row_one_status_rejects_runtime_contract_drift(
     mutation: object,
     expected_error: str,
 ) -> None:
-    render_row_one_site(
-        build_row_one_edition(report=_empty_report(), recent_items=[], as_of=AS_OF),
-        tmp_path,
-    )
+    _render_status_fixture_site(tmp_path)
     manifest_path = tmp_path / "data" / "manifest.json"
     edition_path = tmp_path / "data" / "edition.json"
     runtime_path = tmp_path / "data" / "runtime.json"
@@ -1159,7 +1247,7 @@ def test_row_one_serve_cli_process_serves_generated_site(tmp_path: Path) -> None
         assert len(fetched) == 6
         assert "ROW ONE" in fetched["/"]
         assert '"contract_version": "row-one-manifest/v1"' in fetched["/data/manifest.json"]
-        assert '"contract_version": "row-one-app/v6"' in fetched["/data/edition.json"]
+        assert '"contract_version": "row-one-app/v7"' in fetched["/data/edition.json"]
         assert '"contract_version": "row-one-runtime/v1"' in fetched["/data/runtime.json"]
         assert "RowOneSerif" in fetched["/assets/row-one.css"]
         assert "row-one:language" in fetched["/assets/row-one.js"]

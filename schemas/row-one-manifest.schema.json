@@ -27,7 +27,7 @@
       "additionalProperties": false,
       "required": ["version", "path", "schema_path"],
       "properties": {
-        "version": { "const": "row-one-app/v6" },
+        "version": { "const": "row-one-app/v7" },
         "path": { "const": "data/edition.json" },
         "schema_path": { "const": "schemas/row-one-app.schema.json" }
       }

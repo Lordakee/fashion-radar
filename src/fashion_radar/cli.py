@@ -1853,6 +1853,72 @@ def _validate_row_one_signal_synthesis(edition: dict[str, object]) -> None:
                     f"edition.signal_synthesis.groups[{group_index}].signals[{signal_index}]"
                     ".story_ids must include lead_story_id"
                 )
+            story_refs = signal.get("story_refs")
+            if not isinstance(story_refs, list) or not story_refs:
+                raise ValueError(
+                    "row-one "
+                    f"edition.signal_synthesis.groups[{group_index}].signals[{signal_index}]"
+                    ".story_refs must be a non-empty JSON array"
+                )
+            for ref_index, ref in enumerate(story_refs):
+                if not isinstance(ref, dict):
+                    raise ValueError(
+                        "row-one "
+                        f"edition.signal_synthesis.groups[{group_index}].signals[{signal_index}]"
+                        f".story_refs[{ref_index}] must be an object"
+                    )
+                story_id = ref.get("story_id")
+                if story_id is None:
+                    raise ValueError(
+                        "row-one "
+                        f"edition.signal_synthesis.groups[{group_index}].signals[{signal_index}]"
+                        f".story_refs[{ref_index}].story_id is required"
+                    )
+            _require_row_one_value(
+                "edition.signal_synthesis"
+                f".groups[{group_index}].signals[{signal_index}].story_refs ids",
+                [ref.get("story_id") for ref in story_refs],
+                story_ids,
+            )
+            for ref_index, ref in enumerate(story_refs):
+                ref_story = story_by_id.get(ref.get("story_id"))
+                if ref_story is None:
+                    raise ValueError(
+                        "row-one "
+                        f"edition.signal_synthesis.groups[{group_index}].signals[{signal_index}]"
+                        f".story_refs[{ref_index}].story_id is unknown"
+                    )
+                section = ref_story.get("section")
+                if not isinstance(section, dict):
+                    raise ValueError(
+                        "row-one "
+                        f"edition.signal_synthesis.groups[{group_index}].signals[{signal_index}]"
+                        f".story_refs[{ref_index}] story section must be an object"
+                    )
+                for key, expected in (
+                    ("headline", ref_story.get("headline")),
+                    ("section_key", ref_story.get("section_key")),
+                    ("section_title", section.get("title")),
+                    ("detail_href", ref_story.get("detail_href")),
+                    ("source_name", ref_story.get("source_name")),
+                    ("published_date", ref_story.get("published_date")),
+                    ("evidence_count", ref_story.get("evidence_count")),
+                    ("heat_delta", ref_story.get("heat_delta")),
+                ):
+                    if key not in ref:
+                        raise ValueError(
+                            "row-one "
+                            f"edition.signal_synthesis.groups[{group_index}]"
+                            f".signals[{signal_index}].story_refs[{ref_index}].{key} "
+                            "is required"
+                        )
+                    _require_row_one_value(
+                        "edition.signal_synthesis"
+                        f".groups[{group_index}].signals[{signal_index}]"
+                        f".story_refs[{ref_index}].{key}",
+                        ref.get(key),
+                        expected,
+                    )
     _require_row_one_value(
         "edition.signal_synthesis.signal_count",
         synthesis.get("signal_count"),
@@ -1885,7 +1951,7 @@ def _validate_row_one_status_payloads(
     _require_row_one_value(
         "edition contract_version",
         edition.get("contract_version"),
-        "row-one-app/v6",
+        "row-one-app/v7",
     )
     manifest_app_contract = _require_row_one_object(
         manifest,
@@ -1895,7 +1961,7 @@ def _validate_row_one_status_payloads(
     _require_row_one_value(
         "manifest.app_contract.version",
         manifest_app_contract.get("version"),
-        "row-one-app/v6",
+        "row-one-app/v7",
     )
     _require_row_one_value(
         "manifest.app_contract.path",

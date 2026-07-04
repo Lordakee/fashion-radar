@@ -26,7 +26,7 @@ from fashion_radar.row_one.templates import (
 from fashion_radar.row_one.utils import isoformat_z, safe_external_url, utc_datetime
 
 GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data")
-ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v6"
+ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v7"
 ROW_ONE_MANIFEST_CONTRACT_VERSION = "row-one-manifest/v1"
 ROW_ONE_MANIFEST_SCHEMA_PATH = "schemas/row-one-manifest.schema.json"
 ROW_ONE_RUNTIME_CONTRACT_VERSION = "row-one-runtime/v1"
@@ -208,6 +208,10 @@ def _signal_payload_from_topic(
     story_ids = [str(story_id) for story_id in topic.get("story_ids", [])]
     if not story_ids:
         return None
+    story_refs = _signal_story_refs_from_topic(topic)
+    story_ref_ids = [str(ref["story_id"]) for ref in story_refs]
+    if story_ref_ids != story_ids:
+        raise ValueError("ROW ONE signal story_refs must align with topic story_ids")
     lead_story_id = str(topic.get("lead_story_id") or story_ids[0])
     lead_story_href = story_href_by_id.get(lead_story_id)
     if lead_story_href is None:
@@ -240,7 +244,35 @@ def _signal_payload_from_topic(
             max_heat_delta=max(max_heat_delta, 0),
         ),
         "story_ids": story_ids,
+        "story_refs": story_refs,
     }
+
+
+def _signal_story_refs_from_topic(topic: dict[str, object]) -> list[dict[str, object]]:
+    cards = topic.get("cards")
+    if not isinstance(cards, list):
+        return []
+    refs: list[dict[str, object]] = []
+    for card in cards:
+        if not isinstance(card, dict):
+            continue
+        section = card.get("section")
+        if not isinstance(section, dict):
+            continue
+        refs.append(
+            {
+                "story_id": card["id"],
+                "headline": card["headline"],
+                "section_key": card["section_key"],
+                "section_title": section["title"],
+                "detail_href": card["detail_href"],
+                "source_name": card["source_name"],
+                "published_date": card["published_date"],
+                "evidence_count": card["evidence_count"],
+                "heat_delta": card["heat_delta"],
+            }
+        )
+    return refs
 
 
 def _signal_reference_label(source_refs: object) -> str:

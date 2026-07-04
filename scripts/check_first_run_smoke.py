@@ -1131,7 +1131,7 @@ def validate_row_one_manifest(
     assert_equal(
         "row-one manifest app_contract version",
         app_contract.get("version"),
-        "row-one-app/v6",
+        "row-one-app/v7",
     )
     assert_equal(
         "row-one manifest app_contract schema_path",
@@ -1185,7 +1185,7 @@ def validate_row_one_story_directory(edition_payload: Any) -> None:
     assert_equal(
         "row-one edition contract_version",
         edition_payload.get("contract_version"),
-        "row-one-app/v6",
+        "row-one-app/v7",
     )
     stories = edition_payload.get("stories")
     if not isinstance(stories, list):
@@ -1364,6 +1364,64 @@ def validate_row_one_signal_synthesis(edition_payload: Any) -> None:
                     f"row-one signal_synthesis groups[{group_index}] signals[{signal_index}] "
                     "story_ids must include lead_story_id"
                 )
+            story_refs = signal.get("story_refs")
+            if not isinstance(story_refs, list) or not story_refs:
+                raise SmokeError(
+                    f"row-one signal_synthesis groups[{group_index}] signals[{signal_index}] "
+                    "story_refs must be a non-empty JSON array"
+                )
+            for ref_index, ref in enumerate(story_refs):
+                if not isinstance(ref, dict):
+                    raise SmokeError(
+                        f"row-one signal_synthesis groups[{group_index}] signals[{signal_index}] "
+                        f"story_refs[{ref_index}] must be an object"
+                    )
+                if "story_id" not in ref:
+                    raise SmokeError(
+                        f"row-one signal_synthesis groups[{group_index}] "
+                        f"signals[{signal_index}] story_refs[{ref_index}] story_id is required"
+                    )
+            story_ref_ids = [ref.get("story_id") for ref in story_refs]
+            assert_equal(
+                f"row-one signal_synthesis groups[{group_index}] signals[{signal_index}] "
+                "story_refs ids",
+                story_ref_ids,
+                story_ids,
+            )
+            for ref_index, ref in enumerate(story_refs):
+                ref_story = story_by_id.get(ref.get("story_id"))
+                if ref_story is None:
+                    raise SmokeError(
+                        f"row-one signal_synthesis groups[{group_index}] signals[{signal_index}] "
+                        f"story_refs[{ref_index}] story_id is unknown"
+                    )
+                section = ref_story.get("section")
+                if not isinstance(section, dict):
+                    raise SmokeError(
+                        f"row-one signal_synthesis groups[{group_index}] signals[{signal_index}] "
+                        f"story_refs[{ref_index}] story section must be an object"
+                    )
+                for key, expected in (
+                    ("headline", ref_story.get("headline")),
+                    ("section_key", ref_story.get("section_key")),
+                    ("section_title", section.get("title")),
+                    ("detail_href", ref_story.get("detail_href")),
+                    ("source_name", ref_story.get("source_name")),
+                    ("published_date", ref_story.get("published_date")),
+                    ("evidence_count", ref_story.get("evidence_count")),
+                    ("heat_delta", ref_story.get("heat_delta")),
+                ):
+                    if key not in ref:
+                        raise SmokeError(
+                            f"row-one signal_synthesis groups[{group_index}] "
+                            f"signals[{signal_index}] story_refs[{ref_index}] {key} is required"
+                        )
+                    assert_equal(
+                        f"row-one signal_synthesis groups[{group_index}] "
+                        f"signals[{signal_index}] story_refs[{ref_index}] {key}",
+                        ref.get(key),
+                        expected,
+                    )
     assert_equal(
         "row-one signal_synthesis signal_count",
         synthesis.get("signal_count"),
@@ -2909,6 +2967,11 @@ def assert_not_exists(path: Path) -> None:
         raise SmokeError(f"Unexpected path exists: {path}")
 
 
+def write_first_run_sample_sources_config(config_dir: Path) -> None:
+    """Keep the sample smoke deterministic by avoiding live source collection."""
+    (config_dir / "sources.yaml").write_text("version: 1\nsources: []\n", encoding="utf-8")
+
+
 def run_smoke(context: SmokeContext) -> None:
     before_default_artifacts = snapshot_default_artifacts(context.repo_root)
     flow_error: SmokeError | None = None
@@ -2945,6 +3008,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
         "--reports-dir",
         str(context.reports_dir),
     )
+    write_first_run_sample_sources_config(context.config_dir)
     run_cli(context, "migrate-db", "--data-dir", str(context.data_dir))
     assert_workspace_artifacts(context)
     run_cli(
