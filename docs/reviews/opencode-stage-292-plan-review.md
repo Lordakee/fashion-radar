@@ -1,12 +1,3 @@
-I'll review this Stage 292 plan. Since this is a review task (no file edits), let me first understand the codebase context and review protocol, then identify issues.
-There's already a Claude Code plan review for stage 292. Let me read it along with key files in parallel.
-The Claude Code primary review failed (API key disabled), so I'm the fallback reviewer per AGENTS.md. Let me gather the remaining critical context.
-Let me check the CLI flow, stage 290 context, and the boundaries around republishing full articles.
-Let me verify the boundary-phrase pinning tests, the contract version state, and a few remaining items.
-I have enough context. Here is the Stage 292 plan review. (Claude Code's primary review failed with `API key is disabled`, so this is the fallback opencode review per `docs/REVIEW_PROTOCOL.md`.)
-
----
-
 # opencode Stage 292 Plan Review
 
 Cross-checked against `render.py`, `templates.py`, `workflows.py`, `cli.py`, `collectors/article.py`, `row_one/models.py`, `tests/test_row_one_app_contract.py`, `tests/test_source_boundaries_docs.py`, `AGENTS.md`, `docs/source-boundaries.md`, `docs/PROJECT_BRIEF.md`, `CONTRIBUTING.md`, and the stage 290/291 lineage.

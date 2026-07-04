@@ -82,6 +82,114 @@ def test_text_to_local_article_paragraphs_caps_total_text_at_word_boundary() -> 
     assert sum(len(paragraph) for paragraph in paragraphs) <= 68
 
 
+def test_text_to_local_article_paragraphs_omits_tiny_truncated_tail() -> None:
+    paragraphs = text_to_local_article_paragraphs(
+        "First sentence has enough context.\n\nSecond sentence would only leave a tiny tail.",
+        max_chars=40,
+    )
+
+    assert paragraphs == ["First sentence has enough context."]
+
+
+def test_text_to_local_article_paragraphs_strips_feed_html_and_generated_prefix() -> None:
+    paragraphs = text_to_local_article_paragraphs(
+        (
+            'Original source summary: &lt;a href="https://example.com/story"&gt;'
+            '&lt;img alt="" src="hero.jpg" /&gt;&lt;/a&gt;'
+            "The Row expanded its appointment calendar &amp; showroom notes."
+        ),
+        max_chars=240,
+    )
+
+    assert paragraphs == ["The Row expanded its appointment calendar & showroom notes."]
+
+
+def test_text_to_local_article_paragraphs_removes_boilerplate_and_dedupes_long_sentences() -> None:
+    paragraphs = text_to_local_article_paragraphs(
+        (
+            "Saint Laurent named a new executive. Read the full story here. "
+            "Saint Laurent named a new executive. Prices rose. Prices rose."
+        ),
+        max_chars=240,
+    )
+
+    assert paragraphs == ["Saint Laurent named a new executive. Prices rose. Prices rose."]
+
+
+def test_text_to_local_article_paragraphs_dedupes_long_sentences_across_paragraphs() -> None:
+    paragraphs = text_to_local_article_paragraphs(
+        (
+            "Saint Laurent named a new executive director today.\n\n"
+            "Saint Laurent named a new executive director today."
+        ),
+        max_chars=200,
+    )
+
+    assert paragraphs == ["Saint Laurent named a new executive director today."]
+
+
+def test_text_to_local_article_paragraphs_keeps_repeated_short_sentences_across_paragraphs() -> (
+    None
+):
+    paragraphs = text_to_local_article_paragraphs(
+        "Prices rose.\n\nPrices rose.",
+        max_chars=200,
+    )
+
+    assert paragraphs == ["Prices rose.", "Prices rose."]
+
+
+def test_text_to_local_article_paragraphs_strips_script_and_style_content() -> None:
+    paragraphs = text_to_local_article_paragraphs(
+        (
+            "The Row opened a new appointment room."
+            "<script>alert('inline noise')</script>"
+            "<style>.ad { display: block; }</style>"
+            "Buyers reported a tighter edit."
+        ),
+        max_chars=240,
+    )
+
+    assert paragraphs == ["The Row opened a new appointment room. Buyers reported a tighter edit."]
+
+
+def test_text_to_local_article_paragraphs_strips_chinese_prefix_and_boilerplate() -> None:
+    paragraphs = text_to_local_article_paragraphs(
+        "来源摘要：品牌发布了新系列。阅读全文。点击查看全文。",
+        max_chars=200,
+    )
+
+    assert paragraphs == ["品牌发布了新系列。"]
+
+
+def test_text_to_local_article_paragraphs_splits_long_paragraphs_before_budget() -> None:
+    paragraphs = text_to_local_article_paragraphs(
+        (
+            "First sentence sets the fashion context for the story. "
+            "Second sentence adds the buyer and brand implication for ROW ONE. "
+            "Third sentence gives the product angle and closes the brief."
+        ),
+        max_chars=220,
+    )
+
+    assert paragraphs == [
+        "First sentence sets the fashion context for the story. "
+        "Second sentence adds the buyer and brand implication for ROW ONE.",
+        "Third sentence gives the product angle and closes the brief.",
+    ]
+
+
+def test_text_to_local_article_paragraphs_unescapes_entities_once() -> None:
+    paragraphs = text_to_local_article_paragraphs(
+        "A literal encoded ampersand &amp;amp; a plain ampersand & should stay readable.",
+        max_chars=160,
+    )
+
+    assert paragraphs == [
+        "A literal encoded ampersand &amp; a plain ampersand & should stay readable."
+    ]
+
+
 def test_build_row_one_local_articles_extracts_enabled_source_and_caps_text() -> None:
     calls: list[tuple[str, int, bool]] = []
 
@@ -105,7 +213,7 @@ def test_build_row_one_local_articles_extracts_enabled_source_and_caps_text() ->
     )
 
     article = articles["the-row-signal-1234567890"]
-    assert calls == [("https://example.com/the-row", 68, True)]
+    assert calls == [("https://example.com/the-row", 568, True)]
     assert article.title == "Extracted title"
     assert article.source_name == "Vogue Business"
     assert article.paragraphs == [
@@ -114,6 +222,30 @@ def test_build_row_one_local_articles_extracts_enabled_source_and_caps_text() ->
     ]
     assert article.extracted_at == AS_OF
     assert article.published_at == datetime(2026, 7, 2, 3, 0, tzinfo=UTC)
+
+
+def test_build_row_one_local_articles_uses_extraction_buffer_before_final_cap() -> None:
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        assert source.article.enabled is True
+        assert source.article.max_summary_chars > 68
+        return ArticleExtractionResult(
+            url=url,
+            title="Buffered title",
+            text="First paragraph has compact context. Second paragraph has trailing marker TAIL.",
+            skipped=False,
+        )
+
+    articles = build_row_one_local_articles(
+        _edition(),
+        [_source(max_chars=68)],
+        now=AS_OF,
+        extractor=extractor,
+    )
+
+    paragraphs = articles["the-row-signal-1234567890"].paragraphs
+    assert sum(len(paragraph) for paragraph in paragraphs) <= 68
+    assert paragraphs[-1].endswith("...")
+    assert not paragraphs[-1].endswith("traili...")
 
 
 def test_build_row_one_local_articles_env_kill_switch_wins(monkeypatch) -> None:
@@ -196,3 +328,25 @@ def test_build_row_one_local_articles_falls_back_to_stored_summary_on_failure() 
     )
 
     assert articles["the-row-signal-1234567890"].paragraphs == ["Summary"]
+
+
+def test_build_row_one_local_articles_cleans_fallback_without_mutating_story_summary() -> None:
+    edition = _edition()
+    original_summary = (
+        "Original source summary: <a href='https://example.com/story'>"
+        "<img src='hero.jpg'></a>The Row showroom note. Read the full story here."
+    )
+    edition.stories[0].summary.en = original_summary
+
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        return ArticleExtractionResult(url=url, skipped=True, reason="no_extractable_text")
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source()],
+        now=AS_OF,
+        extractor=extractor,
+    )
+
+    assert articles["the-row-signal-1234567890"].paragraphs == ["The Row showroom note."]
+    assert edition.stories[0].summary.en == original_summary
