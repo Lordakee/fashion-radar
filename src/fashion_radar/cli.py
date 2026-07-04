@@ -1686,6 +1686,92 @@ def _validate_row_one_story_directory(edition: dict[str, object]) -> None:
             )
 
 
+def _validate_row_one_edition_brief(edition: dict[str, object]) -> None:
+    brief = _require_row_one_object(
+        edition,
+        "edition_brief",
+        label="edition.edition_brief",
+    )
+    story_directory = _require_row_one_object(
+        edition,
+        "story_directory",
+        label="edition.story_directory",
+    )
+    _require_row_one_value(
+        "edition.edition_brief.story_directory_story_count",
+        brief.get("story_directory_story_count"),
+        story_directory.get("story_count"),
+    )
+    metrics = brief.get("metrics")
+    if not isinstance(metrics, list) or len(metrics) != 4:
+        raise ValueError("row-one edition.edition_brief.metrics must contain four metrics")
+    expected_metrics = (
+        ("stories", edition.get("story_count")),
+        (
+            "sections",
+            len(
+                [
+                    section
+                    for section in edition.get("content_sections", [])
+                    if isinstance(section, dict) and int(section.get("story_count", 0)) > 0
+                ]
+            ),
+        ),
+        (
+            "topics",
+            len(
+                [
+                    topic
+                    for topic in (
+                        edition.get("daily_digest", {}).get("briefing_topics", [])
+                        if isinstance(edition.get("daily_digest"), dict)
+                        else []
+                    )
+                    if isinstance(topic, dict)
+                ]
+            ),
+        ),
+        ("evidence", edition.get("evidence_count")),
+    )
+    for index, (expected_key, expected_value) in enumerate(expected_metrics):
+        metric = metrics[index]
+        if not isinstance(metric, dict):
+            raise ValueError(f"row-one edition.edition_brief.metrics[{index}] must be an object")
+        _require_row_one_value(
+            f"edition.edition_brief.metrics[{index}].key",
+            metric.get("key"),
+            expected_key,
+        )
+        _require_row_one_value(
+            f"edition.edition_brief.metrics[{index}].value",
+            metric.get("value"),
+            expected_value,
+        )
+    lead_story_id = brief.get("lead_story_id")
+    lead_href = brief.get("lead_story_href")
+    if lead_story_id is None:
+        _require_row_one_value("edition.edition_brief.lead_story_href", lead_href, None)
+    else:
+        stories = edition.get("stories")
+        if not isinstance(stories, list):
+            raise ValueError("row-one edition.stories must be a JSON array")
+        lead_story = next(
+            (
+                story
+                for story in stories
+                if isinstance(story, dict) and story.get("id") == lead_story_id
+            ),
+            None,
+        )
+        if lead_story is None:
+            raise ValueError("row-one edition.edition_brief.lead_story_id is unknown")
+        _require_row_one_value(
+            "edition.edition_brief.lead_story_href",
+            lead_href,
+            lead_story.get("detail_href"),
+        )
+
+
 def _validate_row_one_status_payloads(
     *,
     manifest: dict[str, object],
@@ -1711,7 +1797,7 @@ def _validate_row_one_status_payloads(
     _require_row_one_value(
         "edition contract_version",
         edition.get("contract_version"),
-        "row-one-app/v4",
+        "row-one-app/v5",
     )
     manifest_app_contract = _require_row_one_object(
         manifest,
@@ -1721,7 +1807,7 @@ def _validate_row_one_status_payloads(
     _require_row_one_value(
         "manifest.app_contract.version",
         manifest_app_contract.get("version"),
-        "row-one-app/v4",
+        "row-one-app/v5",
     )
     _require_row_one_value(
         "manifest.app_contract.path",
@@ -1822,6 +1908,7 @@ def _validate_row_one_status_payloads(
     if not isinstance(runtime_readiness.get("zh"), str) or not runtime_readiness.get("zh"):
         raise ValueError("row-one runtime.readiness.zh must be a non-empty string")
     _validate_row_one_story_directory(edition)
+    _validate_row_one_edition_brief(edition)
 
 
 def _build_row_one_status_payload(

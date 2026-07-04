@@ -1,8 +1,3 @@
-I'll verify the plan's claims against the actual codebase before issuing the verdict.
-Now let me verify the test files and fixtures match the plan's claims:
-I found two critical issues. Let me verify the docs test structure and confirm the issues:
-I have completed a thorough review. Verifying my two critical findings against the actual code:
-
 **Critical Issue #1 verification**: `test_row_one_app_content_cards_mirror_story_display_fields` at `tests/test_row_one_app_contract.py:527-547` uses exact dict equality (`assert card == {...}`). The plan adds `why_it_matters` and `signal_context` to `_content_card_payload` but never updates this exact-equality test → guaranteed RED.
 
 **Critical Issue #2 verification**: The `_edition()` fixture in `tests/test_row_one_render.py:31-99` puts `<signals>` only in `headline` (line 36). The plan's `_render_detail_information_map` renders `section_title`, `source_name`, `published`, `story_type`, `tags`, `heat_delta`, `evidence_count` — **none** contain `<signals>`. The escape test's `assert "The Row &lt;signals&gt;" in map_html` cannot pass.

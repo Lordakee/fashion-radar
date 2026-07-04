@@ -150,7 +150,7 @@ def test_row_one_docs_describe_versioned_app_json_contract() -> None:
 
     for phrase in (
         "app json contract",
-        "`data/edition.json` is the row-one-app/v4 app-facing contract",
+        "`data/edition.json` is the row-one-app/v5 app-facing contract",
         "`schemas/row-one-app.schema.json`",
         "section counts",
         "detail hrefs",
@@ -171,7 +171,7 @@ def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
     readme = _normalized(_read(README))
 
     for phrase in (
-        "row-one-app/v4",
+        "row-one-app/v5",
         "content_sections",
         "detail_sections",
         "evidence_summary",
@@ -186,7 +186,7 @@ def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
         assert phrase in row_one
 
     for phrase in (
-        "row-one-app/v4",
+        "row-one-app/v5",
         "content_sections",
         "detail_sections",
         "evidence_summary",
@@ -196,6 +196,43 @@ def test_row_one_docs_describe_stage_271_app_content_organization() -> None:
 
     assert "row-one-app/v1 app-facing contract" not in row_one
     assert "row-one-app/v1` json contract" not in row_one
+
+
+def test_row_one_docs_describe_stage_286_edition_brief() -> None:
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    readme = _normalized(_read(README))
+
+    for phrase in (
+        "edition_brief",
+        "edition brief",
+        "daily overview",
+        "top-level `data/edition.json` field",
+        (
+            "same `edition_brief` object before the lead story, briefing topics, "
+            "briefing path, and story rails"
+        ),
+        (
+            "derived from existing row one story, content section, digest block, "
+            "briefing topic, route, and safe evidence-count data"
+        ),
+        "empty editions keep `edition_brief` present",
+        "lead fields are `null`",
+        "links may be empty",
+        "does not add source collection",
+        "does not change matching, ranking, scoring, sorting, or story ids",
+    ):
+        assert phrase in row_one
+
+    for phrase in (
+        "edition_brief",
+        "daily overview",
+        (
+            "derived from existing row one stories, content sections, "
+            "digest blocks/topics, route data, and safe evidence counts"
+        ),
+        "not a collection or ranking layer",
+    ):
+        assert phrase in readme
 
 
 def test_row_one_docs_describe_card_synthesis_and_detail_information_map() -> None:
@@ -318,7 +355,7 @@ def test_row_one_docs_describe_stage_277_homepage_briefing_topics() -> None:
         "not a flat link list",
         "does not scrape html",
         "does not infer people from sections or tags",
-        "does not change data/edition.json contract",
+        "row-one-app/v5 content organization",
         "does not change matching, ranking, scoring, story ids",
         "does not add source collection",
         "does not prove demand",
@@ -345,7 +382,7 @@ def test_row_one_docs_describe_stage_272_editorial_web_experience() -> None:
         "article contents",
         "evidence trail",
         "retained source row",
-        "uses existing row-one-app/v4 content organization",
+        "uses existing row-one-app/v5 content organization",
     ):
         assert phrase in row_one
 
@@ -573,7 +610,6 @@ def test_row_one_docs_describe_stage_281_homepage_briefing_path() -> None:
         "does not duplicate `read_first`",
         "links only to existing detail pages",
         "does not add source collection",
-        "does not change app json contract",
         "does not change matching, ranking, scoring, or story ids",
     ):
         assert phrase in row_one

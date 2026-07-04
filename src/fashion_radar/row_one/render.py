@@ -26,7 +26,7 @@ from fashion_radar.row_one.templates import (
 from fashion_radar.row_one.utils import isoformat_z, safe_external_url, utc_datetime
 
 GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data")
-ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v4"
+ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v5"
 ROW_ONE_MANIFEST_CONTRACT_VERSION = "row-one-manifest/v1"
 ROW_ONE_MANIFEST_SCHEMA_PATH = "schemas/row-one-manifest.schema.json"
 ROW_ONE_RUNTIME_CONTRACT_VERSION = "row-one-runtime/v1"
@@ -117,21 +117,31 @@ def _write_detail_pages(edition: RowOneEdition, details_dir: Path) -> None:
 
 def build_row_one_app_payload(edition: RowOneEdition) -> dict[str, object]:
     stories = [_story_payload(edition, story) for story in edition.stories]
+    sections = [_section_payload(edition, section) for section in edition.sections]
+    content_sections = [_content_section_payload(section, stories) for section in edition.sections]
+    daily_digest = _daily_digest_payload(edition, stories)
+    story_directory = _story_directory_payload(stories)
+    evidence_count = sum(_safe_evidence_count(story.evidence) for story in edition.stories)
     return {
         "contract_version": ROW_ONE_APP_CONTRACT_VERSION,
         "brand": edition.brand,
         "generated_at": isoformat_z(edition.generated_at),
         "edition_date": isoformat_z(edition.edition_date),
         "summary": edition.summary.model_dump(mode="json"),
-        "sections": [_section_payload(edition, section) for section in edition.sections],
-        "content_sections": [
-            _content_section_payload(section, stories) for section in edition.sections
-        ],
-        "daily_digest": _daily_digest_payload(edition, stories),
-        "story_directory": _story_directory_payload(stories),
+        "edition_brief": _edition_brief_payload(
+            stories,
+            content_sections,
+            daily_digest,
+            story_directory,
+            evidence_count,
+        ),
+        "sections": sections,
+        "content_sections": content_sections,
+        "daily_digest": daily_digest,
+        "story_directory": story_directory,
         "stories": stories,
         "story_count": len(stories),
-        "evidence_count": sum(_safe_evidence_count(story.evidence) for story in edition.stories),
+        "evidence_count": evidence_count,
     }
 
 
@@ -316,6 +326,194 @@ def _story_directory_route_payload(story: dict[str, object]) -> dict[str, object
         "section_href": section["href"],
         "published_date": story["published_date"],
     }
+
+
+def _edition_brief_payload(
+    stories: list[dict[str, object]],
+    content_sections: list[dict[str, object]],
+    daily_digest: dict[str, object],
+    story_directory: dict[str, object],
+    evidence_count: int,
+) -> dict[str, object]:
+    active_sections = [section for section in content_sections if int(section["story_count"]) > 0]
+    topics = daily_digest.get("briefing_topics", [])
+    topic_count = len(topics) if isinstance(topics, list) else 0
+    path_blocks = _edition_brief_path_blocks(daily_digest)
+    lead_story = _story_by_id(stories, daily_digest.get("lead_story_id"))
+    lead_href = lead_story["detail_href"] if lead_story is not None else None
+    lead_headline = str(lead_story["headline"]) if lead_story is not None else None
+    return {
+        "title": {"zh": "今日总览", "en": "Edition Brief"},
+        "dek": _edition_brief_dek(
+            len(stories), len(active_sections), topic_count, len(path_blocks)
+        ),
+        "lead_story_id": daily_digest.get("lead_story_id"),
+        "lead_story_href": lead_href,
+        "lead_story_headline": lead_headline,
+        "story_directory_story_count": story_directory["story_count"],
+        "metrics": [
+            _edition_brief_metric("stories", {"zh": "故事", "en": "Stories"}, len(stories)),
+            _edition_brief_metric(
+                "sections",
+                {"zh": "活跃栏目", "en": "Active Sections"},
+                len(active_sections),
+            ),
+            _edition_brief_metric("topics", {"zh": "主题", "en": "Topics"}, topic_count),
+            _edition_brief_metric(
+                "evidence",
+                {"zh": "证据链接", "en": "Evidence Links"},
+                evidence_count,
+            ),
+        ],
+        "summary_points": _edition_brief_summary_points(
+            lead_story,
+            active_sections,
+            topics if isinstance(topics, list) else [],
+            path_blocks,
+        ),
+        "links": _edition_brief_links(lead_href, topic_count, path_blocks),
+    }
+
+
+def _edition_brief_metric(key: str, label: dict[str, str], value: int) -> dict[str, object]:
+    return {"key": key, "label": label, "value": value}
+
+
+def _story_by_id(stories: list[dict[str, object]], story_id: object) -> dict[str, object] | None:
+    return next((story for story in stories if story["id"] == story_id), None)
+
+
+def _edition_brief_path_blocks(daily_digest: dict[str, object]) -> list[dict[str, object]]:
+    blocks = daily_digest.get("blocks", [])
+    if not isinstance(blocks, list):
+        return []
+    digest_blocks = [block for block in blocks if isinstance(block, dict)]
+    excluded_story_ids = _read_first_digest_story_ids(digest_blocks)
+    return [
+        block
+        for block in digest_blocks
+        if block.get("key") in {"key_takeaways", "signals_to_watch"}
+        and _digest_block_cards(block, excluded_story_ids)
+    ]
+
+
+def _read_first_digest_story_ids(blocks: list[dict[str, object]]) -> set[str]:
+    read_first_block = next((block for block in blocks if block.get("key") == "read_first"), None)
+    if read_first_block is None:
+        return set()
+    story_ids = read_first_block.get("story_ids")
+    if not isinstance(story_ids, list):
+        return set()
+    return {str(story_id) for story_id in story_ids}
+
+
+def _digest_block_cards(
+    block: dict[str, object],
+    excluded_story_ids: set[str],
+) -> list[dict[str, object]]:
+    cards = block.get("cards")
+    if not isinstance(cards, list):
+        return []
+    return [
+        card
+        for card in cards
+        if isinstance(card, dict) and str(card.get("id")) not in excluded_story_ids
+    ]
+
+
+def _edition_brief_dek(
+    story_count: int,
+    active_section_count: int,
+    topic_count: int,
+    path_block_count: int,
+) -> dict[str, str]:
+    if story_count == 0:
+        return {
+            "zh": "暂无可整理的 ROW ONE 故事。",
+            "en": "No ROW ONE stories are available to organize yet.",
+        }
+    return {
+        "zh": (
+            f"ROW ONE 将今日 {story_count} 条本地时尚信号整理成 "
+            f"{active_section_count} 个栏目、{topic_count} 个主题和 "
+            f"{path_block_count} 条后续阅读路径。"
+        ),
+        "en": (
+            f"ROW ONE organized {story_count} local fashion signals across "
+            f"{active_section_count} sections, "
+            f"{topic_count} {_plural_word(topic_count, 'briefing topic', 'briefing topics')}, "
+            f"and {path_block_count} "
+            f"{_plural_word(path_block_count, 'follow-up path block', 'follow-up path blocks')}."
+        ),
+    }
+
+
+def _plural_word(count: int, singular: str, plural: str) -> str:
+    return singular if count == 1 else plural
+
+
+def _edition_brief_summary_points(
+    lead_story: dict[str, object] | None,
+    active_sections: list[dict[str, object]],
+    topics: list[object],
+    path_blocks: list[dict[str, object]],
+) -> list[dict[str, str]]:
+    points: list[dict[str, str]] = []
+    if lead_story is not None:
+        headline = str(lead_story["headline"])
+        points.append({"zh": f"先读：{headline}", "en": f"Read first: {headline}"})
+    if active_sections:
+        zh_sections = "、".join(str(section["title"]["zh"]) for section in active_sections)
+        en_sections = ", ".join(str(section["title"]["en"]) for section in active_sections)
+        points.append({"zh": f"活跃栏目：{zh_sections}", "en": f"Active sections: {en_sections}"})
+    topic_titles = [
+        str(topic["title"]["en"])
+        for topic in topics
+        if isinstance(topic, dict) and isinstance(topic.get("title"), dict)
+    ][:4]
+    if topic_titles:
+        topic_text = ", ".join(topic_titles)
+        points.append({"zh": f"整理主题：{topic_text}", "en": f"Briefing topics: {topic_text}"})
+    if path_blocks:
+        zh_blocks = "、".join(str(block["title"]["zh"]) for block in path_blocks)
+        en_blocks = ", ".join(str(block["title"]["en"]) for block in path_blocks)
+        points.append({"zh": f"后续路径：{zh_blocks}", "en": f"Follow-up path: {en_blocks}"})
+    if not points:
+        points.append({"zh": "暂无可整理的故事。", "en": "No stories are ready to organize yet."})
+    return points
+
+
+def _edition_brief_links(
+    lead_href: object,
+    topic_count: int,
+    path_blocks: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    links: list[dict[str, object]] = []
+    if isinstance(lead_href, str):
+        links.append(
+            {
+                "key": "read_first",
+                "label": {"zh": "先读", "en": "Read First"},
+                "href": lead_href,
+            }
+        )
+    if topic_count > 0:
+        links.append(
+            {
+                "key": "topics",
+                "label": {"zh": "今日主题", "en": "Briefing Topics"},
+                "href": "#briefing-topics",
+            }
+        )
+    if path_blocks:
+        links.append(
+            {
+                "key": "path",
+                "label": {"zh": "阅读路径", "en": "Briefing Path"},
+                "href": "#briefing-path",
+            }
+        )
+    return links
 
 
 def _content_cards_for_briefing_topic(topic: dict[str, object]) -> dict[str, object]:

@@ -9,6 +9,7 @@
     "generated_at",
     "edition_date",
     "summary",
+    "edition_brief",
     "sections",
     "content_sections",
     "daily_digest",
@@ -20,7 +21,7 @@
   "additionalProperties": false,
   "properties": {
     "contract_version": {
-      "const": "row-one-app/v4"
+      "const": "row-one-app/v5"
     },
     "brand": {
       "type": "string",
@@ -38,6 +39,9 @@
     },
     "summary": {
       "$ref": "#/$defs/localizedText"
+    },
+    "edition_brief": {
+      "$ref": "#/$defs/editionBrief"
     },
     "sections": {
       "type": "array",
@@ -133,6 +137,184 @@
     "detailHref": {
       "type": "string",
       "pattern": "^details/[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\\.html$"
+    },
+    "editionBrief": {
+      "type": "object",
+      "required": [
+        "title",
+        "dek",
+        "lead_story_id",
+        "lead_story_href",
+        "lead_story_headline",
+        "story_directory_story_count",
+        "metrics",
+        "summary_points",
+        "links"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "dek": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "lead_story_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/storyId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lead_story_href": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/detailHref"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lead_story_headline": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "story_directory_story_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "metrics": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/editionBriefStoriesMetric"
+            },
+            {
+              "$ref": "#/$defs/editionBriefSectionsMetric"
+            },
+            {
+              "$ref": "#/$defs/editionBriefTopicsMetric"
+            },
+            {
+              "$ref": "#/$defs/editionBriefEvidenceMetric"
+            }
+          ]
+        },
+        "summary_points": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/localizedText"
+          }
+        },
+        "links": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/editionBriefLink"
+          }
+        }
+      }
+    },
+    "editionBriefStoriesMetric": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/editionBriefMetric"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "key": {
+              "const": "stories"
+            }
+          }
+        }
+      ]
+    },
+    "editionBriefSectionsMetric": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/editionBriefMetric"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "key": {
+              "const": "sections"
+            }
+          }
+        }
+      ]
+    },
+    "editionBriefTopicsMetric": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/editionBriefMetric"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "key": {
+              "const": "topics"
+            }
+          }
+        }
+      ]
+    },
+    "editionBriefEvidenceMetric": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/editionBriefMetric"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "key": {
+              "const": "evidence"
+            }
+          }
+        }
+      ]
+    },
+    "editionBriefMetric": {
+      "type": "object",
+      "required": ["key", "label", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "enum": ["stories", "sections", "topics", "evidence"]
+        },
+        "label": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "editionBriefLink": {
+      "type": "object",
+      "required": ["key", "label", "href"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "enum": ["read_first", "topics", "path"]
+        },
+        "label": {
+          "$ref": "#/$defs/localizedText"
+        },
+        "href": {
+          "type": "string",
+          "pattern": "^(details/[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\\.html|#briefing-topics|#briefing-path)$"
+        }
+      }
     },
     "storyDirectory": {
       "type": "object",

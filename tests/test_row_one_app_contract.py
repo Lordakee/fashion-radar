@@ -160,7 +160,7 @@ def test_row_one_manifest_points_to_app_contract_and_site_paths(tmp_path: Path) 
     assert manifest["brand"] == "ROW ONE"
     assert manifest["manifest_schema_path"] == "schemas/row-one-manifest.schema.json"
     assert manifest["app_contract"] == {
-        "version": "row-one-app/v4",
+        "version": "row-one-app/v5",
         "path": "data/edition.json",
         "schema_path": "schemas/row-one-app.schema.json",
     }
@@ -230,6 +230,7 @@ def test_row_one_app_payload_has_stable_counts(tmp_path: Path) -> None:
     stories = payload["stories"]
     sections = payload["sections"]
     content_sections = payload["content_sections"]
+    brief = payload["edition_brief"]
     assert isinstance(stories, list)
     assert isinstance(sections, list)
     assert isinstance(content_sections, list)
@@ -242,6 +243,15 @@ def test_row_one_app_payload_has_stable_counts(tmp_path: Path) -> None:
     for content_section in content_sections:
         assert content_section["story_count"] == len(content_section["story_ids"])
         assert content_section["story_count"] == len(content_section["cards"])
+    assert brief["story_directory_story_count"] == payload["story_count"]
+    assert brief["story_directory_story_count"] == payload["story_directory"]["story_count"]
+    metrics = {metric["key"]: metric["value"] for metric in brief["metrics"]}
+    assert metrics == {
+        "stories": payload["story_count"],
+        "sections": sum(1 for section in content_sections if section["story_count"] > 0),
+        "topics": len(payload["daily_digest"]["briefing_topics"]),
+        "evidence": payload["evidence_count"],
+    }
 
 
 def test_row_one_app_payload_groups_content_sections_for_clients(tmp_path: Path) -> None:
@@ -316,6 +326,104 @@ def test_row_one_app_payload_includes_daily_digest_for_clients(tmp_path: Path) -
     assert read_first_card["signal_context"] == stories[0]["signal_context"]
     assert blocks["key_takeaways"]["story_ids"] == [stories[0]["id"]]
     assert blocks["signals_to_watch"]["story_ids"] == []
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_payload_includes_edition_brief_for_clients(tmp_path: Path) -> None:
+    edition = _edition()
+    brand_story = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "id": "brand-move-2222222222",
+            "section_key": "brand_moves",
+            "headline": "Brand move",
+            "detail_path": "details/brand-move-2222222222.html",
+            "heat_delta": 4,
+            "entity_refs": [RowOneReference(name="The Row", type="brand", label="rising")],
+        },
+    )
+    edition.stories = [edition.stories[0], brand_story]
+
+    payload = _payload(tmp_path, edition)
+    brief = payload["edition_brief"]
+
+    assert payload["contract_version"] == "row-one-app/v5"
+    assert brief["title"] == {"zh": "今日总览", "en": "Edition Brief"}
+    assert brief["lead_story_id"] == payload["daily_digest"]["lead_story_id"]
+    assert brief["lead_story_href"] == payload["stories"][0]["detail_href"]
+    assert brief["lead_story_headline"] == payload["stories"][0]["headline"]
+    assert brief["story_directory_story_count"] == 2
+    assert [metric["key"] for metric in brief["metrics"]] == [
+        "stories",
+        "sections",
+        "topics",
+        "evidence",
+    ]
+    assert [metric["value"] for metric in brief["metrics"]] == [2, 2, 1, 2]
+    assert brief["summary_points"] == [
+        {"zh": "先读：The Row signal", "en": "Read first: The Row signal"},
+        {
+            "zh": "活跃栏目：今日重点、品牌动态",
+            "en": "Active sections: Top Stories, Brand Moves",
+        },
+        {"zh": "整理主题：The Row", "en": "Briefing topics: The Row"},
+        {
+            "zh": "后续路径：重点整理、升温信号",
+            "en": "Follow-up path: Key Takeaways, Signals To Watch",
+        },
+    ]
+    assert brief["links"] == [
+        {
+            "key": "read_first",
+            "label": {"zh": "先读", "en": "Read First"},
+            "href": "details/the-row-signal-1234567890.html",
+        },
+        {
+            "key": "topics",
+            "label": {"zh": "今日主题", "en": "Briefing Topics"},
+            "href": "#briefing-topics",
+        },
+        {
+            "key": "path",
+            "label": {"zh": "阅读路径", "en": "Briefing Path"},
+            "href": "#briefing-path",
+        },
+    ]
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_payload_edition_brief_omits_unrenderable_path_link(
+    tmp_path: Path,
+) -> None:
+    payload = _payload(tmp_path, _edition())
+    brief = payload["edition_brief"]
+
+    assert "0 follow-up path blocks" in brief["dek"]["en"]
+    assert [point["en"] for point in brief["summary_points"]] == [
+        "Read first: The Row signal",
+        "Active sections: Top Stories",
+    ]
+    assert [link["key"] for link in brief["links"]] == ["read_first"]
+    assert "#briefing-path" not in {link["href"] for link in brief["links"]}
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_payload_includes_empty_edition_brief_for_clients(tmp_path: Path) -> None:
+    edition = _edition()
+    edition.stories = []
+
+    payload = _payload(tmp_path, edition)
+    brief = payload["edition_brief"]
+
+    assert brief["lead_story_id"] is None
+    assert brief["lead_story_href"] is None
+    assert brief["lead_story_headline"] is None
+    assert [metric["value"] for metric in brief["metrics"]] == [0, 0, 0, 0]
+    assert brief["story_directory_story_count"] == 0
+    assert brief["summary_points"] == [
+        {"zh": "暂无可整理的故事。", "en": "No stories are ready to organize yet."}
+    ]
+    assert brief["links"] == []
     _schema_validator().validate(payload)
 
 
@@ -893,6 +1001,57 @@ def test_row_one_app_schema_rejects_display_image_urls_sanitizer_rejects(
     ("mutation", "match"),
     [
         (lambda payload: payload.__setitem__("contract_version", "row-one-app/v2"), "was expected"),
+        (lambda payload: payload.pop("edition_brief"), "'edition_brief' is a required property"),
+        (
+            lambda payload: payload["edition_brief"].__setitem__("extra", True),
+            "Additional properties",
+        ),
+        (
+            lambda payload: payload["edition_brief"].pop("story_directory_story_count"),
+            "'story_directory_story_count' is a required property",
+        ),
+        (
+            lambda payload: payload["edition_brief"]["metrics"][0].__setitem__("key", "bad"),
+            "was expected|is not one of|not one",
+        ),
+        (
+            lambda payload: payload["edition_brief"]["metrics"][0].__setitem__("key", "sections"),
+            "was expected",
+        ),
+        (
+            lambda payload: payload["edition_brief"].__setitem__(
+                "metrics",
+                payload["edition_brief"]["metrics"][:3],
+            ),
+            "is too short",
+        ),
+        (
+            lambda payload: payload["edition_brief"]["summary_points"][0].__setitem__(
+                "extra",
+                True,
+            ),
+            "Additional properties",
+        ),
+        (
+            lambda payload: payload["edition_brief"]["links"][0].__setitem__(
+                "href",
+                "../escape.html",
+            ),
+            "does not match",
+        ),
+        (
+            lambda payload: payload["edition_brief"]["links"][0].__setitem__(
+                "href",
+                "https://evil.example/story",
+            ),
+            "does not match",
+        ),
+        (
+            lambda payload: payload["edition_brief"]["links"].append(
+                payload["edition_brief"]["links"][0]
+            ),
+            "non-unique elements",
+        ),
         (lambda payload: payload.pop("daily_digest"), "'daily_digest' is a required property"),
         (
             lambda payload: payload["daily_digest"].__setitem__(
@@ -1144,7 +1303,7 @@ def test_empty_row_one_app_payload_validates(tmp_path: Path) -> None:
 
     payload = _payload(tmp_path, edition)
 
-    assert payload["contract_version"] == "row-one-app/v4"
+    assert payload["contract_version"] == "row-one-app/v5"
     assert payload["story_count"] == 0
     assert payload["evidence_count"] == 0
     assert payload["stories"] == []

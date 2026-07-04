@@ -63,8 +63,17 @@ as section, source, date, evidence count, `why_it_matters`, and
 Information Map built from existing story fields so readers can understand the
 story context without leaving the generated page.
 
+The top-level `data/edition.json` field `edition_brief` adds a deterministic
+daily overview for clients and the homepage. It summarizes the read-first story,
+active sections, briefing topics, follow-up path blocks, story counts, and safe
+evidence counts before readers drill into cards or detail pages. It is derived
+from existing ROW ONE story, content section, digest block, briefing topic,
+route, and safe evidence-count data.
+The edition brief is presentation-only organization, not a new collection,
+matching, ranking, or scoring layer.
+
 This remains presentation-only. Reader orientation does not change ranking,
-scoring, story IDs, source collection, JSON contract semantics, or publishing.
+scoring, story IDs, source collection, source acquisition, or publishing.
 
 ## Editorial Web Experience
 
@@ -72,22 +81,25 @@ ROW ONE renders a professional static website presentation for editorial review.
 The homepage edition rail, article contents, evidence trail, and retained source
 row labels help readers scan the generated site while staying within the
 existing local data model. This editorial web experience uses existing
-row-one-app/v4 content organization and adds homepage briefing topics: the ROW
+row-one-app/v5 content organization and adds homepage briefing topics: the ROW
 ONE homepage renders the first four `daily_digest.briefing_topics` from the same
 app payload written to `data/edition.json` as a presentation-only briefing topic
 index with organized topic groups, topic labels, `story_ids`, `cards`, evidence
 link counts, and links to existing detail pages. It remains not a flat link
 list, does not scrape HTML, does not infer people from sections or tags, does
-not change data/edition.json contract semantics, does not change matching,
-ranking, scoring, story IDs, and does not add source collection or prove demand.
+not change matching, ranking, scoring, story IDs, and does not add source
+collection or prove demand.
 It does not add acquisition, deployment, or automation expansion.
 
 The homepage briefing path renders a compact briefing path from
 `daily_digest.blocks`, using `key_takeaways` and `signals_to_watch` to show what
 to read next after the lead story. It does not duplicate `read_first`, links
-only to existing detail pages, does not add source collection, does not change
-app JSON contract semantics, and does not change matching, ranking, scoring, or
-story IDs.
+only to existing detail pages, does not add source collection, and does not
+change matching, ranking, scoring, or story IDs.
+
+The homepage renders the same `edition_brief` object before the lead story,
+briefing topics, briefing path, and story rails. This makes the generated site
+open with a daily overview while staying on the same app payload as clients.
 
 ## Display/Media Readiness
 
@@ -103,17 +115,20 @@ required for tests.
 
 ## App JSON Contract
 
-`data/edition.json` is the row-one-app/v4 app-facing contract for clients that
+`data/edition.json` is the row-one-app/v5 app-facing contract for clients that
 need to render the latest ROW ONE edition without scraping HTML. The payload is
 validated by `schemas/row-one-app.schema.json` and includes localized edition
 summary text, section counts (`story_count`), section anchors, story detail
 hrefs (`detail_href` and `href`), published dates, evidence counts
 (`evidence_count`), and sanitized URLs.
 
-The active app version is `row-one-app/v4`. Its content organization surface
-adds `content_sections`, `detail_sections`, `evidence_summary`, and
-`daily_digest` so app clients render section rails and a daily briefing from the
-JSON payload instead of reconstructing them from page markup. `content_sections`
+The active app version is `row-one-app/v5`. Its content organization surface
+adds `edition_brief`, `content_sections`, `detail_sections`, `evidence_summary`,
+and `daily_digest` so app clients render a daily overview, section rails, and a
+daily briefing from the JSON payload instead of reconstructing them from page
+markup. `edition_brief` is always present in `row-one-app/v5`; empty editions
+keep `edition_brief` present, lead fields are `null`, counts are zero, links may
+be empty, and summary text falls back to a no-stories-yet message. `content_sections`
 describes homepage rails with section labels, anchors, counts, and story
 references. App cards in `content_sections`, `daily_digest.blocks`, and
 `daily_digest.briefing_topics` include the existing `why_it_matters` and
@@ -127,7 +142,8 @@ to open, `key_takeaways` summarizes the first story from each non-empty section,
 and `signals_to_watch` lists only positive local raw mention deltas. Together
 these fields let app clients render section rails without scraping HTML and
 app clients can render a daily briefing without scraping HTML. It does not add
-source collection and does not prove demand.
+source collection, does not change matching, ranking, scoring, sorting, or
+story IDs, and does not prove demand.
 
 The detail page renders a Detail Information Map derived from existing ROW ONE
 story data: section, source, date, story type, tags, heat delta, evidence count,
@@ -166,7 +182,7 @@ server, or schedule behavior.
 
 `data/manifest.json` is the `row-one-manifest/v1` app discovery manifest. It is
 validated by `schemas/row-one-manifest.schema.json` and points clients to
-`data/edition.json`, the `row-one-app/v4` edition payload, and stable generated
+`data/edition.json`, the `row-one-app/v5` edition payload, and stable generated
 site paths such as `index.html`, `assets/`, and `details/`.
 
 The manifest contains only discovery metadata, counts, readiness status, and
@@ -201,7 +217,7 @@ checks. The top-level JSON exposes `counts`, `readiness`, `refresh_time`,
 `serve`, `contracts`, and `refresh` objects projected from the validated
 runtime, manifest, and app payloads. These fields are CLI status output only;
 they do not add fields to `row-one-runtime/v1`, `row-one-manifest/v1`, or
-`row-one-app/v4`.
+`row-one-app/v5`.
 
 The canonical first-run local serving boundary is fixed IP:port `127.0.0.1:8787`
 for local-only testing. Use `0.0.0.0:8787` only for explicit LAN serving, and
@@ -233,7 +249,7 @@ The CLI preview uses compact English status labels for terminal output; the
 homepage Latest Edition status strip renders bilingual English/Chinese labels.
 
 This is a display/readiness surface only. It does not change the
-`row-one-app/v4` JSON contract, source collection, matching, scoring, ranking,
+`row-one-app/v5` JSON contract, source collection, matching, scoring, ranking,
 or scheduling semantics.
 
 The homepage also renders a lead story presentation block and the index/detail

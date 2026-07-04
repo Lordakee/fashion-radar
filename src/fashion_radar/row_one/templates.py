@@ -27,6 +27,11 @@ def render_index_html(
     contents_nav = _render_edition_nav(edition)
     briefing_topics = _render_briefing_topics(app_payload)
     briefing_path = _render_briefing_path(app_payload)
+    edition_brief = _render_edition_brief(
+        app_payload,
+        has_topics=bool(briefing_topics),
+        has_path=bool(briefing_path),
+    )
     readiness = build_row_one_readiness(edition)
     status_strip = _render_edition_status(edition, readiness)
     summary_note_en = (
@@ -96,6 +101,7 @@ def render_index_html(
 {status_strip}
 <main class="site-main" id="main-content">
 {contents_nav}
+{edition_brief}
 {lead_story_block}
 {briefing_topics}
 {briefing_path}
@@ -439,6 +445,86 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   color: var(--muted);
   font-size: 0.86rem;
   line-height: 1.35;
+}
+.edition-brief {
+  border: 1px solid var(--ink);
+  display: grid;
+  gap: 18px;
+  margin: 0 0 32px;
+  padding: 22px;
+}
+.edition-brief-header {
+  display: grid;
+  gap: 8px;
+}
+.edition-brief-header h2,
+.edition-brief-header p {
+  margin: 0;
+}
+.edition-brief-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 4.4vw, 5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.94;
+}
+.edition-brief-header > p:not(.story-section):not(.edition-brief-lead) {
+  color: var(--muted);
+  line-height: 1.45;
+  max-width: 760px;
+}
+.edition-brief-lead {
+  color: var(--ink);
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.25rem, 2.4vw, 2.4rem);
+  line-height: 1;
+}
+.edition-brief-metrics {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.edition-brief-metric {
+  background: var(--panel);
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+.edition-brief-metric strong {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+.edition-brief-metric span,
+.edition-brief-links a,
+.edition-brief-links span {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.edition-brief-points {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+.edition-brief-points li {
+  line-height: 1.45;
+}
+.edition-brief-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.edition-brief-links a,
+.edition-brief-links span {
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  text-decoration: none;
 }
 .briefing-topics {
   border-bottom: 1px solid var(--ink);
@@ -971,6 +1057,7 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .edition-status > div:last-child { border-bottom: 0; }
   main { padding: 24px 20px 56px; }
   .edition-rail-grid { grid-template-columns: 1fr; }
+  .edition-brief-metrics { grid-template-columns: 1fr 1fr; }
   .briefing-topics-header { grid-template-columns: 1fr; }
   .briefing-topic-grid { grid-template-columns: 1fr; }
   .briefing-path-header { grid-template-columns: 1fr; }
@@ -1064,12 +1151,145 @@ def _render_status_metric(label_en: str, label_zh: str, value_en: str, value_zh:
   </div>"""
 
 
+def _render_edition_brief(
+    app_payload: dict[str, object] | None,
+    *,
+    has_topics: bool,
+    has_path: bool,
+) -> str:
+    brief = _app_payload_edition_brief(app_payload)
+    if not brief:
+        return ""
+    title = _localized_from_payload(brief.get("title"))
+    dek = _localized_from_payload(brief.get("dek"))
+    metrics = _render_edition_brief_metrics(brief.get("metrics"))
+    points = _render_edition_brief_points(brief.get("summary_points"))
+    links = _render_edition_brief_links(
+        brief.get("links"),
+        has_topics=has_topics,
+        has_path=has_path,
+    )
+    lead_headline = _esc(brief.get("lead_story_headline") or "")
+    lead = f'<p class="edition-brief-lead">{lead_headline}</p>' if lead_headline else ""
+    section_label = '<span data-lang="en">Daily Overview</span><span data-lang="zh">每日总览</span>'
+    title_html = (
+        f'<span data-lang="en">{_esc(title.en)}</span><span data-lang="zh">{_esc(title.zh)}</span>'
+    )
+    dek_html = (
+        f'<span data-lang="en">{_esc(dek.en)}</span><span data-lang="zh">{_esc(dek.zh)}</span>'
+    )
+    return f"""<section class="edition-brief" aria-label="Edition brief">
+  <div class="edition-brief-header">
+    <p class="story-section">{section_label}</p>
+    <h2>{title_html}</h2>
+    <p>{dek_html}</p>
+    {lead}
+  </div>
+  {metrics}
+  {points}
+  {links}
+</section>"""
+
+
+def _app_payload_edition_brief(app_payload: dict[str, object] | None) -> dict[str, object] | None:
+    if app_payload is None:
+        return None
+    brief = app_payload.get("edition_brief")
+    return brief if isinstance(brief, dict) else None
+
+
+def _localized_from_payload(value: object) -> LocalizedText:
+    if isinstance(value, dict):
+        zh = value.get("zh")
+        en = value.get("en")
+        if isinstance(zh, str) and isinstance(en, str):
+            return LocalizedText(zh=zh, en=en)
+    return LocalizedText(zh="", en="")
+
+
+def _render_edition_brief_metrics(value: object) -> str:
+    if not isinstance(value, list):
+        return ""
+    cards = []
+    for metric in value:
+        if not isinstance(metric, dict):
+            continue
+        label = _localized_from_payload(metric.get("label"))
+        cards.append(
+            f"""<div class="edition-brief-metric">
+      <strong>{_esc(metric.get("value", 0))}</strong>
+      <span data-lang="en">{_esc(label.en)}</span>
+      <span data-lang="zh">{_esc(label.zh)}</span>
+    </div>"""
+        )
+    return f'<div class="edition-brief-metrics">{"".join(cards)}</div>' if cards else ""
+
+
+def _render_edition_brief_points(value: object) -> str:
+    if not isinstance(value, list):
+        return ""
+    items = []
+    for point in value:
+        text = _localized_from_payload(point)
+        if text.en or text.zh:
+            items.append(
+                f'<li><span data-lang="en">{_esc(text.en)}</span>'
+                f'<span data-lang="zh">{_esc(text.zh)}</span></li>'
+            )
+    return f'<ul class="edition-brief-points">{"".join(items)}</ul>' if items else ""
+
+
+def _render_edition_brief_links(
+    value: object,
+    *,
+    has_topics: bool,
+    has_path: bool,
+) -> str:
+    if not isinstance(value, list):
+        return ""
+    links = []
+    for link in value:
+        if not isinstance(link, dict):
+            continue
+        href = _safe_edition_brief_href(link.get("href"), has_topics=has_topics, has_path=has_path)
+        label = _localized_from_payload(link.get("label"))
+        if href is None:
+            if label.en or label.zh:
+                links.append(
+                    f'<span><span data-lang="en">{_esc(label.en)}</span>'
+                    f'<span data-lang="zh">{_esc(label.zh)}</span></span>'
+                )
+            continue
+        links.append(
+            f'<a href="{_esc(href)}"><span data-lang="en">{_esc(label.en)}</span>'
+            f'<span data-lang="zh">{_esc(label.zh)}</span></a>'
+        )
+    return f'<div class="edition-brief-links">{"".join(links)}</div>' if links else ""
+
+
+def _safe_edition_brief_href(
+    href: object,
+    *,
+    has_topics: bool,
+    has_path: bool,
+) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href == "#briefing-topics":
+        return href if has_topics else None
+    if href == "#briefing-path":
+        return href if has_path else None
+    if _validated_detail_relative_path(href) is not None:
+        return href
+    return None
+
+
 def _render_briefing_topics(app_payload: dict[str, object] | None) -> str:
     topics = _app_payload_briefing_topics(app_payload)[:4]
     if not topics:
         return ""
     topic_cards = "\n".join(_render_briefing_topic_card(topic) for topic in topics)
-    return f"""<section class="briefing-topics" aria-label="Briefing topics">
+    return f"""<section id="briefing-topics" class="briefing-topics" aria-label="Briefing topics">
   <div class="briefing-topics-header">
     <div>
       <p class="story-section">
@@ -1157,7 +1377,7 @@ def _render_briefing_path(app_payload: dict[str, object] | None) -> str:
     rendered_blocks = "\n".join(
         _render_briefing_path_block(block, excluded_story_ids) for block in path_blocks
     )
-    return f"""<section class="briefing-path" aria-label="Briefing path">
+    return f"""<section id="briefing-path" class="briefing-path" aria-label="Briefing path">
   <div class="briefing-path-header">
     <div>
       <p class="story-section">

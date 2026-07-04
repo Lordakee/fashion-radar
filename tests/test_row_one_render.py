@@ -229,6 +229,7 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert 'href="#evidence-trail"' in contents_html
     assert '<span data-lang="en">Evidence Trail</span>' in detail_html
     assert 'class="briefing-topics"' not in detail_html
+    assert 'class="edition-brief"' not in detail_html
     assert "Briefing Topics" not in detail_html
     assert 'class="evidence-trail"' in detail_html
     assert 'class="evidence-item evidence-item--safe"' in detail_html
@@ -369,7 +370,7 @@ def test_render_row_one_site_includes_briefing_topics_index(tmp_path) -> None:
     edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
     app_topics = edition_payload["daily_digest"]["briefing_topics"]
     topic_match = re.search(
-        r'<section class="briefing-topics" aria-label="Briefing topics">'
+        r'<section id="briefing-topics" class="briefing-topics" aria-label="Briefing topics">'
         r"(?P<topics>.*?)</section>",
         index_html,
         re.S,
@@ -416,7 +417,8 @@ def test_render_row_one_site_includes_briefing_topics_index(tmp_path) -> None:
     assert hidden_lead_card["detail_href"] not in topics_html
     assert escape(hidden_lead_card["headline"]) not in topics_html
     assert 'href="https://example.com/the-row"' not in topics_html
-    assert index_html.index('class="edition-nav"') < index_html.index('class="lead-story"')
+    assert index_html.index('class="edition-nav"') < index_html.index('class="edition-brief"')
+    assert index_html.index('class="edition-brief"') < index_html.index('class="lead-story"')
     assert index_html.index('class="lead-story"') < index_html.index('class="briefing-topics"')
     assert index_html.index('class="briefing-topics"') < index_html.index('class="section-block"')
 
@@ -435,6 +437,8 @@ def test_render_row_one_site_omits_briefing_topics_without_explicit_refs(tmp_pat
 
     assert 'class="briefing-topics"' not in index_html
     assert "Briefing Topics" not in index_html
+    assert 'class="edition-brief"' in index_html
+    assert 'href="#briefing-topics"' not in index_html
 
 
 def test_render_row_one_site_includes_briefing_path_from_digest_blocks(tmp_path) -> None:
@@ -473,7 +477,7 @@ def test_render_row_one_site_includes_briefing_path_from_digest_blocks(tmp_path)
 
     index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
     path_match = re.search(
-        r'<section class="briefing-path" aria-label="Briefing path">'
+        r'<section id="briefing-path" class="briefing-path" aria-label="Briefing path">'
         r"(?P<path>.*?)</section>",
         index_html,
         re.S,
@@ -494,6 +498,7 @@ def test_render_row_one_site_includes_briefing_path_from_digest_blocks(tmp_path)
     assert 'href="https://example.com/the-row"' not in path_html
     assert "4 heat" in path_html
     assert "1 evidence link" in path_html
+    assert index_html.index('class="edition-brief"') < index_html.index('class="lead-story"')
     assert index_html.index('class="briefing-path"') < index_html.index('class="section-block"')
 
 
@@ -507,6 +512,99 @@ def test_render_row_one_site_omits_briefing_path_when_digest_blocks_are_empty(tm
 
     assert 'class="briefing-path"' not in index_html
     assert "Briefing Path" not in index_html
+    assert 'class="edition-brief"' in index_html
+    assert 'href="#briefing-path"' not in index_html
+
+
+def test_render_row_one_site_includes_edition_brief_overview(tmp_path) -> None:
+    render_row_one_site(_edition(), tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    brief_match = re.search(
+        r'<section class="edition-brief" aria-label="Edition brief">(?P<brief>.*?)</section>',
+        index_html,
+        re.S,
+    )
+
+    assert brief_match is not None
+    brief_html = brief_match.group("brief")
+    assert "Edition Brief" in brief_html
+    assert "今日总览" in brief_html
+    assert "Stories" in brief_html
+    assert "Active Sections" in brief_html
+    assert "Topics" in brief_html
+    assert "Evidence Links" in brief_html
+    assert "Read first: The Row" in brief_html
+    assert 'href="details/the-row-signal-1234567890.html"' in brief_html
+    assert 'href="#briefing-path"' not in brief_html
+    assert index_html.index('class="edition-nav"') < index_html.index('class="edition-brief"')
+    assert index_html.index('class="edition-brief"') < index_html.index('class="lead-story"')
+
+
+def test_render_row_one_site_escapes_edition_brief_payload_values() -> None:
+    index_html = render_index_html(
+        _edition(),
+        app_payload={
+            "edition_brief": {
+                "title": {"en": "Brief <script>", "zh": "总览 <script>"},
+                "dek": {"en": "Dek & quote", "zh": "说明 & <tag>"},
+                "lead_story_id": "hostile-1111111111",
+                "lead_story_href": "details/hostile-1111111111.html",
+                "lead_story_headline": 'Headline <img src=x onerror="alert(1)">',
+                "metrics": [
+                    {"key": "stories", "label": {"en": "Stories <x>", "zh": "故事 <x>"}, "value": 1}
+                ],
+                "summary_points": [{"en": "Point <b>", "zh": "要点 <b>"}],
+                "links": [
+                    {
+                        "key": "read_first",
+                        "label": {"en": "Open <x>", "zh": "打开 <x>"},
+                        "href": "details/hostile-1111111111.html",
+                    },
+                    {
+                        "key": "unsafe_js",
+                        "label": {"en": "Unsafe JS", "zh": "不安全 JS"},
+                        "href": "javascript:alert(1)",
+                    },
+                    {
+                        "key": "unsafe_external",
+                        "label": {"en": "Unsafe External", "zh": "不安全外链"},
+                        "href": "https://evil.example/story",
+                    },
+                    {
+                        "key": "unsafe_detail",
+                        "label": {"en": "Unsafe Detail", "zh": "不安全详情"},
+                        "href": "details/../escape.html",
+                    },
+                ],
+            }
+        },
+    )
+
+    assert "Brief &lt;script&gt;" in index_html
+    assert "Headline &lt;img" in index_html
+    assert "Point &lt;b&gt;" in index_html
+    assert "Open &lt;x&gt;" in index_html
+    assert 'onerror="alert' not in index_html
+    assert "onerror=&quot;alert" in index_html
+    assert "<script>" not in index_html
+    assert 'href="details/hostile-1111111111.html"' in index_html
+    assert "javascript:alert" not in index_html
+    assert "https://evil.example" not in index_html
+    assert "details/../escape.html" not in index_html
+
+
+def test_row_one_css_includes_edition_brief_styles(tmp_path) -> None:
+    css = render_row_one_site(_edition(), tmp_path).index_path
+    css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    for selector in (
+        ".edition-brief",
+        ".edition-brief-metrics",
+        ".edition-brief-links",
+        ".edition-brief-metric",
+    ):
+        assert selector in css_text
 
 
 def test_render_row_one_site_escapes_briefing_path_payload_values() -> None:
@@ -556,7 +654,7 @@ def test_render_row_one_site_escapes_briefing_path_payload_values() -> None:
         },
     )
     path_match = re.search(
-        r'<section class="briefing-path" aria-label="Briefing path">'
+        r'<section id="briefing-path" class="briefing-path" aria-label="Briefing path">'
         r"(?P<path>.*?)</section>",
         index_html,
         re.S,
@@ -883,13 +981,23 @@ def test_render_row_one_site_writes_json_payload(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
-    assert payload["contract_version"] == "row-one-app/v4"
+    assert payload["contract_version"] == "row-one-app/v5"
     assert payload["brand"] == "ROW ONE"
     assert payload["generated_at"] == "2026-07-02T04:00:00Z"
     assert payload["edition_date"] == "2026-07-02T04:00:00Z"
     assert payload["summary"]["zh"] == "ROW ONE 今日整理了 1 条本地时尚信号。"
     assert payload["story_count"] == 1
     assert payload["evidence_count"] == 1
+    story = payload["stories"][0]
+    brief = payload["edition_brief"]
+    assert brief["title"] == {"zh": "今日总览", "en": "Edition Brief"}
+    assert brief["lead_story_id"] == story["id"]
+    assert brief["lead_story_href"] == story["detail_href"]
+    assert brief["metrics"][0] == {
+        "key": "stories",
+        "label": {"zh": "故事", "en": "Stories"},
+        "value": 1,
+    }
 
     sections = {section["key"]: section for section in payload["sections"]}
     assert sections["top_stories"]["href"] == "#top_stories"
@@ -897,7 +1005,6 @@ def test_render_row_one_site_writes_json_payload(tmp_path) -> None:
     assert sections["brand_moves"]["href"] == "#brand_moves"
     assert sections["brand_moves"]["story_count"] == 0
 
-    story = payload["stories"][0]
     assert story["id"] == "the-row-signal-1234567890"
     assert story["section_key"] == "top_stories"
     assert story["section"] == {
@@ -1011,7 +1118,7 @@ def test_render_row_one_site_sanitizes_json_source_url(tmp_path) -> None:
 
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
 
-    assert payload["contract_version"] == "row-one-app/v4"
+    assert payload["contract_version"] == "row-one-app/v5"
     assert payload["stories"][0]["source_url"] is None
     assert payload["stories"][0]["evidence"][1]["url"] is None
     assert payload["stories"][0]["evidence"][1]["href"] is None

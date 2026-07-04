@@ -3819,13 +3819,42 @@ def test_validate_candidates_and_trends_pin_expected_first_run_state() -> None:
         smoke.validate_trends("trends", wrong_kind)
 
 
-def test_validate_row_one_manifest_requires_v4_app_contract() -> None:
+def test_validate_row_one_manifest_requires_v5_app_contract() -> None:
     edition_payload = {
-        "contract_version": "row-one-app/v4",
+        "contract_version": "row-one-app/v5",
         "generated_at": "2026-06-13T12:00:00Z",
         "edition_date": "2026-06-13T12:00:00Z",
         "story_count": 0,
         "evidence_count": 0,
+        "edition_brief": {
+            "title": {"zh": "今日总览", "en": "Edition Brief"},
+            "dek": {
+                "zh": "暂无可整理的 ROW ONE 故事。",
+                "en": "No ROW ONE stories are available to organize yet.",
+            },
+            "lead_story_id": None,
+            "lead_story_href": None,
+            "lead_story_headline": None,
+            "story_directory_story_count": 0,
+            "metrics": [
+                {"key": "stories", "label": {"zh": "故事", "en": "Stories"}, "value": 0},
+                {
+                    "key": "sections",
+                    "label": {"zh": "活跃栏目", "en": "Active Sections"},
+                    "value": 0,
+                },
+                {"key": "topics", "label": {"zh": "主题", "en": "Topics"}, "value": 0},
+                {
+                    "key": "evidence",
+                    "label": {"zh": "证据链接", "en": "Evidence Links"},
+                    "value": 0,
+                },
+            ],
+            "summary_points": [
+                {"zh": "暂无可整理的故事。", "en": "No stories are ready to organize yet."}
+            ],
+            "links": [],
+        },
         "sections": [
             {"key": "top_stories"},
             {"key": "brand_moves"},
@@ -3842,7 +3871,7 @@ def test_validate_row_one_manifest_requires_v4_app_contract() -> None:
         "generated_at": "2026-06-13T12:00:00Z",
         "edition_date": "2026-06-13T12:00:00Z",
         "app_contract": {
-            "version": "row-one-app/v4",
+            "version": "row-one-app/v5",
             "path": "data/edition.json",
             "schema_path": "schemas/row-one-app.schema.json",
         },
@@ -3874,11 +3903,49 @@ def test_validate_row_one_runtime_requires_story_directory_routes() -> None:
         "published_date": "2026-06-13",
     }
     edition_payload = {
-        "contract_version": "row-one-app/v4",
+        "contract_version": "row-one-app/v5",
         "generated_at": "2026-06-13T12:00:00Z",
         "edition_date": "2026-06-13T12:00:00Z",
         "story_count": 1,
         "evidence_count": 0,
+        "edition_brief": {
+            "title": {"zh": "今日总览", "en": "Edition Brief"},
+            "dek": {
+                "zh": (
+                    "ROW ONE 将今日 1 条本地时尚信号整理成 1 个栏目、0 个主题和 0 条后续阅读路径。"
+                ),
+                "en": (
+                    "ROW ONE organized 1 local fashion signal across 1 sections, "
+                    "0 briefing topics, and 0 follow-up path blocks."
+                ),
+            },
+            "lead_story_id": "the-row-route-1111111111",
+            "lead_story_href": "details/the-row-route-1111111111.html",
+            "lead_story_headline": "The Row route",
+            "story_directory_story_count": 1,
+            "metrics": [
+                {"key": "stories", "label": {"zh": "故事", "en": "Stories"}, "value": 1},
+                {
+                    "key": "sections",
+                    "label": {"zh": "活跃栏目", "en": "Active Sections"},
+                    "value": 1,
+                },
+                {"key": "topics", "label": {"zh": "主题", "en": "Topics"}, "value": 0},
+                {
+                    "key": "evidence",
+                    "label": {"zh": "证据链接", "en": "Evidence Links"},
+                    "value": 0,
+                },
+            ],
+            "summary_points": [{"zh": "先读：The Row route", "en": "Read first: The Row route"}],
+            "links": [
+                {
+                    "key": "read_first",
+                    "label": {"zh": "先读", "en": "Read First"},
+                    "href": "details/the-row-route-1111111111.html",
+                }
+            ],
+        },
         "sections": [
             {"key": "top_stories"},
             {"key": "brand_moves"},
@@ -3886,6 +3953,14 @@ def test_validate_row_one_runtime_requires_story_directory_routes() -> None:
             {"key": "hot_products"},
             {"key": "rising_radar"},
         ],
+        "content_sections": [
+            {"key": "top_stories", "story_count": 1},
+            {"key": "brand_moves", "story_count": 0},
+            {"key": "celebrity_style", "story_count": 0},
+            {"key": "hot_products", "story_count": 0},
+            {"key": "rising_radar", "story_count": 0},
+        ],
+        "daily_digest": {"briefing_topics": []},
         "stories": [story],
         "story_directory": {
             "story_count": 1,
@@ -3941,6 +4016,16 @@ def test_validate_row_one_runtime_requires_story_directory_routes() -> None:
     }
 
     smoke.validate_row_one_runtime(runtime_payload, manifest_payload, edition_payload)
+
+    missing_brief = dict(edition_payload)
+    missing_brief.pop("edition_brief")
+    with pytest.raises(smoke.SmokeError, match="edition_brief"):
+        smoke.validate_row_one_runtime(runtime_payload, manifest_payload, missing_brief)
+
+    drifted_brief = json.loads(json.dumps(edition_payload))
+    drifted_brief["edition_brief"]["story_directory_story_count"] = 2
+    with pytest.raises(smoke.SmokeError, match="story_directory_story_count"):
+        smoke.validate_row_one_runtime(runtime_payload, manifest_payload, drifted_brief)
 
     routes = edition_payload["story_directory"]["routes"]  # type: ignore[index]
     routes[0]["detail_href"] = "details/drifted-route.html"  # type: ignore[index]
@@ -4454,11 +4539,40 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                 encoding="utf-8",
             )
             edition_payload = {
-                "contract_version": "row-one-app/v4",
+                "contract_version": "row-one-app/v5",
                 "generated_at": "2026-06-13T12:00:00Z",
                 "edition_date": "2026-06-13T12:00:00Z",
                 "story_count": 0,
                 "evidence_count": 0,
+                "edition_brief": {
+                    "title": {"zh": "今日总览", "en": "Edition Brief"},
+                    "dek": {
+                        "zh": "暂无可整理的 ROW ONE 故事。",
+                        "en": "No ROW ONE stories are available to organize yet.",
+                    },
+                    "lead_story_id": None,
+                    "lead_story_href": None,
+                    "lead_story_headline": None,
+                    "story_directory_story_count": 0,
+                    "metrics": [
+                        {"key": "stories", "label": {"zh": "故事", "en": "Stories"}, "value": 0},
+                        {
+                            "key": "sections",
+                            "label": {"zh": "活跃栏目", "en": "Active Sections"},
+                            "value": 0,
+                        },
+                        {"key": "topics", "label": {"zh": "主题", "en": "Topics"}, "value": 0},
+                        {
+                            "key": "evidence",
+                            "label": {"zh": "证据链接", "en": "Evidence Links"},
+                            "value": 0,
+                        },
+                    ],
+                    "summary_points": [
+                        {"zh": "暂无可整理的故事。", "en": "No stories are ready to organize yet."}
+                    ],
+                    "links": [],
+                },
                 "sections": [
                     {"key": "top_stories"},
                     {"key": "brand_moves"},
@@ -4475,7 +4589,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                 "generated_at": "2026-06-13T12:00:00Z",
                 "edition_date": "2026-06-13T12:00:00Z",
                 "app_contract": {
-                    "version": "row-one-app/v4",
+                    "version": "row-one-app/v5",
                     "path": "data/edition.json",
                     "schema_path": "schemas/row-one-app.schema.json",
                 },

@@ -1131,7 +1131,7 @@ def validate_row_one_manifest(
     assert_equal(
         "row-one manifest app_contract version",
         app_contract.get("version"),
-        "row-one-app/v4",
+        "row-one-app/v5",
     )
     assert_equal(
         "row-one manifest app_contract schema_path",
@@ -1185,7 +1185,7 @@ def validate_row_one_story_directory(edition_payload: Any) -> None:
     assert_equal(
         "row-one edition contract_version",
         edition_payload.get("contract_version"),
-        "row-one-app/v4",
+        "row-one-app/v5",
     )
     stories = edition_payload.get("stories")
     if not isinstance(stories, list):
@@ -1238,6 +1238,61 @@ def validate_row_one_story_directory(edition_payload: Any) -> None:
                 route.get(key),
                 expected,
             )
+
+
+def validate_row_one_edition_brief(edition_payload: Any) -> None:
+    if not isinstance(edition_payload, dict):
+        raise SmokeError("row-one edition must be a JSON object")
+    brief = edition_payload.get("edition_brief")
+    if not isinstance(brief, dict):
+        raise SmokeError("row-one edition edition_brief must be a JSON object")
+    story_directory = edition_payload.get("story_directory")
+    if not isinstance(story_directory, dict):
+        raise SmokeError("row-one edition story_directory must be a JSON object")
+    assert_equal(
+        "row-one edition_brief story_directory_story_count",
+        brief.get("story_directory_story_count"),
+        story_directory.get("story_count"),
+    )
+    metrics = brief.get("metrics")
+    if not isinstance(metrics, list) or len(metrics) != 4:
+        raise SmokeError("row-one edition_brief metrics must contain four metrics")
+    content_sections = edition_payload.get("content_sections")
+    if not isinstance(content_sections, list):
+        content_sections = []
+    daily_digest = edition_payload.get("daily_digest")
+    briefing_topics = daily_digest.get("briefing_topics") if isinstance(daily_digest, dict) else []
+    if not isinstance(briefing_topics, list):
+        briefing_topics = []
+    expected_metrics = (
+        ("stories", edition_payload.get("story_count")),
+        (
+            "sections",
+            len(
+                [
+                    section
+                    for section in content_sections
+                    if isinstance(section, dict) and int(section.get("story_count", 0)) > 0
+                ]
+            ),
+        ),
+        ("topics", len([topic for topic in briefing_topics if isinstance(topic, dict)])),
+        ("evidence", edition_payload.get("evidence_count")),
+    )
+    for index, (expected_key, expected_value) in enumerate(expected_metrics):
+        metric = metrics[index]
+        if not isinstance(metric, dict):
+            raise SmokeError(f"row-one edition_brief metrics[{index}] must be a JSON object")
+        assert_equal(
+            f"row-one edition_brief metrics[{index}] key",
+            metric.get("key"),
+            expected_key,
+        )
+        assert_equal(
+            f"row-one edition_brief metrics[{index}] value",
+            metric.get("value"),
+            expected_value,
+        )
 
 
 def validate_row_one_runtime(
@@ -1329,6 +1384,7 @@ def validate_row_one_runtime(
     if not isinstance(readiness.get("zh"), str) or not readiness.get("zh"):
         raise SmokeError("row-one runtime readiness zh must be a non-empty string")
     validate_row_one_story_directory(edition_payload)
+    validate_row_one_edition_brief(edition_payload)
 
 
 def validate_import_signals_dry_run(output: str) -> None:
