@@ -52,6 +52,7 @@ reports/**/*.md
 reports/**/*.json
 reports/**/*.eml
 reports/**/*.txt
+reports/row-one/
 cookies*.txt
 cookies*.json
 cookies*.db

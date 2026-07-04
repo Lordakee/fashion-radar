@@ -13,6 +13,7 @@ from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneEdition,
     RowOneLink,
+    RowOneLocalArticle,
     RowOneReference,
     RowOneSection,
     RowOneStory,
@@ -276,6 +277,99 @@ def test_render_row_one_detail_includes_information_map(tmp_path) -> None:
         'class="detail-information-map"'
     )
     assert detail_html.index('class="detail-information-map"') < detail_html.index('id="summary"')
+
+
+def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
+    edition = _edition()
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Source article title",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        published_at=AS_OF,
+        paragraphs=[
+            "First local paragraph about The Row demand.",
+            "Second local paragraph with styling context.",
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    article_json = json.loads(
+        (tmp_path / "data" / "articles" / "the-row-signal-1234567890.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    edition_json = (tmp_path / "data" / "edition.json").read_text(encoding="utf-8")
+
+    assert 'id="local-article"' in detail_html
+    assert '<span data-lang="en">Local Article</span>' in detail_html
+    assert '<span data-lang="zh">本地正文</span>' in detail_html
+    assert "Saved from Vogue Business" in detail_html
+    assert "本地保存自 Vogue Business" in detail_html
+    assert "First local paragraph about The Row demand." in detail_html
+    assert "Second local paragraph with styling context." in detail_html
+    assert 'href="#local-article"' in detail_html
+    assert detail_html.index('href="#summary"') < detail_html.index('href="#local-article"')
+    assert detail_html.index('href="#local-article"') < detail_html.index('href="#why-it-matters"')
+    assert detail_html.index('id="summary"') < detail_html.index('id="local-article"')
+    assert detail_html.index('id="local-article"') < detail_html.index('id="why-it-matters"')
+    assert article_json["story_id"] == "the-row-signal-1234567890"
+    assert article_json["paragraphs"] == [
+        "First local paragraph about The Row demand.",
+        "Second local paragraph with styling context.",
+    ]
+    assert "First local paragraph about The Row demand." not in edition_json
+
+
+def test_render_row_one_detail_omits_local_article_nav_without_content(tmp_path) -> None:
+    render_row_one_site(_edition(), tmp_path)
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'id="local-article"' not in detail_html
+    assert 'href="#local-article"' not in detail_html
+    assert not (tmp_path / "data" / "articles").exists()
+
+
+def test_render_row_one_detail_escapes_local_article_content(tmp_path) -> None:
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="<script>Title</script>",
+        url="https://example.com/the-row",
+        source_name="Vogue <Business>",
+        extracted_at=AS_OF,
+        paragraphs=[
+            '<img src=x onerror="alert(1)"> & quoted text',
+        ],
+    )
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert "&lt;script&gt;Title&lt;/script&gt;" in detail_html
+    assert "Vogue &lt;Business&gt;" in detail_html
+    assert "&lt;img src=x onerror=&quot;alert(1)&quot;&gt; &amp; quoted text" in detail_html
+    assert "<script>" not in detail_html
+    assert "<img" not in detail_html
+    assert 'onerror="alert' not in detail_html
 
 
 def test_render_row_one_detail_information_map_escapes_story_values(tmp_path) -> None:

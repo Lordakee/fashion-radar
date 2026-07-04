@@ -292,7 +292,19 @@ story summaries.
 - `data/edition.json`
 - `data/manifest.json`
 - `data/runtime.json`
+- `data/articles/<story-id>.json` when ROW ONE local article sections are
+  enabled for a source and article extraction or stored-summary fallback succeeds
 - `.row-one-site` marker
+
+ROW ONE detail pages can render a local article section before the editorial
+analysis. This is generated only from sources that explicitly set
+`row_one_article.enabled: true` in `sources.yaml`; the default is off. The
+generated section is capped by `row_one_article.max_chars`, respects the same
+source HTTP timeout, robots, and paywalled-domain settings used for extraction,
+falls back to already collected local source summaries when extraction is
+unavailable, and is written only to the generated static site under
+`data/articles/` plus the matching detail page. It is not stored in SQLite, not
+added to the daily report JSON, and not added to `data/edition.json`.
 
 The latest-only cleanup has two local presentation surfaces.
 `row-one build --latest-only` and `row-one preview --latest-only` remove only

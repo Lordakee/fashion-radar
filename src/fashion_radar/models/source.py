@@ -50,6 +50,20 @@ class ArticleSourceSettings(BaseModel):
         return sorted({domain.strip().lower() for domain in value if domain.strip()})
 
 
+class RowOneArticleSourceSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    respect_robots_txt: bool = True
+    max_chars: int = Field(default=2400, gt=0, le=8000)
+    paywalled_domains: list[str] = Field(default_factory=list)
+
+    @field_validator("paywalled_domains")
+    @classmethod
+    def normalize_paywalled_domains(cls, value: list[str]) -> list[str]:
+        return sorted({domain.strip().lower() for domain in value if domain.strip()})
+
+
 class GdeltSourceSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -110,6 +124,9 @@ class SourceDefinition(BaseModel):
     tags: list[str] = Field(default_factory=list)
     http: HttpSourceSettings = Field(default_factory=HttpSourceSettings)
     article: ArticleSourceSettings = Field(default_factory=ArticleSourceSettings)
+    row_one_article: RowOneArticleSourceSettings = Field(
+        default_factory=RowOneArticleSourceSettings
+    )
     gdelt: GdeltSourceSettings = Field(default_factory=GdeltSourceSettings)
     xiaohongshu: XiaohongshuSourceSettings = Field(default_factory=XiaohongshuSourceSettings)
     instagram: InstagramSourceSettings = Field(default_factory=InstagramSourceSettings)

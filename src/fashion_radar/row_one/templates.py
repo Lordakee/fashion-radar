@@ -9,6 +9,7 @@ from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneEdition,
     RowOneLink,
+    RowOneLocalArticle,
     RowOneSection,
     RowOneSectionKey,
     RowOneStory,
@@ -116,13 +117,19 @@ def render_index_html(
 """
 
 
-def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
+def render_detail_html(
+    edition: RowOneEdition,
+    story: RowOneStory,
+    *,
+    local_article: RowOneLocalArticle | None = None,
+) -> str:
     section_title = _section_title(edition, story.section_key)
     evidence = "\n".join(_render_evidence(link) for link in story.evidence)
     source_link = _external_link(story.source_url, story.source_name, css_class="source-link")
     source_action = _source_action_link(story.source_url)
     visual = _render_story_visual(story, section_title, context="detail-visual")
-    article_contents = _render_article_contents()
+    local_article_section = _render_local_article(local_article)
+    article_contents = _render_article_contents(include_local_article=bool(local_article_section))
     detail_information_map = _render_detail_information_map(story, section_title)
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -175,6 +182,7 @@ def render_detail_html(edition: RowOneEdition, story: RowOneStory) -> str:
         <span data-lang="zh">{_esc(story.summary.zh)}</span>
       </p>
     </section>
+    {local_article_section}
     <section id="why-it-matters">
       <h2>
         <span data-lang="en">Why It Matters</span>
@@ -1033,6 +1041,31 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   text-decoration: none;
   text-transform: uppercase;
 }
+.local-article {
+  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  margin: 36px 0;
+  padding: 28px 0;
+}
+.local-article-source {
+  color: var(--muted);
+  font-size: 0.84rem;
+  margin: 0 0 18px;
+}
+.local-article h3 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 0 0 18px;
+}
+.local-article-body {
+  display: grid;
+  gap: 16px;
+}
+.local-article-body p {
+  font-size: 1.05rem;
+  line-height: 1.75;
+  margin: 0;
+}
 .detail-information-map {
   background: var(--panel);
   border: 1px solid var(--ink);
@@ -1822,13 +1855,22 @@ def _render_edition_nav_item(
 </a>"""
 
 
-def _render_article_contents() -> str:
-    return """<nav class="article-contents" aria-label="Article contents">
+def _render_article_contents(*, include_local_article: bool = False) -> str:
+    local_article_link = (
+        """  <a href="#local-article">
+    <span data-lang="en">Local Article</span>
+    <span data-lang="zh">本地正文</span>
+  </a>
+"""
+        if include_local_article
+        else ""
+    )
+    return f"""<nav class="article-contents" aria-label="Article contents">
   <a href="#summary">
     <span data-lang="en">Summary</span>
     <span data-lang="zh">摘要</span>
   </a>
-  <a href="#why-it-matters">
+{local_article_link}  <a href="#why-it-matters">
     <span data-lang="en">Why It Matters</span>
     <span data-lang="zh">为什么重要</span>
   </a>
@@ -1849,6 +1891,32 @@ def _render_article_contents() -> str:
     <span data-lang="zh">证据链</span>
   </a>
 </nav>"""
+
+
+def _render_local_article(article: RowOneLocalArticle | None) -> str:
+    if article is None:
+        return ""
+    paragraphs = [
+        f"      <p>{_esc(paragraph)}</p>" for paragraph in article.paragraphs if paragraph.strip()
+    ]
+    if not paragraphs:
+        return ""
+    title = article.title or "Source article"
+    rendered_paragraphs = "\n".join(paragraphs)
+    return f"""<section id="local-article" class="local-article">
+      <h2>
+        <span data-lang="en">Local Article</span>
+        <span data-lang="zh">本地正文</span>
+      </h2>
+      <p class="local-article-source">
+        <span data-lang="en">Saved from {_esc(article.source_name)}</span>
+        <span data-lang="zh">本地保存自 {_esc(article.source_name)}</span>
+      </p>
+      <h3>{_esc(title)}</h3>
+      <div class="local-article-body">
+{rendered_paragraphs}
+      </div>
+    </section>"""
 
 
 def _render_detail_information_map(story: RowOneStory, section_title: LocalizedText) -> str:

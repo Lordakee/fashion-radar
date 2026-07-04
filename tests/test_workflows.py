@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
+from fashion_radar.collectors.article import ArticleExtractionResult
 from fashion_radar.collectors.gdelt import GdeltCollector
 from fashion_radar.collectors.html import HtmlCollector
 from fashion_radar.collectors.instagram import InstagramCollector
@@ -26,6 +27,7 @@ from fashion_radar.workflows import (
     match_stored_items,
     prune_stale_daily_report_files,
     write_daily_report_files,
+    write_row_one_site_files,
 )
 
 
@@ -262,6 +264,65 @@ def test_write_daily_report_files_writes_html_with_recent_window_items(
     assert "Future collected title" not in html
     assert "Stale collected title" not in html
     assert "TAIL_MARKER" not in html
+
+
+def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
+    tmp_path: Path,
+) -> None:
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one"
+    item_id = _store_item(data_dir)
+    engine = create_sqlite_engine(default_database_path(data_dir))
+    repository = ItemRepository(engine)
+    repository.replace_item_matches(
+        item_id,
+        [
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "The Row",
+                "confidence": 1.0,
+                "reason": "accepted",
+                "context_terms": [],
+            }
+        ],
+    )
+    source = SourceDefinition(
+        name="Vogue Business",
+        type=SourceType.RSS,
+        url="https://example.com/feed.xml",
+        article={"enabled": False},
+        row_one_article={"enabled": True, "max_chars": 200},
+    )
+
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        return ArticleExtractionResult(
+            url=url,
+            title="The Row local source article",
+            text="Local article paragraph for the ROW ONE detail page.",
+            skipped=False,
+        )
+
+    write_row_one_site_files(
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        output_dir=output_dir,
+        scoring=ScoringSettings(),
+        as_of=datetime(2026, 6, 11, 12, 0, tzinfo=UTC),
+        sources=[source],
+        local_article_extractor=extractor,
+    )
+
+    detail_html = next((output_dir / "details").glob("*.html")).read_text(encoding="utf-8")
+    cached_article = next((output_dir / "data" / "articles").glob("*.json")).read_text(
+        encoding="utf-8"
+    )
+    stored = repository.get_item(item_id)
+
+    assert "Local article paragraph for the ROW ONE detail page." in detail_html
+    assert "Local article paragraph for the ROW ONE detail page." in cached_article
+    assert stored["summary"] == "The Row handbag coverage."
 
 
 def test_prune_stale_daily_report_files_removes_old_dated_artifacts(

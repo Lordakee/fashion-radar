@@ -1557,6 +1557,7 @@ def _write_row_one_site_from_cli_options(
     as_of: str,
     latest_only: bool,
 ):
+    source_config = load_source_config(config_dir / "sources.yaml")
     scoring_config = load_scoring_config(config_dir / "scoring.yaml")
     entity_config = None
     entity_config_path = config_dir / "entities.yaml"
@@ -1569,6 +1570,7 @@ def _write_row_one_site_from_cli_options(
         scoring=scoring_config.scoring,
         candidate_discovery=scoring_config.candidate_discovery,
         entity_config=entity_config,
+        sources=source_config.sources,
         as_of=as_of,
         latest_only=latest_only,
     )

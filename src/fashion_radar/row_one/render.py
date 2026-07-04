@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from shutil import rmtree
 
+from fashion_radar.row_one.articles import safe_local_article_story_id
 from fashion_radar.row_one.briefing_topics import briefing_topics_payload
 from fashion_radar.row_one.display import display_for_story, safe_story_image_src
 from fashion_radar.row_one.models import (
     RowOneEdition,
     RowOneLink,
+    RowOneLocalArticle,
     RowOneSection,
     RowOneStory,
     RowOneStoryDisplay,
@@ -46,16 +49,22 @@ def render_row_one_site(
     output_dir: Path,
     *,
     latest_only: bool = False,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle] | None = None,
 ) -> RowOneRenderResult:
     if latest_only:
         clean_row_one_site_children(output_dir)
+    local_articles_by_story_id = local_articles_by_story_id or {}
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / ".row-one-site").write_text("ROW ONE generated site\n", encoding="utf-8")
     _write_assets(output_dir)
     app_payload = build_row_one_app_payload(edition)
     index_path = output_dir / "index.html"
     index_path.write_text(render_index_html(edition, app_payload=app_payload), encoding="utf-8")
-    _write_detail_pages(edition, output_dir / "details")
+    _write_detail_pages(
+        edition,
+        output_dir / "details",
+        local_articles_by_story_id=local_articles_by_story_id,
+    )
     data_dir = output_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "edition.json").write_text(
@@ -72,6 +81,7 @@ def render_row_one_site(
         json.dumps(manifest_payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+    _write_local_article_files(edition, data_dir, local_articles_by_story_id)
     return RowOneRenderResult(
         output_dir=output_dir,
         index_path=index_path,
@@ -103,7 +113,12 @@ def _write_assets(output_dir: Path) -> None:
     (assets_dir / "row-one.js").write_text(row_one_js(), encoding="utf-8")
 
 
-def _write_detail_pages(edition: RowOneEdition, details_dir: Path) -> None:
+def _write_detail_pages(
+    edition: RowOneEdition,
+    details_dir: Path,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+) -> None:
     details_dir.mkdir(parents=True, exist_ok=True)
     for story in edition.stories:
         pure_path = _validated_detail_relative_path(story.detail_path)
@@ -112,7 +127,38 @@ def _write_detail_pages(edition: RowOneEdition, details_dir: Path) -> None:
         detail_path = details_dir.parent / Path(*pure_path.parts)
         if detail_path.parent != details_dir:
             raise ValueError(f"Invalid ROW ONE detail path: {story.detail_path}")
-        detail_path.write_text(render_detail_html(edition, story), encoding="utf-8")
+        detail_path.write_text(
+            render_detail_html(
+                edition,
+                story,
+                local_article=local_articles_by_story_id.get(story.id),
+            ),
+            encoding="utf-8",
+        )
+
+
+def _write_local_article_files(
+    edition: RowOneEdition,
+    data_dir: Path,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+) -> None:
+    current_story_ids = {story.id for story in edition.stories}
+    writable_articles = {
+        story_id: article
+        for story_id, article in local_articles_by_story_id.items()
+        if story_id in current_story_ids
+        and safe_local_article_story_id(story_id)
+        and article.paragraphs
+    }
+    if not writable_articles:
+        return
+    articles_dir = data_dir / "articles"
+    articles_dir.mkdir(parents=True, exist_ok=True)
+    for story_id, article in sorted(writable_articles.items()):
+        (articles_dir / f"{story_id}.json").write_text(
+            json.dumps(article.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
 
 def build_row_one_app_payload(edition: RowOneEdition) -> dict[str, object]:

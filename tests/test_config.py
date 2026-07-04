@@ -101,6 +101,11 @@ def test_loads_valid_source_config(tmp_path: Path) -> None:
               enabled: true
               respect_robots_txt: true
               paywalled_domains: ["paywall.example"]
+            row_one_article:
+              enabled: true
+              respect_robots_txt: true
+              max_chars: 1800
+              paywalled_domains: ["rowone-paywall.example"]
             health:
               max_failures: 2
               retention_hours: 12
@@ -124,6 +129,10 @@ def test_loads_valid_source_config(tmp_path: Path) -> None:
     assert config.sources[0].http.per_domain_delay_seconds == 0.5
     assert config.sources[0].article.respect_robots_txt is True
     assert config.sources[0].article.paywalled_domains == ["paywall.example"]
+    assert config.sources[0].row_one_article.enabled is True
+    assert config.sources[0].row_one_article.respect_robots_txt is True
+    assert config.sources[0].row_one_article.max_chars == 1800
+    assert config.sources[0].row_one_article.paywalled_domains == ["rowone-paywall.example"]
     assert config.sources[0].health.max_failures == 2
     assert config.sources[0].health.retention_hours == 12
     assert config.sources[1].gdelt.rate_limit_per_second == 1.0
@@ -154,6 +163,9 @@ def test_source_config_supplies_stage_3_defaults(tmp_path: Path) -> None:
     assert source.gdelt.max_records == 100
     assert source.article.enabled is True
     assert source.article.max_summary_chars == 500
+    assert source.row_one_article.enabled is False
+    assert source.row_one_article.respect_robots_txt is True
+    assert source.row_one_article.max_chars == 2400
     assert source.health.max_failures == 3
     assert source.health.retention_hours == 24
 

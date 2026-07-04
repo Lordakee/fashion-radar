@@ -34,6 +34,25 @@ class RowOneLink(BaseModel):
     source_name: str
 
 
+class RowOneLocalArticle(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    story_id: str
+    title: str | None = None
+    url: str
+    source_name: str
+    extracted_at: datetime
+    published_at: datetime | None = None
+    paragraphs: list[str] = Field(default_factory=list)
+    skipped: bool = False
+    reason: str | None = None
+
+    @field_validator("extracted_at", "published_at", mode="before")
+    @classmethod
+    def normalize_article_datetime(cls, value: str | datetime | None) -> datetime | None:
+        return parse_datetime_utc(value) if value is not None else None
+
+
 class RowOneSection(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

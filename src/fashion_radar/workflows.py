@@ -27,6 +27,10 @@ from fashion_radar.html_report import render_html_report
 from fashion_radar.models.entity import EntityDefinition
 from fashion_radar.models.source import SourceDefinition, SourceType
 from fashion_radar.reports import build_daily_report, render_json_report, render_markdown_report
+from fashion_radar.row_one.articles import (
+    RowOneArticleExtractor,
+    build_row_one_local_articles,
+)
 from fashion_radar.row_one.edition import build_row_one_edition
 from fashion_radar.row_one.render import RowOneRenderResult, render_row_one_site
 from fashion_radar.settings import CandidateDiscoverySettings, EntityConfig, ScoringSettings
@@ -175,6 +179,9 @@ def write_row_one_site_files(
     as_of: str | datetime,
     candidate_discovery: CandidateDiscoverySettings | None = None,
     entity_config: EntityConfig | None = None,
+    sources: Sequence[SourceDefinition] | None = None,
+    local_article_extractor: RowOneArticleExtractor | None = None,
+    local_articles_enabled: bool = True,
     latest_only: bool = False,
 ) -> RowOneRenderResult:
     reports_dir.mkdir(parents=True, exist_ok=True)
@@ -208,7 +215,27 @@ def write_row_one_site_files(
             ).mappings()
             recent_items = [dict(row) for row in rows]
         edition = build_row_one_edition(report=report, recent_items=recent_items, as_of=as_of_utc)
-        return render_row_one_site(edition, output_dir, latest_only=latest_only)
+        if local_article_extractor is None:
+            local_articles = build_row_one_local_articles(
+                edition,
+                sources or [],
+                now=as_of_utc,
+                local_articles_enabled=local_articles_enabled,
+            )
+        else:
+            local_articles = build_row_one_local_articles(
+                edition,
+                sources or [],
+                now=as_of_utc,
+                extractor=local_article_extractor,
+                local_articles_enabled=local_articles_enabled,
+            )
+        return render_row_one_site(
+            edition,
+            output_dir,
+            latest_only=latest_only,
+            local_articles_by_story_id=local_articles,
+        )
     finally:
         engine.dispose()
 
