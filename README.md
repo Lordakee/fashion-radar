@@ -137,7 +137,10 @@ Detail-page reference cards can include saved-source paragraph excerpts for
 matched brands, designers, people, bags, shoes, and products while keeping
 paragraph badges linked to the local article body. Structured local articles
 also include a detail-page local article map so readers can jump between the
-brief, organized content cards, and full saved text.
+brief, organized content cards, and full saved text. Local article takeaways
+prioritize source-backed signal paragraphs with explicit brand, designer,
+person, bag, shoe, or product matches before falling back to the first saved
+paragraphs.
 `row-one-app/v7 remains stable`: this local-intelligence artifact is separate
 from `data/edition.json`, so app clients pinned to the existing app payload do
 not need to accept a new top-level field.

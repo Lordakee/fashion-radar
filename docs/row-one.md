@@ -311,6 +311,9 @@ added to the daily report JSON, and not added to `data/edition.json`.
 Content sections use source-backed reference excerpts when a matched entity,
 designer, person, bag, shoe, or product appears in a saved local paragraph;
 otherwise they retain the deterministic reference metadata fallback.
+The `takeaways` content section prefers saved paragraphs with explicit brand,
+designer, person, bag, shoe, or product matches, while retaining the first saved
+paragraphs as the deterministic fallback when no signal paragraph is present.
 Detail pages render a local article map for structured saved articles, and
 paragraph target highlight styling makes in-page paragraph jumps visibly land
 on the referenced saved text.

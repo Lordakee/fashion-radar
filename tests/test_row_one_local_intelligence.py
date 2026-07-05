@@ -231,6 +231,58 @@ def test_build_row_one_local_article_intelligence_falls_back_to_paragraphs_and_o
     assert build_row_one_local_article_intelligence(_edition([story]), {}) == []
 
 
+def test_build_row_one_local_article_intelligence_uses_curated_first_takeaway() -> None:
+    story = _story(
+        "the-row-1234567890",
+        "The Row saved article",
+        detail_path="details/the-row-1234567890.html",
+        entity_refs=[RowOneReference(name="The Row", type="brand", label="tracked")],
+        product_refs=[RowOneReference(name="Margaux", type="bag", label="product")],
+    )
+    article = RowOneLocalArticle(
+        story_id=story.id,
+        title="The Row source",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=[
+            "Opening source context without a named product signal.",
+            "The Row and Margaux moved together in the saved local source.",
+        ],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(zh="正文重点", en="Saved Article Takeaways"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="来源导语", en="Source lead"),
+                        body=LocalizedText(
+                            zh="The Row 和 Margaux 在本地来源中一起变化。",
+                            en="The Row and Margaux moved together in the saved local source.",
+                        ),
+                        paragraph_indices=[1],
+                    ),
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="来源要点 2", en="Source point 2"),
+                        body=LocalizedText(
+                            zh="没有明确产品信号的开头上下文。",
+                            en="Opening source context without a named product signal.",
+                        ),
+                        paragraph_indices=[0],
+                    ),
+                ],
+            )
+        ],
+    )
+
+    sections = build_row_one_local_article_intelligence(_edition([story]), {story.id: article})
+
+    strongest = next(section for section in sections if section.key == "strongest_reads")
+    item = strongest.items[0]
+    assert item.body.en == "The Row and Margaux moved together in the saved local source."
+    assert item.paragraph_indices == [1]
+
+
 def test_build_row_one_local_article_intelligence_preserves_article_content_segments() -> None:
     the_row = RowOneReference(name="The Row", type="brand", label="tracked")
     margaux = RowOneReference(name="Margaux", type="bag", label="product")

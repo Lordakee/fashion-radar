@@ -131,29 +131,30 @@ def _story_local_article_paragraph_sets(
     *,
     max_chars: int,
     source_paragraphs_zh: list[str] | None = None,
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[str], list[str], int]:
     paragraphs = text_to_local_article_paragraphs(text, max_chars=max_chars)
     if not paragraphs:
-        return [], []
+        return [], [], 0
     paragraphs_zh = list(source_paragraphs_zh or paragraphs)
     if len(paragraphs_zh) != len(paragraphs):
         paragraphs_zh = list(paragraphs)
+    source_paragraph_count = len(paragraphs)
 
     total_chars = sum(len(paragraph) for paragraph in paragraphs)
     if total_chars >= min(max_chars, LOCAL_ARTICLE_MIN_CONTEXT_CHARS):
-        return paragraphs, paragraphs_zh
+        return paragraphs, paragraphs_zh, source_paragraph_count
     context_text_en = _local_article_context_text(story, language="en")
     if not context_text_en:
-        return paragraphs, paragraphs_zh
+        return paragraphs, paragraphs_zh, source_paragraph_count
     remaining_chars = max_chars - total_chars
     if remaining_chars <= 0:
-        return paragraphs, paragraphs_zh
+        return paragraphs, paragraphs_zh, source_paragraph_count
     context_paragraphs = text_to_local_article_paragraphs(
         context_text_en,
         max_chars=remaining_chars,
     )
     if not context_paragraphs:
-        return paragraphs, paragraphs_zh
+        return paragraphs, paragraphs_zh, source_paragraph_count
     context_paragraphs_zh = text_to_local_article_paragraphs(
         _local_article_context_text(story, language="zh"),
         max_chars=max_chars,
@@ -162,7 +163,11 @@ def _story_local_article_paragraph_sets(
         context_paragraphs,
         context_paragraphs_zh,
     )
-    return [*paragraphs, *context_paragraphs], [*paragraphs_zh, *context_paragraphs_zh]
+    return (
+        [*paragraphs, *context_paragraphs],
+        [*paragraphs_zh, *context_paragraphs_zh],
+        source_paragraph_count,
+    )
 
 
 def _align_local_article_language_paragraphs(
@@ -263,6 +268,50 @@ def _local_article_paragraph_indices(
     return indices
 
 
+def _local_article_signal_terms(story: RowOneStory) -> list[str]:
+    terms: list[str] = []
+    seen: set[str] = set()
+    for ref in [*story.entity_refs, *story.designer_refs, *story.product_refs]:
+        term = normalize_row_one_paragraph(ref.name)
+        if len(term) < 3 or (" " not in term and len(term) < 4):
+            continue
+        key = term.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        terms.append(term)
+    return terms
+
+
+def _local_article_takeaway_indices(
+    story: RowOneStory,
+    paragraphs: list[str],
+    *,
+    limit: int = 3,
+    source_paragraph_count: int | None = None,
+) -> list[int]:
+    scoring_paragraphs = (
+        paragraphs[:source_paragraph_count] if source_paragraph_count else paragraphs
+    )
+    non_empty = [index for index, paragraph in enumerate(scoring_paragraphs) if paragraph.strip()]
+    terms = _local_article_signal_terms(story)
+    patterns = [
+        re.compile(rf"(?<![a-z0-9]){re.escape(term.casefold())}(?![a-z0-9])") for term in terms
+    ]
+    scored = [
+        (
+            index,
+            sum(1 for pattern in patterns if pattern.search(paragraphs[index].casefold())),
+        )
+        for index in non_empty
+    ]
+    matched = [(index, score) for index, score in scored if score > 0]
+    if matched:
+        matched.sort(key=lambda item: (-item[1], item[0]))
+        return [index for index, _score in matched[:limit]]
+    return non_empty[:limit]
+
+
 def _local_article_reference_excerpt(
     paragraphs: list[str],
     paragraph_indices: list[int],
@@ -308,18 +357,27 @@ def _local_article_reference_body(
 
 
 def _local_article_takeaway_section(
+    story: RowOneStory,
     paragraphs: list[str],
     paragraphs_zh: list[str],
+    *,
+    source_paragraph_count: int | None = None,
 ) -> RowOneLocalArticleContentSection | None:
     aligned_zh = _align_local_article_language_paragraphs(paragraphs, paragraphs_zh)
     items: list[RowOneLocalArticleContentItem] = []
-    for index, (paragraph_en, paragraph_zh) in enumerate(
-        zip(paragraphs[:3], aligned_zh[:3], strict=True)
+    for position, index in enumerate(
+        _local_article_takeaway_indices(
+            story,
+            paragraphs,
+            source_paragraph_count=source_paragraph_count,
+        )
     ):
+        paragraph_en = paragraphs[index]
+        paragraph_zh = aligned_zh[index] if index < len(aligned_zh) else ""
         if not paragraph_en.strip():
             continue
-        label_en = "Source lead" if index == 0 else f"Source point {index + 1}"
-        label_zh = "来源导语" if index == 0 else f"来源要点 {index + 1}"
+        label_en = "Source lead" if position == 0 else f"Source point {position + 1}"
+        label_zh = "来源导语" if position == 0 else f"来源要点 {position + 1}"
         items.append(
             _localized_content_item(
                 label_en=label_en,
@@ -474,9 +532,16 @@ def _local_article_content_sections(
     story: RowOneStory,
     paragraphs: list[str],
     paragraphs_zh: list[str],
+    *,
+    source_paragraph_count: int | None = None,
 ) -> list[RowOneLocalArticleContentSection]:
     sections: list[RowOneLocalArticleContentSection] = []
-    takeaway_section = _local_article_takeaway_section(paragraphs, paragraphs_zh)
+    takeaway_section = _local_article_takeaway_section(
+        story,
+        paragraphs,
+        paragraphs_zh,
+        source_paragraph_count=source_paragraph_count,
+    )
     if takeaway_section is not None:
         sections.append(takeaway_section)
     entity_refs = [*story.entity_refs, *story.designer_refs]
@@ -543,7 +608,7 @@ def _build_story_local_article(
         return _fallback_story_summary_article(story, url, source, extracted_at=extracted_at)
     if result.skipped or not result.text:
         return _fallback_story_summary_article(story, url, source, extracted_at=extracted_at)
-    paragraphs, paragraphs_zh = _story_local_article_paragraph_sets(
+    paragraphs, paragraphs_zh, source_paragraph_count = _story_local_article_paragraph_sets(
         story,
         result.text,
         max_chars=source.row_one_article.max_chars,
@@ -560,7 +625,12 @@ def _build_story_local_article(
         paragraphs=paragraphs,
         paragraphs_zh=paragraphs_zh,
         brief_sections=_local_article_brief_sections(story),
-        content_sections=_local_article_content_sections(story, paragraphs, paragraphs_zh),
+        content_sections=_local_article_content_sections(
+            story,
+            paragraphs,
+            paragraphs_zh,
+            source_paragraph_count=source_paragraph_count,
+        ),
         skipped=False,
         reason=None,
     )
@@ -577,7 +647,7 @@ def _fallback_story_summary_article(
         story.summary.zh,
         max_chars=source.row_one_article.max_chars,
     )
-    paragraphs, paragraphs_zh = _story_local_article_paragraph_sets(
+    paragraphs, paragraphs_zh, source_paragraph_count = _story_local_article_paragraph_sets(
         story,
         story.summary.en,
         max_chars=source.row_one_article.max_chars,
@@ -595,7 +665,12 @@ def _fallback_story_summary_article(
         paragraphs=paragraphs,
         paragraphs_zh=paragraphs_zh,
         brief_sections=_local_article_brief_sections(story),
-        content_sections=_local_article_content_sections(story, paragraphs, paragraphs_zh),
+        content_sections=_local_article_content_sections(
+            story,
+            paragraphs,
+            paragraphs_zh,
+            source_paragraph_count=source_paragraph_count,
+        ),
         skipped=False,
         reason=None,
     )

@@ -71,6 +71,18 @@ def _source(
     )
 
 
+def _extractor(text: str):
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        return ArticleExtractionResult(
+            url=url,
+            title="Signal source",
+            text=text,
+            skipped=False,
+        )
+
+    return extractor
+
+
 def _assert_local_article_brief_sections(article, story) -> None:
     assert [section.key for section in article.brief_sections] == [
         "what_happened",
@@ -472,6 +484,193 @@ def test_build_row_one_local_articles_cleans_brief_summary_html_without_mutating
     assert story.summary == original_summary
 
 
+def test_build_row_one_local_articles_takeaways_prefer_signal_dense_paragraphs() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [RowOneReference(name="The Row", type="brand", label="tracked")]
+    story.product_refs = [RowOneReference(name="Margaux", type="bag", label="product")]
+    story.designer_refs = [
+        RowOneReference(name="Mary-Kate Olsen", type="designer", label="designer")
+    ]
+    # Tags are intentionally excluded from signal-dense takeaway matching.
+    story.tags = ["quiet luxury"]
+    paragraphs = [
+        "Opening market context without a named signal.",
+        "The Row and Margaux bag demand accelerated in saved source reporting.",
+        "General retail context continues across wholesale accounts.",
+        "Mary-Kate Olsen framed the design language around restraint.",
+    ]
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=500)],
+        now=AS_OF,
+        extractor=_extractor("\n\n".join(paragraphs)),
+    )
+
+    article = articles[story.id]
+    takeaways = _content_section(article, "takeaways")
+    assert [item.body.en for item in takeaways.items] == [
+        "The Row and Margaux bag demand accelerated in saved source reporting.",
+        "Mary-Kate Olsen framed the design language around restraint.",
+    ]
+    assert [item.paragraph_indices for item in takeaways.items] == [[1], [3]]
+
+
+def test_build_row_one_local_articles_takeaways_keep_first_three_when_no_signal_matches() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [RowOneReference(name="The Row", type="brand", label="tracked")]
+    paragraphs = [
+        "Opening source paragraph.",
+        "Second source paragraph.",
+        "Third source paragraph.",
+        "Fourth source paragraph.",
+    ]
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=500)],
+        now=AS_OF,
+        extractor=_extractor("\n\n".join(paragraphs)),
+    )
+
+    takeaways = _content_section(articles[story.id], "takeaways")
+    assert [item.body.en for item in takeaways.items] == paragraphs[:3]
+    assert [item.paragraph_indices for item in takeaways.items] == [[0], [1], [2]]
+
+
+def test_build_row_one_local_articles_takeaways_keep_original_order_for_equal_scores() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [
+        RowOneReference(name="The Row", type="brand", label="tracked"),
+        RowOneReference(name="Zendaya", type="celebrity", label="new"),
+    ]
+    paragraphs = [
+        "Opening source paragraph.",
+        "The Row appears in this saved paragraph.",
+        "Zendaya appears in this later saved paragraph.",
+    ]
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=500)],
+        now=AS_OF,
+        extractor=_extractor("\n\n".join(paragraphs)),
+    )
+
+    takeaways = _content_section(articles[story.id], "takeaways")
+    assert [item.body.en for item in takeaways.items] == paragraphs[1:]
+    assert [item.paragraph_indices for item in takeaways.items] == [[1], [2]]
+
+
+def test_build_row_one_local_articles_takeaways_ignore_short_ref_near_misses() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [
+        RowOneReference(name="Ro", type="brand", label="typo"),
+        RowOneReference(name="Row", type="brand", label="short"),
+        RowOneReference(name="The Row", type="brand", label="tracked"),
+    ]
+    paragraphs = [
+        "Opening brown leather market context without a named signal.",
+        "The Row appears as an explicit saved source signal.",
+    ]
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=500)],
+        now=AS_OF,
+        extractor=_extractor("\n\n".join(paragraphs)),
+    )
+
+    takeaways = _content_section(articles[story.id], "takeaways")
+    assert [item.body.en for item in takeaways.items] == [
+        "The Row appears as an explicit saved source signal."
+    ]
+    assert [item.paragraph_indices for item in takeaways.items] == [[1]]
+
+
+def test_build_row_one_local_articles_takeaways_ignore_front_row_short_ref() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [
+        RowOneReference(name="Row", type="brand", label="short"),
+        RowOneReference(name="The Row", type="brand", label="tracked"),
+    ]
+    paragraphs = [
+        "Buyers filled the front row before the show opened.",
+        "The Row appears as an explicit saved source signal.",
+    ]
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=500)],
+        now=AS_OF,
+        extractor=_extractor("\n\n".join(paragraphs)),
+    )
+
+    takeaways = _content_section(articles[story.id], "takeaways")
+    assert [item.body.en for item in takeaways.items] == [
+        "The Row appears as an explicit saved source signal."
+    ]
+    assert [item.paragraph_indices for item in takeaways.items] == [[1]]
+
+
+def test_build_row_one_local_articles_takeaways_do_not_promote_appended_context() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [RowOneReference(name="The Row", type="brand", label="tracked")]
+    story.editorial_takeaway = LocalizedText(
+        zh="The Row 编辑判断不应抢占来源段落。",
+        en="The Row editorial context should not outrank saved source paragraphs.",
+    )
+    paragraphs = [
+        "Opening source paragraph.",
+        "Second saved source paragraph.",
+    ]
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=500)],
+        now=AS_OF,
+        extractor=_extractor("\n\n".join(paragraphs)),
+    )
+
+    takeaways = _content_section(articles[story.id], "takeaways")
+    assert [item.body.en for item in takeaways.items] == paragraphs
+    assert [item.paragraph_indices for item in takeaways.items] == [[0], [1]]
+
+
+def test_build_row_one_local_articles_takeaways_cap_signal_matches_at_three() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [
+        RowOneReference(name="The Row", type="brand", label="tracked"),
+        RowOneReference(name="Zendaya", type="celebrity", label="new"),
+        RowOneReference(name="Mary-Kate Olsen", type="designer", label="founder"),
+    ]
+    story.product_refs = [RowOneReference(name="Margaux", type="bag", label="product")]
+    paragraphs = [
+        "The Row appears in the opening saved source paragraph.",
+        "Zendaya appears in the second saved source paragraph.",
+        "Margaux appears in the third saved source paragraph.",
+        "Mary-Kate Olsen appears in the fourth saved source paragraph.",
+    ]
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=500)],
+        now=AS_OF,
+        extractor=_extractor("\n\n".join(paragraphs)),
+    )
+
+    takeaways = _content_section(articles[story.id], "takeaways")
+    assert [item.body.en for item in takeaways.items] == paragraphs[:3]
+    assert [item.paragraph_indices for item in takeaways.items] == [[0], [1], [2]]
+
+
 def test_build_row_one_local_articles_adds_content_sections_from_story_refs_and_paragraphs() -> (
     None
 ):
@@ -521,11 +720,11 @@ def test_build_row_one_local_articles_adds_content_sections_from_story_refs_and_
 
     takeaways = _content_section(article, "takeaways")
     assert [item.body.en for item in takeaways.items] == [
-        "First source paragraph frames The Row demand.",
         "Second source paragraph shows Zendaya styling context around Margaux.",
+        "First source paragraph frames The Row demand.",
         "Third source paragraph mentions Mary-Kate Olsen and a product signal.",
     ]
-    assert [item.paragraph_indices for item in takeaways.items] == [[0], [1], [2]]
+    assert [item.paragraph_indices for item in takeaways.items] == [[1], [0], [2]]
 
     entities = _content_section(article, "entities")
     the_row = _content_item(entities, "The Row")
