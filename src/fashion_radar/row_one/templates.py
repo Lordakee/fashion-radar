@@ -1202,6 +1202,27 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   font-weight: 700;
   margin: 0 0 18px;
 }
+.local-article-map {
+  border: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 22px;
+  padding: 12px;
+}
+.local-article-map a,
+.local-article-content-paragraph-links a {
+  border: 1px solid var(--line);
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 7px 9px;
+  text-decoration: none;
+}
+.local-article-content-paragraph-links a {
+  display: inline-block;
+  margin: 0 4px 4px 0;
+}
 .local-article-brief {
   border: 1px solid var(--line);
   display: grid;
@@ -1273,6 +1294,11 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   font-size: 1.05rem;
   line-height: 1.75;
   margin: 0;
+}
+.local-article-body p:target {
+  background: var(--panel);
+  outline: 1px solid var(--accent);
+  outline-offset: 4px;
 }
 .detail-information-map {
   background: var(--panel);
@@ -2308,6 +2334,7 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
         return ""
     title = article.title or "Source article"
     brief = _render_local_article_brief(article)
+    article_map = _render_local_article_map(article)
     content_sections = _render_local_article_content_sections(
         article,
         rendered_indices=_local_article_rendered_paragraph_indices(article),
@@ -2323,12 +2350,45 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
         <span data-lang="zh">本地保存自 {_esc(article.source_name)}</span>
       </p>
       <h3>{_esc(title)}</h3>
+{article_map}
 {brief}
 {content_sections}
-      <div class="local-article-body">
+      <div id="local-article-body" class="local-article-body">
 {rendered_paragraphs}
       </div>
     </section>"""
+
+
+def _render_local_article_map(article: RowOneLocalArticle) -> str:
+    if not article.brief_sections and not article.content_sections:
+        return ""
+    links = []
+    if article.brief_sections:
+        links.append(
+            '<a href="#local-article-brief">'
+            '<span data-lang="en">Brief</span>'
+            '<span data-lang="zh">本地简报</span>'
+            "</a>"
+        )
+    for position, section in enumerate(article.content_sections, start=1):
+        anchor = f"#{_local_article_content_section_anchor(position)}"
+        links.append(
+            f'<a href="{_esc(anchor)}">'
+            f'<span data-lang="en">{_esc(section.title.en)}</span>'
+            f'<span data-lang="zh">{_esc(section.title.zh)}</span>'
+            "</a>"
+        )
+    links.append(
+        '<a href="#local-article-body">'
+        '<span data-lang="en">Full saved text</span>'
+        '<span data-lang="zh">完整保存正文</span>'
+        "</a>"
+    )
+    return (
+        '      <nav class="local-article-map" aria-label="ROW ONE local article map">\n'
+        + "\n".join(f"        {link}" for link in links)
+        + "\n      </nav>"
+    )
 
 
 def _render_local_article_brief(article: RowOneLocalArticle) -> str:
@@ -2349,9 +2409,12 @@ def _render_local_article_brief(article: RowOneLocalArticle) -> str:
     if not cards:
         return ""
     rendered_cards = "\n".join(cards)
-    return f"""      <div class="local-article-brief" aria-label="ROW ONE brief">
-{rendered_cards}
-      </div>"""
+    return (
+        '      <div id="local-article-brief" class="local-article-brief" '
+        'aria-label="ROW ONE brief">\n'
+        f"{rendered_cards}\n"
+        "      </div>"
+    )
 
 
 def _render_local_article_content_sections(
@@ -2360,9 +2423,10 @@ def _render_local_article_content_sections(
     rendered_indices: set[int],
 ) -> str:
     rendered_sections = []
-    for section in article.content_sections:
+    for position, section in enumerate(article.content_sections, start=1):
+        section_anchor = _local_article_content_section_anchor(position)
         section_parts = [
-            '        <article class="local-article-content-card">',
+            f'        <article id="{_esc(section_anchor)}" class="local-article-content-card">',
             "          <h4>",
             f'            <span data-lang="en">{_esc(section.title.en)}</span>',
             f'            <span data-lang="zh">{_esc(section.title.zh)}</span>',
@@ -2443,6 +2507,10 @@ def _local_article_rendered_paragraph_indices(article: RowOneLocalArticle) -> se
 def _local_article_paragraph_anchor(index: int) -> str:
     # paragraph_indices are zero-based; fragment IDs are one-based for readers.
     return f"local-article-paragraph-{index + 1}"
+
+
+def _local_article_content_section_anchor(position: int) -> str:
+    return f"local-article-content-section-{position}"
 
 
 def _valid_local_article_paragraph_indices(

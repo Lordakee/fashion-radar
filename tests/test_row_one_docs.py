@@ -734,6 +734,8 @@ def test_row_one_docs_describe_daily_local_intelligence() -> None:
     assert "anchored saved local paragraphs" in readme
     assert "when the referenced paragraph is available" in readme
     assert "reference cards can include saved-source paragraph excerpts" in readme
+    assert "local article map" in readme
     assert "data/local-intelligence.json" in readme
     assert "row-one-app/v7 remains stable" in readme
     assert "source-backed reference excerpts" in row_one_docs
+    assert "paragraph target highlight" in row_one_docs

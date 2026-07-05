@@ -471,6 +471,30 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     assert "Second local paragraph with styling context." in detail_html
     assert 'id="local-article-paragraph-1"' in detail_html
     assert 'id="local-article-paragraph-2"' in detail_html
+    assert 'class="local-article-map"' in detail_html
+    assert 'aria-label="ROW ONE local article map"' in detail_html
+    assert 'href="#local-article-brief"' in detail_html
+    assert 'href="#local-article-content-section-1"' in detail_html
+    assert 'href="#local-article-content-section-2"' in detail_html
+    assert 'href="#local-article-body"' in detail_html
+    assert 'id="local-article-brief"' in detail_html
+    assert 'id="local-article-content-section-1"' in detail_html
+    assert 'id="local-article-content-section-2"' in detail_html
+    assert 'id="local-article-body"' in detail_html
+    assert '<span data-lang="en">Brief</span>' in detail_html
+    assert '<span data-lang="zh">本地简报</span>' in detail_html
+    assert re.search(
+        r'<a href="#local-article-content-section-1">\s*'
+        r'<span data-lang="en">Takeaways</span>\s*'
+        r'<span data-lang="zh">要点</span>\s*</a>',
+        detail_html,
+    )
+    assert re.search(
+        r'<a href="#local-article-content-section-2">\s*'
+        r'<span data-lang="en">Entities</span>\s*'
+        r'<span data-lang="zh">相关对象</span>\s*</a>',
+        detail_html,
+    )
     assert 'class="local-article-brief"' in detail_html
     assert '<span data-lang="en">What Happened</span>' in detail_html
     assert '<span data-lang="zh">发生了什么</span>' in detail_html
@@ -506,6 +530,12 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
         in content_sections_html
     )
     assert '<span data-lang="zh">The Row 需求的来源摘录。</span>' in content_sections_html
+    assert detail_html.index('class="local-article-map"') < detail_html.index(
+        'class="local-article-brief"'
+    )
+    assert detail_html.index('href="#local-article-content-section-1"') < detail_html.index(
+        'id="local-article-content-section-1"'
+    )
     assert detail_html.index('class="local-article-brief"') < detail_html.index(
         'class="local-article-content-sections"'
     )
@@ -580,7 +610,50 @@ def test_render_row_one_detail_keeps_plain_local_article_without_zh_paragraphs(
     assert 'data-lang="zh">One source paragraph.' not in detail_html
     assert 'class="local-article-brief"' not in detail_html
     assert 'class="local-article-content-sections"' not in detail_html
+    assert 'class="local-article-map"' not in detail_html
+    assert 'id="local-article-body"' in detail_html
     assert 'href="#local-article"' in detail_html
+
+
+def test_render_row_one_detail_map_handles_brief_only_local_article(
+    tmp_path,
+) -> None:
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Source article title",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=["One source paragraph."],
+        brief_sections=[
+            RowOneLocalArticleBriefSection(
+                key="what_happened",
+                title=LocalizedText(en="What Happened", zh="发生了什么"),
+                body=LocalizedText(en="Brief only.", zh="只有简报。"),
+            )
+        ],
+    )
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    local_article_map_html = detail_html[
+        detail_html.index('class="local-article-map"') : detail_html.index(
+            'class="local-article-brief"'
+        )
+    ]
+
+    assert 'href="#local-article-brief"' in local_article_map_html
+    assert 'href="#local-article-body"' in local_article_map_html
+    assert "#local-article-content-section-" not in local_article_map_html
+    assert 'id="local-article-brief"' in detail_html
+    assert 'id="local-article-body"' in detail_html
 
 
 def test_render_row_one_detail_uses_plain_local_article_when_zh_paragraphs_mismatch(
@@ -804,6 +877,14 @@ def test_render_row_one_detail_escapes_local_article_content(tmp_path) -> None:
     assert "&lt;img src=x onerror=&quot;alert(6)&quot;&gt; &amp; item" in detail_html
     assert "&lt;img src=x onerror=&quot;alert(7)&quot;&gt; 中文 &amp; item" in detail_html
     assert "&lt;script&gt;Ref&lt;/script&gt;" in detail_html
+    local_article_map_html = detail_html[
+        detail_html.index('class="local-article-map"') : detail_html.index(
+            'class="local-article-brief"'
+        )
+    ]
+    assert 'href="#local-article-content-section-1"' in local_article_map_html
+    assert "&lt;script&gt;Section&lt;/script&gt;" in local_article_map_html
+    assert 'href="#local-article-body"' in local_article_map_html
     assert 'href="#local-article-paragraph-1"' in detail_html
     assert 'id="local-article-paragraph-1"' in detail_html
     assert "<script>Brief</script>" not in detail_html
@@ -938,7 +1019,10 @@ def test_render_row_one_site_writes_and_renders_daily_local_intelligence_segment
     assert "The Row source paragraph." in html
     assert "Product Signals" in html
     assert "Margaux" in html
-    assert "#local-article-paragraph-" not in "".join(re.findall(r'href="([^"]+)"', html))
+    homepage_hrefs = "".join(re.findall(r'href="([^"]+)"', html))
+    assert "#local-article-paragraph-" not in homepage_hrefs
+    assert "#local-article-content-section-" not in homepage_hrefs
+    assert "#local-article-body" not in homepage_hrefs
     assert "Paragraph 1" in html
     assert "段落 1" in html
 
@@ -1584,6 +1668,19 @@ def test_row_one_css_includes_edition_brief_styles(tmp_path) -> None:
         ".signal-synthesis-grid",
         ".signal-synthesis-group",
         ".signal-synthesis-card",
+    ):
+        assert selector in css_text
+
+
+def test_row_one_css_includes_local_article_map_styles(tmp_path) -> None:
+    css = render_row_one_site(_edition(), tmp_path).index_path
+    css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    for selector in (
+        ".local-article-map",
+        ".local-article-map a",
+        ".local-article-content-paragraph-links a",
+        ".local-article-body p:target",
     ):
         assert selector in css_text
 
