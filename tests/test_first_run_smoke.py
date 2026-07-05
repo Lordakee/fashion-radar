@@ -1888,6 +1888,7 @@ def expected_first_run_flow_commands(
             "status",
             "--site-dir",
             str(context.reports_dir / "row-one" / "site"),
+            "--json",
         ),
         (
             "row-one",
@@ -4387,7 +4388,7 @@ def test_installed_import_origin_rejects_empty_stdout(
         source_checkout=False,
     )
 
-    def fake_run(command, *, cwd, env, text, capture_output, check):
+    def fake_run(command, *, cwd, env, text, capture_output, check, timeout):
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
     monkeypatch.setattr(smoke.subprocess, "run", fake_run)
@@ -4408,7 +4409,7 @@ def test_installed_import_origin_rejects_extra_stdout_lines(
     )
     source_file = tmp_path / "src" / "fashion_radar" / "__init__.py"
 
-    def fake_run(command, *, cwd, env, text, capture_output, check):
+    def fake_run(command, *, cwd, env, text, capture_output, check, timeout):
         return subprocess.CompletedProcess(
             command,
             0,
@@ -4433,7 +4434,7 @@ def test_installed_import_origin_rejects_invalid_json(
         source_checkout=False,
     )
 
-    def fake_run(command, *, cwd, env, text, capture_output, check):
+    def fake_run(command, *, cwd, env, text, capture_output, check, timeout):
         return subprocess.CompletedProcess(command, 0, stdout="not-json\n", stderr="")
 
     monkeypatch.setattr(smoke.subprocess, "run", fake_run)
@@ -4453,13 +4454,38 @@ def test_installed_import_origin_rejects_command_failure(
         source_checkout=False,
     )
 
-    def fake_run(command, *, cwd, env, text, capture_output, check):
+    def fake_run(command, *, cwd, env, text, capture_output, check, timeout):
         return subprocess.CompletedProcess(command, 1, stdout="", stderr="boom")
 
     monkeypatch.setattr(smoke.subprocess, "run", fake_run)
 
     with pytest.raises(smoke.SmokeError, match="Command failed"):
         smoke.installed_import_origin(context)
+
+
+def test_installed_import_origin_rejects_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = smoke.build_context(
+        tmp_path,
+        sys.executable,
+        tmp_path / "runtime",
+        source_checkout=False,
+    )
+
+    def fake_run(command, **kwargs):
+        assert kwargs["timeout"] == smoke.SMOKE_COMMAND_TIMEOUT_SECONDS
+        raise subprocess.TimeoutExpired(
+            command, kwargs["timeout"], output="stdout", stderr="stderr"
+        )
+
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    with pytest.raises(smoke.SmokeError, match="Command timed out") as exc:
+        smoke.installed_import_origin(context)
+    assert "stdout" in str(exc.value)
+    assert "stderr" in str(exc.value)
 
 
 def test_installed_import_origin_returns_module_file_from_json(
@@ -4474,7 +4500,7 @@ def test_installed_import_origin_returns_module_file_from_json(
     )
     installed_file = tmp_path / "venv" / "site-packages" / "fashion_radar" / "__init__.py"
 
-    def fake_run(command, *, cwd, env, text, capture_output, check):
+    def fake_run(command, *, cwd, env, text, capture_output, check, timeout):
         return subprocess.CompletedProcess(
             command,
             0,
@@ -4499,13 +4525,15 @@ def test_installed_import_origin_uses_scrubbed_installed_environment(
     )
     installed_file = tmp_path / "venv" / "site-packages" / "fashion_radar" / "__init__.py"
     captured_env: dict[str, str] = {}
+    captured_timeout: list[float] = []
     monkeypatch.setenv(
         "PYTHONPATH",
         os.pathsep.join(["/already/here", str(tmp_path / "src")]),
     )
 
-    def fake_run(command, *, cwd, env, text, capture_output, check):
+    def fake_run(command, *, cwd, env, text, capture_output, check, timeout):
         captured_env.update(env)
+        captured_timeout.append(timeout)
         return subprocess.CompletedProcess(
             command,
             0,
@@ -4517,6 +4545,7 @@ def test_installed_import_origin_uses_scrubbed_installed_environment(
 
     assert smoke.installed_import_origin(context) == installed_file
     assert captured_env["PYTHONPATH"] == "/already/here"
+    assert captured_timeout == [smoke.SMOKE_COMMAND_TIMEOUT_SECONDS]
 
 
 def test_run_cli_uses_context_source_checkout_flag(
@@ -4530,10 +4559,12 @@ def test_run_cli_uses_context_source_checkout_flag(
         source_checkout=False,
     )
     captured_env: dict[str, str] = {}
+    captured_timeout: list[float] = []
 
-    def fake_run(command, *, cwd, env, text, capture_output, check):
+    def fake_run(command, *, cwd, env, text, capture_output, check, timeout):
         captured_env.clear()
         captured_env.update(env)
+        captured_timeout.append(timeout)
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
     monkeypatch.setattr(smoke.subprocess, "run", fake_run)
@@ -4545,6 +4576,256 @@ def test_run_cli_uses_context_source_checkout_flag(
     smoke.run_cli(context, "--help")
 
     assert captured_env["PYTHONPATH"] == "/already/here"
+    assert captured_timeout == [smoke.SMOKE_COMMAND_TIMEOUT_SECONDS]
+
+
+def test_run_cli_rejects_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = smoke.build_context(
+        tmp_path,
+        sys.executable,
+        tmp_path / "runtime",
+        source_checkout=True,
+    )
+
+    def fake_run(command, **kwargs):
+        assert kwargs["timeout"] == smoke.SMOKE_COMMAND_TIMEOUT_SECONDS
+        raise subprocess.TimeoutExpired(
+            command, kwargs["timeout"], output="stdout", stderr="stderr"
+        )
+
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    with pytest.raises(smoke.SmokeError, match="Command timed out") as exc:
+        smoke.run_cli(context, "--help")
+    assert "stdout" in str(exc.value)
+    assert "stderr" in str(exc.value)
+
+
+def test_run_row_one_local_http_serve_smoke_launches_server_and_fetches_contracts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = make_context(tmp_path, python=sys.executable)
+    site_dir = context.reports_dir / "row-one" / "site"
+    captured_popen: dict[str, object] = {}
+    fetched_paths: list[tuple[int, str]] = []
+
+    class FakeProcess:
+        returncode = None
+
+        def __init__(self) -> None:
+            self.terminated = False
+            self.killed = False
+            self.waited = False
+            self.communicated = False
+
+        def poll(self):
+            return self.returncode
+
+        def terminate(self) -> None:
+            self.terminated = True
+
+        def wait(self, timeout=None):
+            self.waited = True
+            return 0
+
+        def kill(self) -> None:
+            self.killed = True
+
+        def communicate(self, timeout=None):
+            self.communicated = True
+            return ("", "")
+
+    fake_process = FakeProcess()
+
+    def fake_popen(command, *, cwd, env, stdout, stderr, text):
+        captured_popen.update(
+            {
+                "command": command,
+                "cwd": cwd,
+                "env": env,
+                "stdout": stdout,
+                "stderr": stderr,
+                "text": text,
+            }
+        )
+        return fake_process
+
+    def fake_fetch(port: int, path: str) -> str:
+        fetched_paths.append((port, path))
+        payloads = {
+            "/": "<!doctype html><title>ROW ONE</title>",
+            "/data/manifest.json": json.dumps({"contract_version": "row-one-manifest/v1"}),
+            "/data/edition.json": json.dumps(
+                {
+                    "contract_version": "row-one-app/v7",
+                    "story_directory": {
+                        "routes": [{"detail_href": "details/current-story.html"}],
+                    },
+                }
+            ),
+            "/data/runtime.json": json.dumps({"contract_version": "row-one-runtime/v1"}),
+            "/assets/row-one.css": "body { color: black; }",
+            "/assets/row-one.js": "window.RowOne = {};",
+            "/details/current-story.html": "<!doctype html><title>Story</title>",
+        }
+        return payloads[path]
+
+    monkeypatch.setattr(smoke, "_reserve_local_port", lambda: 49123)
+    monkeypatch.setattr(smoke.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(smoke, "_fetch_local_http_path", fake_fetch)
+
+    smoke.run_row_one_local_http_serve_smoke(context, site_dir)
+
+    assert captured_popen["command"] == smoke.cli_command(
+        context,
+        "row-one",
+        "serve",
+        "--site-dir",
+        str(site_dir),
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "49123",
+    )
+    assert captured_popen["cwd"] == context.repo_root
+    assert captured_popen["stdout"] is smoke.subprocess.PIPE
+    assert captured_popen["stderr"] is smoke.subprocess.PIPE
+    assert captured_popen["text"] is True
+    env = cast(dict[str, str], captured_popen["env"])
+    assert env["PYTHONPATH"].split(os.pathsep)[0] == str(context.repo_root / "src")
+    assert fetched_paths == [
+        (49123, "/"),
+        (49123, "/data/manifest.json"),
+        (49123, "/data/edition.json"),
+        (49123, "/data/runtime.json"),
+        (49123, "/assets/row-one.css"),
+        (49123, "/assets/row-one.js"),
+        (49123, "/details/current-story.html"),
+    ]
+    assert fake_process.terminated is True
+    assert fake_process.waited is False
+    assert fake_process.communicated is True
+    assert fake_process.killed is False
+
+
+def test_run_row_one_local_http_serve_smoke_reports_early_exit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = make_context(tmp_path, python=sys.executable)
+    site_dir = context.reports_dir / "row-one" / "site"
+
+    class ExitedProcess:
+        returncode = 42
+
+        def poll(self):
+            return self.returncode
+
+        def terminate(self) -> None:
+            raise AssertionError("exited processes should not be terminated")
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+        def kill(self) -> None:
+            raise AssertionError("exited processes should not be killed")
+
+        def communicate(self):
+            return ("serve stdout", "serve stderr")
+
+    monkeypatch.setattr(smoke, "_reserve_local_port", lambda: 49124)
+    monkeypatch.setattr(smoke.subprocess, "Popen", lambda *args, **kwargs: ExitedProcess())
+
+    with pytest.raises(smoke.SmokeError, match="row-one serve exited before HTTP readiness") as exc:
+        smoke.run_row_one_local_http_serve_smoke(context, site_dir)
+    assert "serve stdout" in str(exc.value)
+    assert "serve stderr" in str(exc.value)
+
+
+def test_run_row_one_local_http_serve_smoke_retries_address_in_use_startup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = make_context(tmp_path, python=sys.executable)
+    site_dir = context.reports_dir / "row-one" / "site"
+    ports = iter([49125, 49126])
+    processes: list[object] = []
+
+    class AddressInUseProcess:
+        returncode = 1
+
+        def poll(self):
+            return self.returncode
+
+        def terminate(self) -> None:
+            raise AssertionError("exited processes should not be terminated")
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+        def kill(self) -> None:
+            raise AssertionError("exited processes should not be killed")
+
+        def communicate(self):
+            return ("", "OSError: [Errno 98] Address already in use")
+
+    class RunningProcess:
+        returncode = None
+
+        def __init__(self) -> None:
+            self.terminated = False
+            self.communicated = False
+
+        def poll(self):
+            return self.returncode
+
+        def terminate(self) -> None:
+            self.terminated = True
+
+        def wait(self, timeout=None):
+            return 0
+
+        def kill(self) -> None:
+            raise AssertionError("running process should terminate cleanly")
+
+        def communicate(self, timeout=None):
+            self.communicated = True
+            return ("", "")
+
+    def fake_popen(*args, **kwargs):
+        process = AddressInUseProcess() if not processes else RunningProcess()
+        processes.append(process)
+        return process
+
+    def fake_fetch(port: int, path: str) -> str:
+        if port == 49125:
+            raise OSError("wrong port should not be fetched after bind failure")
+        payloads = {
+            "/": "<!doctype html><title>ROW ONE</title>",
+            "/data/manifest.json": json.dumps({"contract_version": "row-one-manifest/v1"}),
+            "/data/edition.json": json.dumps(
+                {"contract_version": "row-one-app/v7", "story_directory": {"routes": []}}
+            ),
+            "/data/runtime.json": json.dumps({"contract_version": "row-one-runtime/v1"}),
+            "/assets/row-one.css": "body {}",
+            "/assets/row-one.js": "window.RowOne = {};",
+        }
+        return payloads[path]
+
+    monkeypatch.setattr(smoke, "_reserve_local_port", lambda: next(ports))
+    monkeypatch.setattr(smoke.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(smoke, "_fetch_local_http_path", fake_fetch)
+
+    smoke.run_row_one_local_http_serve_smoke(context, site_dir)
+
+    assert len(processes) == 2
+    assert isinstance(processes[1], RunningProcess)
+    assert processes[1].terminated is True
+    assert processes[1].communicated is True
 
 
 def test_main_installed_preflights_before_running_smoke(
@@ -4624,6 +4905,13 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
     example_csv.write_text(SAMPLE_CSV_TEXT, encoding="utf-8")
     context = make_context(tmp_path, python=sys.executable)
     captured: list[tuple[str, ...]] = []
+    local_http_smokes: list[tuple[smoke.SmokeContext, Path]] = []
+
+    def fake_run_row_one_local_http_serve_smoke(
+        fake_context: smoke.SmokeContext,
+        site_dir: Path,
+    ) -> None:
+        local_http_smokes.append((fake_context, site_dir))
 
     def fake_run_cli(fake_context, *args: str):
         assert fake_context is context
@@ -4843,21 +5131,34 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
 
         if args[:2] == ("row-one", "status"):
             row_one_output_dir = context.reports_dir / "row-one" / "site"
+            runtime_path = row_one_output_dir / "data" / "runtime.json"
+            manifest_path = row_one_output_dir / "data" / "manifest.json"
+            runtime_payload = json.loads(runtime_path.read_text(encoding="utf-8"))
+            manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
             return subprocess.CompletedProcess(
                 ["python", "-m", "fashion_radar", *args],
                 0,
-                stdout=(
-                    "ROW ONE status\n"
-                    f"Site: {row_one_output_dir}\n"
-                    f"Runtime: {row_one_output_dir / 'data' / 'runtime.json'}\n"
-                    f"JSON: {row_one_output_dir / 'data' / 'edition.json'}\n"
-                    f"Manifest: {row_one_output_dir / 'data' / 'manifest.json'}\n"
-                    "Readiness: empty\n"
-                    "Stories: 0\n"
-                    "Sections: 5\n"
-                    "Evidence links: 0\n"
-                    "Refresh time: 04:00\n"
-                    "Open: http://127.0.0.1:8787\n"
+                stdout=json.dumps(
+                    {
+                        "ok": True,
+                        "paths": {
+                            "manifest": "data/manifest.json",
+                            "edition": "data/edition.json",
+                            "runtime": "data/runtime.json",
+                        },
+                        "contracts": {
+                            "app": "row-one-app/v7",
+                            "manifest": "row-one-manifest/v1",
+                            "runtime": "row-one-runtime/v1",
+                        },
+                        "runtime": runtime_payload,
+                        "manifest": manifest_payload,
+                        "counts": runtime_payload["counts"],
+                        "readiness": runtime_payload["readiness"],
+                        "site": runtime_payload["site"],
+                        "serve": runtime_payload["serve"],
+                        "refresh": runtime_payload["refresh"],
+                    }
                 ),
                 stderr="",
             )
@@ -4993,10 +5294,16 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         )
 
     monkeypatch.setattr(smoke, "run_cli", fake_run_cli)
+    monkeypatch.setattr(
+        smoke,
+        "run_row_one_local_http_serve_smoke",
+        fake_run_row_one_local_http_serve_smoke,
+    )
 
     smoke.run_first_run_flow(context)
 
     assert_first_run_flow_commands(captured, context, example_csv)
+    assert local_http_smokes == [(context, context.reports_dir / "row-one" / "site")]
     assert (context.config_dir / "sources.yaml").read_text(encoding="utf-8") == (
         "version: 1\nsources: []\n"
     )

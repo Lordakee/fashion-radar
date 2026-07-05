@@ -4,13 +4,16 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import http.client
 import json
 import os
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,6 +52,7 @@ EXPECTED_SAMPLE_ROWS = (
     },
 )
 EXPECTED_SAMPLE_TITLES = tuple(row["title"] for row in EXPECTED_SAMPLE_ROWS)
+SMOKE_COMMAND_TIMEOUT_SECONDS = 120
 EXPECTED_SAMPLE_ENTITIES = ("The Row", "The Row Margaux", "Ballet Flats")
 EXPECTED_ENTITY_MATCH_EVIDENCE_KEYS = (
     "matched_items",
@@ -1522,6 +1526,54 @@ def validate_row_one_runtime(
     validate_row_one_signal_synthesis(edition_payload)
 
 
+def validate_row_one_status_payload(
+    status_payload: Any,
+    *,
+    runtime_payload: Mapping[str, Any],
+    manifest_payload: Mapping[str, Any],
+) -> None:
+    if not isinstance(status_payload, dict):
+        raise SmokeError("row-one status --json output must be a JSON object")
+    assert_equal("row-one status ok", status_payload.get("ok"), True)
+    assert_equal(
+        "row-one status paths",
+        status_payload.get("paths"),
+        {
+            "manifest": "data/manifest.json",
+            "edition": "data/edition.json",
+            "runtime": "data/runtime.json",
+        },
+    )
+    assert_equal(
+        "row-one status contracts",
+        status_payload.get("contracts"),
+        {
+            "app": "row-one-app/v7",
+            "manifest": "row-one-manifest/v1",
+            "runtime": "row-one-runtime/v1",
+        },
+    )
+    assert_equal("row-one status runtime payload", status_payload.get("runtime"), runtime_payload)
+    assert_equal(
+        "row-one status manifest payload", status_payload.get("manifest"), manifest_payload
+    )
+    assert_equal(
+        "row-one status counts", status_payload.get("counts"), runtime_payload.get("counts")
+    )
+    assert_equal(
+        "row-one status readiness",
+        status_payload.get("readiness"),
+        runtime_payload.get("readiness"),
+    )
+    assert_equal("row-one status site", status_payload.get("site"), runtime_payload.get("site"))
+    assert_equal("row-one status serve", status_payload.get("serve"), runtime_payload.get("serve"))
+    assert_equal(
+        "row-one status refresh",
+        status_payload.get("refresh"),
+        runtime_payload.get("refresh"),
+    )
+
+
 def validate_import_signals_dry_run(output: str) -> None:
     assert_output_contains(
         "import-signals --dry-run",
@@ -2918,14 +2970,18 @@ def format_paths(paths: Sequence[Path]) -> str:
 
 def run_cli(context: SmokeContext, *args: str) -> subprocess.CompletedProcess[str]:
     command = cli_command(context, *args)
-    completed = subprocess.run(
-        command,
-        cwd=context.repo_root,
-        env=command_environment(context, source_checkout=context.source_checkout),
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=context.repo_root,
+            env=command_environment(context, source_checkout=context.source_checkout),
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=SMOKE_COMMAND_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise SmokeError(format_command_timeout(command, exc)) from exc
     if completed.returncode != 0:
         raise SmokeError(format_command_failure(command, completed))
     return completed
@@ -2942,6 +2998,266 @@ def format_command_failure(
         f"Command failed with exit code {completed.returncode}: {command_text}\n"
         f"stdout:\n{stdout}\n"
         f"stderr:\n{stderr}"
+    )
+
+
+def format_command_timeout(command: Sequence[str], exc: subprocess.TimeoutExpired) -> str:
+    command_text = " ".join(shlex.quote(part) for part in command)
+    return (
+        f"Command timed out after {exc.timeout} seconds: {command_text}\n"
+        f"stdout:\n{_format_timeout_output(exc.stdout)}\n"
+        f"stderr:\n{_format_timeout_output(exc.stderr)}"
+    )
+
+
+def _format_timeout_output(output: object) -> str:
+    if output is None:
+        return "<empty>"
+    if isinstance(output, bytes):
+        text = output.decode("utf-8", errors="replace")
+    else:
+        text = str(output)
+    stripped = text.strip()
+    if not stripped:
+        return "<empty>"
+    if len(stripped) <= 1000:
+        return stripped
+    return f"{stripped[:1000]}..."
+
+
+def _reserve_local_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+def _fetch_local_http_path(port: int, path: str) -> str:
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=0.75)
+    try:
+        connection.request("GET", path)
+        response = connection.getresponse()
+        body = response.read().decode("utf-8")
+    finally:
+        connection.close()
+    if response.status != 200:
+        raise OSError(f"{path} returned HTTP {response.status}")
+    return body
+
+
+def _fetch_local_http_path_with_retry(port: int, path: str) -> str:
+    last_error: OSError | None = None
+    for _attempt in range(3):
+        try:
+            return _fetch_local_http_path(port, path)
+        except OSError as exc:
+            last_error = exc
+            time.sleep(0.1)
+    if last_error is not None:
+        raise last_error
+    raise OSError(f"{path} was not fetched")
+
+
+def _process_output_snippet(output: str, *, limit: int = 1000) -> str:
+    stripped = output.strip()
+    if not stripped:
+        return "<empty>"
+    if len(stripped) <= limit:
+        return stripped
+    return f"{stripped[:limit]}..."
+
+
+def _raise_row_one_serve_exited(
+    command: Sequence[str],
+    process: subprocess.Popen[str],
+    *,
+    port: int,
+    returncode: int | None = None,
+) -> None:
+    stdout, stderr = process.communicate()
+    command_text = " ".join(shlex.quote(part) for part in command)
+    if returncode is None:
+        returncode = process.returncode
+    raise SmokeError(
+        "row-one serve exited before HTTP readiness "
+        f"on port {port} with exit code {returncode}: {command_text}\n"
+        f"stdout:\n{_process_output_snippet(stdout)}\n"
+        f"stderr:\n{_process_output_snippet(stderr)}"
+    )
+
+
+def _is_retryable_row_one_serve_startup_error(exc: SmokeError) -> bool:
+    message = str(exc).lower()
+    return "address already in use" in message or "errno 98" in message or "eaddrinuse" in message
+
+
+def _wait_for_row_one_http_ready(
+    command: Sequence[str],
+    process: subprocess.Popen[str],
+    *,
+    port: int,
+) -> str:
+    deadline = time.monotonic() + 10.0
+    last_error: OSError | None = None
+    while time.monotonic() < deadline:
+        returncode = process.poll()
+        if returncode is not None:
+            _raise_row_one_serve_exited(command, process, port=port, returncode=returncode)
+        try:
+            return _fetch_local_http_path(port, "/")
+        except OSError as exc:
+            last_error = exc
+            time.sleep(0.1)
+    returncode = process.poll()
+    if returncode is not None:
+        _raise_row_one_serve_exited(command, process, port=port, returncode=returncode)
+    detail = f": {last_error}" if last_error is not None else ""
+    raise OSError(f"row-one serve did not become ready on port {port}{detail}")
+
+
+def _stop_row_one_serve_process(process: subprocess.Popen[str]) -> None:
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.communicate(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.communicate(timeout=5)
+
+
+def _validate_row_one_contract_payload(
+    path: str,
+    payload: Any,
+    *,
+    expected_contract_version: str,
+) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise SmokeError(f"row-one serve {path} returned non-object JSON")
+    assert_equal(
+        f"row-one serve {path} contract_version",
+        payload.get("contract_version"),
+        expected_contract_version,
+    )
+    return payload
+
+
+def _fetch_row_one_contract_payload(
+    port: int,
+    path: str,
+    *,
+    expected_contract_version: str,
+) -> dict[str, Any]:
+    payload = validate_json_output(
+        f"row-one serve {path}",
+        _fetch_local_http_path_with_retry(port, path),
+    )
+    return _validate_row_one_contract_payload(
+        path,
+        payload,
+        expected_contract_version=expected_contract_version,
+    )
+
+
+def _first_row_one_detail_path(edition_payload: Mapping[str, Any]) -> str | None:
+    story_directory = edition_payload.get("story_directory")
+    if not isinstance(story_directory, Mapping):
+        return None
+    routes = story_directory.get("routes")
+    if not isinstance(routes, list) or not routes:
+        return None
+    first_route = routes[0]
+    if not isinstance(first_route, Mapping):
+        return None
+    detail_href = first_route.get("detail_href")
+    if not isinstance(detail_href, str) or not detail_href:
+        return None
+    detail_path = detail_href.split("#", 1)[0]
+    if not detail_path:
+        return None
+    return detail_path if detail_path.startswith("/") else f"/{detail_path}"
+
+
+def _validate_row_one_local_http_paths(port: int, root_body: str) -> None:
+    if "ROW ONE" not in root_body:
+        raise SmokeError("row-one serve / output missing expected text: ROW ONE")
+
+    _fetch_row_one_contract_payload(
+        port,
+        "/data/manifest.json",
+        expected_contract_version="row-one-manifest/v1",
+    )
+    edition_payload = _fetch_row_one_contract_payload(
+        port,
+        "/data/edition.json",
+        expected_contract_version="row-one-app/v7",
+    )
+    _fetch_row_one_contract_payload(
+        port,
+        "/data/runtime.json",
+        expected_contract_version="row-one-runtime/v1",
+    )
+    for asset_path in ("/assets/row-one.css", "/assets/row-one.js"):
+        if not _fetch_local_http_path_with_retry(port, asset_path).strip():
+            raise SmokeError(f"row-one serve {asset_path} returned an empty body")
+
+    detail_path = _first_row_one_detail_path(edition_payload)
+    if detail_path is not None:
+        _fetch_local_http_path_with_retry(port, detail_path)
+
+
+def run_row_one_local_http_serve_smoke(context: SmokeContext, site_dir: Path) -> None:
+    startup_errors: list[str] = []
+    for _attempt in range(3):
+        port = _reserve_local_port()
+        command = cli_command(
+            context,
+            "row-one",
+            "serve",
+            "--site-dir",
+            str(site_dir),
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+        )
+        process = subprocess.Popen(
+            command,
+            cwd=context.repo_root,
+            env=command_environment(context, source_checkout=context.source_checkout),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            try:
+                root_body = _wait_for_row_one_http_ready(command, process, port=port)
+            except OSError as exc:
+                startup_errors.append(f"port {port}: {exc}")
+                continue
+            except SmokeError as exc:
+                if _is_retryable_row_one_serve_startup_error(exc):
+                    startup_errors.append(f"port {port}: {exc}")
+                    continue
+                raise
+            try:
+                _validate_row_one_local_http_paths(port, root_body)
+            except OSError as exc:
+                returncode = process.poll()
+                if returncode is not None:
+                    _raise_row_one_serve_exited(
+                        command,
+                        process,
+                        port=port,
+                        returncode=returncode,
+                    )
+                raise SmokeError(f"ROW ONE local HTTP serve smoke failed: {exc}") from exc
+            return
+        finally:
+            _stop_row_one_serve_process(process)
+
+    raise SmokeError(
+        "ROW ONE local HTTP serve smoke failed after 3 startup attempts: "
+        + "; ".join(startup_errors)
     )
 
 
@@ -3336,23 +3652,13 @@ def run_first_run_flow(context: SmokeContext) -> None:
         "status",
         "--site-dir",
         str(row_one_output_dir),
+        "--json",
     ).stdout
-    assert_output_contains_text(
-        "row-one status",
-        row_one_status,
-        (
-            "ROW ONE status",
-            f"Site: {row_one_output_dir}",
-            f"Runtime: {row_one_runtime_path}",
-            f"JSON: {row_one_edition_path}",
-            f"Manifest: {row_one_manifest_path}",
-            "Readiness:",
-            "Stories:",
-            "Sections:",
-            "Evidence links:",
-            "Refresh time: 04:00",
-            "Open: http://127.0.0.1:8787",
-        ),
+    row_one_status_payload = validate_json_output("row-one status --json", row_one_status)
+    validate_row_one_status_payload(
+        row_one_status_payload,
+        runtime_payload=row_one_runtime_payload,
+        manifest_payload=row_one_manifest_payload,
     )
     row_one_serve = run_cli(
         context,
@@ -3371,6 +3677,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
         row_one_serve,
         ("Open: http://127.0.0.1:8787",),
     )
+    run_row_one_local_http_serve_smoke(context, row_one_output_dir)
     row_one_local_ops = run_cli(
         context,
         "row-one",
@@ -3605,14 +3912,18 @@ def installed_import_origin(context: SmokeContext) -> Path:
             "str(pathlib.Path(fashion_radar.__file__).resolve())}))"
         ),
     ]
-    completed = subprocess.run(
-        command,
-        cwd=context.repo_root,
-        env=command_environment(context, source_checkout=False),
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=context.repo_root,
+            env=command_environment(context, source_checkout=False),
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=SMOKE_COMMAND_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise SmokeError(format_command_timeout(command, exc)) from exc
     if completed.returncode != 0:
         raise SmokeError(format_command_failure(command, completed))
 

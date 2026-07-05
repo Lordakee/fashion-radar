@@ -247,6 +247,20 @@ runtime, manifest, and app payloads. These fields are CLI status output only;
 they do not add fields to `row-one-runtime/v1`, `row-one-manifest/v1`, or
 `row-one-app/v7`.
 
+`row-one status --json` is the script-facing preflight surface. Stage 308 site
+integrity/preflight validates an already generated ROW ONE site before serving;
+it is read-only and does not rebuild, write files, start a server, collect
+sources, call external services, deploy, or alter ranking/scoring/story IDs. It
+validates `.row-one-site`, `index.html`, fixed JSON paths, core assets, current
+detail routes, local image asset existence, article sidecars,
+local-intelligence detail paths, and paragraph anchors. This has no schema/app
+contract change: the additive status fields are CLI output only and do not add
+fields to `row-one-runtime/v1`, `row-one-manifest/v1`, or `row-one-app/v7`.
+`data/edition.json` remains `row-one-app/v7`, `data/manifest.json` remains
+`row-one-manifest/v1`, and `data/runtime.json` remains `row-one-runtime/v1`.
+The first-run smoke now performs a local HTTP serve fetch, not just
+`serve --dry-run`, after status has validated the generated site.
+
 The canonical first-run local serving boundary is fixed IP:port `127.0.0.1:8787`
 for local-only testing. Use `0.0.0.0:8787` only for explicit LAN serving, and
 open `http://<LAN-IP>:8787` from other devices. Daily local refresh examples use
@@ -357,7 +371,8 @@ untouched.
   `--host`, `--port`, and `--dry-run-serve-url`.
 - `row-one status`: reads a generated ROW ONE site directory and prints runtime
   status from `data/runtime.json` without rebuilding or serving the site.
-  Important flags: `--site-dir`.
+  Important flags: `--site-dir`. Use `row-one status --json` as the
+  script-facing preflight surface before serving.
 - `row-one local-ops`: prints a ROW ONE local daily ops runbook for 04:00
   refresh, fixed IP:port serving, preview, `row-one status --json` preflight,
   source checkout commands, and cron snippets. It prints snippets only and does

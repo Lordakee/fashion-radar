@@ -52,7 +52,9 @@ the report command writes `reports/fashion-radar-2026-06-13.md`,
 smoke helper used by README, CI, and the upload checklist. It is not a normal
 public `fashion-radar` CLI command; run it with Python when you need the
 deterministic first-run smoke. It is the deterministic sample-output gate: it
-validates deterministic sample output content, not only command execution.
+validates deterministic sample output content, not only command execution. The
+first-run smoke now performs a local HTTP serve fetch, not just
+`serve --dry-run`, for the generated ROW ONE site paths.
 
 ## Setup And Operations
 
@@ -106,6 +108,19 @@ validates deterministic sample output content, not only command execution.
   contract and the key cross-file fields agree. The runtime status covers
   readiness, counts, daily `04:00` refresh metadata, and fixed IP:port
   `127.0.0.1:8787` or explicit LAN serving on `0.0.0.0:8787`.
+  `row-one status --json` is the script-facing preflight surface. Stage 308
+  site integrity/preflight validates an already generated ROW ONE site before
+  serving; it is read-only and does not rebuild, write files, start a server,
+  collect sources, call external services, deploy, or alter ranking/scoring/story
+  IDs. It validates `.row-one-site`, `index.html`, fixed JSON paths, core
+  assets, current detail routes, local image asset existence, article sidecars,
+  local-intelligence detail paths, and paragraph anchors. This has no
+  schema/app contract change: the additive status fields are CLI output only and
+  do not add fields to `row-one-runtime/v1`, `row-one-manifest/v1`, or
+  `row-one-app/v7`. `data/edition.json` remains `row-one-app/v7`,
+  `data/manifest.json` remains `row-one-manifest/v1`, and `data/runtime.json`
+  remains `row-one-runtime/v1`. The first-run smoke now performs a local HTTP
+  serve fetch, not just `serve --dry-run`, after the generated site preflight.
 - `row-one local-ops`: print a local daily ops runbook for 04:00 refresh,
   fixed IP:port serving, preview, and cron snippets; supports `--project-dir`,
   `--config-dir`, `--data-dir`, `--reports-dir`, `--output-dir`, `--time`,

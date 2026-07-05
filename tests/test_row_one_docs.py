@@ -7,6 +7,7 @@ README = ROOT / "README.md"
 ROW_ONE_DOC = ROOT / "docs" / "row-one.md"
 ARCHITECTURE_DOC = ROOT / "docs" / "architecture.md"
 CLI_REFERENCE = ROOT / "docs" / "cli-reference.md"
+FIRST_RUN_DOC = ROOT / "docs" / "first-run.md"
 SCHEDULING_DOC = ROOT / "docs" / "scheduling.md"
 UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
 
@@ -611,6 +612,76 @@ def test_row_one_docs_describe_runtime_status_contract() -> None:
         assert "not deep schema validation" not in normalized
         assert "does not validate cross-file agreement" not in normalized
         assert "read/parse check" not in normalized
+
+
+def test_row_one_docs_describe_stage_308_site_integrity_preflight() -> None:
+    docs = {
+        "README.md": _normalized(_read(README)),
+        "docs/row-one.md": _normalized(_read(ROW_ONE_DOC)),
+        "docs/cli-reference.md": _normalized(_read(CLI_REFERENCE)),
+    }
+
+    for normalized in docs.values():
+        for phrase in (
+            "`row-one status --json`",
+            "script-facing preflight surface",
+            "stage 308 site integrity/preflight",
+            "validates an already generated row one site before serving",
+            "read-only",
+            "does not rebuild",
+            "write files",
+            "start a server",
+            "collect sources",
+            "call external services",
+            "deploy",
+            "alter ranking/scoring/story ids",
+            "validates `.row-one-site`",
+            "`index.html`",
+            "fixed json paths",
+            "core assets",
+            "current detail routes",
+            "local image asset existence",
+            "article sidecars",
+            "local-intelligence detail paths",
+            "paragraph anchors",
+            "no schema/app contract change",
+            "cli output only",
+            "`data/edition.json` remains `row-one-app/v7`",
+            "`data/manifest.json` remains `row-one-manifest/v1`",
+            "`data/runtime.json` remains `row-one-runtime/v1`",
+            "first-run smoke now performs a local http serve fetch",
+            "not just `serve --dry-run`",
+        ):
+            assert phrase in normalized
+
+
+def test_row_one_docs_reject_stage_308_schema_contract_drift() -> None:
+    docs_text = "\n".join(
+        _normalized(_read(path))
+        for path in (
+            README,
+            ROW_ONE_DOC,
+            CLI_REFERENCE,
+            FIRST_RUN_DOC,
+        )
+        if path.exists()
+    )
+
+    for forbidden in (
+        "row-one-app/v8",
+        "row-one-manifest/v2",
+        "row-one-runtime/v2",
+        "introduces a new app contract",
+        "introduces a new schema contract",
+        "adds a top-level integrity field to data/edition.json",
+        "schema migration",
+        "writes data/status.json",
+        "status starts the server",
+        "status rebuilds the site",
+        "status collects sources",
+        "status deploys",
+    ):
+        assert forbidden not in docs_text
 
 
 def test_row_one_scheduling_docs_describe_single_refresh_command() -> None:

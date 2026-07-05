@@ -30,6 +30,13 @@ from fashion_radar.models.report import (
 )
 from fashion_radar.models.source import SourceType
 from fashion_radar.row_one.edition import build_row_one_edition
+from fashion_radar.row_one.models import (
+    LocalizedText,
+    RowOneLocalArticle,
+    RowOneLocalArticleContentItem,
+    RowOneLocalArticleContentSection,
+    RowOneReference,
+)
 from fashion_radar.row_one.render import render_row_one_site
 from fashion_radar.row_one.server import (
     create_row_one_http_server,
@@ -112,6 +119,93 @@ def _render_status_fixture_site(tmp_path: Path) -> None:
         ),
         tmp_path,
     )
+
+
+def _render_populated_status_site(tmp_path: Path) -> dict[str, object]:
+    edition = build_row_one_edition(
+        report=_empty_report(),
+        recent_items=[
+            {
+                "source_name": "Local Desk",
+                "url": "https://example.com/status-integrity",
+                "title": "The Row local article evidence strengthens",
+                "summary": "Local desk notes a concrete product and brand signal.",
+                "collected_at": AS_OF,
+            }
+        ],
+        as_of=AS_OF,
+    )
+    render_row_one_site(edition, tmp_path)
+    payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
+    return payload["stories"][0]
+
+
+def _render_status_site_with_local_article(tmp_path: Path) -> dict[str, object]:
+    edition = build_row_one_edition(
+        report=_empty_report(),
+        recent_items=[
+            {
+                "source_name": "Local Desk",
+                "url": "https://example.com/local-article",
+                "title": "The Row and Margaux local source strengthens",
+                "summary": "Local desk notes The Row and Margaux are moving together.",
+                "collected_at": AS_OF,
+            }
+        ],
+        as_of=AS_OF,
+    )
+    story = edition.stories[0]
+    story.entity_refs = [RowOneReference(name="The Row", type="brand", label="tracked")]
+    story.product_refs = [RowOneReference(name="Margaux", type="bag", label="product")]
+    story.heat_delta = 5
+    local_article = RowOneLocalArticle(
+        story_id=story.id,
+        title="The Row local source",
+        url="https://example.com/local-article",
+        source_name="Local Desk",
+        extracted_at=AS_OF,
+        paragraphs=[
+            "The Row source paragraph.",
+            "Margaux product paragraph.",
+        ],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(zh="正文重点", en="Takeaways"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="来源导语", en="Source lead"),
+                        body=LocalizedText(
+                            zh="The Row 来源段落。",
+                            en="The Row source paragraph.",
+                        ),
+                        paragraph_indices=[0],
+                    )
+                ],
+            ),
+            RowOneLocalArticleContentSection(
+                key="product_signals",
+                title=LocalizedText(zh="产品信号", en="Product Signals"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="Margaux", en="Margaux"),
+                        body=LocalizedText(
+                            zh="Margaux 产品段落。",
+                            en="Margaux product paragraph.",
+                        ),
+                        paragraph_indices=[1],
+                    )
+                ],
+            ),
+        ],
+    )
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: local_article},
+    )
+    payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
+    return payload["stories"][0]
 
 
 def _seed_collected_item(data_dir: Path, *, title: str, url: str) -> None:
@@ -1111,6 +1205,251 @@ def test_row_one_status_rejects_story_directory_route_drift(tmp_path: Path) -> N
 
     assert result.exit_code == 1
     assert "edition.story_directory.routes[0].detail_href" in result.output
+
+
+def test_row_one_status_rejects_missing_generated_asset(tmp_path: Path) -> None:
+    _render_populated_status_site(tmp_path)
+    (tmp_path / "assets" / "row-one.css").unlink()
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "assets/row-one.css" in result.output
+
+
+def test_row_one_status_rejects_missing_current_detail_page(tmp_path: Path) -> None:
+    story = _render_populated_status_site(tmp_path)
+    detail_href = str(story["detail_href"])
+    assert not detail_href.startswith("/")
+    (tmp_path / detail_href).unlink()
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert detail_href in result.output
+
+
+def test_row_one_status_rejects_story_detail_route_not_matching_story_id(
+    tmp_path: Path,
+) -> None:
+    story = _render_populated_status_site(tmp_path)
+    original_href = str(story["detail_href"])
+    stale_href = "details/stale-story.html"
+    (tmp_path / stale_href).write_text("<!doctype html><title>Stale</title>", encoding="utf-8")
+    edition_path = tmp_path / "data" / "edition.json"
+    payload = json.loads(edition_path.read_text(encoding="utf-8"))
+
+    def replace_href(value: object) -> object:
+        if value == original_href:
+            return stale_href
+        if isinstance(value, dict):
+            return {key: replace_href(nested) for key, nested in value.items()}
+        if isinstance(value, list):
+            return [replace_href(nested) for nested in value]
+        return value
+
+    edition_path.write_text(json.dumps(replace_href(payload)), encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert f"details/{story['id']}.html" in result.output
+
+
+def test_row_one_status_checks_only_local_story_image_assets(tmp_path: Path) -> None:
+    _render_populated_status_site(tmp_path)
+    edition_path = tmp_path / "data" / "edition.json"
+    payload = json.loads(edition_path.read_text(encoding="utf-8"))
+    payload["stories"][0]["display"]["image"] = {
+        "src": "assets/story-card.jpg",
+        "alt": {"en": "Story card", "zh": "故事卡片"},
+    }
+    local_asset = tmp_path / "assets" / "story-card.jpg"
+    local_asset.write_bytes(b"image")
+    edition_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+
+    local_asset.unlink()
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "assets/story-card.jpg" in result.output
+
+    payload["stories"][0]["display"]["image"]["src"] = "https://example.com/remote.jpg"
+    edition_path.write_text(json.dumps(payload), encoding="utf-8")
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+
+
+def test_row_one_status_rejects_stale_article_sidecar(tmp_path: Path) -> None:
+    _render_populated_status_site(tmp_path)
+    articles_dir = tmp_path / "data" / "articles"
+    articles_dir.mkdir(parents=True, exist_ok=True)
+    (articles_dir / "old-story.json").write_text(
+        json.dumps(
+            {
+                "story_id": "old-story",
+                "url": "https://example.com/old",
+                "source_name": "Archive",
+                "extracted_at": AS_OF,
+                "paragraphs": ["Stale paragraph."],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "old-story" in result.output
+
+
+def test_row_one_status_rejects_article_sidecar_story_id_mismatch(tmp_path: Path) -> None:
+    story = _render_populated_status_site(tmp_path)
+    article_path = tmp_path / "data" / "articles" / f"{story['id']}.json"
+    article_path.parent.mkdir(parents=True, exist_ok=True)
+    article_path.write_text(
+        json.dumps(
+            {
+                "story_id": "mismatched-story",
+                "url": "https://example.com/current",
+                "source_name": "Local Desk",
+                "extracted_at": AS_OF,
+                "paragraphs": ["Current paragraph."],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "story_id" in result.output
+
+
+def test_row_one_status_rejects_unsafe_local_intelligence_detail_path(tmp_path: Path) -> None:
+    _render_status_site_with_local_article(tmp_path)
+    local_intelligence_path = tmp_path / "data" / "local-intelligence.json"
+    payload = json.loads(local_intelligence_path.read_text(encoding="utf-8"))
+    payload[0]["items"][0]["detail_path"] = "../escape.html#local-article"
+    local_intelligence_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "local-intelligence" in result.output
+    assert "detail_path" in result.output
+
+
+def test_row_one_status_rejects_unknown_local_intelligence_detail_route(tmp_path: Path) -> None:
+    _render_status_site_with_local_article(tmp_path)
+    local_intelligence_path = tmp_path / "data" / "local-intelligence.json"
+    payload = json.loads(local_intelligence_path.read_text(encoding="utf-8"))
+    payload[0]["items"][0]["detail_path"] = "details/unknown-story.html#local-article"
+    local_intelligence_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "unknown-story" in result.output
+
+
+def test_row_one_status_rejects_local_intelligence_out_of_range_paragraph_index(
+    tmp_path: Path,
+) -> None:
+    _render_status_site_with_local_article(tmp_path)
+    local_intelligence_path = tmp_path / "data" / "local-intelligence.json"
+    payload = json.loads(local_intelligence_path.read_text(encoding="utf-8"))
+    payload[0]["items"][0]["paragraph_indices"] = [99]
+    local_intelligence_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "paragraph_indices" in result.output
+
+
+def test_row_one_status_rejects_article_sidecar_out_of_range_content_paragraph_index(
+    tmp_path: Path,
+) -> None:
+    story = _render_status_site_with_local_article(tmp_path)
+    article_path = tmp_path / "data" / "articles" / f"{story['id']}.json"
+    payload = json.loads(article_path.read_text(encoding="utf-8"))
+    payload["content_sections"][0]["items"][0]["paragraph_indices"] = [99]
+    article_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "paragraph_indices" in result.output
+
+
+def test_row_one_status_rejects_local_intelligence_segment_out_of_range_paragraph_index(
+    tmp_path: Path,
+) -> None:
+    _render_status_site_with_local_article(tmp_path)
+    local_intelligence_path = tmp_path / "data" / "local-intelligence.json"
+    payload = json.loads(local_intelligence_path.read_text(encoding="utf-8"))
+    payload[0]["items"][0]["segments"][0]["items"][0]["paragraph_indices"] = [99]
+    local_intelligence_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "paragraph_indices" in result.output
+
+
+def test_row_one_status_rejects_local_intelligence_source_names_without_article_source(
+    tmp_path: Path,
+) -> None:
+    _render_status_site_with_local_article(tmp_path)
+    local_intelligence_path = tmp_path / "data" / "local-intelligence.json"
+    payload = json.loads(local_intelligence_path.read_text(encoding="utf-8"))
+    payload[0]["items"][0]["source_name"] = "Local Desk"
+    payload[0]["items"][0]["source_names"] = ["Other Desk"]
+    local_intelligence_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "source_names" in result.output
+
+
+def test_row_one_status_rejects_local_intelligence_missing_rendered_anchor(
+    tmp_path: Path,
+) -> None:
+    story = _render_status_site_with_local_article(tmp_path)
+    detail_path = tmp_path / str(story["detail_href"])
+    detail_html = detail_path.read_text(encoding="utf-8")
+    detail_html = detail_html.replace(
+        'id="local-article-paragraph-1"', 'data-id="local-article-paragraph-1"'
+    )
+    detail_path.write_text(detail_html, encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "local-article-paragraph-1" in result.output
+
+
+def test_row_one_status_rejects_noncanonical_local_intelligence_paragraph_fragment(
+    tmp_path: Path,
+) -> None:
+    _render_status_site_with_local_article(tmp_path)
+    local_intelligence_path = tmp_path / "data" / "local-intelligence.json"
+    payload = json.loads(local_intelligence_path.read_text(encoding="utf-8"))
+    detail_path = str(payload[0]["items"][0]["detail_path"]).split("#", 1)[0]
+    payload[0]["items"][0]["detail_path"] = f"{detail_path}#local-article-paragraph-01"
+    local_intelligence_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "local-article-paragraph-01" in result.output
 
 
 def test_row_one_schedule_prints_refresh_command() -> None:

@@ -151,6 +151,7 @@ from fashion_radar.row_one.server import (
     serve_row_one_site,
     validate_row_one_site_dir,
 )
+from fashion_radar.row_one.status_integrity import validate_row_one_generated_site_integrity
 from fashion_radar.scheduling import (
     render_cron_example,
     render_github_actions_workflow,
@@ -2142,6 +2143,7 @@ def row_one_status(
             edition=edition,
             runtime=runtime,
         )
+        validate_row_one_generated_site_integrity(site_dir=site_dir, edition=edition)
     except Exception as exc:
         typer.echo(f"ROW ONE status failed: {exc}", err=True)
         raise typer.Exit(1) from exc

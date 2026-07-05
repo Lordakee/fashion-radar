@@ -20,6 +20,8 @@ inspectable output, local SQLite state, dated reports, and dashboard data.
 For a source-checkout first run, follow [docs/first-run.md](docs/first-run.md)
 and then inspect the same sample in the ROW ONE local static site. The
 source-checkout smoke covers the ROW ONE manifest and serve dry-run path.
+The first-run smoke now performs a local HTTP serve fetch, not just
+`serve --dry-run`, so it also exercises the generated local routes over HTTP.
 
 Use Automated source-checkout smoke or Installed-wheel smoke as verification
 paths when you need disposable source-tree or package checks. They are not the
@@ -168,6 +170,17 @@ matching, scoring, ranking, story IDs, sorting, or source acquisition.
 For local app/ops preflight, `row-one status --json` provides additive top-level
 fields such as counts, readiness, refresh_time, local_url, lan_url_hint, and
 edition_path while preserving the nested runtime and manifest payloads.
+`row-one status --json` is the script-facing preflight surface. Stage 308 site
+integrity/preflight validates an already generated ROW ONE site before serving;
+it is read-only and does not rebuild, write files, start a server, collect
+sources, call external services, deploy, or alter ranking/scoring/story IDs. It
+validates `.row-one-site`, `index.html`, fixed JSON paths, core assets, current
+detail routes, local image asset existence, article sidecars,
+local-intelligence detail paths, and paragraph anchors. This has no schema/app
+contract change: the additive status fields are CLI output only and do not add
+fields to `row-one-runtime/v1`, `row-one-manifest/v1`, or `row-one-app/v7`.
+`data/edition.json` remains `row-one-app/v7`, `data/manifest.json` remains
+`row-one-manifest/v1`, and `data/runtime.json` remains `row-one-runtime/v1`.
 
 The external tool handoff templates are sanitized CSV/JSON local file handoff
 templates for user-controlled external/community tools:
@@ -752,6 +765,8 @@ copyable source-checkout command group with its own `AS_OF`, `cd`, and
 `uv run fashion-radar row-one preview`, `uv run fashion-radar row-one status --site-dir reports/row-one/site --json`,
 and `uv run fashion-radar row-one serve`. It prints snippets only and does not
 install timers, build the site, start the server, or mutate files.
+The first-run smoke now performs a local HTTP serve fetch, not just
+`serve --dry-run`, after the same status preflight path is covered.
 
 Package local digest artifacts after a report or serial run:
 
