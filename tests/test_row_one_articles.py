@@ -336,7 +336,13 @@ def test_build_row_one_local_articles_falls_back_to_stored_summary_on_failure() 
         extractor=extractor,
     )
 
-    assert articles["the-row-signal-1234567890"].paragraphs == ["Summary"]
+    assert articles["the-row-signal-1234567890"].paragraphs == [
+        "Summary",
+        "Editorial",
+        "Important",
+        "Context",
+        "Path",
+    ]
 
 
 def test_build_row_one_local_articles_cleans_fallback_without_mutating_story_summary() -> None:
@@ -357,5 +363,123 @@ def test_build_row_one_local_articles_cleans_fallback_without_mutating_story_sum
         extractor=extractor,
     )
 
-    assert articles["the-row-signal-1234567890"].paragraphs == ["The Row showroom note."]
+    assert articles["the-row-signal-1234567890"].paragraphs == [
+        "The Row showroom note.",
+        "Editorial",
+        "Important",
+        "Context",
+        "Path",
+    ]
     assert edition.stories[0].summary.en == original_summary
+
+
+def test_build_row_one_local_articles_enriches_short_extracted_text() -> None:
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        return ArticleExtractionResult(
+            url=url,
+            title="Short extraction",
+            text="Tiny source note.",
+            skipped=False,
+        )
+
+    articles = build_row_one_local_articles(
+        _edition(),
+        [_source(max_chars=240)],
+        now=AS_OF,
+        extractor=extractor,
+    )
+
+    assert articles["the-row-signal-1234567890"].paragraphs == [
+        "Tiny source note.",
+        "Editorial",
+        "Important",
+        "Context",
+        "Path",
+    ]
+
+
+def test_build_row_one_local_articles_falls_back_when_extracted_text_cleans_empty() -> None:
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        return ArticleExtractionResult(
+            url=url,
+            title="Boilerplate only",
+            text="Read the full story here.",
+            skipped=False,
+        )
+
+    articles = build_row_one_local_articles(
+        _edition(),
+        [_source(max_chars=240)],
+        now=AS_OF,
+        extractor=extractor,
+    )
+
+    article = articles["the-row-signal-1234567890"]
+    assert article.title == "The Row signal"
+    assert article.paragraphs == [
+        "Summary",
+        "Editorial",
+        "Important",
+        "Context",
+        "Path",
+    ]
+
+
+def test_build_row_one_local_articles_enriches_after_unusable_source_tail() -> None:
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        return ArticleExtractionResult(
+            url=url,
+            title="Short source with unusable tail",
+            text=(
+                "Tiny source note.\n\n"
+                "Second paragraph is intentionally too long for the remaining budget and "
+                "should not prevent ROW ONE context from filling the local article."
+            ),
+            skipped=False,
+        )
+
+    articles = build_row_one_local_articles(
+        _edition(),
+        [_source(max_chars=38)],
+        now=AS_OF,
+        extractor=extractor,
+    )
+
+    paragraphs = articles["the-row-signal-1234567890"].paragraphs
+
+    assert paragraphs == ["Tiny source note.", "Editorial", "Important"]
+    assert sum(len(paragraph) for paragraph in paragraphs) <= 38
+
+
+def test_build_row_one_local_articles_does_not_enrich_substantial_extracted_text() -> None:
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        return ArticleExtractionResult(
+            url=url,
+            title="Substantial extraction",
+            text=(
+                "First extracted paragraph carries enough context for the local article body. "
+                "It is intentionally longer than a tiny feed summary and exceeds the context "
+                "threshold used for fallback enrichment.\n\n"
+                "Second extracted paragraph adds source detail without requiring local editorial "
+                "fallback, keeping this article substantial without ROW ONE context."
+            ),
+            skipped=False,
+        )
+
+    articles = build_row_one_local_articles(
+        _edition(),
+        [_source(max_chars=500)],
+        now=AS_OF,
+        extractor=extractor,
+    )
+
+    paragraphs = articles["the-row-signal-1234567890"].paragraphs
+
+    assert sum(len(paragraph) for paragraph in paragraphs) >= 240
+    assert any(paragraph.startswith("First extracted paragraph") for paragraph in paragraphs)
+    assert any("Second extracted paragraph" in paragraph for paragraph in paragraphs)
+    assert not any(
+        context in paragraph
+        for paragraph in paragraphs
+        for context in ("Editorial", "Important", "Context", "Path")
+    )

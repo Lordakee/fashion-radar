@@ -23,6 +23,7 @@ from fashion_radar.utils.http import FashionHttpClient
 ROW_ONE_LOCAL_ARTICLES_ENV = "ROW_ONE_LOCAL_ARTICLES"
 LOCAL_ARTICLE_STORY_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}$")
 LOCAL_ARTICLE_MIN_TRUNCATED_PARAGRAPH_CHARS = 24
+LOCAL_ARTICLE_MIN_CONTEXT_CHARS = 240
 LOCAL_ARTICLE_EXTRACTION_BUFFER_CHARS = 500
 LOCAL_ARTICLE_EXTRACTION_MAX_CHARS = 12000
 
@@ -111,6 +112,41 @@ def text_to_local_article_paragraphs(text: str, *, max_chars: int) -> list[str]:
     return paragraphs
 
 
+def _story_local_article_paragraphs(
+    story: RowOneStory,
+    text: str,
+    *,
+    max_chars: int,
+) -> list[str]:
+    paragraphs = text_to_local_article_paragraphs(text, max_chars=max_chars)
+    if not paragraphs:
+        return []
+    total_chars = sum(len(paragraph) for paragraph in paragraphs)
+    if total_chars >= min(max_chars, LOCAL_ARTICLE_MIN_CONTEXT_CHARS):
+        return paragraphs
+    context_text = _local_article_context_text(story)
+    if not context_text:
+        return paragraphs
+    context_paragraphs = text_to_local_article_paragraphs(
+        context_text,
+        max_chars=max_chars - total_chars,
+    )
+    return [*paragraphs, *context_paragraphs]
+
+
+def _local_article_context_text(story: RowOneStory) -> str:
+    return "\n\n".join(
+        text
+        for text in (
+            story.editorial_takeaway.en,
+            story.why_it_matters.en,
+            story.signal_context.en,
+            story.reader_path.en,
+        )
+        if text.strip()
+    )
+
+
 def safe_local_article_story_id(story_id: str) -> bool:
     return LOCAL_ARTICLE_STORY_ID_RE.fullmatch(story_id) is not None
 
@@ -152,12 +188,13 @@ def _build_story_local_article(
         return _fallback_story_summary_article(story, url, source, extracted_at=extracted_at)
     if result.skipped or not result.text:
         return _fallback_story_summary_article(story, url, source, extracted_at=extracted_at)
-    paragraphs = text_to_local_article_paragraphs(
+    paragraphs = _story_local_article_paragraphs(
+        story,
         result.text,
         max_chars=source.row_one_article.max_chars,
     )
     if not paragraphs:
-        return None
+        return _fallback_story_summary_article(story, url, source, extracted_at=extracted_at)
     return RowOneLocalArticle(
         story_id=story.id,
         title=result.title or story.headline,
@@ -178,7 +215,8 @@ def _fallback_story_summary_article(
     *,
     extracted_at,
 ) -> RowOneLocalArticle | None:
-    paragraphs = text_to_local_article_paragraphs(
+    paragraphs = _story_local_article_paragraphs(
+        story,
         story.summary.en,
         max_chars=source.row_one_article.max_chars,
     )
