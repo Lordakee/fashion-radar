@@ -15,6 +15,8 @@ from fashion_radar.row_one.models import (
     RowOneLink,
     RowOneLocalArticle,
     RowOneLocalArticleBriefSection,
+    RowOneLocalArticleContentItem,
+    RowOneLocalArticleContentSection,
     RowOneReference,
     RowOneSection,
     RowOneStory,
@@ -405,6 +407,37 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
                 ),
             ),
         ],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(en="Takeaways", zh="要点"),
+                body=LocalizedText(en="Saved source reads.", zh="本地来源要点。"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="Source lead", zh="来源导语"),
+                        body=LocalizedText(
+                            en="The Row demand moved.",
+                            zh="The Row 需求变化。",
+                        ),
+                        paragraph_indices=[0],
+                    )
+                ],
+            ),
+            RowOneLocalArticleContentSection(
+                key="entities",
+                title=LocalizedText(en="Entities", zh="相关对象"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="The Row", zh="The Row"),
+                        body=LocalizedText(en="brand / tracked", zh="brand / tracked"),
+                        references=[
+                            RowOneReference(name="The Row", type="brand", label="tracked"),
+                        ],
+                        paragraph_indices=[0],
+                    )
+                ],
+            ),
+        ],
     )
 
     render_row_one_site(
@@ -435,6 +468,23 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     assert '<span data-lang="zh">发生了什么</span>' in detail_html
     assert '<span data-lang="en">The Row demand moved this week.</span>' in detail_html
     assert '<span data-lang="zh">The Row 需求本周升温。</span>' in detail_html
+    assert 'class="local-article-content-sections"' in detail_html
+    assert '<span data-lang="en">Takeaways</span>' in detail_html
+    assert '<span data-lang="zh">要点</span>' in detail_html
+    assert '<span data-lang="en">Source lead</span>' in detail_html
+    assert '<span data-lang="zh">来源导语</span>' in detail_html
+    assert '<span data-lang="en">The Row demand moved.</span>' in detail_html
+    assert '<span data-lang="zh">The Row 需求变化。</span>' in detail_html
+    assert "Paragraph 1" in detail_html
+    assert "段落 1" in detail_html
+    assert "Refs: The Row (brand / tracked)" in detail_html
+    assert "引用：The Row（brand / tracked）" in detail_html
+    assert detail_html.index('class="local-article-brief"') < detail_html.index(
+        'class="local-article-content-sections"'
+    )
+    assert detail_html.index('class="local-article-content-sections"') < detail_html.index(
+        'class="local-article-body"'
+    )
     assert '<span data-lang="en">First local paragraph about The Row demand.</span>' in detail_html
     assert '<span data-lang="zh">第一段本地正文，关于 The Row 需求。</span>' in detail_html
     assert detail_html.index('data-lang="en">First local paragraph') < detail_html.index(
@@ -458,6 +508,14 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
         "what_happened",
         "why_it_matters",
     ]
+    assert [section["key"] for section in article_json["content_sections"]] == [
+        "takeaways",
+        "entities",
+    ]
+    assert article_json["content_sections"][1]["items"][0]["references"] == [
+        {"name": "The Row", "type": "brand", "label": "tracked"}
+    ]
+    assert "The Row demand moved." not in edition_json
     assert "First local paragraph about The Row demand." not in edition_json
 
 
@@ -487,6 +545,8 @@ def test_render_row_one_detail_keeps_plain_local_article_without_zh_paragraphs(
     assert "<p>Second source paragraph.</p>" in detail_html
     assert 'data-lang="zh">One source paragraph.' not in detail_html
     assert 'class="local-article-brief"' not in detail_html
+    assert 'class="local-article-content-sections"' not in detail_html
+    assert 'href="#local-article"' in detail_html
 
 
 def test_render_row_one_detail_uses_plain_local_article_when_zh_paragraphs_mismatch(
@@ -500,6 +560,19 @@ def test_render_row_one_detail_uses_plain_local_article_when_zh_paragraphs_misma
         extracted_at=AS_OF,
         paragraphs=["One source paragraph.", "Second source paragraph."],
         paragraphs_zh=["一段中文。"],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(en="Takeaways", zh="要点"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="Source lead", zh="来源导语"),
+                        body=LocalizedText(en="Structured English.", zh="结构化中文。"),
+                        paragraph_indices=[0],
+                    )
+                ],
+            )
+        ],
     )
 
     render_row_one_site(
@@ -514,11 +587,51 @@ def test_render_row_one_detail_uses_plain_local_article_when_zh_paragraphs_misma
 
     assert "<p>One source paragraph.</p>" in detail_html
     assert "<p>Second source paragraph.</p>" in detail_html
+    assert '<span data-lang="en">Structured English.</span>' in detail_html
+    assert '<span data-lang="zh">结构化中文。</span>' in detail_html
     assert '<span data-lang="zh">一段中文。</span>' not in detail_html
 
 
 def test_render_row_one_detail_omits_local_article_nav_without_content(tmp_path) -> None:
     render_row_one_site(_edition(), tmp_path)
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'id="local-article"' not in detail_html
+    assert 'href="#local-article"' not in detail_html
+    assert not (tmp_path / "data" / "articles").exists()
+
+
+def test_render_row_one_detail_omits_local_article_content_sections_without_body_paragraphs(
+    tmp_path,
+) -> None:
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Source article title",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(en="Takeaways", zh="要点"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="Source lead", zh="来源导语"),
+                        body=LocalizedText(en="Structured English.", zh="结构化中文。"),
+                    )
+                ],
+            )
+        ],
+    )
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
 
     detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
         encoding="utf-8"
@@ -552,6 +665,33 @@ def test_render_row_one_detail_escapes_local_article_content(tmp_path) -> None:
                 ),
             )
         ],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(en="<script>Section</script>", zh="章节<script>"),
+                body=LocalizedText(
+                    en='<img src=x onerror="alert(4)"> & body',
+                    zh='<img src=x onerror="alert(5)"> 中文 & body',
+                ),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="<script>Item</script>", zh="条目<script>"),
+                        body=LocalizedText(
+                            en='<img src=x onerror="alert(6)"> & item',
+                            zh='<img src=x onerror="alert(7)"> 中文 & item',
+                        ),
+                        references=[
+                            RowOneReference(
+                                name="<script>Ref</script>",
+                                type="brand",
+                                label="tracked",
+                            )
+                        ],
+                        paragraph_indices=[0],
+                    )
+                ],
+            )
+        ],
     )
 
     render_row_one_site(
@@ -571,6 +711,13 @@ def test_render_row_one_detail_escapes_local_article_content(tmp_path) -> None:
     assert "&lt;img src=x onerror=&quot;alert(1)&quot;&gt; 中文 &amp; quoted text" in detail_html
     assert "&lt;img src=x onerror=&quot;alert(2)&quot;&gt; &amp; brief" in detail_html
     assert "&lt;img src=x onerror=&quot;alert(3)&quot;&gt; 中文 &amp; brief" in detail_html
+    assert "&lt;script&gt;Section&lt;/script&gt;" in detail_html
+    assert "&lt;img src=x onerror=&quot;alert(4)&quot;&gt; &amp; body" in detail_html
+    assert "&lt;img src=x onerror=&quot;alert(5)&quot;&gt; 中文 &amp; body" in detail_html
+    assert "&lt;script&gt;Item&lt;/script&gt;" in detail_html
+    assert "&lt;img src=x onerror=&quot;alert(6)&quot;&gt; &amp; item" in detail_html
+    assert "&lt;img src=x onerror=&quot;alert(7)&quot;&gt; 中文 &amp; item" in detail_html
+    assert "&lt;script&gt;Ref&lt;/script&gt;" in detail_html
     assert "<script>Brief</script>" not in detail_html
     assert "<script>" not in detail_html
     assert 'onerror="alert' not in detail_html

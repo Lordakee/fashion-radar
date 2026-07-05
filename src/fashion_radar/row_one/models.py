@@ -23,6 +23,12 @@ RowOneLocalArticleBriefKey = Literal[
     "signal_context",
     "watch_next",
 ]
+RowOneLocalArticleContentKey = Literal[
+    "takeaways",
+    "entities",
+    "product_signals",
+    "brand_signals",
+]
 
 
 class LocalizedText(BaseModel):
@@ -40,12 +46,38 @@ class RowOneLink(BaseModel):
     source_name: str
 
 
+class RowOneReference(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    type: str
+    label: str
+
+
 class RowOneLocalArticleBriefSection(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     key: RowOneLocalArticleBriefKey
     title: LocalizedText
     body: LocalizedText
+
+
+class RowOneLocalArticleContentItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: LocalizedText
+    body: LocalizedText | None = None
+    references: list[RowOneReference] = Field(default_factory=list)
+    paragraph_indices: list[int] = Field(default_factory=list)
+
+
+class RowOneLocalArticleContentSection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: RowOneLocalArticleContentKey
+    title: LocalizedText
+    body: LocalizedText | None = None
+    items: list[RowOneLocalArticleContentItem] = Field(default_factory=list)
 
 
 class RowOneLocalArticle(BaseModel):
@@ -60,6 +92,7 @@ class RowOneLocalArticle(BaseModel):
     paragraphs: list[str] = Field(default_factory=list)
     paragraphs_zh: list[str] = Field(default_factory=list)
     brief_sections: list[RowOneLocalArticleBriefSection] = Field(default_factory=list)
+    content_sections: list[RowOneLocalArticleContentSection] = Field(default_factory=list)
     skipped: bool = False
     reason: str | None = None
 
@@ -92,14 +125,6 @@ class RowOneStoryDisplay(BaseModel):
     variant: RowOneDisplayVariant
     accent: RowOneDisplayAccent
     image: RowOneStoryImage | None = None
-
-
-class RowOneReference(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    type: str
-    label: str
 
 
 class RowOneStory(BaseModel):

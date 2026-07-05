@@ -10,6 +10,8 @@ from fashion_radar.row_one.models import (
     RowOneEdition,
     RowOneLink,
     RowOneLocalArticle,
+    RowOneLocalArticleContentItem,
+    RowOneReference,
     RowOneSection,
     RowOneSectionKey,
     RowOneStory,
@@ -1088,6 +1090,47 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   line-height: 1.55;
   margin: 0;
 }
+.local-article-content-sections {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 24px;
+}
+.local-article-content-card {
+  border-left: 2px solid var(--ink);
+  padding: 0 0 0 16px;
+}
+.local-article-content-card h4 {
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+.local-article-content-card p {
+  color: var(--ink);
+  line-height: 1.55;
+  margin: 0 0 10px;
+}
+.local-article-content-items {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.local-article-content-items li {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.local-article-content-items strong {
+  display: block;
+  font-size: 0.82rem;
+  margin-bottom: 4px;
+}
+.local-article-content-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin: 4px 0 0;
+}
 .local-article-body {
   display: grid;
   gap: 16px;
@@ -1932,6 +1975,7 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
         return ""
     title = article.title or "Source article"
     brief = _render_local_article_brief(article)
+    content_sections = _render_local_article_content_sections(article)
     rendered_paragraphs = "\n".join(paragraphs)
     return f"""<section id="local-article" class="local-article">
       <h2>
@@ -1944,6 +1988,7 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
       </p>
       <h3>{_esc(title)}</h3>
 {brief}
+{content_sections}
       <div class="local-article-body">
 {rendered_paragraphs}
       </div>
@@ -1971,6 +2016,98 @@ def _render_local_article_brief(article: RowOneLocalArticle) -> str:
     return f"""      <div class="local-article-brief" aria-label="ROW ONE brief">
 {rendered_cards}
       </div>"""
+
+
+def _render_local_article_content_sections(article: RowOneLocalArticle) -> str:
+    rendered_sections = []
+    for section in article.content_sections:
+        section_parts = [
+            '        <article class="local-article-content-card">',
+            "          <h4>",
+            f'            <span data-lang="en">{_esc(section.title.en)}</span>',
+            f'            <span data-lang="zh">{_esc(section.title.zh)}</span>',
+            "          </h4>",
+        ]
+        if section.body is not None:
+            section_parts.extend(
+                [
+                    "          <p>",
+                    f'            <span data-lang="en">{_esc(section.body.en)}</span>',
+                    f'            <span data-lang="zh">{_esc(section.body.zh)}</span>',
+                    "          </p>",
+                ]
+            )
+        rendered_items = "\n".join(
+            _render_local_article_content_item(item) for item in section.items
+        )
+        if rendered_items:
+            section_parts.extend(
+                [
+                    '          <ul class="local-article-content-items">',
+                    rendered_items,
+                    "          </ul>",
+                ]
+            )
+        section_parts.append("        </article>")
+        rendered_sections.append("\n".join(section_parts))
+    if not rendered_sections:
+        return ""
+    rendered = "\n".join(rendered_sections)
+    return (
+        '      <div class="local-article-content-sections" '
+        'aria-label="ROW ONE local article content">\n'
+        f"{rendered}\n"
+        "      </div>"
+    )
+
+
+def _render_local_article_content_item(item: RowOneLocalArticleContentItem) -> str:
+    item_parts = [
+        "            <li>",
+        "              <strong>",
+        f'                <span data-lang="en">{_esc(item.label.en)}</span>',
+        f'                <span data-lang="zh">{_esc(item.label.zh)}</span>',
+        "              </strong>",
+    ]
+    if item.body is not None:
+        item_parts.extend(
+            [
+                "              <p>",
+                f'                <span data-lang="en">{_esc(item.body.en)}</span>',
+                f'                <span data-lang="zh">{_esc(item.body.zh)}</span>',
+                "              </p>",
+            ]
+        )
+    paragraphs = _render_local_article_paragraph_indices(item.paragraph_indices)
+    if paragraphs:
+        item_parts.append(paragraphs)
+    refs = _render_local_article_content_references(item.references)
+    if refs:
+        item_parts.append(refs)
+    item_parts.append("            </li>")
+    return "\n".join(item_parts)
+
+
+def _render_local_article_paragraph_indices(indices: list[int]) -> str:
+    if not indices:
+        return ""
+    en = ", ".join(f"Paragraph {index + 1}" for index in indices)
+    zh = "、".join(f"段落 {index + 1}" for index in indices)
+    return f"""              <p class="local-article-content-meta">
+                <span data-lang="en">{_esc(en)}</span>
+                <span data-lang="zh">{_esc(zh)}</span>
+              </p>"""
+
+
+def _render_local_article_content_references(references: list[RowOneReference]) -> str:
+    if not references:
+        return ""
+    en_refs = ", ".join(f"{ref.name} ({ref.type} / {ref.label})" for ref in references)
+    zh_refs = "，".join(f"{ref.name}（{ref.type} / {ref.label}）" for ref in references)
+    return f"""              <p class="local-article-content-meta">
+                <span data-lang="en">Refs: {_esc(en_refs)}</span>
+                <span data-lang="zh">引用：{_esc(zh_refs)}</span>
+              </p>"""
 
 
 def _render_local_article_paragraphs(article: RowOneLocalArticle) -> list[str]:

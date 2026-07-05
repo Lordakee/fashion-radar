@@ -12,6 +12,8 @@ from fashion_radar.row_one.articles import (
 from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneEdition,
+    RowOneLocalArticle,
+    RowOneReference,
     RowOneSection,
     RowOneStory,
 )
@@ -100,6 +102,26 @@ def _assert_local_article_brief_sections(article, story) -> None:
         story.signal_context.zh,
         story.reader_path.zh,
     ]
+
+
+def _content_section(article, key: str):
+    return next(section for section in article.content_sections if section.key == key)
+
+
+def _content_item(section, label_en: str):
+    return next(item for item in section.items if item.label.en == label_en)
+
+
+def test_row_one_local_article_content_sections_default_empty() -> None:
+    article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=["One source paragraph."],
+    )
+
+    assert article.content_sections == []
 
 
 def test_text_to_local_article_paragraphs_caps_total_text_at_word_boundary() -> None:
@@ -448,6 +470,166 @@ def test_build_row_one_local_articles_cleans_brief_summary_html_without_mutating
     assert "<" not in brief.body.zh
     assert ">" not in brief.body.zh
     assert story.summary == original_summary
+
+
+def test_build_row_one_local_articles_adds_content_sections_from_story_refs_and_paragraphs() -> (
+    None
+):
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [
+        RowOneReference(name="The Row", type="brand", label="tracked"),
+        RowOneReference(name="Zendaya", type="celebrity", label="new"),
+    ]
+    story.product_refs = [
+        RowOneReference(name="Margaux", type="product", label="bag"),
+    ]
+    story.designer_refs = [
+        RowOneReference(name="Mary-Kate Olsen", type="designer", label="founder"),
+    ]
+    story.tags = ["celebrity", "The Row", "quiet luxury", "The Row"]
+    story.heat_delta = 7
+    story.market_region = "US"
+    story.source_region = "Global"
+
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        return ArticleExtractionResult(
+            url=url,
+            title="Structured source",
+            text=(
+                "First source paragraph frames The Row demand.\n\n"
+                "Second source paragraph shows Zendaya styling context around Margaux.\n\n"
+                "Third source paragraph mentions Mary-Kate Olsen and a product signal."
+            ),
+            skipped=False,
+        )
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=500)],
+        now=AS_OF,
+        extractor=extractor,
+    )
+
+    article = articles["the-row-signal-1234567890"]
+    assert [section.key for section in article.content_sections] == [
+        "takeaways",
+        "entities",
+        "product_signals",
+        "brand_signals",
+    ]
+
+    takeaways = _content_section(article, "takeaways")
+    assert [item.body.en for item in takeaways.items] == [
+        "First source paragraph frames The Row demand.",
+        "Second source paragraph shows Zendaya styling context around Margaux.",
+        "Third source paragraph mentions Mary-Kate Olsen and a product signal.",
+    ]
+    assert [item.paragraph_indices for item in takeaways.items] == [[0], [1], [2]]
+
+    entities = _content_section(article, "entities")
+    the_row = _content_item(entities, "The Row")
+    zendaya = _content_item(entities, "Zendaya")
+    olsen = _content_item(entities, "Mary-Kate Olsen")
+    assert the_row.references == [story.entity_refs[0]]
+    assert the_row.paragraph_indices == [0]
+    assert zendaya.paragraph_indices == [1]
+    assert olsen.paragraph_indices == [2]
+
+    product_signals = _content_section(article, "product_signals")
+    margaux = _content_item(product_signals, "Margaux")
+    assert margaux.references == [story.product_refs[0]]
+    assert margaux.paragraph_indices == [1]
+
+    brand_signals = _content_section(article, "brand_signals")
+    assert _content_item(brand_signals, "Heat delta").body.en == "+7"
+    assert _content_item(brand_signals, "Tags").body.en == "celebrity, The Row, quiet luxury"
+    assert _content_item(brand_signals, "Source").body.en == "Vogue Business"
+    assert _content_item(brand_signals, "Market region").body.en == "US"
+    assert _content_item(brand_signals, "Source region").body.en == "Global"
+
+
+def test_build_row_one_local_articles_content_sections_work_on_fallback() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [RowOneReference(name="The Row", type="brand", label="tracked")]
+
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        raise RuntimeError("network failed")
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=240)],
+        now=AS_OF,
+        extractor=extractor,
+    )
+
+    article = articles["the-row-signal-1234567890"]
+    assert [section.key for section in article.content_sections] == [
+        "takeaways",
+        "entities",
+        "brand_signals",
+    ]
+    assert _content_section(article, "takeaways").items[0].body.en == "Summary"
+    assert _content_item(_content_section(article, "entities"), "The Row").references == [
+        story.entity_refs[0]
+    ]
+
+
+def test_build_row_one_local_articles_omits_empty_optional_content_sections() -> None:
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        return ArticleExtractionResult(
+            url=url,
+            title="Plain source",
+            text="Plain source paragraph without refs.",
+            skipped=False,
+        )
+
+    articles = build_row_one_local_articles(
+        _edition(),
+        [_source(max_chars=240)],
+        now=AS_OF,
+        extractor=extractor,
+    )
+
+    article = articles["the-row-signal-1234567890"]
+    assert [section.key for section in article.content_sections] == [
+        "takeaways",
+        "brand_signals",
+    ]
+    assert "entities" not in [section.key for section in article.content_sections]
+    assert "product_signals" not in [section.key for section in article.content_sections]
+
+
+def test_build_row_one_local_articles_content_sections_model_dump_json() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.product_refs = [RowOneReference(name="Margaux", type="product", label="bag")]
+
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        return ArticleExtractionResult(
+            url=url,
+            title="Product source",
+            text="The Margaux bag is the product signal to watch.",
+            skipped=False,
+        )
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=240)],
+        now=AS_OF,
+        extractor=extractor,
+    )
+
+    dumped = articles["the-row-signal-1234567890"].model_dump(mode="json")
+    product_section = next(
+        section for section in dumped["content_sections"] if section["key"] == "product_signals"
+    )
+    assert product_section["items"][0]["label"]["en"] == "Margaux"
+    assert product_section["items"][0]["references"] == [
+        {"name": "Margaux", "type": "product", "label": "bag"}
+    ]
+    assert product_section["items"][0]["paragraph_indices"] == [0]
 
 
 def test_build_row_one_local_articles_enriches_short_extracted_text() -> None:

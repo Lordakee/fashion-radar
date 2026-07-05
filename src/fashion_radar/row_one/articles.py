@@ -14,6 +14,10 @@ from fashion_radar.row_one.models import (
     RowOneEdition,
     RowOneLocalArticle,
     RowOneLocalArticleBriefSection,
+    RowOneLocalArticleContentItem,
+    RowOneLocalArticleContentKey,
+    RowOneLocalArticleContentSection,
+    RowOneReference,
     RowOneStory,
 )
 from fashion_radar.row_one.text import (
@@ -211,6 +215,234 @@ def _local_article_brief_sections(story: RowOneStory) -> list[RowOneLocalArticle
     ]
 
 
+def _localized_content_item(
+    *,
+    label_en: str,
+    label_zh: str | None = None,
+    body_en: str | None = None,
+    body_zh: str | None = None,
+    references: list[RowOneReference] | None = None,
+    paragraph_indices: list[int] | None = None,
+) -> RowOneLocalArticleContentItem:
+    return RowOneLocalArticleContentItem(
+        label=LocalizedText(en=label_en, zh=label_zh or label_en),
+        body=(
+            LocalizedText(en=body_en, zh=body_zh if body_zh is not None else body_en)
+            if body_en is not None
+            else None
+        ),
+        references=list(references or []),
+        paragraph_indices=list(paragraph_indices or []),
+    )
+
+
+def _local_article_paragraph_indices(
+    paragraphs: list[str],
+    terms: list[str],
+    *,
+    limit: int = 3,
+) -> list[int]:
+    normalized_terms: list[str] = []
+    seen_terms: set[str] = set()
+    for term in terms:
+        normalized = normalize_row_one_paragraph(term).casefold()
+        if len(normalized) < 3 or normalized in seen_terms:
+            continue
+        seen_terms.add(normalized)
+        normalized_terms.append(normalized)
+    if not normalized_terms:
+        return []
+    indices: list[int] = []
+    for index, paragraph in enumerate(paragraphs):
+        paragraph_key = paragraph.casefold()
+        if any(term in paragraph_key for term in normalized_terms):
+            indices.append(index)
+            if len(indices) >= limit:
+                break
+    return indices
+
+
+def _local_article_takeaway_section(
+    paragraphs: list[str],
+    paragraphs_zh: list[str],
+) -> RowOneLocalArticleContentSection | None:
+    aligned_zh = _align_local_article_language_paragraphs(paragraphs, paragraphs_zh)
+    items: list[RowOneLocalArticleContentItem] = []
+    for index, (paragraph_en, paragraph_zh) in enumerate(
+        zip(paragraphs[:3], aligned_zh[:3], strict=True)
+    ):
+        if not paragraph_en.strip():
+            continue
+        label_en = "Source lead" if index == 0 else f"Source point {index + 1}"
+        label_zh = "来源导语" if index == 0 else f"来源要点 {index + 1}"
+        items.append(
+            _localized_content_item(
+                label_en=label_en,
+                label_zh=label_zh,
+                body_en=paragraph_en,
+                body_zh=paragraph_zh if paragraph_zh.strip() else paragraph_en,
+                paragraph_indices=[index],
+            )
+        )
+    if not items:
+        return None
+    return RowOneLocalArticleContentSection(
+        key="takeaways",
+        title=LocalizedText(en="Takeaways", zh="要点"),
+        body=LocalizedText(
+            en="The saved source text points to these immediate reads.",
+            zh="本地保存的来源正文首先指向这些要点。",
+        ),
+        items=items,
+    )
+
+
+def _local_article_reference_section(
+    *,
+    key: RowOneLocalArticleContentKey,
+    title: LocalizedText,
+    refs: list[RowOneReference],
+    paragraphs: list[str],
+) -> RowOneLocalArticleContentSection | None:
+    items: list[RowOneLocalArticleContentItem] = []
+    seen: set[tuple[str, str, str]] = set()
+    for ref in refs:
+        identity = (ref.name, ref.type, ref.label)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        body = f"{ref.type} / {ref.label}"
+        items.append(
+            _localized_content_item(
+                label_en=ref.name,
+                body_en=body,
+                body_zh=body,
+                references=[ref],
+                paragraph_indices=_local_article_paragraph_indices(
+                    paragraphs,
+                    [ref.name, ref.label],
+                ),
+            )
+        )
+    if not items:
+        return None
+    return RowOneLocalArticleContentSection(key=key, title=title, items=items)
+
+
+def _unique_local_article_tags(tags: list[str], *, limit: int = 4) -> list[str]:
+    unique: list[str] = []
+    seen: set[str] = set()
+    for tag in tags:
+        normalized = normalize_row_one_paragraph(tag)
+        if not normalized:
+            continue
+        key = normalized.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(normalized)
+        if len(unique) >= limit:
+            break
+    return unique
+
+
+def _local_article_brand_signal_section(story: RowOneStory) -> RowOneLocalArticleContentSection:
+    items: list[RowOneLocalArticleContentItem] = []
+    if story.signal_context.en.strip() or story.signal_context.zh.strip():
+        items.append(
+            RowOneLocalArticleContentItem(
+                label=LocalizedText(en="Signal context", zh="信号背景"),
+                body=story.signal_context,
+            )
+        )
+    if story.heat_delta is not None:
+        sign = "+" if story.heat_delta > 0 else ""
+        items.append(
+            _localized_content_item(
+                label_en="Heat delta",
+                label_zh="热度变化",
+                body_en=f"{sign}{story.heat_delta}",
+                body_zh=f"{sign}{story.heat_delta}",
+            )
+        )
+    tags = _unique_local_article_tags(story.tags)
+    if tags:
+        tag_text = ", ".join(tags)
+        items.append(
+            _localized_content_item(
+                label_en="Tags",
+                label_zh="标签",
+                body_en=tag_text,
+                body_zh=tag_text,
+            )
+        )
+    if story.market_region:
+        items.append(
+            _localized_content_item(
+                label_en="Market region",
+                label_zh="市场区域",
+                body_en=story.market_region,
+                body_zh=story.market_region,
+            )
+        )
+    if story.source_region:
+        items.append(
+            _localized_content_item(
+                label_en="Source region",
+                label_zh="来源区域",
+                body_en=story.source_region,
+                body_zh=story.source_region,
+            )
+        )
+    items.append(
+        _localized_content_item(
+            label_en="Source",
+            label_zh="来源",
+            body_en=story.source_name,
+            body_zh=story.source_name,
+        )
+    )
+    return RowOneLocalArticleContentSection(
+        key="brand_signals",
+        title=LocalizedText(en="Brand Signals", zh="品牌信号"),
+        body=LocalizedText(
+            en="ROW ONE tracks the metadata around this story for follow-up.",
+            zh="ROW ONE 会继续追踪这条内容背后的元数据。",
+        ),
+        items=items,
+    )
+
+
+def _local_article_content_sections(
+    story: RowOneStory,
+    paragraphs: list[str],
+    paragraphs_zh: list[str],
+) -> list[RowOneLocalArticleContentSection]:
+    sections: list[RowOneLocalArticleContentSection] = []
+    takeaway_section = _local_article_takeaway_section(paragraphs, paragraphs_zh)
+    if takeaway_section is not None:
+        sections.append(takeaway_section)
+    entity_refs = [*story.entity_refs, *story.designer_refs]
+    entity_section = _local_article_reference_section(
+        key="entities",
+        title=LocalizedText(en="Entities", zh="相关对象"),
+        refs=entity_refs,
+        paragraphs=paragraphs,
+    )
+    if entity_section is not None:
+        sections.append(entity_section)
+    product_section = _local_article_reference_section(
+        key="product_signals",
+        title=LocalizedText(en="Product Signals", zh="产品信号"),
+        refs=story.product_refs,
+        paragraphs=paragraphs,
+    )
+    if product_section is not None:
+        sections.append(product_section)
+    sections.append(_local_article_brand_signal_section(story))
+    return sections
+
+
 def safe_local_article_story_id(story_id: str) -> bool:
     return LOCAL_ARTICLE_STORY_ID_RE.fullmatch(story_id) is not None
 
@@ -269,6 +501,7 @@ def _build_story_local_article(
         paragraphs=paragraphs,
         paragraphs_zh=paragraphs_zh,
         brief_sections=_local_article_brief_sections(story),
+        content_sections=_local_article_content_sections(story, paragraphs, paragraphs_zh),
         skipped=False,
         reason=None,
     )
@@ -303,6 +536,7 @@ def _fallback_story_summary_article(
         paragraphs=paragraphs,
         paragraphs_zh=paragraphs_zh,
         brief_sections=_local_article_brief_sections(story),
+        content_sections=_local_article_content_sections(story, paragraphs, paragraphs_zh),
         skipped=False,
         reason=None,
     )
