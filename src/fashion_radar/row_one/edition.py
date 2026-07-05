@@ -115,10 +115,12 @@ def build_row_one_edition(
         ("hot_products", product_stories),
         ("rising_radar", rising_stories),
     ):
-        stories.extend(section_stories[: SECTION_CAPS[section_key]])
+        unique_section_stories = _unique_stories_by_id(section_stories)
+        stories.extend(unique_section_stories[: SECTION_CAPS[section_key]])
 
     if max_stories is not None:
         stories = stories[:max_stories]
+    stories = _unique_stories_by_id(stories)
     return RowOneEdition(
         brand="ROW ONE",
         generated_at=report.metadata.generated_at,
@@ -227,6 +229,17 @@ def _top_stories(
             break
         add_story(_story_from_recent_item(item, section_key="top_stories"))
     return stories
+
+
+def _unique_stories_by_id(stories: Iterable[RowOneStory]) -> list[RowOneStory]:
+    unique_stories: list[RowOneStory] = []
+    seen: set[str] = set()
+    for story in stories:
+        if story.id in seen:
+            continue
+        seen.add(story.id)
+        unique_stories.append(story)
+    return unique_stories
 
 
 def _story_from_entity(entity: EntityReport, *, section_key: RowOneSectionKey) -> RowOneStory:

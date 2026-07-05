@@ -114,6 +114,33 @@ def test_render_row_one_site_writes_static_site_files(tmp_path) -> None:
     assert (tmp_path / "data" / "edition.json").exists()
 
 
+def test_render_row_one_site_rejects_duplicate_story_ids(tmp_path) -> None:
+    edition = _edition()
+    duplicate = edition.stories[0].model_copy(deep=True)
+    edition.stories = [edition.stories[0], duplicate]
+
+    with pytest.raises(ValueError, match="Duplicate ROW ONE story id"):
+        render_row_one_site(edition, tmp_path)
+
+    assert not (tmp_path / ".row-one-site").exists()
+    assert not (tmp_path / "details").exists()
+
+
+def test_render_row_one_site_rejects_duplicate_detail_paths(tmp_path) -> None:
+    edition = _edition()
+    duplicate = edition.stories[0].model_copy(
+        deep=True,
+        update={"id": "different-story-2222222222"},
+    )
+    edition.stories = [edition.stories[0], duplicate]
+
+    with pytest.raises(ValueError, match="Duplicate ROW ONE detail path"):
+        render_row_one_site(edition, tmp_path)
+
+    assert not (tmp_path / ".row-one-site").exists()
+    assert not (tmp_path / "details").exists()
+
+
 def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> None:
     render_row_one_site(_edition(), tmp_path)
 

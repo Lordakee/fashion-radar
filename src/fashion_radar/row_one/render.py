@@ -51,6 +51,7 @@ def render_row_one_site(
     latest_only: bool = False,
     local_articles_by_story_id: Mapping[str, RowOneLocalArticle] | None = None,
 ) -> RowOneRenderResult:
+    _validate_unique_story_routes(edition)
     if latest_only:
         clean_row_one_site_children(output_dir)
     local_articles_by_story_id = local_articles_by_story_id or {}
@@ -88,6 +89,18 @@ def render_row_one_site(
         story_count=len(edition.stories),
         edition=edition,
     )
+
+
+def _validate_unique_story_routes(edition: RowOneEdition) -> None:
+    seen_ids: set[str] = set()
+    seen_paths: set[str] = set()
+    for story in edition.stories:
+        if story.id in seen_ids:
+            raise ValueError(f"Duplicate ROW ONE story id: {story.id}")
+        seen_ids.add(story.id)
+        if story.detail_path in seen_paths:
+            raise ValueError(f"Duplicate ROW ONE detail path: {story.detail_path}")
+        seen_paths.add(story.detail_path)
 
 
 def clean_row_one_site_children(output_dir: Path) -> None:

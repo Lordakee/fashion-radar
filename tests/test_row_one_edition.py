@@ -327,6 +327,38 @@ def test_build_row_one_edition_uses_collision_safe_detail_paths() -> None:
     assert all(path.endswith(".html") for path in paths)
 
 
+def test_build_row_one_edition_dedupes_duplicate_candidate_story_ids() -> None:
+    shared_item = _representative_item(
+        "Saint Laurent: a Shoulder Pad for Every Occasion",
+        source_name="Fashion Week Daily",
+        source_url="https://fashionweekdaily.com/saint-laurent-spring-summer-2027-menswear/",
+    )
+    duplicate_candidates = [
+        _candidate(
+            "Saint Laurent",
+            "brand_or_designer",
+            score=9.5,
+            representative_items=[shared_item],
+        ),
+        _candidate(
+            "Saint Laurent duplicate",
+            "brand_or_designer",
+            score=9.0,
+            representative_items=[shared_item],
+        ),
+    ]
+
+    edition = build_row_one_edition(
+        report=_report(candidates=duplicate_candidates),
+        as_of=AS_OF,
+    )
+    brand_stories = edition.section_stories("brand_moves")
+
+    assert len(brand_stories) == 1
+    assert len({story.id for story in edition.stories}) == len(edition.stories)
+    assert len({story.detail_path for story in edition.stories}) == len(edition.stories)
+
+
 def test_build_row_one_edition_backfills_top_stories_after_deduplication() -> None:
     shared_item = _representative_item("Shared lead", source_url="https://example.com/shared")
     report = _report(
