@@ -14,6 +14,7 @@ from fashion_radar.row_one.models import (
     RowOneEdition,
     RowOneLink,
     RowOneLocalArticle,
+    RowOneLocalArticleBriefSection,
     RowOneReference,
     RowOneSection,
     RowOneStory,
@@ -386,6 +387,24 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
             "第一段本地正文，关于 The Row 需求。",
             "第二段本地正文，补充造型语境。",
         ],
+        brief_sections=[
+            RowOneLocalArticleBriefSection(
+                key="what_happened",
+                title=LocalizedText(en="What Happened", zh="发生了什么"),
+                body=LocalizedText(
+                    en="The Row demand moved this week.",
+                    zh="The Row 需求本周升温。",
+                ),
+            ),
+            RowOneLocalArticleBriefSection(
+                key="why_it_matters",
+                title=LocalizedText(en="Why It Matters", zh="为什么重要"),
+                body=LocalizedText(
+                    en="It changes how buyers read quiet luxury.",
+                    zh="这会改变买手理解静奢的方式。",
+                ),
+            ),
+        ],
     )
 
     render_row_one_site(
@@ -411,6 +430,11 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     assert "本地保存自 Vogue Business" in detail_html
     assert "First local paragraph about The Row demand." in detail_html
     assert "Second local paragraph with styling context." in detail_html
+    assert 'class="local-article-brief"' in detail_html
+    assert '<span data-lang="en">What Happened</span>' in detail_html
+    assert '<span data-lang="zh">发生了什么</span>' in detail_html
+    assert '<span data-lang="en">The Row demand moved this week.</span>' in detail_html
+    assert '<span data-lang="zh">The Row 需求本周升温。</span>' in detail_html
     assert '<span data-lang="en">First local paragraph about The Row demand.</span>' in detail_html
     assert '<span data-lang="zh">第一段本地正文，关于 The Row 需求。</span>' in detail_html
     assert detail_html.index('data-lang="en">First local paragraph') < detail_html.index(
@@ -429,6 +453,10 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     assert article_json["paragraphs_zh"] == [
         "第一段本地正文，关于 The Row 需求。",
         "第二段本地正文，补充造型语境。",
+    ]
+    assert [section["key"] for section in article_json["brief_sections"]] == [
+        "what_happened",
+        "why_it_matters",
     ]
     assert "First local paragraph about The Row demand." not in edition_json
 
@@ -458,6 +486,7 @@ def test_render_row_one_detail_keeps_plain_local_article_without_zh_paragraphs(
     assert "<p>One source paragraph.</p>" in detail_html
     assert "<p>Second source paragraph.</p>" in detail_html
     assert 'data-lang="zh">One source paragraph.' not in detail_html
+    assert 'class="local-article-brief"' not in detail_html
 
 
 def test_render_row_one_detail_uses_plain_local_article_when_zh_paragraphs_mismatch(
@@ -513,6 +542,16 @@ def test_render_row_one_detail_escapes_local_article_content(tmp_path) -> None:
         paragraphs_zh=[
             '<img src=x onerror="alert(1)"> 中文 & quoted text',
         ],
+        brief_sections=[
+            RowOneLocalArticleBriefSection(
+                key="what_happened",
+                title=LocalizedText(en="<script>Brief</script>", zh="简报<script>"),
+                body=LocalizedText(
+                    en='<img src=x onerror="alert(2)"> & brief',
+                    zh='<img src=x onerror="alert(3)"> 中文 & brief',
+                ),
+            )
+        ],
     )
 
     render_row_one_site(
@@ -527,8 +566,12 @@ def test_render_row_one_detail_escapes_local_article_content(tmp_path) -> None:
 
     assert "&lt;script&gt;Title&lt;/script&gt;" in detail_html
     assert "Vogue &lt;Business&gt;" in detail_html
+    assert "&lt;script&gt;Brief&lt;/script&gt;" in detail_html
     assert "&lt;img src=x onerror=&quot;alert(1)&quot;&gt; &amp; quoted text" in detail_html
     assert "&lt;img src=x onerror=&quot;alert(1)&quot;&gt; 中文 &amp; quoted text" in detail_html
+    assert "&lt;img src=x onerror=&quot;alert(2)&quot;&gt; &amp; brief" in detail_html
+    assert "&lt;img src=x onerror=&quot;alert(3)&quot;&gt; 中文 &amp; brief" in detail_html
+    assert "<script>Brief</script>" not in detail_html
     assert "<script>" not in detail_html
     assert 'onerror="alert' not in detail_html
     assert "<img" not in detail_html

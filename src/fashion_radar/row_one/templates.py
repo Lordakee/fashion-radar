@@ -1066,6 +1066,28 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   font-weight: 700;
   margin: 0 0 18px;
 }
+.local-article-brief {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 0;
+  margin: 0 0 22px;
+}
+.local-article-brief-card {
+  border-bottom: 1px solid var(--line);
+  padding: 16px 18px;
+}
+.local-article-brief-card:last-child { border-bottom: 0; }
+.local-article-brief-card h4 {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+.local-article-brief-card p {
+  color: var(--ink);
+  line-height: 1.55;
+  margin: 0;
+}
 .local-article-body {
   display: grid;
   gap: 16px;
@@ -1909,6 +1931,7 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
     if not paragraphs:
         return ""
     title = article.title or "Source article"
+    brief = _render_local_article_brief(article)
     rendered_paragraphs = "\n".join(paragraphs)
     return f"""<section id="local-article" class="local-article">
       <h2>
@@ -1920,10 +1943,34 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
         <span data-lang="zh">本地保存自 {_esc(article.source_name)}</span>
       </p>
       <h3>{_esc(title)}</h3>
+{brief}
       <div class="local-article-body">
 {rendered_paragraphs}
       </div>
     </section>"""
+
+
+def _render_local_article_brief(article: RowOneLocalArticle) -> str:
+    cards = []
+    for section in article.brief_sections:
+        cards.append(
+            f"""        <article class="local-article-brief-card">
+          <h4>
+            <span data-lang="en">{_esc(section.title.en)}</span>
+            <span data-lang="zh">{_esc(section.title.zh)}</span>
+          </h4>
+          <p>
+            <span data-lang="en">{_esc(section.body.en)}</span>
+            <span data-lang="zh">{_esc(section.body.zh)}</span>
+          </p>
+        </article>"""
+        )
+    if not cards:
+        return ""
+    rendered_cards = "\n".join(cards)
+    return f"""      <div class="local-article-brief" aria-label="ROW ONE brief">
+{rendered_cards}
+      </div>"""
 
 
 def _render_local_article_paragraphs(article: RowOneLocalArticle) -> list[str]:

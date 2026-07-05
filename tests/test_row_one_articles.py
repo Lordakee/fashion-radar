@@ -69,6 +69,39 @@ def _source(
     )
 
 
+def _assert_local_article_brief_sections(article, story) -> None:
+    assert [section.key for section in article.brief_sections] == [
+        "what_happened",
+        "why_it_matters",
+        "signal_context",
+        "watch_next",
+    ]
+    assert [section.title.en for section in article.brief_sections] == [
+        "What Happened",
+        "Why It Matters",
+        "Signal Context",
+        "Watch Next",
+    ]
+    assert [section.title.zh for section in article.brief_sections] == [
+        "发生了什么",
+        "为什么重要",
+        "信号背景",
+        "接下来观察",
+    ]
+    assert [section.body.en for section in article.brief_sections] == [
+        story.summary.en,
+        story.why_it_matters.en,
+        story.signal_context.en,
+        story.reader_path.en,
+    ]
+    assert [section.body.zh for section in article.brief_sections] == [
+        story.summary.zh,
+        story.why_it_matters.zh,
+        story.signal_context.zh,
+        story.reader_path.zh,
+    ]
+
+
 def test_text_to_local_article_paragraphs_caps_total_text_at_word_boundary() -> None:
     paragraphs = text_to_local_article_paragraphs(
         "First paragraph has compact context.\n\nSecond paragraph has trailing marker TAIL.",
@@ -326,11 +359,13 @@ def test_build_row_one_local_articles_uses_first_enabled_hostname_match() -> Non
 
 
 def test_build_row_one_local_articles_falls_back_to_stored_summary_on_failure() -> None:
+    edition = _edition()
+
     def extractor(url: str, *, source, html_fetcher, robots_checker):
         raise RuntimeError("network failed")
 
     articles = build_row_one_local_articles(
-        _edition(),
+        edition,
         [_source()],
         now=AS_OF,
         extractor=extractor,
@@ -340,17 +375,12 @@ def test_build_row_one_local_articles_falls_back_to_stored_summary_on_failure() 
     assert article.paragraphs == [
         "Summary",
         "Editorial",
-        "Important",
-        "Context",
-        "Path",
     ]
     assert article.paragraphs_zh == [
         "摘要",
         "编辑",
-        "重要",
-        "背景",
-        "路径",
     ]
+    _assert_local_article_brief_sections(article, edition.stories[0])
 
 
 def test_build_row_one_local_articles_cleans_fallback_without_mutating_story_summary() -> None:
@@ -374,21 +404,55 @@ def test_build_row_one_local_articles_cleans_fallback_without_mutating_story_sum
     assert articles["the-row-signal-1234567890"].paragraphs == [
         "The Row showroom note.",
         "Editorial",
-        "Important",
-        "Context",
-        "Path",
     ]
     assert articles["the-row-signal-1234567890"].paragraphs_zh == [
         "摘要",
         "编辑",
-        "重要",
-        "背景",
-        "路径",
     ]
     assert edition.stories[0].summary.en == original_summary
 
 
+def test_build_row_one_local_articles_cleans_brief_summary_html_without_mutating_story() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.summary = LocalizedText(
+        en=(
+            'Original source summary: <a href="https://example.com/story">'
+            '<img alt="" src="hero.jpg" /></a>'
+            "The Row expanded its appointment calendar &amp; showroom notes."
+        ),
+        zh=(
+            '来源摘要：<a href="https://example.com/story">'
+            '<img alt="" src="hero.jpg" /></a>'
+            "The Row 扩展预约 &amp; 陈列室笔记。"
+        ),
+    )
+    original_summary = story.summary.model_copy(deep=True)
+
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        raise RuntimeError("network failed")
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source()],
+        now=AS_OF,
+        extractor=extractor,
+    )
+
+    brief = articles["the-row-signal-1234567890"].brief_sections[0]
+    assert brief.key == "what_happened"
+    assert brief.body.en == "The Row expanded its appointment calendar & showroom notes."
+    assert brief.body.zh == "The Row 扩展预约 & 陈列室笔记。"
+    assert "<" not in brief.body.en
+    assert ">" not in brief.body.en
+    assert "<" not in brief.body.zh
+    assert ">" not in brief.body.zh
+    assert story.summary == original_summary
+
+
 def test_build_row_one_local_articles_enriches_short_extracted_text() -> None:
+    edition = _edition()
+
     def extractor(url: str, *, source, html_fetcher, robots_checker):
         return ArticleExtractionResult(
             url=url,
@@ -398,7 +462,7 @@ def test_build_row_one_local_articles_enriches_short_extracted_text() -> None:
         )
 
     articles = build_row_one_local_articles(
-        _edition(),
+        edition,
         [_source(max_chars=240)],
         now=AS_OF,
         extractor=extractor,
@@ -407,17 +471,19 @@ def test_build_row_one_local_articles_enriches_short_extracted_text() -> None:
     assert articles["the-row-signal-1234567890"].paragraphs == [
         "Tiny source note.",
         "Editorial",
-        "Important",
-        "Context",
-        "Path",
     ]
+    assert not any(
+        duplicate in articles["the-row-signal-1234567890"].paragraphs
+        for duplicate in ("Important", "Context", "Path")
+    )
     assert articles["the-row-signal-1234567890"].paragraphs_zh == [
         "Tiny source note.",
         "编辑",
-        "重要",
-        "背景",
-        "路径",
     ]
+    _assert_local_article_brief_sections(
+        articles["the-row-signal-1234567890"],
+        edition.stories[0],
+    )
 
 
 def test_build_row_one_local_articles_falls_back_when_extracted_text_cleans_empty() -> None:
@@ -441,9 +507,6 @@ def test_build_row_one_local_articles_falls_back_when_extracted_text_cleans_empt
     assert article.paragraphs == [
         "Summary",
         "Editorial",
-        "Important",
-        "Context",
-        "Path",
     ]
 
 
@@ -469,7 +532,7 @@ def test_build_row_one_local_articles_enriches_after_unusable_source_tail() -> N
 
     paragraphs = articles["the-row-signal-1234567890"].paragraphs
 
-    assert paragraphs == ["Tiny source note.", "Editorial", "Important"]
+    assert paragraphs == ["Tiny source note.", "Editorial"]
     assert sum(len(paragraph) for paragraph in paragraphs) <= 38
 
 

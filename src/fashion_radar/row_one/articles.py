@@ -9,12 +9,20 @@ from urllib.parse import urlsplit
 from fashion_radar.collectors.article import ArticleExtractionResult, extract_article_with_metadata
 from fashion_radar.collectors.robots import RobotsPolicyChecker
 from fashion_radar.models.source import SourceDefinition
-from fashion_radar.row_one.models import RowOneEdition, RowOneLocalArticle, RowOneStory
+from fashion_radar.row_one.models import (
+    LocalizedText,
+    RowOneEdition,
+    RowOneLocalArticle,
+    RowOneLocalArticleBriefSection,
+    RowOneStory,
+)
 from fashion_radar.row_one.text import (
     clean_row_one_sentences,
     clean_row_one_text,
     group_row_one_sentences,
     normalize_row_one_paragraph,
+    protect_literal_angle_tokens,
+    restore_literal_angle_tokens,
 )
 from fashion_radar.row_one.utils import safe_external_url, utc_datetime
 from fashion_radar.utils.dates import parse_datetime_utc
@@ -164,15 +172,43 @@ def _align_local_article_language_paragraphs(
 
 def _local_article_context_text(story: RowOneStory, *, language: str = "en") -> str:
     return "\n\n".join(
-        text
-        for text in (
-            getattr(story.editorial_takeaway, language),
-            getattr(story.why_it_matters, language),
-            getattr(story.signal_context, language),
-            getattr(story.reader_path, language),
-        )
-        if text.strip()
+        text for text in (getattr(story.editorial_takeaway, language),) if text.strip()
     )
+
+
+def _local_article_brief_text(text: str) -> str:
+    protected = protect_literal_angle_tokens(text)
+    cleaned = clean_row_one_text(protected)
+    sentences = clean_row_one_sentences(cleaned, set())
+    return restore_literal_angle_tokens(normalize_row_one_paragraph(" ".join(sentences)))
+
+
+def _local_article_brief_sections(story: RowOneStory) -> list[RowOneLocalArticleBriefSection]:
+    return [
+        RowOneLocalArticleBriefSection(
+            key="what_happened",
+            title=LocalizedText(en="What Happened", zh="发生了什么"),
+            body=LocalizedText(
+                en=_local_article_brief_text(story.summary.en),
+                zh=_local_article_brief_text(story.summary.zh),
+            ),
+        ),
+        RowOneLocalArticleBriefSection(
+            key="why_it_matters",
+            title=LocalizedText(en="Why It Matters", zh="为什么重要"),
+            body=story.why_it_matters,
+        ),
+        RowOneLocalArticleBriefSection(
+            key="signal_context",
+            title=LocalizedText(en="Signal Context", zh="信号背景"),
+            body=story.signal_context,
+        ),
+        RowOneLocalArticleBriefSection(
+            key="watch_next",
+            title=LocalizedText(en="Watch Next", zh="接下来观察"),
+            body=story.reader_path,
+        ),
+    ]
 
 
 def safe_local_article_story_id(story_id: str) -> bool:
@@ -232,6 +268,7 @@ def _build_story_local_article(
         published_at=result.published_at or story.published_at,
         paragraphs=paragraphs,
         paragraphs_zh=paragraphs_zh,
+        brief_sections=_local_article_brief_sections(story),
         skipped=False,
         reason=None,
     )
@@ -265,6 +302,7 @@ def _fallback_story_summary_article(
         published_at=story.published_at,
         paragraphs=paragraphs,
         paragraphs_zh=paragraphs_zh,
+        brief_sections=_local_article_brief_sections(story),
         skipped=False,
         reason=None,
     )

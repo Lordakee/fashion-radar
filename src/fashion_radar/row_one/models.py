@@ -17,6 +17,12 @@ RowOneSectionKey = Literal[
 RowOneDisplayVariant = Literal["editorial", "portrait", "product", "signal"]
 RowOneDisplayAccent = Literal["ink", "graphite", "steel", "cobalt", "rose"]
 RowOneStoryType = Literal["tracked_entity", "candidate_signal", "recent_item"]
+RowOneLocalArticleBriefKey = Literal[
+    "what_happened",
+    "why_it_matters",
+    "signal_context",
+    "watch_next",
+]
 
 
 class LocalizedText(BaseModel):
@@ -34,6 +40,14 @@ class RowOneLink(BaseModel):
     source_name: str
 
 
+class RowOneLocalArticleBriefSection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: RowOneLocalArticleBriefKey
+    title: LocalizedText
+    body: LocalizedText
+
+
 class RowOneLocalArticle(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -45,6 +59,7 @@ class RowOneLocalArticle(BaseModel):
     published_at: datetime | None = None
     paragraphs: list[str] = Field(default_factory=list)
     paragraphs_zh: list[str] = Field(default_factory=list)
+    brief_sections: list[RowOneLocalArticleBriefSection] = Field(default_factory=list)
     skipped: bool = False
     reason: str | None = None
 
