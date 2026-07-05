@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from html import escape
 from pathlib import PurePosixPath
 
 from fashion_radar.row_one.display import display_for_story, safe_story_image_src
 from fashion_radar.row_one.models import (
     LocalizedText,
+    RowOneDailyLocalIntelligenceItem,
+    RowOneDailyLocalIntelligenceSection,
     RowOneEdition,
     RowOneLink,
     RowOneLocalArticle,
@@ -33,6 +36,7 @@ def render_index_html(
     edition: RowOneEdition,
     *,
     app_payload: dict[str, object] | None = None,
+    local_article_intelligence: Sequence[RowOneDailyLocalIntelligenceSection] | None = None,
 ) -> str:
     contents_nav = _render_edition_nav(edition)
     briefing_topics = _render_briefing_topics(app_payload)
@@ -43,6 +47,7 @@ def render_index_html(
         has_path=bool(briefing_path),
     )
     signal_synthesis = _render_signal_synthesis(app_payload)
+    daily_local_intelligence = _render_daily_local_intelligence(local_article_intelligence)
     readiness = build_row_one_readiness(edition)
     status_strip = _render_edition_status(edition, readiness)
     summary_note_en = (
@@ -114,6 +119,7 @@ def render_index_html(
 {contents_nav}
 {edition_brief}
 {signal_synthesis}
+{daily_local_intelligence}
 {lead_story_block}
 {briefing_topics}
 {briefing_path}
@@ -631,6 +637,85 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   margin: 0;
 }
 .signal-synthesis-meta {
+  color: var(--accent);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.7rem;
+  font-weight: 700;
+  gap: 8px 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.daily-local-intelligence {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-local-intelligence-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-local-intelligence-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.2rem, 5vw, 5.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.92;
+  margin: 0;
+}
+.daily-local-intelligence-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.daily-local-intelligence-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.daily-local-intelligence-group {
+  background: var(--panel);
+  display: grid;
+  gap: 14px;
+  min-height: 280px;
+  padding: 18px;
+}
+.daily-local-intelligence-group-title {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin: 0;
+  text-transform: uppercase;
+}
+.daily-local-intelligence-card {
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+  text-decoration: none;
+}
+.daily-local-intelligence-card h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.25rem, 2vw, 2.1rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.daily-local-intelligence-card p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.daily-local-intelligence-meta {
   color: var(--accent);
   display: flex;
   flex-wrap: wrap;
@@ -1272,6 +1357,10 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   main { padding: 24px 20px 56px; }
   .edition-rail-grid { grid-template-columns: 1fr; }
   .edition-brief-metrics { grid-template-columns: 1fr 1fr; }
+  .signal-synthesis-header { grid-template-columns: 1fr; }
+  .signal-synthesis-grid { grid-template-columns: 1fr; }
+  .daily-local-intelligence-header { grid-template-columns: 1fr; }
+  .daily-local-intelligence-grid { grid-template-columns: 1fr; }
   .briefing-topics-header { grid-template-columns: 1fr; }
   .briefing-topic-grid { grid-template-columns: 1fr; }
   .briefing-path-header { grid-template-columns: 1fr; }
@@ -1606,6 +1695,111 @@ def _render_signal_synthesis_card(signal: dict[str, object]) -> str:
     return f'<a class="signal-synthesis-card" href="{_esc(href)}">{body}</a>'
 
 
+def _render_daily_local_intelligence(
+    sections: Sequence[RowOneDailyLocalIntelligenceSection] | None,
+) -> str:
+    if not sections:
+        return ""
+    rendered_sections = [
+        _render_daily_local_intelligence_section(section) for section in sections if section.items
+    ]
+    rendered_sections = [section for section in rendered_sections if section]
+    if not rendered_sections:
+        return ""
+    return f"""<section class="daily-local-intelligence" aria-label="Daily local intelligence">
+  <div class="daily-local-intelligence-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Daily Local Intelligence</span>
+        <span data-lang="zh">每日本地情报</span>
+      </p>
+      <h2>
+        <span data-lang="en">Daily Local Intelligence</span>
+        <span data-lang="zh">每日本地情报</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">Source-backed fashion signals from saved local article bodies.</span>
+      <span data-lang="zh">来自本地保存正文的时尚信号整理。</span>
+    </p>
+  </div>
+  <div class="daily-local-intelligence-grid">{"".join(rendered_sections)}</div>
+</section>"""
+
+
+def _render_daily_local_intelligence_section(
+    section: RowOneDailyLocalIntelligenceSection,
+) -> str:
+    cards = [_render_daily_local_intelligence_item(item) for item in section.items]
+    cards = [card for card in cards if card]
+    if not cards:
+        return ""
+    return f"""<article class="daily-local-intelligence-group">
+  <p class="daily-local-intelligence-group-title">
+    <span data-lang="en">{_esc(section.title.en)}</span>
+    <span data-lang="zh">{_esc(section.title.zh)}</span>
+  </p>
+  <p>
+    <span data-lang="en">{_esc(section.dek.en)}</span>
+    <span data-lang="zh">{_esc(section.dek.zh)}</span>
+  </p>
+  {"".join(cards)}
+</article>"""
+
+
+def _render_daily_local_intelligence_item(item: RowOneDailyLocalIntelligenceItem) -> str:
+    meta = _daily_local_intelligence_meta(item)
+    body = f"""<h3>
+    <span data-lang="en">{_esc(item.title.en)}</span>
+    <span data-lang="zh">{_esc(item.title.zh)}</span>
+  </h3>
+  <p>
+    <span data-lang="en">{_esc(item.body.en)}</span>
+    <span data-lang="zh">{_esc(item.body.zh)}</span>
+  </p>
+  <div class="daily-local-intelligence-meta">{meta}</div>"""
+    href = _safe_daily_local_intelligence_href(item.detail_path)
+    if href is None:
+        return f'<div class="daily-local-intelligence-card">{body}</div>'
+    return f'<a class="daily-local-intelligence-card" href="{_esc(href)}">{body}</a>'
+
+
+def _daily_local_intelligence_meta(item: RowOneDailyLocalIntelligenceItem) -> str:
+    parts: list[tuple[str, str]] = []
+    if item.source_names:
+        sources = ", ".join(item.source_names)
+        parts.append((sources, sources))
+    if item.article_count:
+        parts.append(
+            (
+                "1 article" if item.article_count == 1 else f"{item.article_count} articles",
+                f"{item.article_count} 篇本地正文",
+            )
+        )
+    if item.story_count:
+        parts.append(
+            (
+                "1 story" if item.story_count == 1 else f"{item.story_count} stories",
+                f"{item.story_count} 条故事",
+            )
+        )
+    if item.evidence_count:
+        parts.append(
+            (
+                "1 evidence link"
+                if item.evidence_count == 1
+                else f"{item.evidence_count} evidence links",
+                f"{item.evidence_count} 条证据链接",
+            )
+        )
+    if isinstance(item.heat_delta, int) and item.heat_delta > 0:
+        parts.append((f"+{item.heat_delta} local delta", f"+{item.heat_delta} 本地增量"))
+    return "".join(
+        f'<span data-lang="en">{_esc(en)}</span><span data-lang="zh">{_esc(zh)}</span>'
+        for en, zh in parts
+    )
+
+
 def _signal_synthesis_meta_label(
     *,
     label: str,
@@ -1637,6 +1831,17 @@ def _safe_signal_detail_href(href: object) -> str | None:
     if not isinstance(href, str):
         return None
     return href if _validated_detail_relative_path(href) is not None else None
+
+
+def _safe_daily_local_intelligence_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if "#" not in href:
+        return href if _validated_detail_relative_path(href) is not None else None
+    path, fragment = href.split("#", 1)
+    if fragment != "local-article":
+        return None
+    return href if _validated_detail_relative_path(path) is not None else None
 
 
 def _render_briefing_topics(app_payload: dict[str, object] | None) -> str:

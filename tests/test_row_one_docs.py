@@ -722,3 +722,11 @@ def test_row_one_readme_and_architecture_are_discoverable_and_bounded() -> None:
             "no platform coverage verification",
         ):
             assert phrase in normalized
+
+
+def test_row_one_docs_describe_daily_local_intelligence() -> None:
+    readme = _normalized(_read(README))
+
+    assert "daily local intelligence" in readme
+    assert "data/local-intelligence.json" in readme
+    assert "row-one-app/v7 remains stable" in readme

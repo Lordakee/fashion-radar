@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from shutil import rmtree
@@ -9,7 +9,9 @@ from shutil import rmtree
 from fashion_radar.row_one.articles import safe_local_article_story_id
 from fashion_radar.row_one.briefing_topics import briefing_topics_payload
 from fashion_radar.row_one.display import display_for_story, safe_story_image_src
+from fashion_radar.row_one.local_intelligence import build_row_one_local_article_intelligence
 from fashion_radar.row_one.models import (
+    RowOneDailyLocalIntelligenceSection,
     RowOneEdition,
     RowOneLink,
     RowOneLocalArticle,
@@ -59,8 +61,19 @@ def render_row_one_site(
     (output_dir / ".row-one-site").write_text("ROW ONE generated site\n", encoding="utf-8")
     _write_assets(output_dir)
     app_payload = build_row_one_app_payload(edition)
+    local_article_intelligence = build_row_one_local_article_intelligence(
+        edition,
+        local_articles_by_story_id,
+    )
     index_path = output_dir / "index.html"
-    index_path.write_text(render_index_html(edition, app_payload=app_payload), encoding="utf-8")
+    index_path.write_text(
+        render_index_html(
+            edition,
+            app_payload=app_payload,
+            local_article_intelligence=local_article_intelligence,
+        ),
+        encoding="utf-8",
+    )
     _write_detail_pages(
         edition,
         output_dir / "details",
@@ -83,6 +96,7 @@ def render_row_one_site(
         encoding="utf-8",
     )
     _write_local_article_files(edition, data_dir, local_articles_by_story_id)
+    _write_local_article_intelligence_file(data_dir, local_article_intelligence)
     return RowOneRenderResult(
         output_dir=output_dir,
         index_path=index_path,
@@ -172,6 +186,24 @@ def _write_local_article_files(
             json.dumps(article.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
+
+
+def _write_local_article_intelligence_file(
+    data_dir: Path,
+    sections: Sequence[RowOneDailyLocalIntelligenceSection],
+) -> None:
+    writable_sections = [section for section in sections if section.items]
+    if not writable_sections:
+        return
+    (data_dir / "local-intelligence.json").write_text(
+        json.dumps(
+            [section.model_dump(mode="json") for section in writable_sections],
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def build_row_one_app_payload(edition: RowOneEdition) -> dict[str, object]:

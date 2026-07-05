@@ -28,7 +28,10 @@ from fashion_radar.row_one.render import (
     clean_row_one_site_children,
     render_row_one_site,
 )
-from fashion_radar.row_one.templates import render_index_html
+from fashion_radar.row_one.templates import (
+    _safe_daily_local_intelligence_href,
+    render_index_html,
+)
 
 AS_OF = datetime(2026, 7, 2, 4, 0, tzinfo=UTC)
 
@@ -722,7 +725,124 @@ def test_render_row_one_detail_escapes_local_article_content(tmp_path) -> None:
     assert "<script>" not in detail_html
     assert 'onerror="alert' not in detail_html
     assert "<img" not in detail_html
-    assert 'onerror="alert' not in detail_html
+
+
+def _local_article_for_daily_intelligence() -> RowOneLocalArticle:
+    return RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="The Row local source",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=["The Row and Margaux are moving in saved local coverage."],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(zh="正文重点", en="Saved Article Takeaways"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="段落 1", en="Paragraph 1"),
+                        body=LocalizedText(
+                            zh="The Row 与 Margaux 的本地来源信号。",
+                            en="The Row and Margaux are moving in saved local coverage.",
+                        ),
+                        paragraph_indices=[0],
+                    )
+                ],
+            )
+        ],
+    )
+
+
+def test_render_row_one_site_includes_daily_local_intelligence(tmp_path) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [RowOneReference(name="The Row", type="brand", label="tracked")]
+    story.product_refs = [RowOneReference(name="Margaux", type="bag", label="product")]
+    story.heat_delta = 6
+
+    result = render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _local_article_for_daily_intelligence()},
+    )
+
+    html = result.index_path.read_text(encoding="utf-8")
+    assert "daily-local-intelligence" in html
+    assert '<span data-lang="en">Daily Local Intelligence</span>' in html
+    assert '<span data-lang="zh">每日本地情报</span>' in html
+    assert "The Row and Margaux are moving in saved local coverage." in html
+    assert 'href="details/the-row-signal-1234567890.html#local-article"' in html
+
+    artifact = json.loads(
+        (tmp_path / "data" / "local-intelligence.json").read_text(encoding="utf-8")
+    )
+    assert [section["key"] for section in artifact] == [
+        "strongest_reads",
+        "brand_watch",
+        "product_watch",
+        "heat_movers",
+    ]
+    payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
+    assert "local_article_intelligence" not in payload
+
+
+def test_render_row_one_site_omits_daily_local_intelligence_without_saved_articles(
+    tmp_path,
+) -> None:
+    result = render_row_one_site(_edition(), tmp_path)
+
+    html = result.index_path.read_text(encoding="utf-8")
+    assert "daily-local-intelligence" not in html
+    assert not (tmp_path / "data" / "local-intelligence.json").exists()
+
+
+def test_render_row_one_site_escapes_daily_local_intelligence(tmp_path) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.headline = '<script>alert("headline")</script>'
+    story.entity_refs = [RowOneReference(name="<The Row>", type="brand", label="tracked")]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={
+            story.id: RowOneLocalArticle(
+                story_id=story.id,
+                url="https://example.com/the-row",
+                source_name="<Vogue>",
+                extracted_at=AS_OF,
+                paragraphs=['<script>alert("body")</script>'],
+            )
+        },
+    )
+
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert '<script>alert("body")</script>' not in html
+    assert "&lt;script&gt;alert(&quot;body&quot;)&lt;/script&gt;" in html
+    assert "&lt;The Row&gt;" in html
+
+
+@pytest.mark.parametrize(
+    ("href", "expected"),
+    [
+        ("details/the-row-signal-1234567890.html", "details/the-row-signal-1234567890.html"),
+        (
+            "details/the-row-signal-1234567890.html#local-article",
+            "details/the-row-signal-1234567890.html#local-article",
+        ),
+        ("details/the-row-signal-1234567890.html#summary", None),
+        ("details/the-row-signal-1234567890.html#local-article#extra", None),
+        ("../details/the-row-signal-1234567890.html#local-article", None),
+        ("javascript:alert(1)", None),
+        (None, None),
+    ],
+)
+def test_safe_daily_local_intelligence_href_accepts_only_safe_detail_links(
+    href: object,
+    expected: str | None,
+) -> None:
+    assert _safe_daily_local_intelligence_href(href) == expected
 
 
 def test_render_row_one_detail_information_map_escapes_story_values(tmp_path) -> None:

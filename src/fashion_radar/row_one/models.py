@@ -29,6 +29,12 @@ RowOneLocalArticleContentKey = Literal[
     "product_signals",
     "brand_signals",
 ]
+RowOneDailyLocalIntelligenceKey = Literal[
+    "strongest_reads",
+    "brand_watch",
+    "product_watch",
+    "heat_movers",
+]
 
 
 class LocalizedText(BaseModel):
@@ -78,6 +84,31 @@ class RowOneLocalArticleContentSection(BaseModel):
     title: LocalizedText
     body: LocalizedText | None = None
     items: list[RowOneLocalArticleContentItem] = Field(default_factory=list)
+
+
+class RowOneDailyLocalIntelligenceItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: LocalizedText
+    body: LocalizedText
+    detail_path: str | None = None
+    source_name: str | None = None
+    source_names: list[str] = Field(default_factory=list)
+    story_count: int = 0
+    article_count: int = 0
+    evidence_count: int = 0
+    heat_delta: int | None = None
+    references: list[RowOneReference] = Field(default_factory=list)
+    paragraph_indices: list[int] = Field(default_factory=list)
+
+
+class RowOneDailyLocalIntelligenceSection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: RowOneDailyLocalIntelligenceKey
+    title: LocalizedText
+    dek: LocalizedText
+    items: list[RowOneDailyLocalIntelligenceItem] = Field(default_factory=list)
 
 
 class RowOneLocalArticle(BaseModel):

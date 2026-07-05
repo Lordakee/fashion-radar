@@ -123,7 +123,14 @@ payload, while app clients still use data/edition.json without scraping HTML. Se
 `signal_synthesis` reshapes `daily_digest.briefing_topics` into local observed
 brand/product/designer/person signal summaries with review required boundaries;
 it is not demand proof, platform heat, collection, ranking, or external
-enrichment.
+enrichment. When saved local article bodies are available, ROW ONE also renders
+a homepage Daily Local Intelligence section from those local sidecars. It
+groups strongest reads, brand watch, product watch, and heat movers from the
+saved article paragraphs and structured references, and writes the optional
+generated artifact `data/local-intelligence.json` next to the static site data.
+`row-one-app/v7 remains stable`: this local-intelligence artifact is separate
+from `data/edition.json`, so app clients pinned to the existing app payload do
+not need to accept a new top-level field.
 `signal_synthesis.groups[].signals[].story_refs` is an app-facing information
 organization index that carries compact supporting story references inline,
 derived from the same briefing topic source story data. It is not a compliance
