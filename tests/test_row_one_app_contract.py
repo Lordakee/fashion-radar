@@ -435,6 +435,11 @@ def test_row_one_app_payload_includes_edition_brief_for_clients(tmp_path: Path) 
             "en": "Active sections: Top Stories, Brand Moves",
         },
         {"zh": "整理主题：The Row", "en": "Briefing topics: The Row"},
+        {"zh": "主题结构：品牌 1", "en": "Topic mix: 1 brand"},
+        {
+            "zh": "升温观察：1 条正向热度信号，最高 +4",
+            "en": "Heat watch: 1 positive heat signal, highest +4",
+        },
         {
             "zh": "后续路径：重点整理、升温信号",
             "en": "Follow-up path: Key Takeaways, Signals To Watch",
@@ -457,6 +462,56 @@ def test_row_one_app_payload_includes_edition_brief_for_clients(tmp_path: Path) 
             "href": "#briefing-path",
         },
     ]
+    _schema_validator().validate(payload)
+
+
+def test_row_one_app_payload_edition_brief_summarizes_topic_mix_and_heat_watch(
+    tmp_path: Path,
+) -> None:
+    edition = _edition()
+    base_story = edition.stories[0]
+    edition.stories = [
+        base_story.model_copy(
+            deep=True,
+            update={
+                "heat_delta": 7,
+                "entity_refs": [
+                    RowOneReference(name="The Row", type="brand", label="brand"),
+                    RowOneReference(name="Zendaya", type="celebrity", label="person"),
+                ],
+                "product_refs": [RowOneReference(name="Margaux", type="bag", label="bag")],
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "designer-signal-2222222222",
+                "section_key": "brand_moves",
+                "headline": "Designer signal",
+                "detail_path": "details/designer-signal-2222222222.html",
+                "heat_delta": 3,
+                "entity_refs": [
+                    RowOneReference(
+                        name="Mary-Kate Olsen",
+                        type="designer",
+                        label="designer",
+                    )
+                ],
+            },
+        ),
+    ]
+
+    payload = _payload(tmp_path, edition)
+    brief = payload["edition_brief"]
+
+    assert {
+        "zh": "主题结构：品牌 1、单品 1、设计师 1、人物 1",
+        "en": "Topic mix: 1 brand, 1 product, 1 designer, 1 person",
+    } in brief["summary_points"]
+    assert {
+        "zh": "升温观察：2 条正向热度信号，最高 +7",
+        "en": "Heat watch: 2 positive heat signals, highest +7",
+    } in brief["summary_points"]
     _schema_validator().validate(payload)
 
 

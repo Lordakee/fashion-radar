@@ -235,6 +235,21 @@ def test_row_one_docs_describe_stage_286_edition_brief() -> None:
         assert phrase in readme
 
 
+def test_row_one_docs_describe_stage_295_edition_brief_content_organization() -> None:
+    normalized = _normalized(_read(ROW_ONE_DOC))
+
+    for phrase in (
+        "edition_brief.summary_points",
+        "read-first orientation",
+        "active-section coverage",
+        "explicit topic-mix counts",
+        "brands, products, designers, and people",
+        "positive heat-watch cues",
+        "local raw mention deltas",
+    ):
+        assert phrase in normalized
+
+
 def test_row_one_docs_describe_stage_287_signal_synthesis() -> None:
     row_one = _normalized(_read(ROW_ONE_DOC))
     readme = _normalized(_read(README))

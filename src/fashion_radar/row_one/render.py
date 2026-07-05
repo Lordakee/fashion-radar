@@ -615,6 +615,7 @@ def _edition_brief_payload(
             active_sections,
             topics if isinstance(topics, list) else [],
             path_blocks,
+            stories,
         ),
         "links": _edition_brief_links(lead_href, topic_count, path_blocks),
     }
@@ -697,11 +698,69 @@ def _plural_word(count: int, singular: str, plural: str) -> str:
     return singular if count == 1 else plural
 
 
+EDITION_BRIEF_TOPIC_TYPE_LABELS = {
+    "brand": {"zh": "品牌", "en_singular": "brand", "en_plural": "brands"},
+    "product": {"zh": "单品", "en_singular": "product", "en_plural": "products"},
+    "designer": {"zh": "设计师", "en_singular": "designer", "en_plural": "designers"},
+    "person": {"zh": "人物", "en_singular": "person", "en_plural": "people"},
+}
+
+
+def _edition_brief_topic_mix_point(topics: list[object]) -> dict[str, str] | None:
+    counts = {topic_type: 0 for topic_type in EDITION_BRIEF_TOPIC_TYPE_LABELS}
+    for topic in topics:
+        if not isinstance(topic, dict):
+            continue
+        topic_type = str(topic.get("topic_type", ""))
+        if topic_type in counts:
+            counts[topic_type] += 1
+    active_counts = [(topic_type, count) for topic_type, count in counts.items() if count > 0]
+    if not active_counts:
+        return None
+    zh_parts = [
+        f"{EDITION_BRIEF_TOPIC_TYPE_LABELS[topic_type]['zh']} {count}"
+        for topic_type, count in active_counts
+    ]
+    en_parts = []
+    for topic_type, count in active_counts:
+        labels = EDITION_BRIEF_TOPIC_TYPE_LABELS[topic_type]
+        en_parts.append(
+            f"{count} {_plural_word(count, labels['en_singular'], labels['en_plural'])}"
+        )
+    return {
+        "zh": f"主题结构：{'、'.join(zh_parts)}",
+        "en": f"Topic mix: {', '.join(en_parts)}",
+    }
+
+
+def _edition_brief_heat_watch_point(
+    stories: list[dict[str, object]],
+) -> dict[str, str] | None:
+    positive_heat_deltas = []
+    for story in stories:
+        heat_delta = story.get("heat_delta")
+        if isinstance(heat_delta, int) and not isinstance(heat_delta, bool) and heat_delta > 0:
+            positive_heat_deltas.append(heat_delta)
+    if not positive_heat_deltas:
+        return None
+    signal_count = len(positive_heat_deltas)
+    max_heat_delta = max(positive_heat_deltas)
+    return {
+        "zh": f"升温观察：{signal_count} 条正向热度信号，最高 +{max_heat_delta}",
+        "en": (
+            f"Heat watch: {signal_count} "
+            f"{_plural_word(signal_count, 'positive heat signal', 'positive heat signals')}, "
+            f"highest +{max_heat_delta}"
+        ),
+    }
+
+
 def _edition_brief_summary_points(
     lead_story: dict[str, object] | None,
     active_sections: list[dict[str, object]],
     topics: list[object],
     path_blocks: list[dict[str, object]],
+    stories: list[dict[str, object]],
 ) -> list[dict[str, str]]:
     points: list[dict[str, str]] = []
     if lead_story is not None:
@@ -719,6 +778,12 @@ def _edition_brief_summary_points(
     if topic_titles:
         topic_text = ", ".join(topic_titles)
         points.append({"zh": f"整理主题：{topic_text}", "en": f"Briefing topics: {topic_text}"})
+    topic_mix_point = _edition_brief_topic_mix_point(topics)
+    if topic_mix_point is not None:
+        points.append(topic_mix_point)
+    heat_watch_point = _edition_brief_heat_watch_point(stories)
+    if heat_watch_point is not None:
+        points.append(heat_watch_point)
     if path_blocks:
         zh_blocks = "、".join(str(block["title"]["zh"]) for block in path_blocks)
         en_blocks = ", ".join(str(block["title"]["en"]) for block in path_blocks)

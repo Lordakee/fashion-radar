@@ -806,6 +806,49 @@ def test_render_row_one_site_includes_edition_brief_overview(tmp_path) -> None:
     assert index_html.index('class="edition-brief"') < index_html.index('class="lead-story"')
 
 
+def test_render_row_one_site_displays_edition_brief_topic_mix_and_heat_watch(tmp_path) -> None:
+    edition = _edition()
+    base_story = edition.stories[0]
+    edition.stories = [
+        base_story.model_copy(
+            deep=True,
+            update={
+                "heat_delta": 7,
+                "entity_refs": [
+                    RowOneReference(name="The Row", type="brand", label="brand"),
+                    RowOneReference(name="Zendaya", type="celebrity", label="person"),
+                ],
+                "product_refs": [RowOneReference(name="Margaux", type="bag", label="bag")],
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "designer-signal-2222222222",
+                "section_key": "brand_moves",
+                "headline": "Designer signal",
+                "detail_path": "details/designer-signal-2222222222.html",
+                "heat_delta": 3,
+                "entity_refs": [
+                    RowOneReference(
+                        name="Mary-Kate Olsen",
+                        type="designer",
+                        label="designer",
+                    )
+                ],
+            },
+        ),
+    ]
+
+    render_row_one_site(edition, tmp_path)
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert "Topic mix: 1 brand, 1 product, 1 designer, 1 person" in index_html
+    assert "主题结构：品牌 1、单品 1、设计师 1、人物 1" in index_html
+    assert "Heat watch: 2 positive heat signals, highest +7" in index_html
+    assert "升温观察：2 条正向热度信号，最高 +7" in index_html
+
+
 def test_render_row_one_site_escapes_edition_brief_payload_values() -> None:
     index_html = render_index_html(
         _edition(),

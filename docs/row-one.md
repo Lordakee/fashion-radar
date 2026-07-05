@@ -68,7 +68,10 @@ daily overview for clients and the homepage. It summarizes the read-first story,
 active sections, briefing topics, follow-up path blocks, story counts, and safe
 evidence counts before readers drill into cards or detail pages. It is derived
 from existing ROW ONE story, content section, digest block, briefing topic,
-route, and safe evidence-count data.
+route, and safe evidence-count data. `edition_brief.summary_points` now includes
+read-first orientation, active-section coverage, explicit topic-mix counts
+across brands, products, designers, and people, and positive heat-watch cues
+when local raw mention deltas are available.
 The edition brief is presentation-only organization, not a new collection,
 matching, ranking, or scoring layer.
 
