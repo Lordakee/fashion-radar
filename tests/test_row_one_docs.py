@@ -729,5 +729,8 @@ def test_row_one_docs_describe_daily_local_intelligence() -> None:
 
     assert "daily local intelligence" in readme
     assert "compact content segments" in readme
+    assert "generated detail pages link content-section paragraph badges" in readme
+    assert "anchored saved local paragraphs" in readme
+    assert "when the referenced paragraph is available" in readme
     assert "data/local-intelligence.json" in readme
     assert "row-one-app/v7 remains stable" in readme

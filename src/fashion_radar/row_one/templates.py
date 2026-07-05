@@ -2308,7 +2308,10 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
         return ""
     title = article.title or "Source article"
     brief = _render_local_article_brief(article)
-    content_sections = _render_local_article_content_sections(article)
+    content_sections = _render_local_article_content_sections(
+        article,
+        rendered_indices=_local_article_rendered_paragraph_indices(article),
+    )
     rendered_paragraphs = "\n".join(paragraphs)
     return f"""<section id="local-article" class="local-article">
       <h2>
@@ -2351,7 +2354,11 @@ def _render_local_article_brief(article: RowOneLocalArticle) -> str:
       </div>"""
 
 
-def _render_local_article_content_sections(article: RowOneLocalArticle) -> str:
+def _render_local_article_content_sections(
+    article: RowOneLocalArticle,
+    *,
+    rendered_indices: set[int],
+) -> str:
     rendered_sections = []
     for section in article.content_sections:
         section_parts = [
@@ -2371,7 +2378,8 @@ def _render_local_article_content_sections(article: RowOneLocalArticle) -> str:
                 ]
             )
         rendered_items = "\n".join(
-            _render_local_article_content_item(item) for item in section.items
+            _render_local_article_content_item(item, rendered_indices=rendered_indices)
+            for item in section.items
         )
         if rendered_items:
             section_parts.extend(
@@ -2394,7 +2402,11 @@ def _render_local_article_content_sections(article: RowOneLocalArticle) -> str:
     )
 
 
-def _render_local_article_content_item(item: RowOneLocalArticleContentItem) -> str:
+def _render_local_article_content_item(
+    item: RowOneLocalArticleContentItem,
+    *,
+    rendered_indices: set[int],
+) -> str:
     item_parts = [
         "            <li>",
         "              <strong>",
@@ -2411,7 +2423,10 @@ def _render_local_article_content_item(item: RowOneLocalArticleContentItem) -> s
                 "              </p>",
             ]
         )
-    paragraphs = _render_local_article_paragraph_indices(item.paragraph_indices)
+    paragraphs = _render_local_article_paragraph_links(
+        item.paragraph_indices,
+        rendered_indices=rendered_indices,
+    )
     if paragraphs:
         item_parts.append(paragraphs)
     refs = _render_local_article_content_references(item.references)
@@ -2421,14 +2436,50 @@ def _render_local_article_content_item(item: RowOneLocalArticleContentItem) -> s
     return "\n".join(item_parts)
 
 
-def _render_local_article_paragraph_indices(indices: list[int]) -> str:
-    if not indices:
+def _local_article_rendered_paragraph_indices(article: RowOneLocalArticle) -> set[int]:
+    return {index for index, paragraph in enumerate(article.paragraphs) if paragraph.strip()}
+
+
+def _local_article_paragraph_anchor(index: int) -> str:
+    # paragraph_indices are zero-based; fragment IDs are one-based for readers.
+    return f"local-article-paragraph-{index + 1}"
+
+
+def _valid_local_article_paragraph_indices(
+    indices: list[int],
+    rendered_indices: set[int],
+) -> list[int]:
+    # Both inputs use original zero-based RowOneLocalArticle.paragraphs positions.
+    valid: list[int] = []
+    seen: set[int] = set()
+    for index in indices:
+        if index not in rendered_indices or index in seen:
+            continue
+        seen.add(index)
+        valid.append(index)
+    return valid
+
+
+def _render_local_article_paragraph_links(
+    indices: list[int],
+    *,
+    rendered_indices: set[int],
+) -> str:
+    valid_indices = _valid_local_article_paragraph_indices(indices, rendered_indices)
+    if not valid_indices:
         return ""
-    en = ", ".join(f"Paragraph {index + 1}" for index in indices)
-    zh = "、".join(f"段落 {index + 1}" for index in indices)
-    return f"""              <p class="local-article-content-meta">
-                <span data-lang="en">{_esc(en)}</span>
-                <span data-lang="zh">{_esc(zh)}</span>
+    en_links: list[str] = []
+    zh_links: list[str] = []
+    for index in valid_indices:
+        href = f"#{_local_article_paragraph_anchor(index)}"
+        en_links.append(f'<a href="{_esc(href)}">Paragraph {index + 1}</a>')
+        zh_links.append(f'<a href="{_esc(href)}">段落 {index + 1}</a>')
+    en = ", ".join(en_links)
+    zh = "、".join(zh_links)
+    css_class = "local-article-content-meta local-article-content-paragraph-links"
+    return f"""              <p class="{css_class}">
+                <span data-lang="en">{en}</span>
+                <span data-lang="zh">{zh}</span>
               </p>"""
 
 
@@ -2448,14 +2499,23 @@ def _render_local_article_paragraphs(article: RowOneLocalArticle) -> list[str]:
     if not source_paragraphs:
         return []
     if len(article.paragraphs_zh) != len(article.paragraphs):
-        return [f"      <p>{_esc(paragraph)}</p>" for paragraph in source_paragraphs]
+        rendered: list[str] = []
+        for index, paragraph in enumerate(article.paragraphs):
+            if not paragraph.strip():
+                continue
+            anchor = _local_article_paragraph_anchor(index)
+            rendered.append(f'      <p id="{_esc(anchor)}">{_esc(paragraph)}</p>')
+        return rendered
     rendered: list[str] = []
-    for paragraph_en, paragraph_zh in zip(article.paragraphs, article.paragraphs_zh, strict=True):
+    for index, (paragraph_en, paragraph_zh) in enumerate(
+        zip(article.paragraphs, article.paragraphs_zh, strict=True)
+    ):
         if not paragraph_en.strip():
             continue
         zh = paragraph_zh if paragraph_zh.strip() else paragraph_en
+        anchor = _local_article_paragraph_anchor(index)
         rendered.append(
-            "      <p>"
+            f'      <p id="{_esc(anchor)}">'
             f'<span data-lang="en">{_esc(paragraph_en)}</span>'
             f'<span data-lang="zh">{_esc(zh)}</span>'
             "</p>"

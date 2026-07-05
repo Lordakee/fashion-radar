@@ -466,6 +466,8 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     assert "本地保存自 Vogue Business" in detail_html
     assert "First local paragraph about The Row demand." in detail_html
     assert "Second local paragraph with styling context." in detail_html
+    assert 'id="local-article-paragraph-1"' in detail_html
+    assert 'id="local-article-paragraph-2"' in detail_html
     assert 'class="local-article-brief"' in detail_html
     assert '<span data-lang="en">What Happened</span>' in detail_html
     assert '<span data-lang="zh">发生了什么</span>' in detail_html
@@ -480,6 +482,15 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     assert '<span data-lang="zh">The Row 需求变化。</span>' in detail_html
     assert "Paragraph 1" in detail_html
     assert "段落 1" in detail_html
+    assert 'href="#local-article-paragraph-1"' in detail_html
+    assert re.search(
+        r'<a href="#local-article-paragraph-1">\s*Paragraph 1\s*</a>',
+        detail_html,
+    )
+    assert re.search(
+        r'<a href="#local-article-paragraph-1">\s*段落 1\s*</a>',
+        detail_html,
+    )
     assert "Refs: The Row (brand / tracked)" in detail_html
     assert "引用：The Row（brand / tracked）" in detail_html
     assert detail_html.index('class="local-article-brief"') < detail_html.index(
@@ -490,6 +501,9 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     )
     assert '<span data-lang="en">First local paragraph about The Row demand.</span>' in detail_html
     assert '<span data-lang="zh">第一段本地正文，关于 The Row 需求。</span>' in detail_html
+    assert detail_html.index('href="#local-article-paragraph-1"') < detail_html.index(
+        'id="local-article-paragraph-1"'
+    )
     assert detail_html.index('data-lang="en">First local paragraph') < detail_html.index(
         'data-lang="zh">第一段本地正文'
     )
@@ -544,8 +558,8 @@ def test_render_row_one_detail_keeps_plain_local_article_without_zh_paragraphs(
         encoding="utf-8"
     )
 
-    assert "<p>One source paragraph.</p>" in detail_html
-    assert "<p>Second source paragraph.</p>" in detail_html
+    assert '<p id="local-article-paragraph-1">One source paragraph.</p>' in detail_html
+    assert '<p id="local-article-paragraph-2">Second source paragraph.</p>' in detail_html
     assert 'data-lang="zh">One source paragraph.' not in detail_html
     assert 'class="local-article-brief"' not in detail_html
     assert 'class="local-article-content-sections"' not in detail_html
@@ -588,11 +602,63 @@ def test_render_row_one_detail_uses_plain_local_article_when_zh_paragraphs_misma
         encoding="utf-8"
     )
 
-    assert "<p>One source paragraph.</p>" in detail_html
-    assert "<p>Second source paragraph.</p>" in detail_html
+    assert '<p id="local-article-paragraph-1">One source paragraph.</p>' in detail_html
+    assert '<p id="local-article-paragraph-2">Second source paragraph.</p>' in detail_html
+    assert 'href="#local-article-paragraph-1"' in detail_html
     assert '<span data-lang="en">Structured English.</span>' in detail_html
     assert '<span data-lang="zh">结构化中文。</span>' in detail_html
     assert '<span data-lang="zh">一段中文。</span>' not in detail_html
+
+
+def test_render_row_one_detail_skips_invalid_local_article_paragraph_links(
+    tmp_path,
+) -> None:
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Source article title",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=["First rendered paragraph.", "   ", "Third rendered paragraph."],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(en="Takeaways", zh="要点"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="Source lead", zh="来源导语"),
+                        paragraph_indices=[-1, 0, 1, 2, 2, 99],
+                    )
+                ],
+            )
+        ],
+    )
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'id="local-article-paragraph-1"' in detail_html
+    assert 'id="local-article-paragraph-2"' not in detail_html
+    assert 'id="local-article-paragraph-3"' in detail_html
+    assert 'href="#local-article-paragraph-1"' in detail_html
+    assert 'href="#local-article-paragraph-3"' in detail_html
+    assert detail_html.count('href="#local-article-paragraph-3"') == 2
+    assert 'href="#local-article-paragraph-0"' not in detail_html
+    assert 'href="#local-article-paragraph-2"' not in detail_html
+    assert 'href="#local-article-paragraph-100"' not in detail_html
+    assert "Paragraph 0" not in detail_html
+    assert "Paragraph 2" not in detail_html
+    assert "Paragraph 100" not in detail_html
+    assert "段落 0" not in detail_html
+    assert "段落 2" not in detail_html
+    assert "段落 100" not in detail_html
 
 
 def test_render_row_one_detail_omits_local_article_nav_without_content(tmp_path) -> None:
@@ -721,6 +787,8 @@ def test_render_row_one_detail_escapes_local_article_content(tmp_path) -> None:
     assert "&lt;img src=x onerror=&quot;alert(6)&quot;&gt; &amp; item" in detail_html
     assert "&lt;img src=x onerror=&quot;alert(7)&quot;&gt; 中文 &amp; item" in detail_html
     assert "&lt;script&gt;Ref&lt;/script&gt;" in detail_html
+    assert 'href="#local-article-paragraph-1"' in detail_html
+    assert 'id="local-article-paragraph-1"' in detail_html
     assert "<script>Brief</script>" not in detail_html
     assert "<script>" not in detail_html
     assert 'onerror="alert' not in detail_html
@@ -853,6 +921,9 @@ def test_render_row_one_site_writes_and_renders_daily_local_intelligence_segment
     assert "The Row source paragraph." in html
     assert "Product Signals" in html
     assert "Margaux" in html
+    assert "#local-article-paragraph-" not in "".join(re.findall(r'href="([^"]+)"', html))
+    assert "Paragraph 1" in html
+    assert "段落 1" in html
 
     artifact = json.loads(
         (tmp_path / "data" / "local-intelligence.json").read_text(encoding="utf-8")
