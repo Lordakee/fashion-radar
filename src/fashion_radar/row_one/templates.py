@@ -10,6 +10,8 @@ from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneDailyLocalIntelligenceItem,
     RowOneDailyLocalIntelligenceSection,
+    RowOneDailyLocalIntelligenceSegment,
+    RowOneDailyLocalIntelligenceSegmentItem,
     RowOneEdition,
     RowOneLink,
     RowOneLocalArticle,
@@ -723,6 +725,53 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   font-weight: 700;
   gap: 8px 12px;
   letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.daily-local-intelligence-segments {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 10px;
+}
+.daily-local-intelligence-segment {
+  display: grid;
+  gap: 6px;
+}
+.daily-local-intelligence-card .daily-local-intelligence-segment-title,
+.daily-local-intelligence-card .daily-local-intelligence-segment-item-label {
+  color: var(--ink);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  margin: 0;
+  text-transform: uppercase;
+}
+.daily-local-intelligence-card .daily-local-intelligence-segment-body,
+.daily-local-intelligence-card .daily-local-intelligence-segment-item-body,
+.daily-local-intelligence-card .daily-local-intelligence-segment-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.38;
+  margin: 0;
+}
+.daily-local-intelligence-segment-items {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+.daily-local-intelligence-segment-item {
+  display: grid;
+  gap: 3px;
+}
+.daily-local-intelligence-segment-meta {
+  color: var(--accent);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.65rem;
+  font-weight: 700;
+  gap: 6px 10px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .briefing-topics {
@@ -1749,6 +1798,7 @@ def _render_daily_local_intelligence_section(
 
 def _render_daily_local_intelligence_item(item: RowOneDailyLocalIntelligenceItem) -> str:
     meta = _daily_local_intelligence_meta(item)
+    segments = _render_daily_local_intelligence_segments(item)
     body = f"""<h3>
     <span data-lang="en">{_esc(item.title.en)}</span>
     <span data-lang="zh">{_esc(item.title.zh)}</span>
@@ -1757,11 +1807,89 @@ def _render_daily_local_intelligence_item(item: RowOneDailyLocalIntelligenceItem
     <span data-lang="en">{_esc(item.body.en)}</span>
     <span data-lang="zh">{_esc(item.body.zh)}</span>
   </p>
+  {segments}
   <div class="daily-local-intelligence-meta">{meta}</div>"""
     href = _safe_daily_local_intelligence_href(item.detail_path)
     if href is None:
         return f'<div class="daily-local-intelligence-card">{body}</div>'
     return f'<a class="daily-local-intelligence-card" href="{_esc(href)}">{body}</a>'
+
+
+def _render_daily_local_intelligence_segments(item: RowOneDailyLocalIntelligenceItem) -> str:
+    segments = [_render_daily_local_intelligence_segment(segment) for segment in item.segments]
+    rendered = [segment for segment in segments if segment]
+    if not rendered:
+        return ""
+    return f'<div class="daily-local-intelligence-segments">{"".join(rendered)}</div>'
+
+
+def _render_daily_local_intelligence_segment(
+    segment: RowOneDailyLocalIntelligenceSegment,
+) -> str:
+    items = [
+        _render_daily_local_intelligence_segment_item(segment_item)
+        for segment_item in segment.items
+    ]
+    rendered_items = [item for item in items if item]
+    if not rendered_items:
+        return ""
+    body = ""
+    if segment.body is not None and (segment.body.en.strip() or segment.body.zh.strip()):
+        body = f"""<p class="daily-local-intelligence-segment-body">
+      <span data-lang="en">{_esc(segment.body.en)}</span>
+      <span data-lang="zh">{_esc(segment.body.zh)}</span>
+    </p>"""
+    return f"""<div class="daily-local-intelligence-segment">
+    <p class="daily-local-intelligence-segment-title">
+      <span data-lang="en">{_esc(segment.title.en)}</span>
+      <span data-lang="zh">{_esc(segment.title.zh)}</span>
+    </p>
+    {body}
+    <div class="daily-local-intelligence-segment-items">{"".join(rendered_items)}</div>
+  </div>"""
+
+
+def _render_daily_local_intelligence_segment_item(
+    segment_item: RowOneDailyLocalIntelligenceSegmentItem,
+) -> str:
+    body = ""
+    if segment_item.body is not None and (
+        segment_item.body.en.strip() or segment_item.body.zh.strip()
+    ):
+        body = f"""<p class="daily-local-intelligence-segment-item-body">
+      <span data-lang="en">{_esc(segment_item.body.en)}</span>
+      <span data-lang="zh">{_esc(segment_item.body.zh)}</span>
+    </p>"""
+    meta = _render_daily_local_intelligence_segment_meta(segment_item)
+    if not body and not meta:
+        return ""
+    return f"""<div class="daily-local-intelligence-segment-item">
+    <p class="daily-local-intelligence-segment-item-label">
+      <span data-lang="en">{_esc(segment_item.label.en)}</span>
+      <span data-lang="zh">{_esc(segment_item.label.zh)}</span>
+    </p>
+    {body}
+    {meta}
+  </div>"""
+
+
+def _render_daily_local_intelligence_segment_meta(
+    segment_item: RowOneDailyLocalIntelligenceSegmentItem,
+) -> str:
+    parts: list[tuple[str, str]] = []
+    for ref in segment_item.references:
+        ref_text = " / ".join(value for value in (ref.name, ref.type, ref.label) if value)
+        parts.append((ref_text, ref_text))
+    for index in segment_item.paragraph_indices:
+        paragraph_label = index + 1
+        parts.append((f"Paragraph {paragraph_label}", f"段落 {paragraph_label}"))
+    if not parts:
+        return ""
+    rendered = "".join(
+        f'<span data-lang="en">{_esc(en)}</span><span data-lang="zh">{_esc(zh)}</span>'
+        for en, zh in parts
+    )
+    return f'<div class="daily-local-intelligence-segment-meta">{rendered}</div>'
 
 
 def _daily_local_intelligence_meta(item: RowOneDailyLocalIntelligenceItem) -> str:

@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 
 from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneDailyLocalIntelligenceItem,
     RowOneDailyLocalIntelligenceSection,
+    RowOneDailyLocalIntelligenceSegment,
+    RowOneDailyLocalIntelligenceSegmentItem,
     RowOneEdition,
     RowOneLocalArticle,
+    RowOneLocalArticleContentItem,
+    RowOneLocalArticleContentSection,
     RowOneReference,
     RowOneStory,
 )
@@ -15,6 +20,25 @@ from fashion_radar.row_one.models import (
 MAX_STRONGEST_READS = 4
 MAX_REFERENCE_ITEMS = 6
 MAX_HEAT_MOVERS = 5
+MAX_SEGMENTS_PER_ITEM = 4
+MAX_SEGMENT_ITEMS = 3
+
+
+@dataclass
+class _ReferenceAggregate:
+    display_name: str
+    stories: set[str] = field(default_factory=set)
+    articles: set[str] = field(default_factory=set)
+    source_names: list[str] = field(default_factory=list)
+    evidence_count: int = 0
+    heat_delta: int | None = None
+    references: list[RowOneReference] = field(default_factory=list)
+    body: str | None = None
+    body_zh: str | None = None
+    detail_path: str | None = None
+    paragraph_indices: list[int] = field(default_factory=list)
+    segments: list[RowOneDailyLocalIntelligenceSegment] = field(default_factory=list)
+    segment_match_score: int = 0
 
 
 def build_row_one_local_article_intelligence(
@@ -84,7 +108,7 @@ def _reference_watch_section(
     *,
     reference_kind: str,
 ) -> RowOneDailyLocalIntelligenceSection:
-    aggregates: dict[str, dict[str, object]] = {}
+    aggregates: dict[str, _ReferenceAggregate] = {}
     for story, article in story_articles:
         references = _story_references(story, reference_kind=reference_kind)
         for ref in references:
@@ -93,33 +117,30 @@ def _reference_watch_section(
                 continue
             aggregate = aggregates.setdefault(
                 normalized,
-                {
-                    "display_name": ref.name.strip(),
-                    "stories": set(),
-                    "articles": set(),
-                    "source_names": [],
-                    "evidence_count": 0,
-                    "heat_delta": None,
-                    "references": [],
-                    "body": None,
-                    "body_zh": None,
-                    "detail_path": None,
-                    "paragraph_indices": [],
-                },
+                _ReferenceAggregate(display_name=ref.name.strip()),
             )
-            aggregate["stories"].add(story.id)  # type: ignore[union-attr]
-            aggregate["articles"].add(article.story_id)  # type: ignore[union-attr]
-            aggregate["evidence_count"] = int(aggregate["evidence_count"]) + len(story.evidence)
-            aggregate["heat_delta"] = _max_optional_int(aggregate["heat_delta"], story.heat_delta)
-            _append_unique(aggregate["source_names"], article.source_name)  # type: ignore[arg-type]
-            _append_reference(aggregate["references"], ref)  # type: ignore[arg-type]
-            if aggregate["body"] is None:
-                source_text = _reference_source_text(article, ref)
-                aggregate["body"] = source_text.en
-                aggregate["body_zh"] = source_text.zh
-                aggregate["paragraph_indices"] = _reference_paragraph_indices(article, ref)
-            if aggregate["detail_path"] is None:
-                aggregate["detail_path"] = _local_article_detail_path(story.detail_path)
+            aggregate.stories.add(story.id)
+            aggregate.articles.add(article.story_id)
+            aggregate.evidence_count += len(story.evidence)
+            aggregate.heat_delta = _max_optional_int(aggregate.heat_delta, story.heat_delta)
+            _append_unique(aggregate.source_names, article.source_name)
+            _append_reference(aggregate.references, ref)
+            source_text = _reference_source_text(article, ref, reference_kind=reference_kind)
+            paragraph_indices = _reference_paragraph_indices(
+                article,
+                ref,
+                reference_kind=reference_kind,
+            )
+            segments = _reference_segments(article, ref, reference_kind=reference_kind)
+            segment_match_score = _reference_segment_match_score(segments, ref)
+            if aggregate.body is None or segment_match_score > aggregate.segment_match_score:
+                aggregate.body = source_text.en
+                aggregate.body_zh = source_text.zh
+                aggregate.paragraph_indices = paragraph_indices
+                aggregate.segments = segments
+                aggregate.segment_match_score = segment_match_score
+            if aggregate.detail_path is None:
+                aggregate.detail_path = _local_article_detail_path(story.detail_path)
 
     items = [_aggregate_item(aggregate) for aggregate in aggregates.values()]
     items.sort(key=_reference_item_sort_key)
@@ -171,32 +192,34 @@ def _story_article_item(
         heat_delta=story.heat_delta,
         references=[*story.entity_refs, *story.designer_refs, *story.product_refs],
         paragraph_indices=takeaway.paragraph_indices,
+        segments=_article_segments(article),
     )
 
 
-def _aggregate_item(aggregate: dict[str, object]) -> RowOneDailyLocalIntelligenceItem:
-    source_names = list(aggregate["source_names"])
+def _aggregate_item(aggregate: _ReferenceAggregate) -> RowOneDailyLocalIntelligenceItem:
+    source_names = list(aggregate.source_names)
     source_list = ", ".join(source_names)
-    body_en = str(aggregate["body"] or "").strip()
-    body_zh = str(aggregate["body_zh"] or body_en).strip()
+    body_en = (aggregate.body or "").strip()
+    body_zh = (aggregate.body_zh or body_en).strip()
     if source_list:
         body_en = f"{body_en} Sources: {source_list}."
         body_zh = f"{body_zh} 来源：{source_list}。"
     return RowOneDailyLocalIntelligenceItem(
         title=LocalizedText(
-            zh=str(aggregate["display_name"]),
-            en=str(aggregate["display_name"]),
+            zh=aggregate.display_name,
+            en=aggregate.display_name,
         ),
         body=LocalizedText(zh=body_zh, en=body_en),
-        detail_path=aggregate["detail_path"] if isinstance(aggregate["detail_path"], str) else None,
+        detail_path=aggregate.detail_path,
         source_name=source_names[0] if source_names else None,
         source_names=source_names,
-        story_count=len(aggregate["stories"]),  # type: ignore[arg-type]
-        article_count=len(aggregate["articles"]),  # type: ignore[arg-type]
-        evidence_count=int(aggregate["evidence_count"]),
-        heat_delta=aggregate["heat_delta"] if isinstance(aggregate["heat_delta"], int) else None,
-        references=list(aggregate["references"]),  # type: ignore[arg-type]
-        paragraph_indices=list(aggregate["paragraph_indices"]),  # type: ignore[arg-type]
+        story_count=len(aggregate.stories),
+        article_count=len(aggregate.articles),
+        evidence_count=aggregate.evidence_count,
+        heat_delta=aggregate.heat_delta,
+        references=list(aggregate.references),
+        paragraph_indices=list(aggregate.paragraph_indices),
+        segments=list(aggregate.segments),
     )
 
 
@@ -276,8 +299,13 @@ def _article_takeaway(article: RowOneLocalArticle) -> _ArticleTakeaway:
     return _ArticleTakeaway(LocalizedText(zh="", en=""), [])
 
 
-def _reference_source_text(article: RowOneLocalArticle, ref: RowOneReference) -> LocalizedText:
-    indices = _reference_paragraph_indices(article, ref)
+def _reference_source_text(
+    article: RowOneLocalArticle,
+    ref: RowOneReference,
+    *,
+    reference_kind: str,
+) -> LocalizedText:
+    indices = _reference_paragraph_indices(article, ref, reference_kind=reference_kind)
     if indices:
         index = indices[0]
         if 0 <= index < len(article.paragraphs) and article.paragraphs[index].strip():
@@ -289,15 +317,160 @@ def _reference_source_text(article: RowOneLocalArticle, ref: RowOneReference) ->
     return _article_takeaway(article).text
 
 
-def _reference_paragraph_indices(article: RowOneLocalArticle, ref: RowOneReference) -> list[int]:
+def _reference_paragraph_indices(
+    article: RowOneLocalArticle,
+    ref: RowOneReference,
+    *,
+    reference_kind: str,
+) -> list[int]:
     normalized = _normalize_ref_name(ref.name)
     for section in article.content_sections:
+        if section.key not in _reference_segment_keys(reference_kind):
+            continue
         for item in section.items:
             if any(
-                _normalize_ref_name(item_ref.name) == normalized for item_ref in item.references
+                _normalize_ref_name(item_ref.name) == normalized
+                and item_ref.type.casefold() == ref.type.casefold()
+                for item_ref in item.references
             ):
                 return list(item.paragraph_indices)
     return []
+
+
+def _article_segments(article: RowOneLocalArticle) -> list[RowOneDailyLocalIntelligenceSegment]:
+    segments: list[RowOneDailyLocalIntelligenceSegment] = []
+    for section in article.content_sections:
+        segment = _content_section_segment(section)
+        if segment is None:
+            continue
+        segments.append(segment)
+        if len(segments) >= MAX_SEGMENTS_PER_ITEM:
+            break
+    return segments
+
+
+def _reference_segments(
+    article: RowOneLocalArticle,
+    ref: RowOneReference,
+    *,
+    reference_kind: str,
+) -> list[RowOneDailyLocalIntelligenceSegment]:
+    normalized = _normalize_ref_name(ref.name)
+    ref_type = ref.type.casefold()
+    matched: list[RowOneDailyLocalIntelligenceSegment] = []
+    for section in article.content_sections:
+        if section.key not in _reference_segment_keys(reference_kind):
+            continue
+        segment = _content_section_segment(section, normalized_ref=normalized, ref_type=ref_type)
+        if segment is None:
+            continue
+        matched.append(segment)
+        if len(matched) >= MAX_SEGMENTS_PER_ITEM:
+            break
+    if matched:
+        return matched
+    return _article_segments(article)[:1]
+
+
+def _reference_segment_keys(reference_kind: str) -> tuple[str, ...]:
+    if reference_kind == "product":
+        return ("product_signals",)
+    return ("entities",)
+
+
+def _reference_segment_match_score(
+    segments: list[RowOneDailyLocalIntelligenceSegment],
+    ref: RowOneReference,
+) -> int:
+    normalized_name = _normalize_ref_name(ref.name)
+    normalized_type = ref.type.casefold()
+    for segment in segments:
+        for item in segment.items:
+            for item_ref in item.references:
+                if (
+                    _normalize_ref_name(item_ref.name) == normalized_name
+                    and item_ref.type.casefold() == normalized_type
+                ):
+                    return 2
+            if any(
+                _normalize_ref_name(item_ref.name) == normalized_name
+                for item_ref in item.references
+            ):
+                return 1
+    return 0
+
+
+def _content_section_segment(
+    section: RowOneLocalArticleContentSection,
+    *,
+    normalized_ref: str | None = None,
+    ref_type: str | None = None,
+) -> RowOneDailyLocalIntelligenceSegment | None:
+    items: list[RowOneDailyLocalIntelligenceSegmentItem] = []
+    for item in section.items:
+        if (
+            normalized_ref is not None
+            and ref_type is not None
+            and not _content_item_matches_ref(item, normalized_ref, ref_type)
+        ):
+            continue
+        segment_item = _content_segment_item(item)
+        if segment_item is None:
+            continue
+        items.append(segment_item)
+        if len(items) >= MAX_SEGMENT_ITEMS:
+            break
+    if not items:
+        return None
+    return RowOneDailyLocalIntelligenceSegment(
+        key=section.key,
+        title=_localized_or_fallback(section.title),
+        body=_optional_localized(section.body),
+        items=items,
+    )
+
+
+def _content_segment_item(
+    item: RowOneLocalArticleContentItem,
+) -> RowOneDailyLocalIntelligenceSegmentItem | None:
+    body = _optional_localized(item.body)
+    references = list(item.references)
+    paragraph_indices = list(item.paragraph_indices)
+    if body is None and not references and not paragraph_indices:
+        return None
+    return RowOneDailyLocalIntelligenceSegmentItem(
+        label=_localized_or_fallback(item.label),
+        body=body,
+        references=references,
+        paragraph_indices=paragraph_indices,
+    )
+
+
+def _content_item_matches_ref(
+    item: RowOneLocalArticleContentItem,
+    normalized_ref: str,
+    ref_type: str,
+) -> bool:
+    return any(
+        _normalize_ref_name(ref.name) == normalized_ref and ref.type.casefold() == ref_type
+        for ref in item.references
+    )
+
+
+def _localized_or_fallback(text: LocalizedText) -> LocalizedText:
+    en = text.en.strip()
+    zh = text.zh.strip()
+    fallback = en or zh
+    return LocalizedText(zh=zh or fallback, en=en or fallback)
+
+
+def _optional_localized(text: LocalizedText | None) -> LocalizedText | None:
+    if text is None:
+        return None
+    value = _localized_or_fallback(text)
+    if not value.en and not value.zh:
+        return None
+    return value
 
 
 def _paragraph_zh(article: RowOneLocalArticle, index: int, *, fallback: str) -> str:

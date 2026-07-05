@@ -728,5 +728,6 @@ def test_row_one_docs_describe_daily_local_intelligence() -> None:
     readme = _normalized(_read(README))
 
     assert "daily local intelligence" in readme
+    assert "compact content segments" in readme
     assert "data/local-intelligence.json" in readme
     assert "row-one-app/v7 remains stable" in readme

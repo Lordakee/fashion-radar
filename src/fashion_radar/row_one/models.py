@@ -86,6 +86,24 @@ class RowOneLocalArticleContentSection(BaseModel):
     items: list[RowOneLocalArticleContentItem] = Field(default_factory=list)
 
 
+class RowOneDailyLocalIntelligenceSegmentItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: LocalizedText
+    body: LocalizedText | None = None
+    references: list[RowOneReference] = Field(default_factory=list)
+    paragraph_indices: list[int] = Field(default_factory=list)
+
+
+class RowOneDailyLocalIntelligenceSegment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: RowOneLocalArticleContentKey
+    title: LocalizedText
+    body: LocalizedText | None = None
+    items: list[RowOneDailyLocalIntelligenceSegmentItem] = Field(default_factory=list)
+
+
 class RowOneDailyLocalIntelligenceItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -100,6 +118,7 @@ class RowOneDailyLocalIntelligenceItem(BaseModel):
     heat_delta: int | None = None
     references: list[RowOneReference] = Field(default_factory=list)
     paragraph_indices: list[int] = Field(default_factory=list)
+    segments: list[RowOneDailyLocalIntelligenceSegment] = Field(default_factory=list)
 
 
 class RowOneDailyLocalIntelligenceSection(BaseModel):

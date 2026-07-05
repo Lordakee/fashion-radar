@@ -787,6 +787,86 @@ def test_render_row_one_site_includes_daily_local_intelligence(tmp_path) -> None
     assert "local_article_intelligence" not in payload
 
 
+def test_render_row_one_site_writes_and_renders_daily_local_intelligence_segments(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [RowOneReference(name="The Row", type="brand", label="tracked")]
+    story.product_refs = [RowOneReference(name="Margaux", type="bag", label="product")]
+    local_article = RowOneLocalArticle(
+        story_id=story.id,
+        title="The Row local source",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=[
+            "The Row source paragraph.",
+            "Margaux product paragraph.",
+        ],
+        paragraphs_zh=["The Row 中文段落。", "Margaux 中文段落。"],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(zh="正文重点", en="Takeaways"),
+                body=LocalizedText(
+                    zh="本地正文指出这些读法。",
+                    en="The saved source points to these reads.",
+                ),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="来源导语", en="Source lead"),
+                        body=LocalizedText(
+                            zh="The Row 中文段落。",
+                            en="The Row source paragraph.",
+                        ),
+                        paragraph_indices=[0],
+                    )
+                ],
+            ),
+            RowOneLocalArticleContentSection(
+                key="product_signals",
+                title=LocalizedText(zh="产品信号", en="Product Signals"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="Margaux", en="Margaux"),
+                        body=LocalizedText(zh="bag / product", en="bag / product"),
+                        references=[RowOneReference(name="Margaux", type="bag", label="product")],
+                        paragraph_indices=[1],
+                    )
+                ],
+            ),
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: local_article},
+    )
+
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert "daily-local-intelligence-segments" in html
+    assert "Takeaways" in html
+    assert "The saved source points to these reads." in html
+    assert "Source lead" in html
+    assert "The Row source paragraph." in html
+    assert "Product Signals" in html
+    assert "Margaux" in html
+
+    artifact = json.loads(
+        (tmp_path / "data" / "local-intelligence.json").read_text(encoding="utf-8")
+    )
+    strongest = next(section for section in artifact if section["key"] == "strongest_reads")
+    assert strongest["items"][0]["segments"][0]["key"] == "takeaways"
+    assert strongest["items"][0]["segments"][0]["body"]["en"] == (
+        "The saved source points to these reads."
+    )
+    assert strongest["items"][0]["segments"][0]["items"][0]["paragraph_indices"] == [0]
+    payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
+    assert "local_article_intelligence" not in payload
+
+
 def test_render_row_one_site_omits_daily_local_intelligence_without_saved_articles(
     tmp_path,
 ) -> None:
@@ -813,14 +893,54 @@ def test_render_row_one_site_escapes_daily_local_intelligence(tmp_path) -> None:
                 source_name="<Vogue>",
                 extracted_at=AS_OF,
                 paragraphs=['<script>alert("body")</script>'],
+                content_sections=[
+                    RowOneLocalArticleContentSection(
+                        key="takeaways",
+                        title=LocalizedText(
+                            zh="<script>栏目</script>",
+                            en="<script>Segment</script>",
+                        ),
+                        body=LocalizedText(
+                            zh='<img src=x onerror="alert(1)"> 中文段说明',
+                            en='<img src=x onerror="alert(1)"> segment body',
+                        ),
+                        items=[
+                            RowOneLocalArticleContentItem(
+                                label=LocalizedText(
+                                    zh="<script>标签</script>",
+                                    en="<script>Label</script>",
+                                ),
+                                body=LocalizedText(
+                                    zh='<img src=x onerror="alert(2)"> 中文嵌套正文',
+                                    en='<img src=x onerror="alert(2)"> nested body',
+                                ),
+                                references=[
+                                    RowOneReference(
+                                        name="<script>Nested Ref</script>",
+                                        type="brand",
+                                        label="tracked",
+                                    )
+                                ],
+                                paragraph_indices=[0],
+                            )
+                        ],
+                    )
+                ],
             )
         },
     )
 
     html = (tmp_path / "index.html").read_text(encoding="utf-8")
     assert '<script>alert("body")</script>' not in html
-    assert "&lt;script&gt;alert(&quot;body&quot;)&lt;/script&gt;" in html
+    assert "<script>Segment</script>" not in html
+    assert "<script>Label</script>" not in html
+    assert "<script>Nested Ref</script>" not in html
+    assert '<img src=x onerror="alert' not in html
     assert "&lt;The Row&gt;" in html
+    assert "&lt;script&gt;Segment&lt;/script&gt;" in html
+    assert "&lt;script&gt;Label&lt;/script&gt;" in html
+    assert "&lt;img src=x onerror=&quot;alert(2)&quot;&gt; nested body" in html
+    assert "&lt;script&gt;Nested Ref&lt;/script&gt;" in html
 
 
 @pytest.mark.parametrize(
