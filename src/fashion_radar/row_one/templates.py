@@ -32,6 +32,7 @@ from fashion_radar.row_one.text import (
 from fashion_radar.row_one.utils import safe_external_url
 
 _DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$")
+_LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE = re.compile(r"local-article-paragraph-[1-9][0-9]*$")
 
 
 def render_index_html(
@@ -773,6 +774,28 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   gap: 6px 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+.daily-local-intelligence-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+.daily-local-intelligence-action,
+.daily-local-intelligence-paragraph-link {
+  color: inherit;
+  text-decoration: none;
+}
+.daily-local-intelligence-action {
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.7rem;
+  text-transform: uppercase;
+}
+.daily-local-intelligence-paragraph-link {
+  border-bottom: 1px solid currentColor;
 }
 .briefing-topics {
   border-bottom: 1px solid var(--ink);
@@ -1823,8 +1846,10 @@ def _render_daily_local_intelligence_section(
 
 
 def _render_daily_local_intelligence_item(item: RowOneDailyLocalIntelligenceItem) -> str:
+    href = _safe_daily_local_intelligence_href(item.detail_path)
     meta = _daily_local_intelligence_meta(item)
-    segments = _render_daily_local_intelligence_segments(item)
+    segments = _render_daily_local_intelligence_segments(item, detail_href=href)
+    actions = _render_daily_local_intelligence_actions(item, detail_href=href)
     body = f"""<h3>
     <span data-lang="en">{_esc(item.title.en)}</span>
     <span data-lang="zh">{_esc(item.title.zh)}</span>
@@ -1834,15 +1859,74 @@ def _render_daily_local_intelligence_item(item: RowOneDailyLocalIntelligenceItem
     <span data-lang="zh">{_esc(item.body.zh)}</span>
   </p>
   {segments}
-  <div class="daily-local-intelligence-meta">{meta}</div>"""
-    href = _safe_daily_local_intelligence_href(item.detail_path)
-    if href is None:
-        return f'<div class="daily-local-intelligence-card">{body}</div>'
-    return f'<a class="daily-local-intelligence-card" href="{_esc(href)}">{body}</a>'
+  <div class="daily-local-intelligence-meta">{meta}</div>
+  {actions}"""
+    return f'<div class="daily-local-intelligence-card">{body}</div>'
 
 
-def _render_daily_local_intelligence_segments(item: RowOneDailyLocalIntelligenceItem) -> str:
-    segments = [_render_daily_local_intelligence_segment(segment) for segment in item.segments]
+def _render_daily_local_intelligence_actions(
+    item: RowOneDailyLocalIntelligenceItem,
+    *,
+    detail_href: str | None,
+) -> str:
+    if detail_href is None:
+        return ""
+    links = [(detail_href, "Open saved text", "打开本地正文")]
+    for index in _daily_local_intelligence_paragraph_indices(item)[:3]:
+        href = _daily_local_intelligence_paragraph_href(detail_href, index)
+        if href is None:
+            continue
+        label = index + 1
+        links.append((href, f"Open paragraph {label}", f"打开段落 {label}"))
+    rendered = "".join(
+        f'<a class="daily-local-intelligence-action" href="{_esc(href)}">'
+        f'<span data-lang="en">{_esc(en)}</span>'
+        f'<span data-lang="zh">{_esc(zh)}</span>'
+        "</a>"
+        for href, en, zh in links
+    )
+    if not rendered:
+        return ""
+    return f'<div class="daily-local-intelligence-actions">{rendered}</div>'
+
+
+def _daily_local_intelligence_paragraph_indices(
+    item: RowOneDailyLocalIntelligenceItem,
+) -> list[int]:
+    indices: list[int] = []
+    seen: set[int] = set()
+    for index in item.paragraph_indices:
+        if index >= 0 and index not in seen:
+            seen.add(index)
+            indices.append(index)
+    for segment in item.segments:
+        for segment_item in segment.items:
+            for index in segment_item.paragraph_indices:
+                if index >= 0 and index not in seen:
+                    seen.add(index)
+                    indices.append(index)
+    return indices
+
+
+def _daily_local_intelligence_paragraph_href(
+    detail_href: str,
+    index: int,
+) -> str | None:
+    if index < 0:
+        return None
+    path = detail_href.split("#", 1)[0]
+    return f"{path}#local-article-paragraph-{index + 1}"
+
+
+def _render_daily_local_intelligence_segments(
+    item: RowOneDailyLocalIntelligenceItem,
+    *,
+    detail_href: str | None,
+) -> str:
+    segments = [
+        _render_daily_local_intelligence_segment(segment, detail_href=detail_href)
+        for segment in item.segments
+    ]
     rendered = [segment for segment in segments if segment]
     if not rendered:
         return ""
@@ -1851,9 +1935,14 @@ def _render_daily_local_intelligence_segments(item: RowOneDailyLocalIntelligence
 
 def _render_daily_local_intelligence_segment(
     segment: RowOneDailyLocalIntelligenceSegment,
+    *,
+    detail_href: str | None,
 ) -> str:
     items = [
-        _render_daily_local_intelligence_segment_item(segment_item)
+        _render_daily_local_intelligence_segment_item(
+            segment_item,
+            detail_href=detail_href,
+        )
         for segment_item in segment.items
     ]
     rendered_items = [item for item in items if item]
@@ -1877,6 +1966,8 @@ def _render_daily_local_intelligence_segment(
 
 def _render_daily_local_intelligence_segment_item(
     segment_item: RowOneDailyLocalIntelligenceSegmentItem,
+    *,
+    detail_href: str | None,
 ) -> str:
     body = ""
     if segment_item.body is not None and (
@@ -1886,7 +1977,10 @@ def _render_daily_local_intelligence_segment_item(
       <span data-lang="en">{_esc(segment_item.body.en)}</span>
       <span data-lang="zh">{_esc(segment_item.body.zh)}</span>
     </p>"""
-    meta = _render_daily_local_intelligence_segment_meta(segment_item)
+    meta = _render_daily_local_intelligence_segment_meta(
+        segment_item,
+        detail_href=detail_href,
+    )
     if not body and not meta:
         return ""
     return f"""<div class="daily-local-intelligence-segment-item">
@@ -1901,20 +1995,39 @@ def _render_daily_local_intelligence_segment_item(
 
 def _render_daily_local_intelligence_segment_meta(
     segment_item: RowOneDailyLocalIntelligenceSegmentItem,
+    *,
+    detail_href: str | None,
 ) -> str:
-    parts: list[tuple[str, str]] = []
+    parts: list[str] = []
     for ref in segment_item.references:
         ref_text = " / ".join(value for value in (ref.name, ref.type, ref.label) if value)
-        parts.append((ref_text, ref_text))
+        parts.append(
+            f"<span>"
+            f'<span data-lang="en">{_esc(ref_text)}</span>'
+            f'<span data-lang="zh">{_esc(ref_text)}</span>'
+            f"</span>"
+        )
     for index in segment_item.paragraph_indices:
         paragraph_label = index + 1
-        parts.append((f"Paragraph {paragraph_label}", f"段落 {paragraph_label}"))
+        href = (
+            _daily_local_intelligence_paragraph_href(detail_href, index)
+            if detail_href is not None
+            else None
+        )
+        label = (
+            f'<span data-lang="en">Paragraph {paragraph_label}</span>'
+            f'<span data-lang="zh">段落 {paragraph_label}</span>'
+        )
+        if href is None:
+            parts.append(f"<span>{label}</span>")
+        else:
+            parts.append(
+                f'<a class="daily-local-intelligence-paragraph-link" href="{_esc(href)}">'
+                f"{label}</a>"
+            )
     if not parts:
         return ""
-    rendered = "".join(
-        f'<span data-lang="en">{_esc(en)}</span><span data-lang="zh">{_esc(zh)}</span>'
-        for en, zh in parts
-    )
+    rendered = "".join(parts)
     return f'<div class="daily-local-intelligence-segment-meta">{rendered}</div>'
 
 
@@ -1993,7 +2106,7 @@ def _safe_daily_local_intelligence_href(href: object) -> str | None:
     if "#" not in href:
         return href if _validated_detail_relative_path(href) is not None else None
     path, fragment = href.split("#", 1)
-    if fragment != "local-article":
+    if fragment != "local-article" and not _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment):
         return None
     return href if _validated_detail_relative_path(path) is not None else None
 

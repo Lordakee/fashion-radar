@@ -129,7 +129,9 @@ groups strongest reads, brand watch, product watch, and heat movers from the
 saved article paragraphs and structured references. Daily cards include
 compact content segments from the saved local article sections so readers can
 scan organized source-backed takeaways, entity context, and product signals
-without leaving the generated site. Generated detail pages link content-section
+without leaving the generated site. Homepage Daily Local Intelligence cards
+include local saved-text and paragraph drilldown links so readers can jump from
+organized takeaways into anchored saved local paragraphs. Generated detail pages link content-section
 paragraph badges to anchored saved local paragraphs when the referenced
 paragraph is available, and ROW ONE writes the optional
 generated artifact `data/local-intelligence.json` next to the static site data.

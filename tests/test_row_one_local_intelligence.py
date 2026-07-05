@@ -320,7 +320,7 @@ def test_build_row_one_local_article_intelligence_preserves_article_content_segm
                             zh="The Row 中文上下文。",
                             en="The Row opened with broader market context.",
                         ),
-                        paragraph_indices=[0],
+                        paragraph_indices=[0, 3],
                     )
                 ],
             ),
@@ -335,7 +335,7 @@ def test_build_row_one_local_article_intelligence_preserves_article_content_segm
                             en="bag / product",
                         ),
                         references=[margaux],
-                        paragraph_indices=[1],
+                        paragraph_indices=[1, 2],
                     )
                 ],
             ),
@@ -358,6 +358,7 @@ def test_build_row_one_local_article_intelligence_preserves_article_content_segm
     assert item.segments[0].items[0].body.en == "The Row opened with broader market context."
     assert item.segments[0].items[0].paragraph_indices == [0]
     assert item.segments[1].items[0].references == [margaux]
+    assert item.segments[1].items[0].paragraph_indices == [1]
     dumped = item.model_dump(mode="json")
     assert "paragraphs" not in dumped
 
@@ -501,6 +502,7 @@ def test_reference_segments_can_upgrade_from_fallback_to_later_match() -> None:
 
     brand_watch = next(section for section in sections if section.key == "brand_watch")
     item = brand_watch.items[0]
+    assert item.detail_path == "details/story-b-1234567890.html#local-article"
     assert item.paragraph_indices == [1]
     assert item.segments[0].key == "entities"
     assert item.segments[0].items[0].label.en == "The Row"

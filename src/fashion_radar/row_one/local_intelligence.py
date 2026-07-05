@@ -139,7 +139,8 @@ def _reference_watch_section(
                 aggregate.paragraph_indices = paragraph_indices
                 aggregate.segments = segments
                 aggregate.segment_match_score = segment_match_score
-            if aggregate.detail_path is None:
+                aggregate.detail_path = _local_article_detail_path(story.detail_path)
+            elif aggregate.detail_path is None:
                 aggregate.detail_path = _local_article_detail_path(story.detail_path)
 
     items = [_aggregate_item(aggregate) for aggregate in aggregates.values()]
@@ -275,6 +276,7 @@ class _ArticleTakeaway:
 
 
 def _article_takeaway(article: RowOneLocalArticle) -> _ArticleTakeaway:
+    publishable_indices = _publishable_paragraph_indices(article)
     for section in article.content_sections:
         if section.key != "takeaways":
             continue
@@ -285,7 +287,10 @@ def _article_takeaway(article: RowOneLocalArticle) -> _ArticleTakeaway:
                         zh=item.body.zh.strip() or item.body.en.strip(),
                         en=item.body.en.strip(),
                     ),
-                    list(item.paragraph_indices),
+                    _valid_article_paragraph_indices(
+                        item.paragraph_indices,
+                        publishable_indices,
+                    ),
                 )
     for index, paragraph in enumerate(article.paragraphs):
         if paragraph.strip():
@@ -324,6 +329,7 @@ def _reference_paragraph_indices(
     reference_kind: str,
 ) -> list[int]:
     normalized = _normalize_ref_name(ref.name)
+    publishable_indices = _publishable_paragraph_indices(article)
     for section in article.content_sections:
         if section.key not in _reference_segment_keys(reference_kind):
             continue
@@ -333,14 +339,18 @@ def _reference_paragraph_indices(
                 and item_ref.type.casefold() == ref.type.casefold()
                 for item_ref in item.references
             ):
-                return list(item.paragraph_indices)
+                return _valid_article_paragraph_indices(
+                    item.paragraph_indices,
+                    publishable_indices,
+                )
     return []
 
 
 def _article_segments(article: RowOneLocalArticle) -> list[RowOneDailyLocalIntelligenceSegment]:
     segments: list[RowOneDailyLocalIntelligenceSegment] = []
+    publishable_indices = _publishable_paragraph_indices(article)
     for section in article.content_sections:
-        segment = _content_section_segment(section)
+        segment = _content_section_segment(section, publishable_indices=publishable_indices)
         if segment is None:
             continue
         segments.append(segment)
@@ -358,10 +368,16 @@ def _reference_segments(
     normalized = _normalize_ref_name(ref.name)
     ref_type = ref.type.casefold()
     matched: list[RowOneDailyLocalIntelligenceSegment] = []
+    publishable_indices = _publishable_paragraph_indices(article)
     for section in article.content_sections:
         if section.key not in _reference_segment_keys(reference_kind):
             continue
-        segment = _content_section_segment(section, normalized_ref=normalized, ref_type=ref_type)
+        segment = _content_section_segment(
+            section,
+            normalized_ref=normalized,
+            ref_type=ref_type,
+            publishable_indices=publishable_indices,
+        )
         if segment is None:
             continue
         matched.append(segment)
@@ -405,6 +421,7 @@ def _content_section_segment(
     *,
     normalized_ref: str | None = None,
     ref_type: str | None = None,
+    publishable_indices: set[int],
 ) -> RowOneDailyLocalIntelligenceSegment | None:
     items: list[RowOneDailyLocalIntelligenceSegmentItem] = []
     for item in section.items:
@@ -414,7 +431,7 @@ def _content_section_segment(
             and not _content_item_matches_ref(item, normalized_ref, ref_type)
         ):
             continue
-        segment_item = _content_segment_item(item)
+        segment_item = _content_segment_item(item, publishable_indices=publishable_indices)
         if segment_item is None:
             continue
         items.append(segment_item)
@@ -432,10 +449,15 @@ def _content_section_segment(
 
 def _content_segment_item(
     item: RowOneLocalArticleContentItem,
+    *,
+    publishable_indices: set[int],
 ) -> RowOneDailyLocalIntelligenceSegmentItem | None:
     body = _optional_localized(item.body)
     references = list(item.references)
-    paragraph_indices = list(item.paragraph_indices)
+    paragraph_indices = _valid_article_paragraph_indices(
+        item.paragraph_indices,
+        publishable_indices,
+    )
     if body is None and not references and not paragraph_indices:
         return None
     return RowOneDailyLocalIntelligenceSegmentItem(
@@ -479,6 +501,24 @@ def _paragraph_zh(article: RowOneLocalArticle, index: int, *, fallback: str) -> 
         if zh:
             return zh
     return fallback
+
+
+def _publishable_paragraph_indices(article: RowOneLocalArticle) -> set[int]:
+    return {index for index, paragraph in enumerate(article.paragraphs) if paragraph.strip()}
+
+
+def _valid_article_paragraph_indices(
+    indices: list[int],
+    publishable_indices: set[int],
+) -> list[int]:
+    valid: list[int] = []
+    seen: set[int] = set()
+    for index in indices:
+        if index not in publishable_indices or index in seen:
+            continue
+        seen.add(index)
+        valid.append(index)
+    return valid
 
 
 def _local_article_detail_path(detail_path: str) -> str:

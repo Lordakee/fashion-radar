@@ -31,6 +31,7 @@ from fashion_radar.row_one.render import (
 from fashion_radar.row_one.templates import (
     _safe_daily_local_intelligence_href,
     render_index_html,
+    row_one_css,
 )
 
 AS_OF = datetime(2026, 7, 2, 4, 0, tzinfo=UTC)
@@ -939,6 +940,13 @@ def test_render_row_one_site_includes_daily_local_intelligence(tmp_path) -> None
     assert '<span data-lang="zh">每日本地情报</span>' in html
     assert "The Row and Margaux are moving in saved local coverage." in html
     assert 'href="details/the-row-signal-1234567890.html#local-article"' in html
+    assert (
+        '<a class="daily-local-intelligence-action" '
+        'href="details/the-row-signal-1234567890.html#local-article">'
+    ) in html
+    assert '<span data-lang="en">Open saved text</span>' in html
+    assert '<span data-lang="zh">打开本地正文</span>' in html
+    assert '<a class="daily-local-intelligence-card"' not in html
 
     artifact = json.loads(
         (tmp_path / "data" / "local-intelligence.json").read_text(encoding="utf-8")
@@ -1019,8 +1027,14 @@ def test_render_row_one_site_writes_and_renders_daily_local_intelligence_segment
     assert "The Row source paragraph." in html
     assert "Product Signals" in html
     assert "Margaux" in html
+    assert 'href="details/the-row-signal-1234567890.html#local-article-paragraph-1"' in html
+    assert 'href="details/the-row-signal-1234567890.html#local-article-paragraph-2"' in html
+    assert '<a class="daily-local-intelligence-card"' not in html
+    css = row_one_css()
+    assert ".daily-local-intelligence-actions" in css
+    assert ".daily-local-intelligence-action" in css
+    assert ".daily-local-intelligence-paragraph-link" in css
     homepage_hrefs = "".join(re.findall(r'href="([^"]+)"', html))
-    assert "#local-article-paragraph-" not in homepage_hrefs
     assert "#local-article-content-section-" not in homepage_hrefs
     assert "#local-article-body" not in homepage_hrefs
     assert "Paragraph 1" in html
@@ -1123,6 +1137,18 @@ def test_render_row_one_site_escapes_daily_local_intelligence(tmp_path) -> None:
             "details/the-row-signal-1234567890.html#local-article",
             "details/the-row-signal-1234567890.html#local-article",
         ),
+        (
+            "details/the-row-signal-1234567890.html#local-article-paragraph-1",
+            "details/the-row-signal-1234567890.html#local-article-paragraph-1",
+        ),
+        (
+            "details/the-row-signal-1234567890.html#local-article-paragraph-42",
+            "details/the-row-signal-1234567890.html#local-article-paragraph-42",
+        ),
+        ("details/the-row-signal-1234567890.html#local-article-paragraph-0", None),
+        ("details/the-row-signal-1234567890.html#local-article-paragraph-x", None),
+        ("details/the-row-signal-1234567890.html#local-article-body", None),
+        ("details/the-row-signal-1234567890.html#local-article-content-section-1", None),
         ("details/the-row-signal-1234567890.html#summary", None),
         ("details/the-row-signal-1234567890.html#local-article#extra", None),
         ("../details/the-row-signal-1234567890.html#local-article", None),
