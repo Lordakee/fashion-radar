@@ -1905,9 +1905,7 @@ def _render_article_contents(*, include_local_article: bool = False) -> str:
 def _render_local_article(article: RowOneLocalArticle | None) -> str:
     if article is None:
         return ""
-    paragraphs = [
-        f"      <p>{_esc(paragraph)}</p>" for paragraph in article.paragraphs if paragraph.strip()
-    ]
+    paragraphs = _render_local_article_paragraphs(article)
     if not paragraphs:
         return ""
     title = article.title or "Source article"
@@ -1926,6 +1924,26 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
 {rendered_paragraphs}
       </div>
     </section>"""
+
+
+def _render_local_article_paragraphs(article: RowOneLocalArticle) -> list[str]:
+    source_paragraphs = [paragraph for paragraph in article.paragraphs if paragraph.strip()]
+    if not source_paragraphs:
+        return []
+    if len(article.paragraphs_zh) != len(article.paragraphs):
+        return [f"      <p>{_esc(paragraph)}</p>" for paragraph in source_paragraphs]
+    rendered: list[str] = []
+    for paragraph_en, paragraph_zh in zip(article.paragraphs, article.paragraphs_zh, strict=True):
+        if not paragraph_en.strip():
+            continue
+        zh = paragraph_zh if paragraph_zh.strip() else paragraph_en
+        rendered.append(
+            "      <p>"
+            f'<span data-lang="en">{_esc(paragraph_en)}</span>'
+            f'<span data-lang="zh">{_esc(zh)}</span>'
+            "</p>"
+        )
+    return rendered
 
 
 def _render_detail_information_map(story: RowOneStory, section_title: LocalizedText) -> str:

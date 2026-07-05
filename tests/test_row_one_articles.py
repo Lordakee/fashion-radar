@@ -336,12 +336,20 @@ def test_build_row_one_local_articles_falls_back_to_stored_summary_on_failure() 
         extractor=extractor,
     )
 
-    assert articles["the-row-signal-1234567890"].paragraphs == [
+    article = articles["the-row-signal-1234567890"]
+    assert article.paragraphs == [
         "Summary",
         "Editorial",
         "Important",
         "Context",
         "Path",
+    ]
+    assert article.paragraphs_zh == [
+        "摘要",
+        "编辑",
+        "重要",
+        "背景",
+        "路径",
     ]
 
 
@@ -370,6 +378,13 @@ def test_build_row_one_local_articles_cleans_fallback_without_mutating_story_sum
         "Context",
         "Path",
     ]
+    assert articles["the-row-signal-1234567890"].paragraphs_zh == [
+        "摘要",
+        "编辑",
+        "重要",
+        "背景",
+        "路径",
+    ]
     assert edition.stories[0].summary.en == original_summary
 
 
@@ -395,6 +410,13 @@ def test_build_row_one_local_articles_enriches_short_extracted_text() -> None:
         "Important",
         "Context",
         "Path",
+    ]
+    assert articles["the-row-signal-1234567890"].paragraphs_zh == [
+        "Tiny source note.",
+        "编辑",
+        "重要",
+        "背景",
+        "路径",
     ]
 
 
@@ -483,3 +505,4 @@ def test_build_row_one_local_articles_does_not_enrich_substantial_extracted_text
         for paragraph in paragraphs
         for context in ("Editorial", "Important", "Context", "Path")
     )
+    assert articles["the-row-signal-1234567890"].paragraphs_zh == paragraphs

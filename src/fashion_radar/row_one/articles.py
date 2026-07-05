@@ -112,36 +112,64 @@ def text_to_local_article_paragraphs(text: str, *, max_chars: int) -> list[str]:
     return paragraphs
 
 
-def _story_local_article_paragraphs(
+def _story_local_article_paragraph_sets(
     story: RowOneStory,
     text: str,
     *,
     max_chars: int,
-) -> list[str]:
+    source_paragraphs_zh: list[str] | None = None,
+) -> tuple[list[str], list[str]]:
     paragraphs = text_to_local_article_paragraphs(text, max_chars=max_chars)
     if not paragraphs:
-        return []
+        return [], []
+    paragraphs_zh = list(source_paragraphs_zh or paragraphs)
+    if len(paragraphs_zh) != len(paragraphs):
+        paragraphs_zh = list(paragraphs)
+
     total_chars = sum(len(paragraph) for paragraph in paragraphs)
     if total_chars >= min(max_chars, LOCAL_ARTICLE_MIN_CONTEXT_CHARS):
-        return paragraphs
-    context_text = _local_article_context_text(story)
-    if not context_text:
-        return paragraphs
+        return paragraphs, paragraphs_zh
+    context_text_en = _local_article_context_text(story, language="en")
+    if not context_text_en:
+        return paragraphs, paragraphs_zh
+    remaining_chars = max_chars - total_chars
+    if remaining_chars <= 0:
+        return paragraphs, paragraphs_zh
     context_paragraphs = text_to_local_article_paragraphs(
-        context_text,
-        max_chars=max_chars - total_chars,
+        context_text_en,
+        max_chars=remaining_chars,
     )
-    return [*paragraphs, *context_paragraphs]
+    if not context_paragraphs:
+        return paragraphs, paragraphs_zh
+    context_paragraphs_zh = text_to_local_article_paragraphs(
+        _local_article_context_text(story, language="zh"),
+        max_chars=max_chars,
+    )
+    context_paragraphs_zh = _align_local_article_language_paragraphs(
+        context_paragraphs,
+        context_paragraphs_zh,
+    )
+    return [*paragraphs, *context_paragraphs], [*paragraphs_zh, *context_paragraphs_zh]
 
 
-def _local_article_context_text(story: RowOneStory) -> str:
+def _align_local_article_language_paragraphs(
+    paragraphs: list[str],
+    paragraphs_zh: list[str],
+) -> list[str]:
+    aligned = list(paragraphs_zh[: len(paragraphs)])
+    if len(aligned) < len(paragraphs):
+        aligned.extend(paragraphs[len(aligned) :])
+    return aligned
+
+
+def _local_article_context_text(story: RowOneStory, *, language: str = "en") -> str:
     return "\n\n".join(
         text
         for text in (
-            story.editorial_takeaway.en,
-            story.why_it_matters.en,
-            story.signal_context.en,
-            story.reader_path.en,
+            getattr(story.editorial_takeaway, language),
+            getattr(story.why_it_matters, language),
+            getattr(story.signal_context, language),
+            getattr(story.reader_path, language),
         )
         if text.strip()
     )
@@ -188,7 +216,7 @@ def _build_story_local_article(
         return _fallback_story_summary_article(story, url, source, extracted_at=extracted_at)
     if result.skipped or not result.text:
         return _fallback_story_summary_article(story, url, source, extracted_at=extracted_at)
-    paragraphs = _story_local_article_paragraphs(
+    paragraphs, paragraphs_zh = _story_local_article_paragraph_sets(
         story,
         result.text,
         max_chars=source.row_one_article.max_chars,
@@ -203,6 +231,7 @@ def _build_story_local_article(
         extracted_at=extracted_at,
         published_at=result.published_at or story.published_at,
         paragraphs=paragraphs,
+        paragraphs_zh=paragraphs_zh,
         skipped=False,
         reason=None,
     )
@@ -215,10 +244,15 @@ def _fallback_story_summary_article(
     *,
     extracted_at,
 ) -> RowOneLocalArticle | None:
-    paragraphs = _story_local_article_paragraphs(
+    summary_zh = text_to_local_article_paragraphs(
+        story.summary.zh,
+        max_chars=source.row_one_article.max_chars,
+    )
+    paragraphs, paragraphs_zh = _story_local_article_paragraph_sets(
         story,
         story.summary.en,
         max_chars=source.row_one_article.max_chars,
+        source_paragraphs_zh=summary_zh,
     )
     if not paragraphs:
         return None
@@ -230,6 +264,7 @@ def _fallback_story_summary_article(
         extracted_at=extracted_at,
         published_at=story.published_at,
         paragraphs=paragraphs,
+        paragraphs_zh=paragraphs_zh,
         skipped=False,
         reason=None,
     )

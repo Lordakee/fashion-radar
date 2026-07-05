@@ -44,6 +44,7 @@ class RowOneLocalArticle(BaseModel):
     extracted_at: datetime
     published_at: datetime | None = None
     paragraphs: list[str] = Field(default_factory=list)
+    paragraphs_zh: list[str] = Field(default_factory=list)
     skipped: bool = False
     reason: str | None = None
 
