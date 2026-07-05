@@ -34,6 +34,7 @@ from fashion_radar.utils.http import FashionHttpClient
 
 ROW_ONE_LOCAL_ARTICLES_ENV = "ROW_ONE_LOCAL_ARTICLES"
 LOCAL_ARTICLE_STORY_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}$")
+LOCAL_ARTICLE_REFERENCE_EXCERPT_MAX_CHARS = 280
 LOCAL_ARTICLE_MIN_TRUNCATED_PARAGRAPH_CHARS = 24
 LOCAL_ARTICLE_MIN_CONTEXT_CHARS = 240
 LOCAL_ARTICLE_EXTRACTION_BUFFER_CHARS = 500
@@ -262,6 +263,50 @@ def _local_article_paragraph_indices(
     return indices
 
 
+def _local_article_reference_excerpt(
+    paragraphs: list[str],
+    paragraph_indices: list[int],
+    *,
+    max_chars: int = LOCAL_ARTICLE_REFERENCE_EXCERPT_MAX_CHARS,
+) -> tuple[int, str] | None:
+    for index in paragraph_indices:
+        if index < 0 or index >= len(paragraphs):
+            continue
+        # Defensive re-normalization keeps this helper safe for future callers
+        # that may pass raw paragraph lists instead of prepared local paragraphs.
+        excerpt = normalize_row_one_paragraph(paragraphs[index])
+        if not excerpt:
+            continue
+        if len(excerpt) > max_chars:
+            excerpt = _truncate_at_word_boundary(excerpt, max_chars)
+        return index, excerpt
+    return None
+
+
+def _local_article_reference_body(
+    ref: RowOneReference,
+    paragraphs: list[str],
+    paragraphs_zh: list[str],
+    excerpt_indices: list[int],
+) -> tuple[str, str]:
+    fallback = f"{ref.type} / {ref.label}"
+    # Excerpt indices are name-only and limit-1; paragraph badges still use
+    # the broader name+label match to preserve Stage 303 navigation.
+    excerpt = _local_article_reference_excerpt(paragraphs, excerpt_indices)
+    if excerpt is None:
+        return fallback, fallback
+    index, body_en = excerpt
+    aligned_zh = _align_local_article_language_paragraphs(paragraphs, paragraphs_zh)
+    body_zh = normalize_row_one_paragraph(aligned_zh[index]) if index < len(aligned_zh) else ""
+    if len(body_zh) > LOCAL_ARTICLE_REFERENCE_EXCERPT_MAX_CHARS:
+        body_zh = _truncate_at_word_boundary(
+            body_zh,
+            LOCAL_ARTICLE_REFERENCE_EXCERPT_MAX_CHARS,
+        )
+    # Missing or whitespace-only aligned zh text falls back to the saved source excerpt.
+    return body_en, body_zh or body_en
+
+
 def _local_article_takeaway_section(
     paragraphs: list[str],
     paragraphs_zh: list[str],
@@ -303,6 +348,7 @@ def _local_article_reference_section(
     title: LocalizedText,
     refs: list[RowOneReference],
     paragraphs: list[str],
+    paragraphs_zh: list[str],
 ) -> RowOneLocalArticleContentSection | None:
     items: list[RowOneLocalArticleContentItem] = []
     seen: set[tuple[str, str, str]] = set()
@@ -311,17 +357,28 @@ def _local_article_reference_section(
         if identity in seen:
             continue
         seen.add(identity)
-        body = f"{ref.type} / {ref.label}"
+        paragraph_indices = _local_article_paragraph_indices(
+            paragraphs,
+            [ref.name, ref.label],
+        )
+        excerpt_indices = _local_article_paragraph_indices(
+            paragraphs,
+            [ref.name],
+            limit=1,
+        )
+        body_en, body_zh = _local_article_reference_body(
+            ref,
+            paragraphs,
+            paragraphs_zh,
+            excerpt_indices,
+        )
         items.append(
             _localized_content_item(
                 label_en=ref.name,
-                body_en=body,
-                body_zh=body,
+                body_en=body_en,
+                body_zh=body_zh,
                 references=[ref],
-                paragraph_indices=_local_article_paragraph_indices(
-                    paragraphs,
-                    [ref.name, ref.label],
-                ),
+                paragraph_indices=paragraph_indices,
             )
         )
     if not items:
@@ -428,6 +485,7 @@ def _local_article_content_sections(
         title=LocalizedText(en="Entities", zh="相关对象"),
         refs=entity_refs,
         paragraphs=paragraphs,
+        paragraphs_zh=paragraphs_zh,
     )
     if entity_section is not None:
         sections.append(entity_section)
@@ -436,6 +494,7 @@ def _local_article_content_sections(
         title=LocalizedText(en="Product Signals", zh="产品信号"),
         refs=story.product_refs,
         paragraphs=paragraphs,
+        paragraphs_zh=paragraphs_zh,
     )
     if product_section is not None:
         sections.append(product_section)

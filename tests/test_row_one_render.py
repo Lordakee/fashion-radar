@@ -432,7 +432,10 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
                 items=[
                     RowOneLocalArticleContentItem(
                         label=LocalizedText(en="The Row", zh="The Row"),
-                        body=LocalizedText(en="brand / tracked", zh="brand / tracked"),
+                        body=LocalizedText(
+                            en="Source-backed reference excerpt for The Row demand.",
+                            zh="The Row 需求的来源摘录。",
+                        ),
                         references=[
                             RowOneReference(name="The Row", type="brand", label="tracked"),
                         ],
@@ -493,6 +496,16 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     )
     assert "Refs: The Row (brand / tracked)" in detail_html
     assert "引用：The Row（brand / tracked）" in detail_html
+    content_sections_html = detail_html[
+        detail_html.index('class="local-article-content-sections"') : detail_html.index(
+            'class="local-article-body"'
+        )
+    ]
+    assert (
+        '<span data-lang="en">Source-backed reference excerpt for The Row demand.</span>'
+        in content_sections_html
+    )
+    assert '<span data-lang="zh">The Row 需求的来源摘录。</span>' in content_sections_html
     assert detail_html.index('class="local-article-brief"') < detail_html.index(
         'class="local-article-content-sections"'
     )
@@ -532,6 +545,10 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     assert article_json["content_sections"][1]["items"][0]["references"] == [
         {"name": "The Row", "type": "brand", "label": "tracked"}
     ]
+    assert article_json["content_sections"][1]["items"][0]["body"] == {
+        "en": "Source-backed reference excerpt for The Row demand.",
+        "zh": "The Row 需求的来源摘录。",
+    }
     assert "The Row demand moved." not in edition_json
     assert "First local paragraph about The Row demand." not in edition_json
 

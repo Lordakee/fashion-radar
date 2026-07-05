@@ -308,6 +308,9 @@ falls back to already collected local source summaries when extraction is
 unavailable, and is written only to the generated static site under
 `data/articles/` plus the matching detail page. It is not stored in SQLite, not
 added to the daily report JSON, and not added to `data/edition.json`.
+Content sections use source-backed reference excerpts when a matched entity,
+designer, person, bag, shoe, or product appears in a saved local paragraph;
+otherwise they retain the deterministic reference metadata fallback.
 
 The latest-only cleanup has two local presentation surfaces.
 `row-one build --latest-only` and `row-one preview --latest-only` remove only

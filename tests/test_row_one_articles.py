@@ -533,13 +533,28 @@ def test_build_row_one_local_articles_adds_content_sections_from_story_refs_and_
     olsen = _content_item(entities, "Mary-Kate Olsen")
     assert the_row.references == [story.entity_refs[0]]
     assert the_row.paragraph_indices == [0]
+    assert the_row.body is not None
+    assert the_row.body.en == "First source paragraph frames The Row demand."
+    assert the_row.body.zh == "First source paragraph frames The Row demand."
     assert zendaya.paragraph_indices == [1]
+    assert zendaya.body is not None
+    assert zendaya.body.en == (
+        "Second source paragraph shows Zendaya styling context around Margaux."
+    )
     assert olsen.paragraph_indices == [2]
+    assert olsen.body is not None
+    assert olsen.body.en == (
+        "Third source paragraph mentions Mary-Kate Olsen and a product signal."
+    )
 
     product_signals = _content_section(article, "product_signals")
     margaux = _content_item(product_signals, "Margaux")
     assert margaux.references == [story.product_refs[0]]
     assert margaux.paragraph_indices == [1]
+    assert margaux.body is not None
+    assert margaux.body.en == (
+        "Second source paragraph shows Zendaya styling context around Margaux."
+    )
 
     brand_signals = _content_section(article, "brand_signals")
     assert _content_item(brand_signals, "Heat delta").body.en == "+7"
@@ -571,9 +586,42 @@ def test_build_row_one_local_articles_content_sections_work_on_fallback() -> Non
         "brand_signals",
     ]
     assert _content_section(article, "takeaways").items[0].body.en == "Summary"
-    assert _content_item(_content_section(article, "entities"), "The Row").references == [
-        story.entity_refs[0]
-    ]
+    unmatched = _content_item(_content_section(article, "entities"), "The Row")
+    assert unmatched.references == [story.entity_refs[0]]
+    assert unmatched.body is not None
+    assert unmatched.body.en == "brand / tracked"
+    assert unmatched.body.zh == "brand / tracked"
+
+
+def test_build_row_one_local_articles_reference_excerpt_requires_name_match() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.product_refs = [RowOneReference(name="Margaux", type="product", label="bag")]
+
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        return ArticleExtractionResult(
+            url=url,
+            title="Generic product source",
+            text="The bag signal is accelerating, but this paragraph names no specific product.",
+            skipped=False,
+        )
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=240)],
+        now=AS_OF,
+        extractor=extractor,
+    )
+
+    product_section = _content_section(
+        articles["the-row-signal-1234567890"],
+        "product_signals",
+    )
+    margaux = _content_item(product_section, "Margaux")
+    assert margaux.paragraph_indices == [0]
+    assert margaux.body is not None
+    assert margaux.body.en == "product / bag"
+    assert margaux.body.zh == "product / bag"
 
 
 def test_build_row_one_local_articles_omits_empty_optional_content_sections() -> None:
@@ -629,6 +677,10 @@ def test_build_row_one_local_articles_content_sections_model_dump_json() -> None
     assert product_section["items"][0]["references"] == [
         {"name": "Margaux", "type": "product", "label": "bag"}
     ]
+    assert product_section["items"][0]["body"] == {
+        "en": "The Margaux bag is the product signal to watch.",
+        "zh": "The Margaux bag is the product signal to watch.",
+    }
     assert product_section["items"][0]["paragraph_indices"] == [0]
 
 
