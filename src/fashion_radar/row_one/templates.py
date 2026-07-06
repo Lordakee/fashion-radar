@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from html import escape
 from pathlib import PurePosixPath
@@ -66,6 +67,21 @@ DETAIL_SIGNAL_BRIEFING_MAX_CUES = 3
 DAILY_EDIT_MAX_CARDS = 4
 DAILY_EDIT_MAX_SIGNALS = 3
 DAILY_EDIT_MAX_PATH_ITEMS = 3
+EDITORIAL_BRIEF_MAX_ITEMS = 3
+EDITORIAL_BRIEF_BODY_EXCERPT_CHARS = 220
+
+
+@dataclass(frozen=True)
+class _EditorialBriefItem:
+    title: LocalizedText
+    body: LocalizedText
+    meta: LocalizedText | None = None
+    href: str | None = None
+
+
+@dataclass(frozen=True)
+class _EditorialBrief:
+    items: tuple[_EditorialBriefItem, ...]
 
 
 def render_index_html(
@@ -76,6 +92,7 @@ def render_index_html(
     saved_article_coverage: RowOneSavedArticleCoverage | None = None,
     saved_article_briefs: RowOneSavedArticleBriefs | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
+    editorial_brief: _EditorialBrief | None = None,
 ) -> str:
     contents_nav = _render_edition_nav(edition)
     briefing_topics = _render_briefing_topics(app_payload)
@@ -93,6 +110,7 @@ def render_index_html(
     saved_article_content_organization_section = _render_saved_article_content_organization(
         saved_article_content_organization
     )
+    editorial_brief_section = _render_editorial_brief(editorial_brief)
     readiness = build_row_one_readiness(edition)
     status_strip = _render_edition_status(edition, readiness)
     summary_note_en = (
@@ -169,6 +187,7 @@ def render_index_html(
 {saved_article_coverage_section}
 {saved_article_briefs_section}
 {saved_article_content_organization_section}
+{editorial_brief_section}
 {lead_story_block}
 {briefing_topics}
 {briefing_path}
@@ -1131,6 +1150,79 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 }
 .saved-article-content-organization-chip span:last-child {
   color: var(--muted);
+}
+.editorial-brief {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.editorial-brief-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.editorial-brief-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.2rem, 5vw, 5.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.92;
+  margin: 0;
+}
+.editorial-brief-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.editorial-brief-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.editorial-brief-card {
+  background: var(--panel);
+  color: var(--ink);
+  display: grid;
+  gap: 12px;
+  min-height: 275px;
+  padding: 18px;
+  text-decoration: none;
+}
+.editorial-brief-card h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.35rem, 2.2vw, 2.4rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.98;
+  margin: 0;
+}
+.editorial-brief-card p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.editorial-brief-meta {
+  align-self: end;
+  border-top: 1px solid var(--line);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding-top: 12px;
+  text-transform: uppercase;
+}
+.editorial-brief-link {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  text-transform: uppercase;
 }
 .daily-edit {
   border-bottom: 1px solid var(--ink);
@@ -2225,6 +2317,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .saved-article-briefs-grid { grid-template-columns: 1fr; }
   .saved-article-content-organization-header { grid-template-columns: 1fr; }
   .saved-article-content-organization-grid { grid-template-columns: 1fr; }
+  .editorial-brief-header { grid-template-columns: 1fr; }
+  .editorial-brief-grid { grid-template-columns: 1fr; }
   .local-article-digest-grid { grid-template-columns: 1fr; }
   .briefing-topics-header { grid-template-columns: 1fr; }
   .briefing-topic-grid { grid-template-columns: 1fr; }
@@ -3357,6 +3451,120 @@ def _safe_saved_article_content_organization_href(href: object) -> str | None:
     if validated_row_one_detail_relative_path(path) is None:
         return None
     return href
+
+
+def _render_editorial_brief(editorial_brief: _EditorialBrief | None) -> str:
+    if editorial_brief is None:
+        return ""
+    cards: list[str] = []
+    for item in editorial_brief.items:
+        has_body = normalize_row_one_paragraph(item.body.en) or normalize_row_one_paragraph(
+            item.body.zh
+        )
+        if not has_body:
+            continue
+        rendered = _render_editorial_brief_card(item)
+        if rendered:
+            cards.append(rendered)
+        if len(cards) >= EDITORIAL_BRIEF_MAX_ITEMS:
+            break
+    if not cards:
+        return ""
+    return f"""<section class="editorial-brief" aria-label="Editorial brief">
+  <div class="editorial-brief-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Editorial Brief</span>
+        <span data-lang="zh">编辑正文</span>
+      </p>
+      <h2>
+        <span data-lang="en">Today, in context</span>
+        <span data-lang="zh">今天的语境整理</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">Short editorial reads assembled from local saved article text.</span>
+      <span data-lang="zh">基于本地保存正文整理的短篇编辑解读。</span>
+    </p>
+  </div>
+  <div class="editorial-brief-grid">
+{"".join(cards)}
+  </div>
+</section>"""
+
+
+def _render_editorial_brief_card(item: _EditorialBriefItem) -> str:
+    title = LocalizedText(
+        en=_editorial_brief_display_text(item.title.en),
+        zh=_editorial_brief_display_text(item.title.zh),
+    )
+    body = LocalizedText(
+        en=_editorial_brief_body_excerpt(item.body.en),
+        zh=_editorial_brief_body_excerpt(item.body.zh),
+    )
+    if not (body.en or body.zh):
+        return ""
+    meta = item.meta
+    meta_block = ""
+    if meta is not None:
+        meta_text = LocalizedText(
+            en=_editorial_brief_display_text(meta.en),
+            zh=_editorial_brief_display_text(meta.zh),
+        )
+        if meta_text.en or meta_text.zh:
+            meta_block = f"""
+      <p class="editorial-brief-meta">
+        <span data-lang="en">{_esc(meta_text.en)}</span>
+        <span data-lang="zh">{_esc(meta_text.zh)}</span>
+      </p>"""
+    body_html = f"""      <h3>
+        <span data-lang="en">{_esc(title.en)}</span>
+        <span data-lang="zh">{_esc(title.zh)}</span>
+      </h3>
+      <p>
+        <span data-lang="en">{_esc(body.en)}</span>
+        <span data-lang="zh">{_esc(body.zh)}</span>
+      </p>{meta_block}"""
+    href = _safe_editorial_brief_href(item.href)
+    if href is None:
+        return f"""    <article class="editorial-brief-card">
+{body_html}
+    </article>"""
+    return f"""    <a class="editorial-brief-card" href="{_esc(href)}">
+{body_html}
+      <span class="editorial-brief-link">
+        <span data-lang="en">Read locally</span>
+        <span data-lang="zh">本地阅读</span>
+      </span>
+    </a>"""
+
+
+def _editorial_brief_body_excerpt(value: str) -> str:
+    text = _editorial_brief_display_text(value)
+    if len(text) <= EDITORIAL_BRIEF_BODY_EXCERPT_CHARS:
+        return text
+    return text[:EDITORIAL_BRIEF_BODY_EXCERPT_CHARS].rstrip() + "…"
+
+
+def _editorial_brief_display_text(value: str) -> str:
+    return normalize_row_one_paragraph(value)
+
+
+def _safe_editorial_brief_href(href: object) -> str | None:
+    text = str(href or "").strip()
+    if not text:
+        return None
+    path, separator, fragment = text.partition("#")
+    safe_path = validated_row_one_detail_relative_path(path)
+    if safe_path is None:
+        return None
+    if not separator:
+        return str(safe_path)
+    if _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(
+        fragment
+    ) or _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment):
+        return f"{safe_path}#{fragment}"
+    return None
 
 
 def _count_label(count: int, singular: str, plural: str) -> str:

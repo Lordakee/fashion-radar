@@ -360,6 +360,10 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     edition_payload = json.loads((output_dir / "data" / "edition.json").read_text())
     manifest_payload = json.loads((output_dir / "data" / "manifest.json").read_text())
     runtime_payload = json.loads((output_dir / "data" / "runtime.json").read_text())
+    assert any(
+        story.get("editorial_takeaway", {}).get("en") or story.get("summary", {}).get("en")
+        for story in edition_payload["stories"]
+    )
     stored = repository.get_item(item_id)
     matches_after = repository.list_item_matches(item_id)
     second_stored = repository.get_item(second_item_id)
@@ -380,6 +384,9 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert 'class="daily-edit"' in index_html
     assert "Daily Edit" in index_html
     assert "今日编辑简报" in index_html
+    assert 'class="editorial-brief"' in index_html
+    assert "Editorial Brief" in index_html
+    assert "编辑正文" in index_html
     assert "Saved Article Content Organization" in index_html
     assert "保存正文内容整理" in index_html
     assert "#local-article-content-section-" in index_html
@@ -412,6 +419,7 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert '"detail_signal_briefing"' not in generated_contract_payload
     assert '"signal_briefing"' not in generated_contract_payload
     assert '"daily_edit"' not in generated_contract_payload
+    assert '"editorial_brief"' not in generated_contract_payload
     assert '"daily_information_layer"' not in generated_contract_payload
     assert '"local_article_count"' not in generated_contract_payload
     assert '"local_article_paragraph_count"' not in generated_contract_payload

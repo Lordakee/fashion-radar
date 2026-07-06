@@ -28,6 +28,7 @@ from fashion_radar.row_one.models import (
     RowOneStoryImage,
 )
 from fashion_radar.row_one.render import (
+    _editorial_brief_payload,
     _story_directory_route_payload,
     clean_row_one_site_children,
     render_row_one_site,
@@ -42,6 +43,9 @@ from fashion_radar.row_one.saved_article_coverage import (
     RowOneSavedArticleCoverageSource,
 )
 from fashion_radar.row_one.templates import (
+    EDITORIAL_BRIEF_BODY_EXCERPT_CHARS,
+    _EditorialBrief,
+    _EditorialBriefItem,
     _safe_daily_local_intelligence_href,
     render_detail_html,
     render_index_html,
@@ -3370,6 +3374,295 @@ def test_render_row_one_site_displays_edition_brief_topic_mix_and_heat_watch(tmp
     assert "主题结构：品牌 1、单品 1、设计师 1、人物 1" in index_html
     assert "Heat watch: 2 positive heat signals, highest +7" in index_html
     assert "升温观察：2 条正向热度信号，最高 +7" in index_html
+
+
+def test_render_row_one_site_includes_editorial_brief_from_local_articles(tmp_path) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [RowOneReference(name="The Row", type="brand", label="brand")]
+    local_article = _signal_briefing_local_article()
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: local_article},
+    )
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    section_start = index_html.index('class="editorial-brief"')
+    section_html = index_html[
+        section_start : index_html.index("</section>", section_start) + len("</section>")
+    ]
+
+    assert '<span data-lang="en">Editorial Brief</span>' in section_html
+    assert '<span data-lang="zh">编辑正文</span>' in section_html
+    assert "What changed today" in section_html
+    assert "今日变化" in section_html
+    assert "Why it matters" in section_html
+    assert "为什么重要" in section_html
+    assert "What to read locally" in section_html
+    assert "本地阅读路径" in section_html
+    assert "The Row is today&#x27;s priority signal." in section_html
+    assert "The saved article frames a new signal." in section_html
+    assert "Vogue Business" in section_html
+    assert 'href="details/the-row-signal-1234567890.html"' in section_html
+    assert 'href="details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    assert index_html.index('class="saved-article-content-organization"') < section_start
+    assert section_start < index_html.index('class="lead-story"')
+
+
+def test_render_index_html_omits_editorial_brief_without_usable_content() -> None:
+    index_html = render_index_html(_edition(), editorial_brief=None)
+
+    assert 'class="editorial-brief"' not in index_html
+    assert "Editorial Brief" not in index_html
+    assert "编辑正文" not in index_html
+
+
+def test_render_index_html_escapes_editorial_brief_and_filters_links() -> None:
+    index_html = render_index_html(
+        _edition(),
+        editorial_brief=_EditorialBrief(
+            items=(
+                _EditorialBriefItem(
+                    title=LocalizedText(en="Unsafe <b>", zh="危险 <b>"),
+                    body=LocalizedText(en="Body <script>", zh="正文 <script>"),
+                    href="javascript:alert(1)",
+                    meta=LocalizedText(en="Meta <i>", zh="元信息 <i>"),
+                ),
+                _EditorialBriefItem(
+                    title=LocalizedText(en="External", zh="外链"),
+                    body=LocalizedText(en="External body.", zh="外链正文。"),
+                    href="https://evil.example/story",
+                ),
+                _EditorialBriefItem(
+                    title=LocalizedText(en="Safe detail", zh="安全详情"),
+                    body=LocalizedText(en="Detail body.", zh="详情正文。"),
+                    href="details/the-row-signal-1234567890.html",
+                ),
+            )
+        ),
+    )
+
+    section_start = index_html.index('class="editorial-brief"')
+    section_html = index_html[
+        section_start : index_html.index("</section>", section_start) + len("</section>")
+    ]
+
+    assert "Unsafe &lt;b&gt;" in section_html
+    assert "Body &lt;script&gt;" in section_html
+    assert "Meta &lt;i&gt;" in section_html
+    assert "<script>" not in section_html
+    assert "<b>" not in section_html
+    assert "javascript:alert" not in section_html
+    assert "https://evil.example" not in section_html
+    assert 'href="details/the-row-signal-1234567890.html"' in section_html
+
+
+def test_render_row_one_site_editorial_brief_falls_back_to_story_text(tmp_path) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [RowOneReference(name="The Row", type="brand", label="brand")]
+
+    render_row_one_site(edition, tmp_path, local_articles_by_story_id={})
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert 'class="editorial-brief"' in index_html
+    assert "The Row is today&#x27;s priority signal." in index_html
+    assert "This signal belongs in Top Stories." in index_html
+
+
+def test_render_index_html_accepts_editorial_brief_content_section_href() -> None:
+    index_html = render_index_html(
+        _edition(),
+        editorial_brief=_EditorialBrief(
+            items=(
+                _EditorialBriefItem(
+                    title=LocalizedText(en="Content Section", zh="内容段落"),
+                    body=LocalizedText(en="Content section body.", zh="内容段落正文。"),
+                    href="details/the-row-signal-1234567890.html#local-article-content-section-1",
+                ),
+            )
+        ),
+    )
+
+    section_start = index_html.index('class="editorial-brief"')
+    section_html = index_html[
+        section_start : index_html.index("</section>", section_start) + len("</section>")
+    ]
+
+    assert (
+        'href="details/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+
+
+def test_render_index_html_accepts_editorial_brief_paragraph_href() -> None:
+    index_html = render_index_html(
+        _edition(),
+        editorial_brief=_EditorialBrief(
+            items=(
+                _EditorialBriefItem(
+                    title=LocalizedText(en="Paragraph", zh="段落"),
+                    body=LocalizedText(en="Paragraph body.", zh="段落正文。"),
+                    href="details/the-row-signal-1234567890.html#local-article-paragraph-1",
+                ),
+            )
+        ),
+    )
+
+    section_start = index_html.index('class="editorial-brief"')
+    section_html = index_html[
+        section_start : index_html.index("</section>", section_start) + len("</section>")
+    ]
+
+    assert 'href="details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+
+
+def test_render_index_html_rejects_editorial_brief_unknown_fragment_href() -> None:
+    index_html = render_index_html(
+        _edition(),
+        editorial_brief=_EditorialBrief(
+            items=(
+                _EditorialBriefItem(
+                    title=LocalizedText(en="Unknown", zh="未知"),
+                    body=LocalizedText(en="Unknown body.", zh="未知正文。"),
+                    href="details/the-row-signal-1234567890.html#summary",
+                ),
+            )
+        ),
+    )
+
+    section_start = index_html.index('class="editorial-brief"')
+    section_html = index_html[
+        section_start : index_html.index("</section>", section_start) + len("</section>")
+    ]
+
+    assert 'href="details/the-row-signal-1234567890.html#summary"' not in section_html
+    assert '<article class="editorial-brief-card">' in section_html
+
+
+def test_render_index_html_caps_editorial_brief_to_three_items() -> None:
+    index_html = render_index_html(
+        _edition(),
+        editorial_brief=_EditorialBrief(
+            items=(
+                _EditorialBriefItem(
+                    title=LocalizedText(en="One", zh="一"),
+                    body=LocalizedText(en="First body.", zh="第一条。"),
+                ),
+                _EditorialBriefItem(
+                    title=LocalizedText(en="Two", zh="二"),
+                    body=LocalizedText(en="Second body.", zh="第二条。"),
+                ),
+                _EditorialBriefItem(
+                    title=LocalizedText(en="Three", zh="三"),
+                    body=LocalizedText(en="Third body.", zh="第三条。"),
+                ),
+                _EditorialBriefItem(
+                    title=LocalizedText(en="Four", zh="四"),
+                    body=LocalizedText(en="Fourth body.", zh="第四条。"),
+                ),
+            )
+        ),
+    )
+
+    section_start = index_html.index('class="editorial-brief"')
+    section_html = index_html[
+        section_start : index_html.index("</section>", section_start) + len("</section>")
+    ]
+
+    assert "First body." in section_html
+    assert "Second body." in section_html
+    assert "Third body." in section_html
+    assert "Fourth body." not in section_html
+
+
+def test_render_index_html_caps_editorial_brief_body_length() -> None:
+    long_body = "Long body " * 40
+    index_html = render_index_html(
+        _edition(),
+        editorial_brief=_EditorialBrief(
+            items=(
+                _EditorialBriefItem(
+                    title=LocalizedText(en="Long", zh="长正文"),
+                    body=LocalizedText(en=long_body, zh=long_body),
+                ),
+            )
+        ),
+    )
+
+    section_start = index_html.index('class="editorial-brief"')
+    section_html = index_html[
+        section_start : index_html.index("</section>", section_start) + len("</section>")
+    ]
+    body_match = re.search(
+        r'<span data-lang="en">(?P<body>Long body.*?)</span>',
+        section_html,
+        re.S,
+    )
+
+    assert body_match is not None
+    assert long_body not in section_html
+    assert "Long body Long body" in section_html
+    assert body_match.group("body").endswith("…")
+    assert len(body_match.group("body")) <= EDITORIAL_BRIEF_BODY_EXCERPT_CHARS + 1
+
+
+def test_editorial_brief_payload_deduplicates_bodies() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "brief_sections": [
+                RowOneLocalArticleBriefSection(
+                    key="what_happened",
+                    title=LocalizedText(en="What Happened", zh="发生了什么"),
+                    body=story.editorial_takeaway,
+                ),
+                RowOneLocalArticleBriefSection(
+                    key="why_it_matters",
+                    title=LocalizedText(en="Why It Matters", zh="为什么重要"),
+                    body=story.why_it_matters,
+                ),
+                RowOneLocalArticleBriefSection(
+                    key="watch_next",
+                    title=LocalizedText(en="Watch Next", zh="接下来观察"),
+                    body=story.why_it_matters,
+                ),
+            ],
+        },
+    )
+
+    payload = _editorial_brief_payload(edition, {story.id: local_article})
+
+    assert payload is not None
+    assert [item.title.en for item in payload.items] == [
+        "What changed today",
+        "Why it matters",
+    ]
+    assert [item.body.en for item in payload.items] == [
+        "The Row is today's priority signal.",
+        "This signal belongs in Top Stories.",
+    ]
+
+
+def test_render_index_html_omits_editorial_brief_with_empty_items() -> None:
+    index_html = render_index_html(
+        _edition(),
+        editorial_brief=_EditorialBrief(
+            items=(
+                _EditorialBriefItem(
+                    title=LocalizedText(en="   ", zh=" "),
+                    body=LocalizedText(en="   ", zh=" "),
+                ),
+            )
+        ),
+    )
+
+    assert 'class="editorial-brief"' not in index_html
 
 
 def test_render_row_one_site_includes_daily_edit_section(tmp_path) -> None:

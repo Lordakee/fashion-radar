@@ -11,10 +11,12 @@ from fashion_radar.row_one.briefing_topics import briefing_topics_payload
 from fashion_radar.row_one.display import display_for_story, safe_story_image_src
 from fashion_radar.row_one.local_intelligence import build_row_one_local_article_intelligence
 from fashion_radar.row_one.models import (
+    LocalizedText,
     RowOneDailyLocalIntelligenceSection,
     RowOneEdition,
     RowOneLink,
     RowOneLocalArticle,
+    RowOneLocalArticleBriefSection,
     RowOneSection,
     RowOneStory,
     RowOneStoryDisplay,
@@ -35,12 +37,16 @@ from fashion_radar.row_one.site_metrics import (
     build_row_one_local_article_metrics,
 )
 from fashion_radar.row_one.templates import (
+    EDITORIAL_BRIEF_MAX_ITEMS,
+    _EditorialBrief,
+    _EditorialBriefItem,
     _validated_detail_relative_path,
     render_detail_html,
     render_index_html,
     row_one_css,
     row_one_js,
 )
+from fashion_radar.row_one.text import clean_row_one_text
 from fashion_radar.row_one.utils import isoformat_z, safe_external_url, utc_datetime
 
 GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data")
@@ -91,6 +97,7 @@ def render_row_one_site(
         edition,
         local_articles_by_story_id,
     )
+    editorial_brief = _editorial_brief_payload(edition, local_articles_by_story_id)
     index_path = output_dir / "index.html"
     index_path.write_text(
         render_index_html(
@@ -100,6 +107,7 @@ def render_row_one_site(
             saved_article_coverage=saved_article_coverage,
             saved_article_briefs=saved_article_briefs,
             saved_article_content_organization=saved_article_content_organization,
+            editorial_brief=editorial_brief,
         ),
         encoding="utf-8",
     )
@@ -240,6 +248,172 @@ def _write_local_article_intelligence_file(
         + "\n",
         encoding="utf-8",
     )
+
+
+def _editorial_brief_payload(
+    edition: RowOneEdition,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+) -> _EditorialBrief | None:
+    story = _lead_story_for_editorial_brief(edition)
+    if story is None:
+        return None
+    local_article = local_articles_by_story_id.get(story.id)
+    items = _editorial_brief_items(story, local_article)
+    if not items:
+        return None
+    return _EditorialBrief(items=tuple(items[:EDITORIAL_BRIEF_MAX_ITEMS]))
+
+
+def _lead_story_for_editorial_brief(edition: RowOneEdition) -> RowOneStory | None:
+    # Stories are already ranked for the edition; fall through only if the first row has no prose.
+    for story in edition.stories:
+        if _story_localized_text_has_content(story.editorial_takeaway):
+            return story
+        if _story_localized_text_has_content(story.summary):
+            return story
+    return None
+
+
+def _story_localized_text_has_content(text: LocalizedText) -> bool:
+    return bool(clean_row_one_text(text.en) or clean_row_one_text(text.zh))
+
+
+def _editorial_brief_items(
+    story: RowOneStory,
+    local_article: RowOneLocalArticle | None,
+) -> list[_EditorialBriefItem]:
+    detail_href = _editorial_brief_detail_href(story)
+    what_happened = _local_article_brief_section(local_article, "what_happened")
+    why_it_matters = _local_article_brief_section(local_article, "why_it_matters")
+    watch_next = _local_article_brief_section(local_article, "watch_next")
+    items = [
+        _EditorialBriefItem(
+            title=LocalizedText(en="What changed today", zh="今日变化"),
+            body=_combined_editorial_body(
+                story.editorial_takeaway
+                if _story_localized_text_has_content(story.editorial_takeaway)
+                else story.summary,
+                what_happened.body if what_happened is not None else None,
+            ),
+            meta=_editorial_brief_meta(local_article),
+            href=detail_href,
+        ),
+        _EditorialBriefItem(
+            title=LocalizedText(en="Why it matters", zh="为什么重要"),
+            body=_combined_editorial_body(
+                story.why_it_matters
+                if _story_localized_text_has_content(story.why_it_matters)
+                else story.signal_context,
+                why_it_matters.body if why_it_matters is not None else None,
+            ),
+            href=detail_href,
+        ),
+        _EditorialBriefItem(
+            title=LocalizedText(en="What to read locally", zh="本地阅读路径"),
+            body=_combined_editorial_body(
+                watch_next.body if watch_next is not None else story.reader_path,
+                None,
+            ),
+            href=_editorial_brief_paragraph_href(story, local_article) or detail_href,
+        ),
+    ]
+    return _deduped_editorial_brief_items(items)
+
+
+def _deduped_editorial_brief_items(
+    items: Sequence[_EditorialBriefItem],
+) -> list[_EditorialBriefItem]:
+    deduped: list[_EditorialBriefItem] = []
+    seen_bodies: set[tuple[str, str]] = set()
+    for item in items:
+        body = LocalizedText(
+            en=clean_row_one_text(item.body.en),
+            zh=clean_row_one_text(item.body.zh),
+        )
+        if not _story_localized_text_has_content(body):
+            continue
+        body_key = (body.en, body.zh)
+        if body_key in seen_bodies:
+            continue
+        seen_bodies.add(body_key)
+        deduped.append(
+            _EditorialBriefItem(
+                title=item.title,
+                body=body,
+                meta=item.meta,
+                href=item.href,
+            )
+        )
+    return deduped
+
+
+def _local_article_brief_section(
+    local_article: RowOneLocalArticle | None,
+    key: str,
+) -> RowOneLocalArticleBriefSection | None:
+    if local_article is None:
+        return None
+    for section in local_article.brief_sections:
+        if section.key == key and _story_localized_text_has_content(section.body):
+            return section
+    return None
+
+
+def _combined_editorial_body(
+    primary: LocalizedText,
+    extra: LocalizedText | None,
+) -> LocalizedText:
+    primary_en = clean_row_one_text(primary.en)
+    primary_zh = clean_row_one_text(primary.zh)
+    if extra is None:
+        return LocalizedText(
+            en=primary_en,
+            zh=primary_zh,
+        )
+    extra_en = clean_row_one_text(extra.en)
+    extra_zh = clean_row_one_text(extra.zh)
+    return LocalizedText(
+        en=_join_editorial_brief_parts(primary_en, extra_en),
+        zh=_join_editorial_brief_parts(primary_zh, extra_zh),
+    )
+
+
+def _join_editorial_brief_parts(primary: str, extra: str) -> str:
+    if not primary:
+        return extra
+    if not extra or extra == primary:
+        return primary
+    return f"{primary} {extra}"
+
+
+def _editorial_brief_meta(local_article: RowOneLocalArticle | None) -> LocalizedText | None:
+    if local_article is None:
+        return None
+    title = clean_row_one_text(local_article.title or "")
+    source_name = clean_row_one_text(local_article.source_name)
+    if source_name and title:
+        meta = f"{source_name} · {title}"
+    else:
+        meta = source_name or title
+    return LocalizedText(en=meta, zh=meta) if meta else None
+
+
+def _editorial_brief_detail_href(story: RowOneStory) -> str | None:
+    pure_path = _validated_detail_relative_path(story.detail_path)
+    return str(pure_path) if pure_path is not None else None
+
+
+def _editorial_brief_paragraph_href(
+    story: RowOneStory,
+    local_article: RowOneLocalArticle | None,
+) -> str | None:
+    detail_href = _editorial_brief_detail_href(story)
+    if detail_href is None or local_article is None:
+        return None
+    for index, paragraph in enumerate(local_article.paragraphs, start=1):
+        if paragraph.strip():
+            return f"{detail_href}#local-article-paragraph-{index}"
+    return None
 
 
 def build_row_one_app_payload(edition: RowOneEdition) -> dict[str, object]:

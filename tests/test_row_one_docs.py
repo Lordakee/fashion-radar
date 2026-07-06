@@ -556,10 +556,10 @@ def test_row_one_docs_describe_homepage_daily_edit_boundary() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     docs = (ROOT / "docs" / "row-one.md").read_text(encoding="utf-8")
     readme_stage_320 = readme[
-        readme.index("Stage 320 adds homepage Daily Edit") : readme.index("Stage 310 adds")
+        readme.index("Stage 320 adds homepage Daily Edit") : readme.index("Stage 321 adds")
     ]
     docs_stage_320 = docs[
-        docs.index("Stage 320 adds homepage Daily Edit") : docs.index("Stage 310 adds")
+        docs.index("Stage 320 adds homepage Daily Edit") : docs.index("Stage 321 adds")
     ]
     readme_stage_320_normalized = _normalized(readme_stage_320)
     docs_stage_320_normalized = _normalized(docs_stage_320)
@@ -607,6 +607,63 @@ def test_row_one_docs_describe_homepage_daily_edit_boundary() -> None:
     for phrase in forbidden_phrases:
         assert phrase not in readme_stage_320_normalized
         assert phrase not in docs_stage_320_normalized
+
+
+def test_row_one_docs_describe_homepage_editorial_brief_boundary() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    docs = (ROOT / "docs" / "row-one.md").read_text(encoding="utf-8")
+    readme_stage_321 = readme[
+        readme.index("Stage 321 adds homepage Editorial Brief") : readme.index("Stage 310 adds")
+    ]
+    docs_stage_321 = docs[
+        docs.index("Stage 321 adds homepage Editorial Brief") : docs.index("Stage 310 adds")
+    ]
+    readme_stage_321_normalized = _normalized(readme_stage_321)
+    docs_stage_321_normalized = _normalized(docs_stage_321)
+
+    expected_phrases = [
+        "homepage editorial brief",
+        "generated-site only",
+        "existing story summaries",
+        "existing story signal context",
+        "existing saved local article brief sections",
+        "existing `data/articles/<story-id>.json` sidecars",
+        "existing paragraph anchors",
+        "editorial brief / 编辑正文",
+        "safe internal detail and paragraph links",
+        "does not change `row-one-app/v7`",
+        "does not change `data/edition.json`",
+        "does not add `editorial_brief`",
+        "does not change `row-one-manifest/v1`",
+        "does not change `row-one-runtime/v1`",
+        "does not change schemas",
+        "does not write a new json artifact",
+        "does not add source collection",
+        "does not fetch article pages",
+        "does not add scoring",
+        "does not add llm calls",
+        "does not add connectors",
+        "not a compliance review feature",
+    ]
+    for phrase in expected_phrases:
+        assert phrase in readme_stage_321_normalized
+        assert phrase in docs_stage_321_normalized
+
+    forbidden_phrases = [
+        "row-one-app/v8",
+        "row-one-manifest/v2",
+        "row-one-runtime/v2",
+        "changes schemas",
+        "adds source collection",
+        "adds scoring",
+        "adds llm calls",
+        "adds social connectors",
+        "adds community connectors",
+        "adds compliance review",
+    ]
+    for phrase in forbidden_phrases:
+        assert phrase not in readme_stage_321_normalized
+        assert phrase not in docs_stage_321_normalized
 
 
 def test_row_one_docs_include_user_required_phrases() -> None:

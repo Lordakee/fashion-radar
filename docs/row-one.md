@@ -436,6 +436,17 @@ does not change
 schemas, does not write a new json artifact, does not add source collection,
 does not fetch article pages, does not add scoring, does not add llm calls, does
 not add connectors, and is not a compliance review feature.
+Stage 321 adds homepage Editorial Brief to generated ROW ONE index pages. It is
+generated-site only and turns existing story summaries, existing story signal
+context, existing saved local article brief sections, existing
+`data/articles/<story-id>.json` sidecars, and existing paragraph anchors into a
+short bilingual Editorial Brief / 编辑正文 section with safe internal detail and
+paragraph links. It does not change `row-one-app/v7`, does not change
+`data/edition.json`, does not add `editorial_brief`, does not change
+`row-one-manifest/v1`, does not change `row-one-runtime/v1`, does not change
+schemas, does not write a new json artifact, does not add source collection,
+does not fetch article pages, does not add scoring, does not add llm calls, does
+not add connectors, and is not a compliance review feature.
 Stage 310 adds a generated-site saved text reader on story detail pages. ROW ONE
 lists saved local paragraphs as numbered reader segments that link to the
 existing `#local-article-paragraph-N` anchors before the existing saved text.
