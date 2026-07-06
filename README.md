@@ -168,6 +168,17 @@ uses existing `data/articles/<story-id>.json` sidecars, does not change
 new json artifact, does not change detail routes, does not change paragraph
 anchors, does not change schemas, does not add source collection, does not add
 scoring, and does not add llm calls.
+Stage 314 adds local article observability for ROW ONE: build, preview,
+refresh, and `row-one status --json` report saved local articles and saved local
+paragraphs from valid generated `data/articles/<story-id>.json` sidecars.
+Build, preview, and refresh report the current render's local article metrics;
+`row-one status --json` reports the sidecars present on disk. The saved local
+paragraph count is the nonblank saved body indicator; full article body
+extraction requires sources with `row_one_article.enabled: true` and the
+optional article extraction dependency. This does not change `row-one-app/v7`,
+does not write a new json artifact, does not add source collection, does not add
+scoring, and does not add llm calls. Use `--latest-only` when you want a status
+sidecar count that reflects only the current generated site.
 Stage 310 adds a generated-site saved text reader on ROW ONE detail pages:
 saved local paragraphs are listed as numbered in-page reader segments that link
 to the existing paragraph anchors before the existing saved text. This is a

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -314,14 +315,42 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         local_article_extractor=extractor,
     )
 
+    index_html = (output_dir / "index.html").read_text(encoding="utf-8")
     detail_html = next((output_dir / "details").glob("*.html")).read_text(encoding="utf-8")
-    cached_article = next((output_dir / "data" / "articles").glob("*.json")).read_text(
-        encoding="utf-8"
-    )
+    article_files = list((output_dir / "data" / "articles").glob("*.json"))
+    assert article_files
+    cached_articles = [article_file.read_text(encoding="utf-8") for article_file in article_files]
+    edition_payload = json.loads((output_dir / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((output_dir / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((output_dir / "data" / "runtime.json").read_text())
     stored = repository.get_item(item_id)
 
+    assert 'id="local-article"' in detail_html
     assert "Local article paragraph for the ROW ONE detail page." in detail_html
-    assert "Local article paragraph for the ROW ONE detail page." in cached_article
+    assert all(
+        "Local article paragraph for the ROW ONE detail page." in cached_article
+        for cached_article in cached_articles
+    )
+    assert (
+        "daily-local-intelligence" in index_html
+        or "saved-article-coverage" in index_html
+        or "saved-article-briefs" in index_html
+    )
+    assert edition_payload["contract_version"] == "row-one-app/v7"
+    assert manifest_payload["contract_version"] == "row-one-manifest/v1"
+    assert runtime_payload["contract_version"] == "row-one-runtime/v1"
+    generated_contract_payload = json.dumps(
+        {
+            "edition": edition_payload,
+            "manifest": manifest_payload,
+            "runtime": runtime_payload,
+        },
+        ensure_ascii=False,
+    )
+    assert '"local_articles"' not in generated_contract_payload
+    assert '"local_article_count"' not in generated_contract_payload
+    assert '"local_article_paragraph_count"' not in generated_contract_payload
+    assert not (output_dir / "data" / "local-article-metrics.json").exists()
     assert stored["summary"] == "The Row handbag coverage."
 
 

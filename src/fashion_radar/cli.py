@@ -151,6 +151,11 @@ from fashion_radar.row_one.server import (
     serve_row_one_site,
     validate_row_one_site_dir,
 )
+from fashion_radar.row_one.site_metrics import (
+    RowOneLocalArticleSiteMetrics,
+    build_row_one_local_article_site_metrics,
+    row_one_local_article_site_metrics_payload,
+)
 from fashion_radar.row_one.status_integrity import validate_row_one_generated_site_integrity
 from fashion_radar.scheduling import (
     render_cron_example,
@@ -1424,6 +1429,7 @@ def row_one_build(
 
     typer.echo(f"Wrote ROW ONE site: {result.index_path}")
     typer.echo(f"Wrote {result.story_count} stories")
+    _echo_row_one_local_article_metrics(result.local_article_metrics)
 
 
 @row_one_app.command(name="preview")
@@ -1470,6 +1476,7 @@ def row_one_preview(
     typer.echo(f"Stories: {readiness.story_count}")
     typer.echo(f"Sections: {readiness.section_count}")
     typer.echo(f"Evidence links: {readiness.safe_evidence_count}")
+    _echo_row_one_local_article_metrics(result.local_article_metrics)
     typer.echo(f"Empty sections: {readiness.empty_sections.en}")
     typer.echo(f"Generated at: {readiness.generated_at}")
     typer.echo(f"Readiness: {readiness.readiness.en}")
@@ -1545,6 +1552,7 @@ def row_one_refresh(
     typer.echo(f"Manifest: {site_result.output_dir / 'data' / 'manifest.json'}")
     typer.echo(f"Stories: {readiness.story_count}")
     typer.echo(f"Evidence links: {readiness.safe_evidence_count}")
+    _echo_row_one_local_article_metrics(site_result.local_article_metrics)
     typer.echo(f"Readiness: {readiness.readiness.en}")
     typer.echo(format_row_one_site_access_message(host, port))
 
@@ -2084,6 +2092,7 @@ def _build_row_one_status_payload(
     refresh = _require_row_one_object(runtime, "refresh", label="runtime.refresh")
     serve = _require_row_one_object(runtime, "serve", label="runtime.serve")
     story_count = counts.get("story_count")
+    local_articles = _row_one_local_article_metrics_payload(site_dir)
     return {
         "ok": True,
         "site_dir": str(site_dir),
@@ -2104,10 +2113,13 @@ def _build_row_one_status_payload(
             "runtime": runtime.get("contract_version"),
         },
         "counts": counts,
+        "local_articles": local_articles,
         "readiness": readiness,
         "story_count": story_count,
         "section_count": counts.get("section_count"),
         "evidence_count": counts.get("evidence_count"),
+        "local_article_count": local_articles["article_count"],
+        "local_article_paragraph_count": local_articles["paragraph_count"],
         "readiness_status": readiness.get("status"),
         "refresh_time": refresh.get("recommended_time"),
         "generated_at": runtime.get("generated_at"),
@@ -2172,12 +2184,26 @@ def row_one_status(
     if isinstance(counts, dict):
         typer.echo(f"Sections: {counts.get('section_count', 'unknown')}")
         typer.echo(f"Evidence links: {counts.get('evidence_count', 'unknown')}")
+    local_articles = payload["local_articles"]
+    typer.echo(f"Saved local articles: {local_articles['article_count']}")
+    typer.echo(f"Saved local paragraphs: {local_articles['paragraph_count']}")
     refresh = runtime.get("refresh")
     if isinstance(refresh, dict):
         typer.echo(f"Refresh time: {refresh.get('recommended_time', 'unknown')}")
     typer.echo(f"Generated at: {runtime.get('generated_at', 'unknown')}")
     typer.echo(f"Readiness: {readiness_label}")
     typer.echo(payload["access"])
+
+
+def _row_one_local_article_metrics_payload(site_dir: Path) -> dict[str, int]:
+    metrics = build_row_one_local_article_site_metrics(site_dir)
+    return row_one_local_article_site_metrics_payload(metrics)
+
+
+def _echo_row_one_local_article_metrics(metrics: RowOneLocalArticleSiteMetrics) -> None:
+    payload = row_one_local_article_site_metrics_payload(metrics)
+    typer.echo(f"Saved local articles: {payload['article_count']}")
+    typer.echo(f"Saved local paragraphs: {payload['paragraph_count']}")
 
 
 @row_one_app.command(name="local-ops")

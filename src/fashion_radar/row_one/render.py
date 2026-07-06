@@ -27,6 +27,10 @@ from fashion_radar.row_one.saved_article_briefs import (
 from fashion_radar.row_one.saved_article_coverage import (
     build_row_one_saved_article_coverage,
 )
+from fashion_radar.row_one.site_metrics import (
+    RowOneLocalArticleSiteMetrics,
+    build_row_one_local_article_metrics,
+)
 from fashion_radar.row_one.templates import (
     _validated_detail_relative_path,
     render_detail_html,
@@ -50,6 +54,7 @@ class RowOneRenderResult:
     index_path: Path
     story_count: int
     edition: RowOneEdition
+    local_article_metrics: RowOneLocalArticleSiteMetrics
 
 
 def render_row_one_site(
@@ -111,13 +116,15 @@ def render_row_one_site(
         json.dumps(manifest_payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    _write_local_article_files(edition, data_dir, local_articles_by_story_id)
+    writable_local_articles = _writable_local_articles(edition, local_articles_by_story_id)
+    _write_local_article_files(data_dir, writable_local_articles)
     _write_local_article_intelligence_file(data_dir, local_article_intelligence)
     return RowOneRenderResult(
         output_dir=output_dir,
         index_path=index_path,
         story_count=len(edition.stories),
         edition=edition,
+        local_article_metrics=build_row_one_local_article_metrics(writable_local_articles.values()),
     )
 
 
@@ -180,19 +187,24 @@ def _write_detail_pages(
         )
 
 
-def _write_local_article_files(
+def _writable_local_articles(
     edition: RowOneEdition,
-    data_dir: Path,
     local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
-) -> None:
+) -> dict[str, RowOneLocalArticle]:
     current_story_ids = {story.id for story in edition.stories}
-    writable_articles = {
+    return {
         story_id: article
         for story_id, article in local_articles_by_story_id.items()
         if story_id in current_story_ids
         and safe_local_article_story_id(story_id)
         and article.paragraphs
     }
+
+
+def _write_local_article_files(
+    data_dir: Path,
+    writable_articles: Mapping[str, RowOneLocalArticle],
+) -> None:
     if not writable_articles:
         return
     articles_dir = data_dir / "articles"

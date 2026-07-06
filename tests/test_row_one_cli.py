@@ -43,6 +43,7 @@ from fashion_radar.row_one.server import (
     format_row_one_site_access_message,
     format_row_one_site_url,
 )
+from fashion_radar.row_one.site_metrics import RowOneLocalArticleSiteMetrics
 from fashion_radar.utils.dates import parse_datetime_utc
 from fashion_radar.workflows import default_database_path
 
@@ -208,6 +209,25 @@ def _render_status_site_with_local_article(tmp_path: Path) -> dict[str, object]:
     return payload["stories"][0]
 
 
+def _write_stale_local_article_sidecar(output_dir: Path) -> Path:
+    articles_dir = output_dir / "data" / "articles"
+    articles_dir.mkdir(parents=True, exist_ok=True)
+    article = RowOneLocalArticle(
+        story_id="stale-row-one-story-1234567890",
+        title="Stale article",
+        url="https://example.com/stale-article",
+        source_name="Old Source",
+        extracted_at=AS_OF,
+        paragraphs=["Stale paragraph that should not count for this render."],
+    )
+    article_path = articles_dir / "stale-row-one-story-1234567890.json"
+    article_path.write_text(
+        json.dumps(article.model_dump(mode="json"), ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return article_path
+
+
 def _seed_collected_item(data_dir: Path, *, title: str, url: str) -> None:
     engine = create_sqlite_engine(default_database_path(data_dir))
     try:
@@ -256,6 +276,8 @@ def test_row_one_build_command_writes_empty_state_site(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "Wrote ROW ONE site" in result.output
     assert "0 stories" in result.output
+    assert "Saved local articles: 0" in result.output
+    assert "Saved local paragraphs: 0" in result.output
     assert (output_dir / "index.html").exists()
     assert (output_dir / "data" / "edition.json").exists()
     assert "No ROW ONE stories" in (output_dir / "index.html").read_text(encoding="utf-8")
@@ -298,10 +320,56 @@ def test_row_one_preview_builds_site_and_prints_readiness(tmp_path: Path) -> Non
     assert "Stories:" in result.output
     assert "Sections:" in result.output
     assert "Evidence links:" in result.output
+    assert "Saved local articles: 0" in result.output
+    assert "Saved local paragraphs: 0" in result.output
     assert "Empty sections:" in result.output
     assert "Generated at:" in result.output
     assert "Readiness:" in result.output
     assert "Open:" in result.output
+
+
+@pytest.mark.parametrize(
+    ("command_name", "extra_args"),
+    [
+        ("build", []),
+        ("preview", ["--dry-run-serve-url"]),
+    ],
+)
+def test_row_one_build_and_preview_metrics_ignore_stale_sidecars_without_latest_only(
+    tmp_path: Path,
+    command_name: str,
+    extra_args: list[str],
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+    stale_article_path = _write_stale_local_article_sidecar(output_dir)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            command_name,
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--output-dir",
+            str(output_dir),
+            "--as-of",
+            AS_OF,
+            *extra_args,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert stale_article_path.exists()
+    assert "Saved local articles: 0" in result.output
+    assert "Saved local paragraphs: 0" in result.output
 
 
 def test_row_one_preview_help_is_discoverable() -> None:
@@ -373,6 +441,7 @@ def test_row_one_refresh_runs_pipeline_and_writes_site(
             output_dir=output_dir,
             story_count=0,
             edition=build_row_one_edition(report=_empty_report(), recent_items=[], as_of=AS_OF),
+            local_article_metrics=RowOneLocalArticleSiteMetrics(),
         )
 
     monkeypatch.setattr(cli_module, "collect_configured_sources", collect_configured_sources)
@@ -432,6 +501,8 @@ def test_row_one_refresh_runs_pipeline_and_writes_site(
     assert f"Manifest: {output_dir / 'data' / 'manifest.json'}" in result.output
     assert "Stories:" in result.output
     assert "Evidence links:" in result.output
+    assert "Saved local articles: 0" in result.output
+    assert "Saved local paragraphs: 0" in result.output
     assert "Readiness:" in result.output
     assert "Open: http://127.0.0.1:8787" in result.output
 
@@ -899,6 +970,8 @@ def test_row_one_status_prints_generated_site_readiness(tmp_path: Path) -> None:
     assert "Stories: 0" in result.output
     assert "Sections: 5" in result.output
     assert "Evidence links: 0" in result.output
+    assert "Saved local articles: 0" in result.output
+    assert "Saved local paragraphs: 0" in result.output
     assert "Refresh time: 04:00" in result.output
     assert "Generated at: 2026-07-02T04:00:00Z" in result.output
     assert "Readiness: empty" in result.output
@@ -953,6 +1026,14 @@ def test_row_one_status_json_outputs_machine_readable_payload(tmp_path: Path) ->
         "section_count": 5,
         "evidence_count": 0,
     }
+    assert payload["local_articles"] == {
+        "article_count": 0,
+        "paragraph_count": 0,
+        "organized_section_count": 0,
+        "source_count": 0,
+    }
+    assert payload["local_article_count"] == 0
+    assert payload["local_article_paragraph_count"] == 0
     assert payload["readiness"] == {
         "status": "empty",
         "en": "empty",
@@ -973,6 +1054,29 @@ def test_row_one_status_json_outputs_machine_readable_payload(tmp_path: Path) ->
     assert payload["site"] == payload["runtime"]["site"]
     assert payload["serve"] == payload["runtime"]["serve"]
     assert payload["refresh"] == payload["runtime"]["refresh"]
+
+
+def test_row_one_status_json_includes_local_article_metrics(tmp_path: Path) -> None:
+    story = _render_status_site_with_local_article(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        ["row-one", "status", "--site-dir", str(tmp_path), "--json"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["local_articles"] == {
+        "article_count": 1,
+        "paragraph_count": 2,
+        "organized_section_count": 2,
+        "source_count": 1,
+    }
+    assert payload["local_article_count"] == 1
+    assert payload["local_article_paragraph_count"] == 2
+    assert story["id"] in (tmp_path / "data" / "articles" / f"{story['id']}.json").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_row_one_status_json_keeps_fixed_runtime_urls_for_wildcard_host(
