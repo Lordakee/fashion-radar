@@ -54,3 +54,16 @@ def test_first_run_docs_name_external_tool_smoke_contracts() -> None:
         "do not perform source acquisition",
     ):
         assert phrase in normalized
+
+
+def test_first_run_docs_describe_row_one_article_readiness_boundary() -> None:
+    normalized = _normalized(_read_first_run_doc())
+
+    for phrase in (
+        "row-one article-readiness",
+        "deterministic first-run smoke",
+        "does not require saved article sidecars",
+        "row_one_article.enabled: true",
+        "optional article extraction dependency",
+    ):
+        assert phrase in normalized

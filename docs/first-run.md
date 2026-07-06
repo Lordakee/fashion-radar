@@ -143,6 +143,12 @@ a lightweight runtime contract check for the generated site marker, the three
 JSON objects, fixed runtime paths, `04:00` refresh metadata, `127.0.0.1:8787`
 serve metadata, readiness, counts, and generated timestamps.
 
+The deterministic first-run smoke keeps live sources empty, so it does not
+require saved article sidecars. For live daily ROW ONE use, run
+`row-one article-readiness` against your real `--config-dir` and generated
+`--site-dir`; source configs need `row_one_article.enabled: true`, and full
+article body extraction uses the optional article extraction dependency.
+
 Open `http://127.0.0.1:8787` locally. The generated ROW ONE site under
 `reports/row-one/site` is a local artifact and should not be committed.
 

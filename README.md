@@ -179,6 +179,17 @@ optional article extraction dependency. This does not change `row-one-app/v7`,
 does not write a new json artifact, does not add source collection, does not add
 scoring, and does not add llm calls. Use `--latest-only` when you want a status
 sidecar count that reflects only the current generated site.
+Stage 315 adds ROW ONE article readiness diagnostics: `row-one article-readiness`
+checks the selected `sources.yaml`, the generated ROW ONE site, saved local
+article sidecars, saved local paragraphs, and current story source coverage
+without collecting sources, fetching article pages, mutating SQLite, changing
+`row-one-app/v7`, or writing a new generated JSON artifact. It does not change
+`row-one-app/v7`, does not write a new generated JSON artifact, does not add
+source collection, does not fetch article pages, does not add scoring, and does
+not add llm calls. Use it when `row-one build` reports zero saved local
+articles; older platformdirs config directories may still contain source packs
+without `row_one_article.enabled: true`, while the current starter config can
+produce saved local article sidecars when matching stories exist.
 Stage 310 adds a generated-site saved text reader on ROW ONE detail pages:
 saved local paragraphs are listed as numbered in-page reader segments that link
 to the existing paragraph anchors before the existing saved text. This is a

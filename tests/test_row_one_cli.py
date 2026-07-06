@@ -1079,6 +1079,65 @@ def test_row_one_status_json_includes_local_article_metrics(tmp_path: Path) -> N
     )
 
 
+def test_row_one_article_readiness_prints_config_and_site_counts(tmp_path: Path) -> None:
+    config_dir = tmp_path / "configs"
+    output_dir = tmp_path / "site"
+    _write_minimal_config(config_dir)
+    _render_status_site_with_local_article(output_dir)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "article-readiness",
+            "--config-dir",
+            str(config_dir),
+            "--site-dir",
+            str(output_dir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "ROW ONE article readiness" in result.output
+    assert f"Config: {config_dir}" in result.output
+    assert f"Site: {output_dir}" in result.output
+    assert "ROW ONE article-enabled sources: 0" in result.output
+    assert "Saved local articles: 1" in result.output
+    assert "Saved local paragraphs: 2" in result.output
+    assert "Story source coverage: 0/1 eligible" in result.output
+    assert "row_one_article.enabled: true" in result.output
+
+
+def test_row_one_article_readiness_json_is_machine_readable(tmp_path: Path) -> None:
+    config_dir = tmp_path / "configs"
+    output_dir = tmp_path / "site"
+    _write_minimal_config(config_dir)
+    _render_status_site_with_local_article(output_dir)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "article-readiness",
+            "--config-dir",
+            str(config_dir),
+            "--site-dir",
+            str(output_dir),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["config_dir"] == str(config_dir)
+    assert payload["site_dir"] == str(output_dir)
+    assert payload["local_articles"]["article_count"] == 1
+    assert payload["local_articles"]["paragraph_count"] == 2
+    assert payload["story_coverage"]["story_count"] == 1
+    assert payload["story_coverage"]["eligible_story_count"] == 0
+    assert payload["recommendations"]
+
+
 def test_row_one_status_json_keeps_fixed_runtime_urls_for_wildcard_host(
     tmp_path: Path,
 ) -> None:

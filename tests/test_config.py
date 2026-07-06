@@ -494,6 +494,16 @@ def test_starter_source_config_covers_core_fashion_signals_without_article_fetch
     assert all(
         source.article.enabled is False for source in enabled_sources if source.type.value == "rss"
     )
+    assert any(source.row_one_article.enabled for source in enabled_sources)
+    assert all(
+        source.row_one_article.enabled for source in enabled_sources if source.type.value == "rss"
+    )
+
+
+def test_packaged_starter_sources_match_repo_starter_sources() -> None:
+    assert Path("configs/sources.example.yaml").read_text(encoding="utf-8") == Path(
+        "src/fashion_radar/templates/configs/sources.example.yaml"
+    ).read_text(encoding="utf-8")
 
 
 def test_public_fashion_source_pack_loads() -> None:

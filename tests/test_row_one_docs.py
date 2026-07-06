@@ -226,10 +226,10 @@ def test_row_one_docs_describe_local_article_observability_boundary() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     docs = (ROOT / "docs" / "row-one.md").read_text(encoding="utf-8")
     readme_stage_314 = readme[
-        readme.index("Stage 314 adds local article observability") : readme.index("Stage 310 adds")
+        readme.index("Stage 314 adds local article observability") : readme.index("Stage 315 adds")
     ]
     docs_stage_314 = docs[
-        docs.index("Stage 314 adds local article observability") : docs.index("Stage 310 adds")
+        docs.index("Stage 314 adds local article observability") : docs.index("Stage 315 adds")
     ]
     readme_stage_314_normalized = _normalized(readme_stage_314)
     docs_stage_314_normalized = _normalized(docs_stage_314)
@@ -272,12 +272,73 @@ def test_row_one_docs_describe_local_article_observability_boundary() -> None:
         assert phrase not in docs_stage_314_normalized
 
 
+def test_row_one_docs_describe_article_readiness_boundary() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    docs = (ROOT / "docs" / "row-one.md").read_text(encoding="utf-8")
+    readme_stage_315 = readme[
+        readme.index("Stage 315 adds ROW ONE article readiness diagnostics") : readme.index(
+            "Stage 310 adds"
+        )
+    ]
+    docs_stage_315 = docs[
+        docs.index("Stage 315 adds ROW ONE article readiness diagnostics") : docs.index(
+            "Stage 310 adds"
+        )
+    ]
+    readme_stage_315_normalized = _normalized(readme_stage_315)
+    docs_stage_315_normalized = _normalized(docs_stage_315)
+
+    expected_phrases = [
+        "row one article readiness diagnostics",
+        "`row-one article-readiness`",
+        "selected `sources.yaml`",
+        "saved local article sidecars",
+        "saved local paragraphs",
+        "current story source coverage",
+        "older platformdirs config",
+        "`row_one_article.enabled: true`",
+        "does not change `row-one-app/v7`",
+        "does not write a new generated json artifact",
+        "does not add source collection",
+        "does not fetch article pages",
+        "does not add scoring",
+        "does not add llm calls",
+    ]
+    for phrase in expected_phrases:
+        assert phrase in readme_stage_315_normalized
+        assert phrase in docs_stage_315_normalized
+
+    forbidden_phrases = [
+        "row-one-app/v8",
+        "row-one-manifest/v2",
+        "row-one-runtime/v2",
+        "changes schemas",
+        "changes detail routes",
+        "adds source collection",
+        "adds scoring",
+        "adds llm calls",
+        "adds social connectors",
+        "adds community connectors",
+        "adds compliance review",
+        "adds compliance-review",
+    ]
+    for phrase in forbidden_phrases:
+        assert phrase not in readme_stage_315_normalized
+        assert phrase not in docs_stage_315_normalized
+
+
 def test_row_one_docs_include_user_required_phrases() -> None:
     normalized = _normalized(_read(ROW_ONE_DOC))
 
     for phrase in (
         "row one",
         "row-one build",
+        "row-one article-readiness",
+        "article readiness",
+        "row_one_article.enabled: true",
+        "saved local articles",
+        "saved local paragraphs",
+        "older platformdirs config",
         "row-one refresh",
         "row-one preview",
         "row-one status",

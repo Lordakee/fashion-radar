@@ -144,6 +144,10 @@ from fashion_radar.importers.manual_signals import (
 )
 from fashion_radar.models.report import CandidateReport
 from fashion_radar.models.trend import TrendComparison
+from fashion_radar.row_one.article_readiness import (
+    build_row_one_article_readiness,
+    row_one_article_readiness_payload,
+)
 from fashion_radar.row_one.ops import render_row_one_local_ops_runbook
 from fashion_radar.row_one.readiness import build_row_one_readiness
 from fashion_radar.row_one.server import (
@@ -2200,10 +2204,78 @@ def _row_one_local_article_metrics_payload(site_dir: Path) -> dict[str, int]:
     return row_one_local_article_site_metrics_payload(metrics)
 
 
+def _load_row_one_edition_payload_if_present(site_dir: Path) -> dict[str, object] | None:
+    edition_path = site_dir / "data" / "edition.json"
+    if not edition_path.exists():
+        return None
+    try:
+        payload = json.loads(edition_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def _echo_row_one_local_article_metrics(metrics: RowOneLocalArticleSiteMetrics) -> None:
     payload = row_one_local_article_site_metrics_payload(metrics)
     typer.echo(f"Saved local articles: {payload['article_count']}")
     typer.echo(f"Saved local paragraphs: {payload['paragraph_count']}")
+
+
+@row_one_app.command(name="article-readiness")
+def row_one_article_readiness(
+    config_dir: Path = CONFIG_DIR_OPTION,
+    site_dir: Path = ROW_ONE_OUTPUT_DIR_OPTION,
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Print machine-readable JSON readiness payload.",
+    ),
+) -> None:
+    """Inspect ROW ONE local article sidecar readiness without fetching anything."""
+    try:
+        source_config = load_source_config(config_dir / "sources.yaml")
+        metrics = build_row_one_local_article_site_metrics(site_dir)
+        readiness = build_row_one_article_readiness(
+            sources=source_config.sources,
+            edition_payload=_load_row_one_edition_payload_if_present(site_dir),
+            local_article_metrics=metrics,
+        )
+    except ConfigError as exc:
+        typer.echo(f"Invalid config: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    except Exception as exc:
+        typer.echo(f"ROW ONE article readiness failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    payload = row_one_article_readiness_payload(readiness)
+    # CLI context keys are intentionally outside the reusable library payload schema.
+    payload["config_dir"] = str(config_dir)
+    payload["site_dir"] = str(site_dir)
+    if json_output:
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+
+    source_summary = payload["source_summary"]
+    story_coverage = payload["story_coverage"]
+    local_articles = payload["local_articles"]
+
+    typer.echo("ROW ONE article readiness")
+    typer.echo(f"Config: {config_dir}")
+    typer.echo(f"Site: {site_dir}")
+    typer.echo(
+        f"Sources: {source_summary['enabled_sources']}/{source_summary['total_sources']} enabled"
+    )
+    typer.echo(f"ROW ONE article-enabled sources: {source_summary['article_enabled_sources']}")
+    typer.echo(f"Saved local articles: {local_articles['article_count']}")
+    typer.echo(f"Saved local paragraphs: {local_articles['paragraph_count']}")
+    typer.echo(
+        "Story source coverage: "
+        f"{story_coverage['eligible_story_count']}/{story_coverage['story_count']} eligible"
+    )
+    recommendations = payload["recommendations"]
+    if isinstance(recommendations, list):
+        for recommendation in recommendations:
+            typer.echo(f"Recommendation: {recommendation}")
 
 
 @row_one_app.command(name="local-ops")
