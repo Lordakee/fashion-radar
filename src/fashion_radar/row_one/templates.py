@@ -58,6 +58,8 @@ LOCAL_ARTICLE_DIGEST_MAX_REFERENCES = 4
 LOCAL_ARTICLE_CONTENT_PREVIEW_EXCERPT_CHARS = 140
 LOCAL_ARTICLE_CONTENT_PREVIEW_MAX_ITEMS = 2
 LOCAL_ARTICLE_READER_EXCERPT_CHARS = 120
+DETAIL_CONTINUE_READING_EXCERPT_CHARS = 120
+DETAIL_CONTINUE_READING_MAX_ITEMS = 3
 
 
 def render_index_html(
@@ -187,6 +189,7 @@ def render_detail_html(
     local_article_section = _render_local_article(local_article)
     article_contents = _render_article_contents(include_local_article=bool(local_article_section))
     detail_information_map = _render_detail_information_map(story, section_title)
+    continue_reading = _render_detail_continue_reading(edition, story)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -282,6 +285,7 @@ def render_detail_html(
       </h2>
       <div class="evidence-trail">{evidence}</div>
     </section>
+{continue_reading}
   </article>
 </main>
 <script src="../assets/row-one.js"></script>
@@ -1912,6 +1916,78 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .evidence-retained-title {
   display: block;
 }
+.continue-reading {
+  border-top: 1px solid var(--ink);
+  margin-top: 40px;
+  padding-top: 28px;
+}
+.continue-reading-header {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.continue-reading-header h2,
+.continue-reading-header p {
+  margin: 0;
+}
+.continue-reading-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 4.2vw, 4.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.94;
+}
+.continue-reading-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.continue-reading-card {
+  background: var(--panel);
+  min-width: 0;
+}
+.continue-reading-card a {
+  color: var(--ink);
+  display: grid;
+  gap: 12px;
+  min-height: 220px;
+  padding: 18px;
+  text-decoration: none;
+}
+.continue-reading-section {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin: 0;
+  text-transform: uppercase;
+}
+.continue-reading-source {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin: 0;
+  text-transform: uppercase;
+}
+.continue-reading-card h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.45rem, 2.4vw, 2.4rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.98;
+  margin: 0;
+}
+.continue-reading-excerpt {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.continue-reading-excerpt span {
+  color: var(--ink);
+}
 [data-lang="zh"] { display: none; }
 body.lang-zh [data-lang="en"] { display: none; }
 body.lang-zh [data-lang="zh"] { display: inline; }
@@ -1948,6 +2024,7 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .section-block { grid-template-columns: 1fr; gap: 18px; }
   .story-grid { grid-template-columns: 1fr; }
   .detail-header { padding: 18px 20px; }
+  .continue-reading-grid { grid-template-columns: 1fr; }
 }
 """
 
@@ -3299,6 +3376,98 @@ def _render_article_contents(*, include_local_article: bool = False) -> str:
     <span data-lang="zh">证据链</span>
   </a>
 </nav>"""
+
+
+def _render_detail_continue_reading(edition: RowOneEdition, story: RowOneStory) -> str:
+    cards = [
+        _render_detail_continue_reading_card(edition, related)
+        for related in _detail_continue_reading_stories(edition, story)
+    ]
+    cards = [card for card in cards if card]
+    if not cards:
+        return ""
+    rendered_cards = "".join(cards)
+    return f"""    <section id="continue-reading" class="continue-reading"
+      aria-label="Continue reading">
+      <div class="continue-reading-header">
+        <p class="story-section">
+          <span data-lang="en">Continue Reading</span>
+          <span data-lang="zh">继续阅读</span>
+        </p>
+        <h2>
+          <span data-lang="en">Continue Reading</span>
+          <span data-lang="zh">继续阅读</span>
+        </h2>
+      </div>
+      <div class="continue-reading-grid">{rendered_cards}</div>
+    </section>"""
+
+
+def _detail_continue_reading_stories(
+    edition: RowOneEdition,
+    story: RowOneStory,
+) -> list[RowOneStory]:
+    candidates = [
+        candidate
+        for candidate in edition.stories
+        if candidate.id != story.id and candidate.section_key == story.section_key
+    ]
+    candidates.extend(
+        candidate
+        for candidate in edition.stories
+        if candidate.id != story.id and candidate.section_key != story.section_key
+    )
+    selected: list[RowOneStory] = []
+    seen_paths: set[str] = set()
+    for candidate in candidates:
+        href = _detail_continue_reading_href(candidate.detail_path)
+        if href is None or href in seen_paths:
+            continue
+        seen_paths.add(href)
+        selected.append(candidate)
+        if len(selected) >= DETAIL_CONTINUE_READING_MAX_ITEMS:
+            break
+    return selected
+
+
+def _render_detail_continue_reading_card(
+    edition: RowOneEdition,
+    story: RowOneStory,
+) -> str:
+    href = _detail_continue_reading_href(story.detail_path)
+    if href is None:
+        return ""
+    section_title = _section_title(edition, story.section_key)
+    excerpt_en = _detail_continue_reading_excerpt(story.summary.en or story.editorial_takeaway.en)
+    excerpt_zh = _detail_continue_reading_excerpt(story.summary.zh or story.editorial_takeaway.zh)
+    return f"""        <article class="continue-reading-card">
+          <a href="{_esc(href)}">
+            <p class="continue-reading-section">
+              <span data-lang="en">{_esc(section_title.en)}</span>
+              <span data-lang="zh">{_esc(section_title.zh)}</span>
+            </p>
+            <p class="continue-reading-source">{_esc(story.source_name)}</p>
+            <h3>{_esc(story.headline)}</h3>
+            <p class="continue-reading-excerpt">
+              <span data-lang="en">{_esc(excerpt_en)}</span>
+              <span data-lang="zh">{_esc(excerpt_zh)}</span>
+            </p>
+          </a>
+        </article>"""
+
+
+def _detail_continue_reading_href(detail_path: str) -> str | None:
+    pure_path = validated_row_one_detail_relative_path(detail_path)
+    if pure_path is None:
+        return None
+    return pure_path.name
+
+
+def _detail_continue_reading_excerpt(text: str) -> str:
+    return _meta_description(
+        _display_summary_text(text),
+        limit=DETAIL_CONTINUE_READING_EXCERPT_CHARS,
+    )
 
 
 def _render_local_article(article: RowOneLocalArticle | None) -> str:

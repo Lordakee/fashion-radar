@@ -276,6 +276,17 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     item_id = _store_item(data_dir)
     engine = create_sqlite_engine(default_database_path(data_dir))
     repository = ItemRepository(engine)
+    second_item_id = repository.upsert_item(
+        CollectedItem(
+            source_name="Vogue Business",
+            source_type=SourceType.RSS,
+            url="https://example.com/the-row-ballet-flat",
+            title="The Row ballet flat gains editorial traction",
+            published_at="2026-06-11T09:30:00Z",
+            summary="The Row ballet flat coverage.",
+        ),
+        collected_at=datetime(2026, 6, 11, 11, 5, tzinfo=UTC),
+    )
     repository.replace_item_matches(
         item_id,
         [
@@ -289,8 +300,23 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
             }
         ],
     )
+    repository.replace_item_matches(
+        second_item_id,
+        [
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "The Row",
+                "confidence": 1.0,
+                "reason": "accepted",
+                "context_terms": [],
+            }
+        ],
+    )
     stored_before = repository.get_item(item_id)
     matches_before = repository.list_item_matches(item_id)
+    second_stored_before = repository.get_item(second_item_id)
+    second_matches_before = repository.list_item_matches(second_item_id)
     item_count_before = repository.count_items()
     source = SourceDefinition(
         name="Vogue Business",
@@ -319,7 +345,15 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     )
 
     index_html = (output_dir / "index.html").read_text(encoding="utf-8")
-    detail_html = next((output_dir / "details").glob("*.html")).read_text(encoding="utf-8")
+    detail_pages = {
+        path.name: path.read_text(encoding="utf-8")
+        for path in sorted((output_dir / "details").glob("*.html"))
+    }
+    detail_html = next(
+        html
+        for html in detail_pages.values()
+        if "Local article paragraph for the ROW ONE detail page." in html
+    )
     article_files = list((output_dir / "data" / "articles").glob("*.json"))
     assert article_files
     cached_articles = [article_file.read_text(encoding="utf-8") for article_file in article_files]
@@ -328,6 +362,8 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     runtime_payload = json.loads((output_dir / "data" / "runtime.json").read_text())
     stored = repository.get_item(item_id)
     matches_after = repository.list_item_matches(item_id)
+    second_stored = repository.get_item(second_item_id)
+    second_matches_after = repository.list_item_matches(second_item_id)
     item_count_after = repository.count_items()
 
     assert 'id="local-article"' in detail_html
@@ -347,6 +383,10 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "local-article-content-previews" in detail_html
     assert "Saved paragraph" in detail_html
     assert "保存段落" in detail_html
+    assert any('id="continue-reading"' in html for html in detail_pages.values())
+    assert any(
+        "The Row ballet flat gains editorial traction" in html for html in detail_pages.values()
+    )
     assert edition_payload["contract_version"] == "row-one-app/v7"
     assert manifest_payload["contract_version"] == "row-one-manifest/v1"
     assert runtime_payload["contract_version"] == "row-one-runtime/v1"
@@ -361,6 +401,8 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert '"local_articles"' not in generated_contract_payload
     assert '"saved_article_content_organization"' not in generated_contract_payload
     assert '"saved_paragraph_previews"' not in generated_contract_payload
+    assert '"continue_reading"' not in generated_contract_payload
+    assert '"related_stories"' not in generated_contract_payload
     assert '"local_article_count"' not in generated_contract_payload
     assert '"local_article_paragraph_count"' not in generated_contract_payload
     top_level_data_files = {path.name for path in (output_dir / "data").glob("*.json")}
@@ -373,8 +415,11 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert not (output_dir / "data" / "local-article-metrics.json").exists()
     assert stored == stored_before
     assert matches_after == matches_before
+    assert second_stored == second_stored_before
+    assert second_matches_after == second_matches_before
     assert item_count_after == item_count_before
     assert stored["summary"] == "The Row handbag coverage."
+    assert second_stored["summary"] == "The Row ballet flat coverage."
 
 
 def test_prune_stale_daily_report_files_removes_old_dated_artifacts(

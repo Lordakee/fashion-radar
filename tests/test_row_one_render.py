@@ -43,6 +43,7 @@ from fashion_radar.row_one.saved_article_coverage import (
 )
 from fashion_radar.row_one.templates import (
     _safe_daily_local_intelligence_href,
+    render_detail_html,
     render_index_html,
     row_one_css,
 )
@@ -119,6 +120,39 @@ def _edition() -> RowOneEdition:
         ],
         stories=[story],
     )
+
+
+def _detail_story(
+    story_id: str,
+    headline: str,
+    *,
+    section_key: str = "top_stories",
+    summary_en: str | None = None,
+    summary_zh: str | None = None,
+) -> RowOneStory:
+    return (
+        _edition()
+        .stories[0]
+        .model_copy(
+            deep=True,
+            update={
+                "id": story_id,
+                "headline": headline,
+                "section_key": section_key,
+                "summary": LocalizedText(
+                    zh=summary_zh if summary_zh is not None else f"{headline} 摘要。",
+                    en=summary_en if summary_en is not None else f"{headline} summary.",
+                ),
+                "detail_path": f"details/{story_id}.html",
+            },
+        )
+    )
+
+
+def _edition_with_stories(*stories: RowOneStory) -> RowOneEdition:
+    edition = _edition()
+    edition.stories = list(stories)
+    return edition
 
 
 def test_render_row_one_site_writes_static_site_files(tmp_path) -> None:
@@ -1563,6 +1597,90 @@ def test_render_row_one_detail_content_previews_filter_invalid_indices_and_escap
     assert 'href="#local-article-paragraph-1"' in section_html
     assert 'href="#local-article-paragraph-2"' not in section_html
     assert 'href="#local-article-paragraph-3"' in section_html
+
+
+def test_render_row_one_detail_continue_reading_prioritizes_same_section_and_fallbacks(
+    tmp_path,
+) -> None:
+    current = _edition().stories[0]
+    same_section = _detail_story(
+        "same-section-1234567890",
+        "Same Section <script>Story</script>",
+    )
+    other_section = _detail_story(
+        "other-section-1234567890",
+        "Other Section Story",
+        section_key="brand_moves",
+    )
+    unsafe = _detail_story("unsafe-story-1234567890", "Unsafe Story").model_copy(
+        update={"detail_path": "../unsafe.html"}
+    )
+    duplicate = _detail_story("duplicate-story-1234567890", "Duplicate Story").model_copy(
+        update={"detail_path": same_section.detail_path}
+    )
+    extra = _detail_story("extra-story-1234567890", "Extra Story", section_key="brand_moves")
+    edition = _edition_with_stories(current, unsafe, other_section, same_section, duplicate, extra)
+
+    detail_html = render_detail_html(edition, current)
+
+    continue_start = detail_html.index('id="continue-reading"')
+    rail_html = detail_html[
+        continue_start : detail_html.index("</section>", continue_start) + len("</section>")
+    ]
+
+    assert '<span data-lang="en">Continue Reading</span>' in rail_html
+    assert '<span data-lang="zh">继续阅读</span>' in rail_html
+    assert "Same Section &lt;script&gt;Story&lt;/script&gt;" in rail_html
+    assert "<script>Story</script>" not in rail_html
+    assert "Other Section Story" in rail_html
+    assert "Extra Story" in rail_html
+    assert 'class="continue-reading-source">Vogue Business</p>' in rail_html
+    assert "Unsafe Story" not in rail_html
+    assert "Duplicate Story" not in rail_html
+    assert "The Row &lt;signals&gt;" not in rail_html
+    assert rail_html.index("Same Section &lt;script&gt;Story&lt;/script&gt;") < rail_html.index(
+        "Other Section Story"
+    )
+    assert 'href="same-section-1234567890.html"' in rail_html
+    assert 'href="other-section-1234567890.html"' in rail_html
+    assert 'href="details/same-section-1234567890.html"' not in rail_html
+    assert rail_html.count('class="continue-reading-card"') == 3
+
+
+def test_render_row_one_detail_continue_reading_omits_without_related_stories(
+    tmp_path,
+) -> None:
+    edition = _edition_with_stories(_edition().stories[0])
+
+    detail_html = render_detail_html(edition, edition.stories[0])
+
+    assert 'id="continue-reading"' not in detail_html
+    assert "Continue Reading" not in detail_html
+
+
+def test_render_row_one_detail_continue_reading_uses_editorial_takeaway_fallback(
+    tmp_path,
+) -> None:
+    current = _edition().stories[0]
+    fallback_story = _detail_story(
+        "fallback-story-1234567890",
+        "Fallback Story",
+        summary_en="",
+        summary_zh="",
+    ).model_copy(
+        update={
+            "editorial_takeaway": LocalizedText(
+                zh="备用中文编辑摘录。",
+                en="Fallback editorial excerpt.",
+            )
+        }
+    )
+    edition = _edition_with_stories(current, fallback_story)
+
+    detail_html = render_detail_html(edition, current)
+
+    assert "Fallback editorial excerpt." in detail_html
+    assert "备用中文编辑摘录。" in detail_html
 
 
 def test_render_row_one_detail_skips_invalid_local_article_paragraph_links(
@@ -3216,6 +3334,24 @@ def test_row_one_css_includes_saved_article_briefs_styles(tmp_path) -> None:
         ".saved-article-brief-chip-heading",
         ".saved-article-brief-chip-list",
         ".saved-article-brief-chip",
+    ):
+        assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
+
+
+def test_row_one_css_includes_continue_reading_styles(tmp_path) -> None:
+    css = render_row_one_site(_edition(), tmp_path).index_path
+    css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    for selector in (
+        ".continue-reading",
+        ".continue-reading-header",
+        ".continue-reading-grid",
+        ".continue-reading-card",
+        ".continue-reading-card a",
+        ".continue-reading-section",
+        ".continue-reading-source",
+        ".continue-reading-excerpt",
+        ".continue-reading-excerpt span",
     ):
         assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
 

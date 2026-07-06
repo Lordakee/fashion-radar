@@ -403,6 +403,16 @@ anchors, does not change schemas, does not write a new json artifact, does not
 add source collection, does not fetch article pages, does not add scoring, does
 not add llm calls, does not add connectors, and is not a compliance review
 feature.
+
+Stage 318 adds detail continue reading to generated ROW ONE detail pages. It is
+generated-site only and selects up to three next reads from the same daily
+edition, preferring same-section stories before filling from other sections and
+linking only through validated detail routes. It does not change
+`row-one-app/v7`, does not change `data/edition.json`, does not change
+`row-one-manifest/v1`, does not change `row-one-runtime/v1`, does not change
+schemas, does not write a new json artifact, does not add source collection,
+does not fetch article pages, does not add scoring, does not add llm calls, does
+not add connectors, and is not a compliance review feature.
 Stage 310 adds a generated-site saved text reader on story detail pages. ROW ONE
 lists saved local paragraphs as numbered reader segments that link to the
 existing `#local-article-paragraph-N` anchors before the existing saved text.
