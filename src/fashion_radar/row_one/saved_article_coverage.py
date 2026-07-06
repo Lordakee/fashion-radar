@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import PurePosixPath
 
 from fashion_radar.row_one.articles import safe_local_article_story_id
+from fashion_radar.row_one.detail_routes import is_safe_row_one_detail_path
 from fashion_radar.row_one.models import LocalizedText, RowOneEdition, RowOneLocalArticle
 
 MAX_SAVED_ARTICLE_COVERAGE_ITEMS = 4
-_DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$")
 
 
 @dataclass(frozen=True)
@@ -49,7 +47,7 @@ def build_row_one_saved_article_coverage(
             continue
         if not safe_local_article_story_id(story.id):
             continue
-        if not _safe_detail_path(story.detail_path):
+        if not is_safe_row_one_detail_path(story.detail_path):
             continue
         saved_paragraph_count = _saved_paragraph_count(article)
         if saved_paragraph_count == 0:
@@ -100,18 +98,6 @@ def _source_display_name(article: RowOneLocalArticle) -> str:
 
 def _source_key(name: str) -> str:
     return " ".join(name.split()).casefold()
-
-
-def _safe_detail_path(path: str) -> bool:
-    pure_path = PurePosixPath(path)
-    return (
-        not pure_path.is_absolute()
-        and len(pure_path.parts) == 2
-        and pure_path.parts[0] == "details"
-        and pure_path.parts[1] not in ("", ".", "..")
-        and ".." not in pure_path.parts
-        and _DETAIL_FILENAME_RE.fullmatch(pure_path.name) is not None
-    )
 
 
 def _section_title(edition: RowOneEdition, section_key: str) -> LocalizedText:

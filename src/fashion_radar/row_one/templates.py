@@ -6,6 +6,10 @@ from datetime import datetime
 from html import escape
 from pathlib import PurePosixPath
 
+from fashion_radar.row_one.detail_routes import (
+    safe_row_one_detail_fragment_href,
+    validated_row_one_detail_relative_path,
+)
 from fashion_radar.row_one.display import display_for_story, safe_story_image_src
 from fashion_radar.row_one.models import (
     LocalizedText,
@@ -23,6 +27,10 @@ from fashion_radar.row_one.models import (
     RowOneStory,
 )
 from fashion_radar.row_one.readiness import RowOneReadiness, build_row_one_readiness
+from fashion_radar.row_one.saved_article_briefs import (
+    RowOneSavedArticleBriefItem,
+    RowOneSavedArticleBriefs,
+)
 from fashion_radar.row_one.saved_article_coverage import (
     RowOneSavedArticleCoverage,
     RowOneSavedArticleCoverageItem,
@@ -36,7 +44,6 @@ from fashion_radar.row_one.text import (
 )
 from fashion_radar.row_one.utils import safe_external_url
 
-_DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$")
 _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE = re.compile(r"local-article-paragraph-[1-9][0-9]*$")
 LOCAL_ARTICLE_DIGEST_EXCERPT_CHARS = 160
 LOCAL_ARTICLE_DIGEST_MAX_REFERENCES = 4
@@ -49,6 +56,7 @@ def render_index_html(
     app_payload: dict[str, object] | None = None,
     local_article_intelligence: Sequence[RowOneDailyLocalIntelligenceSection] | None = None,
     saved_article_coverage: RowOneSavedArticleCoverage | None = None,
+    saved_article_briefs: RowOneSavedArticleBriefs | None = None,
 ) -> str:
     contents_nav = _render_edition_nav(edition)
     briefing_topics = _render_briefing_topics(app_payload)
@@ -61,6 +69,7 @@ def render_index_html(
     signal_synthesis = _render_signal_synthesis(app_payload)
     daily_local_intelligence = _render_daily_local_intelligence(local_article_intelligence)
     saved_article_coverage_section = _render_saved_article_coverage(saved_article_coverage)
+    saved_article_briefs_section = _render_saved_article_briefs(saved_article_briefs)
     readiness = build_row_one_readiness(edition)
     status_strip = _render_edition_status(edition, readiness)
     summary_note_en = (
@@ -134,6 +143,7 @@ def render_index_html(
 {signal_synthesis}
 {daily_local_intelligence}
 {saved_article_coverage_section}
+{saved_article_briefs_section}
 {lead_story_block}
 {briefing_topics}
 {briefing_path}
@@ -882,6 +892,104 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.35;
+}
+.saved-article-briefs {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.saved-article-briefs-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.saved-article-briefs-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.2rem, 5vw, 5.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.92;
+  margin: 0;
+}
+.saved-article-briefs-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.saved-article-briefs-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.saved-article-brief-card {
+  background: var(--panel);
+  color: inherit;
+  display: grid;
+  gap: 12px;
+  min-height: 260px;
+  padding: 16px;
+  text-decoration: none;
+}
+.saved-article-brief-card h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.25rem, 2vw, 2.05rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.saved-article-brief-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 6px 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-brief-body {
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.42;
+  margin: 0;
+}
+.saved-article-brief-chip-groups {
+  display: grid;
+  gap: 10px;
+}
+.saved-article-brief-chip-group {
+  display: grid;
+  gap: 6px;
+}
+.saved-article-brief-chip-heading {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-brief-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.saved-article-brief-chip {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  gap: 4px;
+  padding: 5px 7px;
+}
+.saved-article-brief-chip span:last-child {
+  color: var(--muted);
 }
 .briefing-topics {
   border-bottom: 1px solid var(--ink);
@@ -1674,6 +1782,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-intelligence-grid { grid-template-columns: 1fr; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
+  .saved-article-briefs-header { grid-template-columns: 1fr; }
+  .saved-article-briefs-grid { grid-template-columns: 1fr; }
   .local-article-digest-grid { grid-template-columns: 1fr; }
   .briefing-topics-header { grid-template-columns: 1fr; }
   .briefing-topic-grid { grid-template-columns: 1fr; }
@@ -2169,14 +2279,103 @@ def _render_saved_article_coverage_card(item: RowOneSavedArticleCoverageItem) ->
 
 
 def _safe_saved_article_coverage_href(href: object) -> str | None:
-    if not isinstance(href, str):
-        return None
-    if "#" not in href:
-        return None
-    path, fragment = href.split("#", 1)
-    if fragment != "local-article-digest":
-        return None
-    return href if _validated_detail_relative_path(path) is not None else None
+    return safe_row_one_detail_fragment_href(href, "local-article-digest")
+
+
+def _render_saved_article_briefs(briefs: RowOneSavedArticleBriefs | None) -> str:
+    if briefs is None:
+        return ""
+    cards = [_render_saved_article_brief_card(item) for item in briefs.items]
+    cards = [card for card in cards if card]
+    if not cards:
+        return ""
+    return f"""<section class="saved-article-briefs" aria-label="Saved article briefs">
+  <div class="saved-article-briefs-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Saved Article Briefs</span>
+        <span data-lang="zh">保存正文简报</span>
+      </p>
+      <h2>
+        <span data-lang="en">Saved Article Briefs</span>
+        <span data-lang="zh">保存正文简报</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">Readable saved-article takeaways from today's local source bodies.</span>
+      <span data-lang="zh">来自今日本地保存正文的可读文章要点。</span>
+    </p>
+  </div>
+  <div class="saved-article-briefs-grid">{"".join(cards)}</div>
+</section>"""
+
+
+def _render_saved_article_brief_card(item: RowOneSavedArticleBriefItem) -> str:
+    href = safe_row_one_detail_fragment_href(item.detail_path, "local-article-digest")
+    if href is None:
+        return ""
+    people_brands = _render_saved_article_brief_chip_group(
+        item.people_brands,
+        heading_en="People & Brands",
+        heading_zh="品牌与人物",
+    )
+    products = _render_saved_article_brief_chip_group(
+        item.products,
+        heading_en="Products",
+        heading_zh="产品",
+    )
+    chip_groups = people_brands + products
+    chip_group_block = (
+        f'\n      <div class="saved-article-brief-chip-groups">{chip_groups}\n      </div>'
+        if chip_groups
+        else ""
+    )
+    return f"""    <a class="saved-article-brief-card" href="{_esc(href)}">
+      <div class="saved-article-brief-meta">
+        <span>{_esc(item.source_name)}</span>
+        <span>
+          <span data-lang="en">{_esc(item.section_title.en)}</span>
+          <span data-lang="zh">{_esc(item.section_title.zh)}</span>
+        </span>
+      </div>
+      <h3>
+        <span data-lang="en">{_esc(item.title.en)}</span>
+        <span data-lang="zh">{_esc(item.title.zh)}</span>
+      </h3>
+      <p class="saved-article-brief-body">
+        <span data-lang="en">{_esc(_local_article_digest_excerpt(item.lead.en))}</span>
+        <span data-lang="zh">{_esc(_local_article_digest_excerpt(item.lead.zh))}</span>
+      </p>{chip_group_block}
+    </a>"""
+
+
+def _render_saved_article_brief_chip_group(
+    refs: Sequence[RowOneReference],
+    *,
+    heading_en: str,
+    heading_zh: str,
+) -> str:
+    if not refs:
+        return ""
+    chips = "".join(_render_saved_article_brief_chip(ref) for ref in refs)
+    return f"""
+        <div class="saved-article-brief-chip-group">
+          <span class="saved-article-brief-chip-heading">
+            <span data-lang="en">{_esc(heading_en)}</span>
+            <span data-lang="zh">{_esc(heading_zh)}</span>
+          </span>
+          <span class="saved-article-brief-chip-list">{chips}</span>
+        </div>"""
+
+
+def _render_saved_article_brief_chip(ref: RowOneReference) -> str:
+    label = ref.label.strip() or ref.type.strip()
+    return (
+        '<span class="saved-article-brief-chip">'
+        f"<span>{_esc(ref.name)}</span>"
+        f"<span>{_esc(label)}</span>"
+        "</span>"
+    )
 
 
 def _count_label(count: int, singular: str, plural: str) -> str:
@@ -3891,18 +4090,7 @@ def _internal_detail_href(path: str) -> str:
 
 
 def _validated_detail_relative_path(path: str) -> PurePosixPath | None:
-    pure_path = PurePosixPath(path)
-    name = pure_path.name
-    if (
-        pure_path.is_absolute()
-        or len(pure_path.parts) != 2
-        or pure_path.parts[0] != "details"
-        or pure_path.parts[1] in ("", ".", "..")
-        or ".." in pure_path.parts
-        or not _DETAIL_FILENAME_RE.fullmatch(name)
-    ):
-        return None
-    return pure_path
+    return validated_row_one_detail_relative_path(path)
 
 
 def _safe_external_url(url: str | None) -> str | None:

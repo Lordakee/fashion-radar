@@ -21,6 +21,9 @@ from fashion_radar.row_one.models import (
     RowOneStoryImage,
 )
 from fashion_radar.row_one.readiness import build_row_one_readiness
+from fashion_radar.row_one.saved_article_briefs import (
+    build_row_one_saved_article_briefs,
+)
 from fashion_radar.row_one.saved_article_coverage import (
     build_row_one_saved_article_coverage,
 )
@@ -72,6 +75,10 @@ def render_row_one_site(
         edition,
         local_articles_by_story_id,
     )
+    saved_article_briefs = build_row_one_saved_article_briefs(
+        edition,
+        local_articles_by_story_id,
+    )
     index_path = output_dir / "index.html"
     index_path.write_text(
         render_index_html(
@@ -79,6 +86,7 @@ def render_row_one_site(
             app_payload=app_payload,
             local_article_intelligence=local_article_intelligence,
             saved_article_coverage=saved_article_coverage,
+            saved_article_briefs=saved_article_briefs,
         ),
         encoding="utf-8",
     )

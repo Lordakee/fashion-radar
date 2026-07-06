@@ -349,6 +349,16 @@ coverage only; it uses existing `data/articles/<story-id>.json` sidecars, does n
 change `row-one-manifest/v1`, does not change `row-one-runtime/v1`, does not write a new json artifact, does not change detail routes, does not change
 paragraph anchors, does not change schemas, does not add source collection,
 does not add scoring, and does not add llm calls.
+Stage 313 adds homepage saved article briefs for ROW ONE: existing saved local
+article sidecars are surfaced as capped homepage brief cards with a lead saved
+text excerpt, people/brands chips, product chips, source context, and links
+into local detail-page digests. This is homepage saved article briefs only; it
+uses existing `data/articles/<story-id>.json` sidecars, does not change
+`row-one-app/v7`, does not change `data/edition.json`, does not change
+`row-one-manifest/v1`, does not change `row-one-runtime/v1`, does not write a
+new json artifact, does not change detail routes, does not change paragraph
+anchors, does not change schemas, does not add source collection, does not add
+scoring, and does not add llm calls.
 Stage 310 adds a generated-site saved text reader on story detail pages. ROW ONE
 lists saved local paragraphs as numbered reader segments that link to the
 existing `#local-article-paragraph-N` anchors before the existing saved text.

@@ -32,6 +32,10 @@ from fashion_radar.row_one.render import (
     clean_row_one_site_children,
     render_row_one_site,
 )
+from fashion_radar.row_one.saved_article_briefs import (
+    RowOneSavedArticleBriefItem,
+    RowOneSavedArticleBriefs,
+)
 from fashion_radar.row_one.saved_article_coverage import (
     RowOneSavedArticleCoverage,
     RowOneSavedArticleCoverageItem,
@@ -1717,7 +1721,7 @@ def test_render_row_one_site_includes_saved_article_coverage(tmp_path) -> None:
     manifest_json = (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8")
     runtime_json = (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8")
     coverage_html = html[
-        html.index('class="saved-article-coverage"') : html.index('class="lead-story"')
+        html.index('class="saved-article-coverage"') : html.index('class="saved-article-briefs"')
     ]
 
     assert 'class="saved-article-coverage"' in coverage_html
@@ -1742,7 +1746,7 @@ def test_render_row_one_site_includes_saved_article_coverage(tmp_path) -> None:
     assert html.index('class="daily-local-intelligence"') < html.index(
         'class="saved-article-coverage"'
     )
-    assert html.index('class="saved-article-coverage"') < html.index('class="lead-story"')
+    assert html.index('class="saved-article-coverage"') < html.index('class="saved-article-briefs"')
     for app_contract_json in (edition_json, manifest_json, runtime_json):
         assert "saved_article_coverage" not in app_contract_json
         assert "Saved Article Coverage" not in app_contract_json
@@ -1780,7 +1784,7 @@ def test_render_row_one_site_escapes_saved_article_coverage(tmp_path) -> None:
 
     html = (tmp_path / "index.html").read_text(encoding="utf-8")
     coverage_html = html[
-        html.index('class="saved-article-coverage"') : html.index('class="lead-story"')
+        html.index('class="saved-article-coverage"') : html.index('class="saved-article-briefs"')
     ]
 
     assert "&lt;script&gt;alert(&quot;headline&quot;)&lt;/script&gt;" in coverage_html
@@ -1843,6 +1847,220 @@ def _saved_article_coverage_item(
         detail_path=detail_path,
         saved_paragraph_count=1,
         organized_section_count=0,
+    )
+
+
+def test_render_row_one_site_includes_saved_article_briefs(tmp_path) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = RowOneLocalArticle(
+        story_id=story.id,
+        title="The Row saved source",
+        url="https://example.com/the-row-local",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=["Fallback saved paragraph."],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(zh="正文重点", en="Saved Article Takeaways"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="Lead", en="Lead"),
+                        body=LocalizedText(
+                            zh="首页首选中文正文摘要。",
+                            en="Preferred homepage takeaway.",
+                        ),
+                    )
+                ],
+            ),
+            RowOneLocalArticleContentSection(
+                key="entities",
+                title=LocalizedText(zh="人物品牌", en="People & Brands"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="Brands", en="Brands"),
+                        references=[
+                            RowOneReference(name="The Row", type="brand", label="tracked"),
+                            RowOneReference(name="Vogue", type="source", label="publisher"),
+                        ],
+                    )
+                ],
+            ),
+            RowOneLocalArticleContentSection(
+                key="product_signals",
+                title=LocalizedText(zh="产品", en="Products"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="Products", en="Products"),
+                        references=[
+                            RowOneReference(name="Margaux", type="bag", label="product"),
+                        ],
+                    )
+                ],
+            ),
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: local_article},
+    )
+
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+    briefs_html = html[
+        html.index('class="saved-article-briefs"') : html.index('class="lead-story"')
+    ]
+
+    assert 'class="saved-article-briefs"' in briefs_html
+    assert '<span data-lang="en">Saved Article Briefs</span>' in briefs_html
+    assert '<span data-lang="zh">保存正文简报</span>' in briefs_html
+    assert "The Row &lt;signals&gt; &quot;quiet&quot; demand" in briefs_html
+    assert "Vogue Business" in briefs_html
+    assert "Top Stories" in briefs_html
+    assert "Preferred homepage takeaway." in briefs_html
+    assert "首页首选中文正文摘要。" in briefs_html
+    assert "The Row" in briefs_html
+    assert "Margaux" in briefs_html
+    assert "People &amp; Brands" in briefs_html
+    assert "Products" in briefs_html
+    assert 'href="details/the-row-signal-1234567890.html#local-article-digest"' in briefs_html
+    assert html.index('class="saved-article-coverage"') < html.index('class="saved-article-briefs"')
+    assert html.index('class="saved-article-briefs"') < html.index('class="lead-story"')
+
+    assert edition_payload["contract_version"] == "row-one-app/v7"
+    assert manifest_payload["contract_version"] == "row-one-manifest/v1"
+    assert manifest_payload["app_contract"]["version"] == "row-one-app/v7"
+    assert runtime_payload["contract_version"] == "row-one-runtime/v1"
+    for contract_json in (
+        json.dumps(edition_payload, ensure_ascii=False),
+        json.dumps(manifest_payload, ensure_ascii=False),
+        json.dumps(runtime_payload, ensure_ascii=False),
+    ):
+        assert "saved_article_briefs" not in contract_json
+        assert "Saved Article Briefs" not in contract_json
+        assert "saved-article-briefs" not in contract_json
+        assert "Preferred homepage takeaway" not in contract_json
+    assert not (tmp_path / "data" / "saved-article-briefs.json").exists()
+
+
+def test_render_row_one_site_omits_saved_article_briefs_without_saved_articles(tmp_path) -> None:
+    render_row_one_site(_edition(), tmp_path)
+
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert "saved-article-briefs" not in html
+
+
+def test_render_row_one_site_escapes_saved_article_briefs(tmp_path) -> None:
+    edition = _edition()
+    unsafe_story = edition.stories[0].model_copy(
+        update={"headline": '<script>alert("headline")</script>'}
+    )
+    edition.stories = [unsafe_story]
+    local_article = RowOneLocalArticle(
+        story_id=unsafe_story.id,
+        title="Unsafe brief source",
+        url="https://example.com/unsafe",
+        source_name="<Vogue>",
+        extracted_at=AS_OF,
+        paragraphs=['<img src=x onerror="alert(1)">'],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="entities",
+                title=LocalizedText(zh="人物品牌", en="People & Brands"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="Brands", en="Brands"),
+                        references=[
+                            RowOneReference(
+                                name="<The Row>",
+                                type="brand",
+                                label='tracked "brand"',
+                            )
+                        ],
+                    )
+                ],
+            )
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={unsafe_story.id: local_article},
+    )
+
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    briefs_html = html[
+        html.index('class="saved-article-briefs"') : html.index('class="lead-story"')
+    ]
+
+    assert "&lt;script&gt;alert(&quot;headline&quot;)&lt;/script&gt;" in briefs_html
+    assert "&lt;Vogue&gt;" in briefs_html
+    assert "&lt;img src=x onerror=&quot;alert(1)&quot;&gt;" in briefs_html
+    assert "&lt;The Row&gt;" in briefs_html
+    assert "tracked &quot;brand&quot;" in briefs_html
+    assert "<script>" not in briefs_html
+    assert "<Vogue>" not in briefs_html
+    assert '<img src=x onerror="alert' not in briefs_html
+    assert "<The Row>" not in briefs_html
+
+
+def test_render_row_one_site_rejects_invalid_saved_article_briefs_links() -> None:
+    briefs = RowOneSavedArticleBriefs(
+        article_count=4,
+        items=[
+            _saved_article_brief_item(
+                detail_path="details/the-row-signal-1234567890.html#local-article-digest",
+                title="Valid digest brief",
+            ),
+            _saved_article_brief_item(
+                detail_path="details/the-row-signal-1234567890.html#local-article-body",
+                title="Wrong fragment brief",
+            ),
+            _saved_article_brief_item(
+                detail_path="../private.html#local-article-digest",
+                title="Traversal brief",
+            ),
+            _saved_article_brief_item(
+                detail_path="javascript:alert(1)#local-article-digest",
+                title="Script brief",
+            ),
+        ],
+    )
+
+    html = render_index_html(_edition(), saved_article_briefs=briefs)
+    briefs_html = html[
+        html.index('class="saved-article-briefs"') : html.index('class="lead-story"')
+    ]
+
+    assert "Valid digest brief" in briefs_html
+    assert "Wrong fragment brief" not in briefs_html
+    assert "Traversal brief" not in briefs_html
+    assert "Script brief" not in briefs_html
+    assert 'href="details/the-row-signal-1234567890.html#local-article-digest"' in briefs_html
+    assert "#local-article-body" not in briefs_html
+    assert "../private.html" not in briefs_html
+    assert "javascript:alert" not in briefs_html
+
+
+def _saved_article_brief_item(
+    *,
+    detail_path: str,
+    title: str,
+) -> RowOneSavedArticleBriefItem:
+    return RowOneSavedArticleBriefItem(
+        title=LocalizedText(zh=title, en=title),
+        source_name="Vogue Business",
+        section_title=LocalizedText(zh="今日重点", en="Top Stories"),
+        lead=LocalizedText(zh="正文摘要。", en="Saved article excerpt."),
+        detail_path=detail_path,
+        people_brands=(RowOneReference(name="The Row", type="brand", label="tracked"),),
+        products=(RowOneReference(name="Margaux", type="bag", label="product"),),
     )
 
 
@@ -2855,6 +3073,26 @@ def test_row_one_css_includes_saved_article_coverage_styles(tmp_path) -> None:
         ".saved-article-coverage-sources",
         ".saved-article-coverage-grid",
         ".saved-article-coverage-card",
+    ):
+        assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
+
+
+def test_row_one_css_includes_saved_article_briefs_styles(tmp_path) -> None:
+    css = render_row_one_site(_edition(), tmp_path).index_path
+    css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    for selector in (
+        ".saved-article-briefs",
+        ".saved-article-briefs-header",
+        ".saved-article-briefs-grid",
+        ".saved-article-brief-card",
+        ".saved-article-brief-meta",
+        ".saved-article-brief-body",
+        ".saved-article-brief-chip-groups",
+        ".saved-article-brief-chip-group",
+        ".saved-article-brief-chip-heading",
+        ".saved-article-brief-chip-list",
+        ".saved-article-brief-chip",
     ):
         assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
 
