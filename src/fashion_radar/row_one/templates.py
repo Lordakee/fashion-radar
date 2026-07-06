@@ -21,6 +21,7 @@ from fashion_radar.row_one.models import (
     RowOneLink,
     RowOneLocalArticle,
     RowOneLocalArticleContentItem,
+    RowOneLocalArticleContentSection,
     RowOneReference,
     RowOneSection,
     RowOneSectionKey,
@@ -60,6 +61,8 @@ LOCAL_ARTICLE_CONTENT_PREVIEW_MAX_ITEMS = 2
 LOCAL_ARTICLE_READER_EXCERPT_CHARS = 120
 DETAIL_CONTINUE_READING_EXCERPT_CHARS = 120
 DETAIL_CONTINUE_READING_MAX_ITEMS = 3
+DETAIL_SIGNAL_BRIEFING_MAX_REFS = 8
+DETAIL_SIGNAL_BRIEFING_MAX_CUES = 3
 
 
 def render_index_html(
@@ -189,6 +192,7 @@ def render_detail_html(
     local_article_section = _render_local_article(local_article)
     article_contents = _render_article_contents(include_local_article=bool(local_article_section))
     detail_information_map = _render_detail_information_map(story, section_title)
+    detail_signal_briefing = _render_detail_signal_briefing(story, local_article)
     continue_reading = _render_detail_continue_reading(edition, story)
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -231,6 +235,7 @@ def render_detail_html(
     {source_action}
     {article_contents}
     {detail_information_map}
+    {detail_signal_briefing}
     <section id="summary">
       <h2>
         <span data-lang="en">Summary</span>
@@ -1862,6 +1867,128 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   color: var(--accent);
   text-decoration: none;
 }
+.detail-signal-briefing {
+  background: var(--ink);
+  color: var(--panel);
+  margin: 28px 0;
+  padding: 22px;
+}
+.detail-signal-briefing-header {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.detail-signal-briefing-header p,
+.detail-signal-briefing-header h2 {
+  margin: 0;
+}
+.detail-signal-briefing-header p {
+  color: var(--chrome);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.detail-signal-briefing-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.8rem, 3.4vw, 3.4rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.98;
+  text-transform: none;
+}
+.detail-signal-briefing-grid {
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.detail-signal-briefing-card {
+  background: #15181d;
+  border: 1px solid rgba(244, 246, 248, 0.18);
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+}
+.detail-signal-briefing-card h3,
+.detail-signal-briefing-card p {
+  margin: 0;
+}
+.detail-signal-briefing-card h3 {
+  color: var(--panel);
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.detail-signal-briefing-card p {
+  color: var(--steel);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.detail-signal-briefing-meta {
+  color: var(--chrome);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.detail-signal-briefing-ref {
+  border: 1px solid rgba(244, 246, 248, 0.26);
+  color: var(--panel);
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin: 0 6px 6px 0;
+  padding: 6px 8px;
+}
+.detail-signal-briefing-cues {
+  border-top: 1px solid rgba(244, 246, 248, 0.22);
+  margin-top: 18px;
+  padding-top: 18px;
+}
+.detail-signal-briefing-cues h3 {
+  color: var(--panel);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+}
+.detail-signal-briefing-cue-grid {
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.detail-signal-briefing-cue {
+  background: #f4f6f8;
+  color: var(--ink);
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+}
+.detail-signal-briefing-cue h4,
+.detail-signal-briefing-cue p {
+  margin: 0;
+}
+.detail-signal-briefing-cue h4 {
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.detail-signal-briefing-cue p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.detail-signal-briefing-cue a {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-decoration: none;
+  text-transform: uppercase;
+}
 .detail-panel {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -2024,6 +2151,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .section-block { grid-template-columns: 1fr; gap: 18px; }
   .story-grid { grid-template-columns: 1fr; }
   .detail-header { padding: 18px 20px; }
+  .detail-signal-briefing-grid { grid-template-columns: 1fr; }
+  .detail-signal-briefing-cue-grid { grid-template-columns: 1fr; }
   .continue-reading-grid { grid-template-columns: 1fr; }
 }
 """
@@ -4180,6 +4309,213 @@ def _render_local_article_paragraphs(article: RowOneLocalArticle) -> list[str]:
             "</p>"
         )
     return rendered
+
+
+def _render_detail_signal_briefing(
+    story: RowOneStory,
+    local_article: RowOneLocalArticle | None,
+) -> str:
+    summary_en = _display_summary_text(story.summary.en)
+    summary_zh = _display_summary_text(story.summary.zh)
+    safe_evidence_count = _safe_evidence_count(story.evidence)
+    evidence_label_en = (
+        "1 safe evidence link"
+        if safe_evidence_count == 1
+        else f"{safe_evidence_count} safe evidence links"
+    )
+    evidence_label_zh = f"{safe_evidence_count} 条安全线索"
+    references = _render_detail_signal_briefing_references(story, local_article)
+    local_cues = _render_detail_signal_briefing_cues(local_article)
+    return f"""<section class="detail-signal-briefing" aria-label="Signal briefing">
+  <div class="detail-signal-briefing-header">
+    <p>
+      <span data-lang="en">Signal Briefing</span>
+      <span data-lang="zh">信号简报</span>
+    </p>
+    <h2>
+      <span data-lang="en">What To Know</span>
+      <span data-lang="zh">重点整理</span>
+    </h2>
+  </div>
+  <div class="detail-signal-briefing-grid">
+    <article class="detail-signal-briefing-card">
+      <h3>
+        <span data-lang="en">Signal</span>
+        <span data-lang="zh">信号</span>
+      </h3>
+      <p>
+        <span data-lang="en">{_esc(summary_en)}</span>
+        <span data-lang="zh">{_esc(summary_zh)}</span>
+      </p>
+      <p class="detail-signal-briefing-meta">
+        <span>{_esc(story.source_name)}</span>
+        <span data-lang="en">{_esc(evidence_label_en)}</span>
+        <span data-lang="zh">{_esc(evidence_label_zh)}</span>
+      </p>
+    </article>
+    <article class="detail-signal-briefing-card">
+      <h3>
+        <span data-lang="en">Context</span>
+        <span data-lang="zh">背景</span>
+      </h3>
+      <p>
+        <span data-lang="en">{_esc(story.signal_context.en)}</span>
+        <span data-lang="zh">{_esc(story.signal_context.zh)}</span>
+      </p>
+    </article>
+    <article class="detail-signal-briefing-card">
+      <h3>
+        <span data-lang="en">References</span>
+        <span data-lang="zh">引用对象</span>
+      </h3>
+      {references}
+    </article>
+  </div>
+{local_cues}
+</section>"""
+
+
+def _render_detail_signal_briefing_references(
+    story: RowOneStory,
+    local_article: RowOneLocalArticle | None,
+) -> str:
+    references = _detail_signal_briefing_references(story, local_article)
+    if not references:
+        return (
+            '<p><span data-lang="en">No tracked references yet.</span>'
+            '<span data-lang="zh">暂无跟踪引用对象。</span></p>'
+        )
+    return "\n      ".join(_render_detail_signal_briefing_ref(ref) for ref in references)
+
+
+def _detail_signal_briefing_references(
+    story: RowOneStory,
+    local_article: RowOneLocalArticle | None,
+) -> list[RowOneReference]:
+    references: list[RowOneReference] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    def add(ref: RowOneReference) -> None:
+        if len(references) >= DETAIL_SIGNAL_BRIEFING_MAX_REFS:
+            return
+        normalized_name = normalize_row_one_paragraph(ref.name)
+        if not normalized_name:
+            return
+        key = (
+            normalized_name.casefold(),
+            ref.type.strip().casefold(),
+            ref.label.strip().casefold(),
+        )
+        if key in seen:
+            return
+        seen.add(key)
+        references.append(ref)
+
+    for ref in story.entity_refs:
+        add(ref)
+    for ref in story.designer_refs:
+        add(ref)
+    for ref in story.product_refs:
+        add(ref)
+    if local_article is not None:
+        for section in local_article.content_sections:
+            for item in section.items:
+                for ref in item.references:
+                    add(ref)
+                    if len(references) >= DETAIL_SIGNAL_BRIEFING_MAX_REFS:
+                        return references
+    return references
+
+
+def _render_detail_signal_briefing_ref(ref: RowOneReference) -> str:
+    return f'<span class="detail-signal-briefing-ref">{_esc(ref.name)}</span>'
+
+
+def _render_detail_signal_briefing_cues(article: RowOneLocalArticle | None) -> str:
+    cues = _detail_signal_briefing_cues(article)
+    if not cues:
+        return ""
+    rendered = "\n".join(_render_detail_signal_briefing_cue(cue) for cue in cues)
+    return f"""  <div class="detail-signal-briefing-cues">
+    <h3>
+      <span data-lang="en">Local Article Cues</span>
+      <span data-lang="zh">本地正文线索</span>
+    </h3>
+    <div class="detail-signal-briefing-cue-grid">
+{rendered}
+    </div>
+  </div>"""
+
+
+def _detail_signal_briefing_cues(
+    article: RowOneLocalArticle | None,
+) -> list[tuple[LocalizedText, LocalizedText, int | None]]:
+    if article is None:
+        return []
+    rendered_indices = _local_article_rendered_paragraph_indices(article)
+    content_cues: list[tuple[LocalizedText, LocalizedText, int | None]] = []
+    for section in article.content_sections:
+        body = section.body
+        if body is None:
+            body = next((item.body for item in section.items if item.body is not None), None)
+        if body is None:
+            continue
+        content_cues.append(
+            (
+                section.title,
+                body,
+                _first_valid_local_article_paragraph_index(section, rendered_indices),
+            )
+        )
+    cues: list[tuple[LocalizedText, LocalizedText, int | None]] = []
+    max_brief_cues = DETAIL_SIGNAL_BRIEFING_MAX_CUES
+    if content_cues:
+        max_brief_cues -= 1
+    for section in article.brief_sections:
+        cues.append((section.title, section.body, None))
+        if len(cues) >= max_brief_cues:
+            break
+    for cue in content_cues:
+        cues.append(cue)
+        if len(cues) >= DETAIL_SIGNAL_BRIEFING_MAX_CUES:
+            break
+    return cues
+
+
+def _first_valid_local_article_paragraph_index(
+    section: RowOneLocalArticleContentSection,
+    rendered_indices: set[int],
+) -> int | None:
+    indices: list[int] = []
+    for item in section.items:
+        indices.extend(item.paragraph_indices)
+    valid = _valid_local_article_paragraph_indices(indices, rendered_indices)
+    return valid[0] if valid else None
+
+
+def _render_detail_signal_briefing_cue(
+    cue: tuple[LocalizedText, LocalizedText, int | None],
+) -> str:
+    title, body, paragraph_index = cue
+    paragraph_link = ""
+    if paragraph_index is not None:
+        href = f"#{_local_article_paragraph_anchor(paragraph_index)}"
+        paragraph_link = (
+            f'      <a href="{_esc(href)}">'
+            f'<span data-lang="en">Paragraph {paragraph_index + 1}</span>'
+            f'<span data-lang="zh">段落 {paragraph_index + 1}</span>'
+            "</a>\n"
+        )
+    return f"""      <article class="detail-signal-briefing-cue">
+        <h4>
+          <span data-lang="en">{_esc(title.en)}</span>
+          <span data-lang="zh">{_esc(title.zh)}</span>
+        </h4>
+        <p>
+          <span data-lang="en">{_esc(body.en)}</span>
+          <span data-lang="zh">{_esc(body.zh)}</span>
+        </p>
+{paragraph_link}      </article>"""
 
 
 def _render_detail_information_map(story: RowOneStory, section_title: LocalizedText) -> str:

@@ -383,6 +383,9 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "local-article-content-previews" in detail_html
     assert "Saved paragraph" in detail_html
     assert "保存段落" in detail_html
+    assert 'class="detail-signal-briefing"' in detail_html
+    assert "Signal Briefing" in detail_html
+    assert "信号简报" in detail_html
     assert any('id="continue-reading"' in html for html in detail_pages.values())
     assert any(
         "The Row ballet flat gains editorial traction" in html for html in detail_pages.values()
@@ -403,6 +406,8 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert '"saved_paragraph_previews"' not in generated_contract_payload
     assert '"continue_reading"' not in generated_contract_payload
     assert '"related_stories"' not in generated_contract_payload
+    assert '"detail_signal_briefing"' not in generated_contract_payload
+    assert '"signal_briefing"' not in generated_contract_payload
     assert '"local_article_count"' not in generated_contract_payload
     assert '"local_article_paragraph_count"' not in generated_contract_payload
     top_level_data_files = {path.name for path in (output_dir / "data").glob("*.json")}

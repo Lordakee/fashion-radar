@@ -155,6 +155,106 @@ def _edition_with_stories(*stories: RowOneStory) -> RowOneEdition:
     return edition
 
 
+def _signal_briefing_local_article() -> RowOneLocalArticle:
+    return RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Signal source article",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        published_at=AS_OF,
+        paragraphs=[
+            "The Row Margaux bag appears in saved source text.",
+            "Alaia flats appear in saved source text.",
+            "A third saved paragraph carries styling context.",
+        ],
+        paragraphs_zh=[
+            "The Row Margaux 手袋出现在保存正文中。",
+            "Alaia 平底鞋出现在保存正文中。",
+            "第三个保存段落提供造型背景。",
+        ],
+        brief_sections=[
+            RowOneLocalArticleBriefSection(
+                key="what_happened",
+                title=LocalizedText(en="What Happened", zh="发生了什么"),
+                body=LocalizedText(
+                    en="The saved article frames a new signal.",
+                    zh="保存正文呈现了新信号。",
+                ),
+            ),
+            RowOneLocalArticleBriefSection(
+                key="why_it_matters",
+                title=LocalizedText(en="Why It Matters", zh="为什么重要"),
+                body=LocalizedText(
+                    en="It changes the read on quiet luxury.",
+                    zh="这改变了静奢解读。",
+                ),
+            ),
+            RowOneLocalArticleBriefSection(
+                key="signal_context",
+                title=LocalizedText(en="Signal Context", zh="信号背景"),
+                body=LocalizedText(
+                    en="The signal context would normally occupy a third brief slot.",
+                    zh="信号背景通常会占用第三个简报位置。",
+                ),
+            ),
+            RowOneLocalArticleBriefSection(
+                key="watch_next",
+                title=LocalizedText(en="Watch Next", zh="接下来观察"),
+                body=LocalizedText(
+                    en="Watch what happens next in the saved source.",
+                    zh="继续观察保存来源中的后续变化。",
+                ),
+            ),
+        ],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                body=LocalizedText(
+                    en="Brand context from saved text.",
+                    zh="保存正文中的品牌背景。",
+                ),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="The Row", zh="The Row"),
+                        body=LocalizedText(
+                            en="The Row appears in paragraph one.",
+                            zh="The Row 出现在第一段。",
+                        ),
+                        references=[
+                            RowOneReference(name="The Row", type="brand", label="tracked"),
+                            RowOneReference(name="The Row", type="brand", label="tracked"),
+                        ],
+                        paragraph_indices=[0, 1],
+                    )
+                ],
+            ),
+            RowOneLocalArticleContentSection(
+                key="product_signals",
+                title=LocalizedText(en="Products", zh="单品"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="Alaia flats", zh="Alaia 平底鞋"),
+                        body=LocalizedText(
+                            en="Alaia flats appear in paragraph two.",
+                            zh="Alaia 平底鞋出现在第二段。",
+                        ),
+                        references=[
+                            RowOneReference(
+                                name="Alaia flats",
+                                type="shoe",
+                                label="product",
+                            ),
+                        ],
+                        paragraph_indices=[1],
+                    )
+                ],
+            ),
+        ],
+    )
+
+
 def test_render_row_one_site_writes_static_site_files(tmp_path) -> None:
     result = render_row_one_site(_edition(), tmp_path)
 
@@ -1681,6 +1781,118 @@ def test_render_row_one_detail_continue_reading_uses_editorial_takeaway_fallback
 
     assert "Fallback editorial excerpt." in detail_html
     assert "备用中文编辑摘录。" in detail_html
+
+
+def test_render_row_one_detail_includes_signal_briefing_panel(tmp_path) -> None:
+    edition = _edition()
+    story = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "headline": "The Row <script>signal</script>",
+            "summary": LocalizedText(
+                en="Original source summary: <b>The Row signal</b> is moving.",
+                zh="来源摘要：<b>The Row 信号</b>正在变化。",
+            ),
+            "signal_context": LocalizedText(
+                en="Signal context <script>alert(1)</script>.",
+                zh="信号背景 <script>alert(1)</script>。",
+            ),
+            "entity_refs": [
+                RowOneReference(name="The Row", type="brand", label="tracked"),
+                RowOneReference(name="The Row", type="brand", label="tracked"),
+            ],
+            "designer_refs": [
+                RowOneReference(
+                    name="Mary-Kate Olsen",
+                    type="designer",
+                    label="person",
+                ),
+            ],
+            "product_refs": [
+                RowOneReference(name="Margaux", type="bag", label="product"),
+                RowOneReference(
+                    name="Signal <script>Brand</script>",
+                    type="brand",
+                    label="unsafe",
+                ),
+            ],
+        },
+    )
+    html = render_detail_html(edition, story, local_article=_signal_briefing_local_article())
+
+    panel_start = html.index('class="detail-signal-briefing"')
+    panel_html = html[panel_start : html.index('id="summary"', panel_start)]
+
+    assert panel_start < html.index('id="summary"')
+    assert '<span data-lang="en">Signal Briefing</span>' in panel_html
+    assert '<span data-lang="zh">信号简报</span>' in panel_html
+    assert '<span data-lang="en">What To Know</span>' in panel_html
+    assert '<span data-lang="zh">重点整理</span>' in panel_html
+    assert '<span data-lang="en">Signal</span>' in panel_html
+    assert '<span data-lang="zh">信号</span>' in panel_html
+    assert "The Row signal is moving." in panel_html
+    assert "&lt;b&gt;" not in panel_html
+    assert "<script>" not in panel_html
+    assert "Vogue Business" in panel_html
+    assert "1 safe evidence link" in panel_html
+    assert "1 条安全线索" in panel_html
+    assert "Signal context &lt;script&gt;alert(1)&lt;/script&gt;." in panel_html
+    assert "The Row" in panel_html
+    assert "Mary-Kate Olsen" in panel_html
+    assert "Margaux" in panel_html
+    assert "Alaia flats" in panel_html
+    assert "Signal &lt;script&gt;Brand&lt;/script&gt;" in panel_html
+    assert "<script>Brand</script>" not in panel_html
+    assert panel_html.count('class="detail-signal-briefing-ref"') == 5
+    assert panel_html.count(">The Row<") == 1
+    assert "Local Article Cues" in panel_html
+    assert "本地正文线索" in panel_html
+    assert "What Happened" in panel_html
+    assert "Why It Matters" in panel_html
+    assert "People &amp; Brands" in panel_html
+    assert "Signal Context" not in panel_html
+    assert "Watch Next" not in panel_html
+    assert "Products" not in panel_html
+    assert 'href="#local-article-paragraph-1"' in panel_html
+    assert 'href="#local-article-paragraph-2"' not in panel_html
+    lower_why_start = html.index('id="why-it-matters"')
+    lower_why_html = html[lower_why_start : html.index("</section>", lower_why_start)]
+    assert panel_start < lower_why_start
+    assert "This signal belongs in Top Stories." in lower_why_html
+
+
+def test_render_row_one_detail_signal_briefing_omits_local_cues_without_structure() -> None:
+    edition = _edition()
+    html = render_detail_html(edition, edition.stories[0])
+
+    panel_start = html.index('class="detail-signal-briefing"')
+    panel_html = html[panel_start : html.index('id="summary"', panel_start)]
+
+    assert "Signal Briefing" in panel_html
+    assert "Local Article Cues" not in panel_html
+    assert "本地正文线索" not in panel_html
+
+
+def test_render_row_one_detail_signal_briefing_caps_references() -> None:
+    edition = _edition()
+    story = edition.stories[0].model_copy(
+        deep=True,
+        update={
+            "entity_refs": [
+                RowOneReference(name=f"Brand {index}", type="brand", label="tracked")
+                for index in range(1, 12)
+            ],
+        },
+    )
+
+    html = render_detail_html(edition, story)
+    panel_start = html.index('class="detail-signal-briefing"')
+    panel_html = html[panel_start : html.index('id="summary"', panel_start)]
+
+    assert panel_html.count('class="detail-signal-briefing-ref"') == 8
+    assert "Brand 1" in panel_html
+    assert "Brand 8" in panel_html
+    assert "Brand 9" not in panel_html
 
 
 def test_render_row_one_detail_skips_invalid_local_article_paragraph_links(
@@ -3352,6 +3564,24 @@ def test_row_one_css_includes_continue_reading_styles(tmp_path) -> None:
         ".continue-reading-source",
         ".continue-reading-excerpt",
         ".continue-reading-excerpt span",
+    ):
+        assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
+
+
+def test_row_one_css_includes_detail_signal_briefing_styles(tmp_path) -> None:
+    css = render_row_one_site(_edition(), tmp_path).index_path
+    css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    for selector in (
+        ".detail-signal-briefing",
+        ".detail-signal-briefing-header",
+        ".detail-signal-briefing-grid",
+        ".detail-signal-briefing-card",
+        ".detail-signal-briefing-meta",
+        ".detail-signal-briefing-ref",
+        ".detail-signal-briefing-cues",
+        ".detail-signal-briefing-cue-grid",
+        ".detail-signal-briefing-cue",
     ):
         assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
 
