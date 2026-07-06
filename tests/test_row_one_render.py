@@ -502,17 +502,49 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     assert 'id="local-article-body"' in detail_html
     assert '<span data-lang="en">Brief</span>' in detail_html
     assert '<span data-lang="zh">本地简报</span>' in detail_html
+    assert 'id="local-article-reader"' in detail_html
+    local_article_map_html = detail_html[
+        detail_html.index('class="local-article-map"') : detail_html.index(
+            'id="local-article-reader"'
+        )
+    ]
+    reader_html = detail_html[
+        detail_html.index('id="local-article-reader"') : detail_html.index(
+            'class="local-article-brief"'
+        )
+    ]
+    body_html = detail_html[detail_html.index('id="local-article-body"') :]
+    assert 'class="local-article-reader"' in detail_html
+    assert '<span data-lang="en">Saved Text Reader</span>' in reader_html
+    assert '<span data-lang="zh">保存正文阅读</span>' in reader_html
+    assert "2 saved paragraphs from Vogue Business" in reader_html
+    assert "来自 Vogue Business 的 2 个保存段落" in reader_html
+    assert 'class="local-article-reader-list"' in reader_html
+    assert 'aria-label="Saved text paragraphs"' in reader_html
+    assert 'href="#local-article-reader"' in local_article_map_html
+    assert '<span data-lang="en">Reader</span>' in local_article_map_html
+    assert '<span data-lang="zh">阅读</span>' in local_article_map_html
+    assert 'href="#local-article-paragraph-1"' in reader_html
+    assert 'href="#local-article-paragraph-2"' in reader_html
+    assert '<span class="local-article-reader-number">01</span>' in reader_html
+    assert '<span class="local-article-reader-number">02</span>' in reader_html
+    assert '<span data-lang="en">First local paragraph about The Row demand.</span>' in reader_html
+    assert '<span data-lang="zh">第一段本地正文，关于 The Row 需求。</span>' in reader_html
+    assert '<span data-lang="en">Saved text</span>' in local_article_map_html
+    assert '<span data-lang="zh">保存正文</span>' in local_article_map_html
+    assert "Full saved text" not in detail_html
+    assert "完整保存正文" not in detail_html
     assert re.search(
         r'<a href="#local-article-content-section-1">\s*'
         r'<span data-lang="en">Takeaways</span>\s*'
         r'<span data-lang="zh">要点</span>\s*</a>',
-        detail_html,
+        local_article_map_html,
     )
     assert re.search(
         r'<a href="#local-article-content-section-2">\s*'
         r'<span data-lang="en">Entities</span>\s*'
         r'<span data-lang="zh">相关对象</span>\s*</a>',
-        detail_html,
+        local_article_map_html,
     )
     assert 'class="local-article-brief"' in detail_html
     assert '<span data-lang="en">What Happened</span>' in detail_html
@@ -550,7 +582,19 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     )
     assert '<span data-lang="zh">The Row 需求的来源摘录。</span>' in content_sections_html
     assert detail_html.index('class="local-article-map"') < detail_html.index(
+        'id="local-article-reader"'
+    )
+    assert detail_html.index('href="#local-article-brief"') < detail_html.index(
+        'href="#local-article-reader"'
+    )
+    assert detail_html.index('href="#local-article-reader"') < detail_html.index(
+        'href="#local-article-content-section-1"'
+    )
+    assert detail_html.index('id="local-article-reader"') < detail_html.index(
         'class="local-article-brief"'
+    )
+    assert detail_html.index('id="local-article-reader"') < detail_html.index(
+        'id="local-article-body"'
     )
     assert detail_html.index('href="#local-article-content-section-1"') < detail_html.index(
         'id="local-article-content-section-1"'
@@ -561,12 +605,12 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     assert detail_html.index('class="local-article-content-sections"') < detail_html.index(
         'class="local-article-body"'
     )
-    assert '<span data-lang="en">First local paragraph about The Row demand.</span>' in detail_html
-    assert '<span data-lang="zh">第一段本地正文，关于 The Row 需求。</span>' in detail_html
+    assert '<span data-lang="en">First local paragraph about The Row demand.</span>' in body_html
+    assert '<span data-lang="zh">第一段本地正文，关于 The Row 需求。</span>' in body_html
     assert detail_html.index('href="#local-article-paragraph-1"') < detail_html.index(
         'id="local-article-paragraph-1"'
     )
-    assert detail_html.index('data-lang="en">First local paragraph') < detail_html.index(
+    assert body_html.index('data-lang="en">First local paragraph') < body_html.index(
         'data-lang="zh">第一段本地正文'
     )
     assert 'href="#local-article"' in detail_html
@@ -600,6 +644,7 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     }
     assert "The Row demand moved." not in edition_json
     assert "First local paragraph about The Row demand." not in edition_json
+    assert "local-article-reader" not in edition_json
 
 
 def test_render_row_one_detail_local_article_provenance_uses_article_source(
@@ -689,6 +734,227 @@ def test_render_row_one_detail_keeps_plain_local_article_without_zh_paragraphs(
     assert 'href="#local-article"' in detail_html
 
 
+def test_render_row_one_detail_plain_local_article_gets_reader_without_map(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Plain source article",
+        url="https://example.com/plain",
+        source_name="Fashion Desk",
+        extracted_at=AS_OF,
+        paragraphs=[
+            "First saved source paragraph for the local reader.",
+            "Second saved source paragraph for the local reader.",
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'id="local-article-reader"' in detail_html
+    assert "2 saved paragraphs from Fashion Desk" in detail_html
+    assert 'class="local-article-reader-list"' in detail_html
+    assert 'href="#local-article-paragraph-1"' in detail_html
+    assert 'href="#local-article-paragraph-2"' in detail_html
+    assert 'class="local-article-map"' not in detail_html
+    assert (
+        '<p id="local-article-paragraph-1">First saved source paragraph for the local reader.</p>'
+    ) in detail_html
+    assert (
+        '<p id="local-article-paragraph-2">Second saved source paragraph for the local reader.</p>'
+    ) in detail_html
+
+
+def test_render_row_one_detail_reader_uses_singular_paragraph_meta(tmp_path) -> None:
+    edition = _edition()
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Single paragraph article",
+        url="https://example.com/single",
+        source_name="Fashion Desk",
+        extracted_at=AS_OF,
+        paragraphs=["One saved source paragraph for the reader."],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert "1 saved paragraph from Fashion Desk" in detail_html
+    assert "1 saved paragraphs from Fashion Desk" not in detail_html
+
+
+def test_render_row_one_detail_reader_falls_back_when_aligned_zh_excerpt_is_blank(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Aligned blank zh article",
+        url="https://example.com/aligned",
+        source_name="Fashion Desk",
+        extracted_at=AS_OF,
+        paragraphs=[
+            "First aligned paragraph for the reader.",
+            "Second aligned paragraph falls back when zh is blank.",
+        ],
+        paragraphs_zh=[
+            "第一段用于阅读器。",
+            "   ",
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    reader_html = detail_html[
+        detail_html.index('id="local-article-reader"') : detail_html.index(
+            'id="local-article-body"'
+        )
+    ]
+
+    assert '<span data-lang="zh">第一段用于阅读器。</span>' in reader_html
+    assert (
+        '<span data-lang="zh">Second aligned paragraph falls back when zh is blank.</span>'
+        in reader_html
+    )
+
+
+def test_render_row_one_detail_reader_uses_plain_excerpt_when_zh_paragraphs_mismatch(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Mismatched zh article",
+        url="https://example.com/mismatch",
+        source_name="Fashion Desk",
+        extracted_at=AS_OF,
+        paragraphs=[
+            "First source paragraph uses plain reader output.",
+            "Second source paragraph also uses plain reader output.",
+        ],
+        paragraphs_zh=["只有一个中文段落。"],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    reader_html = detail_html[
+        detail_html.index('id="local-article-reader"') : detail_html.index(
+            'id="local-article-body"'
+        )
+    ]
+
+    assert "First source paragraph uses plain reader output." in reader_html
+    assert "Second source paragraph also uses plain reader output." in reader_html
+    assert 'data-lang="zh">只有一个中文段落。' not in reader_html
+    assert 'data-lang="en">First source paragraph uses plain reader output.' not in reader_html
+
+
+def test_render_row_one_detail_reader_skips_blank_escapes_and_truncates(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    long_text = (
+        "The Row paragraph includes <script>alert('x')</script> and a very long "
+        "source sentence that should be shortened inside the reader index while "
+        "the existing saved text remains available through the paragraph anchor."
+    )
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Escaped reader article",
+        url="https://example.com/escaped",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=[long_text, "   ", "Final concise paragraph."],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    reader_html = detail_html[
+        detail_html.index('id="local-article-reader"') : detail_html.index(
+            'id="local-article-body"'
+        )
+    ]
+    body_html = detail_html[detail_html.index('id="local-article-body"') :]
+
+    assert "local-article-paragraph-2" not in reader_html
+    assert 'href="#local-article-paragraph-1"' in reader_html
+    assert 'href="#local-article-paragraph-3"' in reader_html
+    assert "&lt;script&gt;alert(&#x27;x&#x27;)&lt;/script&gt;" in reader_html
+    assert "<script>alert" not in reader_html
+    assert "paragraph anchor." not in reader_html
+    assert "…" in reader_html
+    assert 'id="local-article-paragraph-1"' in body_html
+    assert "paragraph anchor." in body_html
+    assert '<p id="local-article-paragraph-3">Final concise paragraph.</p>' in detail_html
+
+
+def test_render_row_one_detail_reader_keeps_app_contract_stable(tmp_path) -> None:
+    edition = _edition()
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Contract stable article",
+        url="https://example.com/contract",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=["Reader-only local paragraph for contract stability."],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+    edition_json = json.dumps(edition_payload, ensure_ascii=False)
+
+    assert edition_payload["contract_version"] == "row-one-app/v7"
+    assert manifest_payload["contract_version"] == "row-one-manifest/v1"
+    assert manifest_payload["app_contract"]["version"] == "row-one-app/v7"
+    assert runtime_payload["contract_version"] == "row-one-runtime/v1"
+    assert "Reader-only local paragraph for contract stability." not in edition_json
+    assert "local-article-reader" not in edition_json
+
+
 def test_render_row_one_detail_map_handles_brief_only_local_article(
     tmp_path,
 ) -> None:
@@ -724,9 +990,19 @@ def test_render_row_one_detail_map_handles_brief_only_local_article(
     ]
 
     assert 'href="#local-article-brief"' in local_article_map_html
+    assert 'href="#local-article-reader"' in local_article_map_html
+    assert '<span data-lang="en">Reader</span>' in local_article_map_html
+    assert '<span data-lang="zh">阅读</span>' in local_article_map_html
     assert 'href="#local-article-body"' in local_article_map_html
+    assert local_article_map_html.index('href="#local-article-brief"') < (
+        local_article_map_html.index('href="#local-article-reader"')
+    )
+    assert local_article_map_html.index('href="#local-article-reader"') < (
+        local_article_map_html.index('href="#local-article-body"')
+    )
     assert "#local-article-content-section-" not in local_article_map_html
     assert 'id="local-article-brief"' in detail_html
+    assert 'id="local-article-reader"' in detail_html
     assert 'id="local-article-body"' in detail_html
 
 
@@ -765,10 +1041,24 @@ def test_render_row_one_detail_uses_plain_local_article_when_zh_paragraphs_misma
     detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
         encoding="utf-8"
     )
+    local_article_map_html = detail_html[
+        detail_html.index('class="local-article-map"') : detail_html.index(
+            'id="local-article-reader"'
+        )
+    ]
 
     assert '<p id="local-article-paragraph-1">One source paragraph.</p>' in detail_html
     assert '<p id="local-article-paragraph-2">Second source paragraph.</p>' in detail_html
     assert 'href="#local-article-paragraph-1"' in detail_html
+    assert 'href="#local-article-reader"' in local_article_map_html
+    assert '<span data-lang="en">Reader</span>' in local_article_map_html
+    assert '<span data-lang="zh">阅读</span>' in local_article_map_html
+    assert local_article_map_html.index('href="#local-article-reader"') < (
+        local_article_map_html.index('href="#local-article-content-section-1"')
+    )
+    assert local_article_map_html.index('href="#local-article-content-section-1"') < (
+        local_article_map_html.index('href="#local-article-body"')
+    )
     assert '<span data-lang="en">Structured English.</span>' in detail_html
     assert '<span data-lang="zh">结构化中文。</span>' in detail_html
     assert '<span data-lang="zh">一段中文。</span>' not in detail_html
@@ -821,7 +1111,18 @@ def test_render_row_one_detail_skips_invalid_local_article_paragraph_links(
     assert '<span class="local-article-provenance-value">3</span>' not in provenance_html
     assert 'href="#local-article-paragraph-1"' in detail_html
     assert 'href="#local-article-paragraph-3"' in detail_html
-    assert detail_html.count('href="#local-article-paragraph-3"') == 2
+    reader_html = detail_html[
+        detail_html.index('id="local-article-reader"') : detail_html.index(
+            'class="local-article-content-sections"'
+        )
+    ]
+    content_sections_html = detail_html[
+        detail_html.index('class="local-article-content-sections"') : detail_html.index(
+            'id="local-article-body"'
+        )
+    ]
+    assert reader_html.count('href="#local-article-paragraph-3"') == 1
+    assert content_sections_html.count('href="#local-article-paragraph-3"') == 2
     assert 'href="#local-article-paragraph-0"' not in detail_html
     assert 'href="#local-article-paragraph-2"' not in detail_html
     assert 'href="#local-article-paragraph-100"' not in detail_html
@@ -1985,6 +2286,11 @@ def test_row_one_css_includes_local_article_map_styles(tmp_path) -> None:
     for selector in (
         ".local-article-map",
         ".local-article-map a",
+        ".local-article-reader {",
+        ".local-article-reader-list {",
+        ".local-article-reader-list a {",
+        ".local-article-reader-number {",
+        ".local-article-reader-excerpt {",
         ".local-article-content-paragraph-links a",
         ".local-article-body p:target",
     ):

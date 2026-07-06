@@ -34,6 +34,7 @@ from fashion_radar.row_one.utils import safe_external_url
 
 _DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$")
 _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE = re.compile(r"local-article-paragraph-[1-9][0-9]*$")
+LOCAL_ARTICLE_READER_EXCERPT_CHARS = 120
 
 
 def render_index_html(
@@ -1265,6 +1266,48 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   display: inline-block;
   margin: 0 4px 4px 0;
 }
+.local-article-reader {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 14px;
+  margin: 14px 0 16px;
+}
+.local-article-reader h4 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+}
+.local-article-reader-meta {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.local-article-reader-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.local-article-reader-list a {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  color: inherit;
+  text-decoration: none;
+}
+.local-article-reader-list a:hover {
+  color: var(--accent);
+}
+.local-article-reader-number {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+.local-article-reader-excerpt {
+  min-width: 0;
+}
 .local-article-brief {
   border: 1px solid var(--line);
   display: grid;
@@ -2488,7 +2531,8 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
     title = article.title or "Source article"
     provenance = _render_local_article_provenance(article)
     brief = _render_local_article_brief(article)
-    article_map = _render_local_article_map(article)
+    reader = _render_local_article_reader(article)
+    article_map = _render_local_article_map(article, include_reader=bool(reader))
     content_sections = _render_local_article_content_sections(
         article,
         rendered_indices=_local_article_rendered_paragraph_indices(article),
@@ -2506,6 +2550,7 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
 {provenance}
       <h3>{_esc(title)}</h3>
 {article_map}
+{reader}
 {brief}
 {content_sections}
       <div id="local-article-body" class="local-article-body">
@@ -2575,7 +2620,94 @@ def _format_datetime(value: datetime) -> str:
     return value.strftime("%b %d, %Y")
 
 
-def _render_local_article_map(article: RowOneLocalArticle) -> str:
+def _render_local_article_reader(article: RowOneLocalArticle) -> str:
+    items = _local_article_reader_items(article)
+    if not items:
+        return ""
+    count = len(items)
+    paragraph_label = "paragraph" if count == 1 else "paragraphs"
+    meta_en = f"{count} saved {paragraph_label} from {article.source_name}"
+    meta_zh = f"来自 {article.source_name} 的 {count} 个保存段落"
+    rendered_items = "\n".join(
+        _render_local_article_reader_item(
+            position=position,
+            paragraph_index=paragraph_index,
+            excerpt_en=excerpt_en,
+            excerpt_zh=excerpt_zh,
+        )
+        for position, (paragraph_index, excerpt_en, excerpt_zh) in enumerate(
+            items,
+            start=1,
+        )
+    )
+    return f"""      <div id="local-article-reader" class="local-article-reader">
+        <h4>
+          <span data-lang="en">Saved Text Reader</span>
+          <span data-lang="zh">保存正文阅读</span>
+        </h4>
+        <p class="local-article-reader-meta">
+          <span data-lang="en">{_esc(meta_en)}</span>
+          <span data-lang="zh">{_esc(meta_zh)}</span>
+        </p>
+        <ol class="local-article-reader-list" aria-label="Saved text paragraphs">
+{rendered_items}
+        </ol>
+      </div>"""
+
+
+def _local_article_reader_items(article: RowOneLocalArticle) -> list[tuple[int, str, str | None]]:
+    aligned_zh = (
+        article.paragraphs_zh if len(article.paragraphs_zh) == len(article.paragraphs) else []
+    )
+    items: list[tuple[int, str, str | None]] = []
+    for index, paragraph in enumerate(article.paragraphs):
+        if not paragraph.strip():
+            continue
+        excerpt_en = _local_article_reader_excerpt(paragraph)
+        excerpt_zh = None
+        if aligned_zh:
+            zh = aligned_zh[index]
+            excerpt_zh = _local_article_reader_excerpt(zh) if zh.strip() else excerpt_en
+        items.append((index, excerpt_en, excerpt_zh))
+    return items
+
+
+def _local_article_reader_excerpt(text: str) -> str:
+    return _meta_description(
+        normalize_row_one_paragraph(text),
+        limit=LOCAL_ARTICLE_READER_EXCERPT_CHARS,
+    )
+
+
+def _render_local_article_reader_item(
+    *,
+    position: int,
+    paragraph_index: int,
+    excerpt_en: str,
+    excerpt_zh: str | None,
+) -> str:
+    href = f"#{_local_article_paragraph_anchor(paragraph_index)}"
+    number = f"{position:02d}"
+    if excerpt_zh is None:
+        excerpt = _esc(excerpt_en)
+    else:
+        excerpt = (
+            f'<span data-lang="en">{_esc(excerpt_en)}</span>'
+            f'<span data-lang="zh">{_esc(excerpt_zh)}</span>'
+        )
+    return f"""          <li>
+            <a href="{_esc(href)}">
+              <span class="local-article-reader-number">{_esc(number)}</span>
+              <span class="local-article-reader-excerpt">{excerpt}</span>
+            </a>
+          </li>"""
+
+
+def _render_local_article_map(
+    article: RowOneLocalArticle,
+    *,
+    include_reader: bool = False,
+) -> str:
     if not article.brief_sections and not article.content_sections:
         return ""
     links = []
@@ -2584,6 +2716,13 @@ def _render_local_article_map(article: RowOneLocalArticle) -> str:
             '<a href="#local-article-brief">'
             '<span data-lang="en">Brief</span>'
             '<span data-lang="zh">本地简报</span>'
+            "</a>"
+        )
+    if include_reader:
+        links.append(
+            '<a href="#local-article-reader">'
+            '<span data-lang="en">Reader</span>'
+            '<span data-lang="zh">阅读</span>'
             "</a>"
         )
     for position, section in enumerate(article.content_sections, start=1):
@@ -2596,8 +2735,8 @@ def _render_local_article_map(article: RowOneLocalArticle) -> str:
         )
     links.append(
         '<a href="#local-article-body">'
-        '<span data-lang="en">Full saved text</span>'
-        '<span data-lang="zh">完整保存正文</span>'
+        '<span data-lang="en">Saved text</span>'
+        '<span data-lang="zh">保存正文</span>'
         "</a>"
     )
     return (

@@ -73,6 +73,29 @@ def test_row_one_docs_describe_generated_files_and_cleanup_boundary() -> None:
         assert phrase in normalized
 
 
+def test_row_one_docs_describe_saved_article_reader_boundary() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    docs = (ROOT / "docs" / "row-one.md").read_text(encoding="utf-8")
+
+    expected_phrases = [
+        "saved text reader",
+        "detail-page saved text reader",
+        "uses existing `data/articles/<story-id>.json` sidecars",
+        "does not change `row-one-app/v7`",
+        "does not change `data/edition.json`",
+        "does not change `row-one-manifest/v1`",
+        "does not change `row-one-runtime/v1`",
+        "does not change detail routes",
+        "does not change paragraph anchors",
+        "does not change schemas",
+        "does not add source collection",
+        "does not add scoring",
+    ]
+    for phrase in expected_phrases:
+        assert phrase in readme
+        assert phrase in docs
+
+
 def test_row_one_docs_include_user_required_phrases() -> None:
     normalized = _normalized(_read(ROW_ONE_DOC))
 

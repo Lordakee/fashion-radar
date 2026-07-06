@@ -336,6 +336,11 @@ paragraphs as the deterministic fallback when no signal paragraph is present.
 Detail pages render a local article map for structured saved articles, and
 paragraph target highlight styling makes in-page paragraph jumps visibly land
 on the referenced saved text.
+Stage 310 adds a generated-site saved text reader on story detail pages. ROW ONE
+lists saved local paragraphs as numbered reader segments that link to the
+existing `#local-article-paragraph-N` anchors before the existing saved text.
+This is a detail-page saved text reader only; it does not change
+`row-one-app/v7`, does not change `data/edition.json`, uses existing `data/articles/<story-id>.json` sidecars, does not change `row-one-manifest/v1`, does not change `row-one-runtime/v1`, does not change detail routes, does not change paragraph anchors, does not change schemas, does not add source collection, and does not add scoring.
 Stage 309 adds newsroom digest polish: ROW ONE clusters duplicate saved
 local-article cards in `data/local-intelligence.json` for the homepage
 `strongest_reads` and `heat_movers` digest sections, evidence paragraph links

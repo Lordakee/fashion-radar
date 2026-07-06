@@ -141,10 +141,15 @@ Detail-page reference cards can include saved-source paragraph excerpts for
 matched brands, designers, people, bags, shoes, and products while keeping
 paragraph badges linked to the local article body. Structured local articles
 also include a detail-page local article map so readers can jump between the
-brief, organized content cards, and full saved text. Local article takeaways
+brief, organized content cards, and saved text. Local article takeaways
 prioritize source-backed signal paragraphs with explicit brand, designer,
 person, bag, shoe, or product matches before falling back to the first saved
 paragraphs.
+Stage 310 adds a generated-site saved text reader on ROW ONE detail pages:
+saved local paragraphs are listed as numbered in-page reader segments that link
+to the existing paragraph anchors before the existing saved text. This is a
+detail-page saved text reader only; it does not change `row-one-app/v7`,
+does not change `data/edition.json`, uses existing `data/articles/<story-id>.json` sidecars, does not change `row-one-manifest/v1`, does not change `row-one-runtime/v1`, does not change detail routes, does not change paragraph anchors, does not change schemas, does not add source collection, and does not add scoring.
 ROW ONE also applies newsroom digest polish to saved local articles: it
 clusters duplicate saved local-article cards in the homepage digest, evidence
 paragraph links point into saved local paragraphs with reader-facing copy, and
