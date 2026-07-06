@@ -344,6 +344,9 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "Saved Article Content Organization" in index_html
     assert "保存正文内容整理" in index_html
     assert "#local-article-content-section-" in index_html
+    assert "local-article-content-previews" in detail_html
+    assert "Saved paragraph" in detail_html
+    assert "保存段落" in detail_html
     assert edition_payload["contract_version"] == "row-one-app/v7"
     assert manifest_payload["contract_version"] == "row-one-manifest/v1"
     assert runtime_payload["contract_version"] == "row-one-runtime/v1"
@@ -357,6 +360,7 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     )
     assert '"local_articles"' not in generated_contract_payload
     assert '"saved_article_content_organization"' not in generated_contract_payload
+    assert '"saved_paragraph_previews"' not in generated_contract_payload
     assert '"local_article_count"' not in generated_contract_payload
     assert '"local_article_paragraph_count"' not in generated_contract_payload
     top_level_data_files = {path.name for path in (output_dir / "data").glob("*.json")}

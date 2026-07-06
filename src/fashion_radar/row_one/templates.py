@@ -55,6 +55,8 @@ _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE = re.compile(
 )
 LOCAL_ARTICLE_DIGEST_EXCERPT_CHARS = 160
 LOCAL_ARTICLE_DIGEST_MAX_REFERENCES = 4
+LOCAL_ARTICLE_CONTENT_PREVIEW_EXCERPT_CHARS = 140
+LOCAL_ARTICLE_CONTENT_PREVIEW_MAX_ITEMS = 2
 LOCAL_ARTICLE_READER_EXCERPT_CHARS = 120
 
 
@@ -1749,6 +1751,32 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   display: block;
   font-size: 0.82rem;
   margin-bottom: 4px;
+}
+.local-article-content-previews {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+.local-article-content-preview a {
+  border: 1px solid var(--line);
+  color: inherit;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  text-decoration: none;
+}
+.local-article-content-preview a > span:first-child,
+.local-article-content-preview a > span:nth-child(2) {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.local-article-content-preview a > span:last-child {
+  line-height: 1.45;
 }
 .local-article-content-meta {
   color: var(--muted);
@@ -3776,7 +3804,11 @@ def _render_local_article_content_sections(
                 ]
             )
         rendered_items = "\n".join(
-            _render_local_article_content_item(item, rendered_indices=rendered_indices)
+            _render_local_article_content_item(
+                item,
+                article=article,
+                rendered_indices=rendered_indices,
+            )
             for item in section.items
         )
         if rendered_items:
@@ -3803,6 +3835,7 @@ def _render_local_article_content_sections(
 def _render_local_article_content_item(
     item: RowOneLocalArticleContentItem,
     *,
+    article: RowOneLocalArticle,
     rendered_indices: set[int],
 ) -> str:
     item_parts = [
@@ -3821,6 +3854,13 @@ def _render_local_article_content_item(
                 "              </p>",
             ]
         )
+    previews = _render_local_article_content_paragraph_previews(
+        article,
+        item,
+        rendered_indices=rendered_indices,
+    )
+    if previews:
+        item_parts.append(previews)
     paragraphs = _render_local_article_paragraph_links(
         item.paragraph_indices,
         rendered_indices=rendered_indices,
@@ -3832,6 +3872,54 @@ def _render_local_article_content_item(
         item_parts.append(refs)
     item_parts.append("            </li>")
     return "\n".join(item_parts)
+
+
+def _render_local_article_content_paragraph_previews(
+    article: RowOneLocalArticle,
+    item: RowOneLocalArticleContentItem,
+    *,
+    rendered_indices: set[int],
+) -> str:
+    valid_indices = _valid_local_article_paragraph_indices(
+        item.paragraph_indices,
+        rendered_indices,
+    )[:LOCAL_ARTICLE_CONTENT_PREVIEW_MAX_ITEMS]
+    if not valid_indices:
+        return ""
+    aligned_zh = (
+        article.paragraphs_zh if len(article.paragraphs_zh) == len(article.paragraphs) else []
+    )
+    previews: list[str] = []
+    for index in valid_indices:
+        en = _local_article_content_preview_excerpt(article.paragraphs[index])
+        href = f"#{_local_article_paragraph_anchor(index)}"
+        label_en = f"Saved paragraph {index + 1}"
+        label_zh = f"保存段落 {index + 1}"
+        if aligned_zh and aligned_zh[index].strip():
+            zh = _local_article_content_preview_excerpt(aligned_zh[index])
+            body = f'<span data-lang="en">{_esc(en)}</span><span data-lang="zh">{_esc(zh)}</span>'
+        else:
+            body = _esc(en)
+        previews.append(
+            "            "
+            f'<li class="local-article-content-preview">'
+            f'<a href="{_esc(href)}">'
+            f'<span data-lang="en">{_esc(label_en)}</span>'
+            f'<span data-lang="zh">{_esc(label_zh)}</span>'
+            f"<span>{body}</span>"
+            "</a></li>"
+        )
+    return (
+        '          <ul class="local-article-content-previews" '
+        'aria-label="Saved paragraph previews">\n' + "\n".join(previews) + "\n          </ul>"
+    )
+
+
+def _local_article_content_preview_excerpt(text: str) -> str:
+    return _meta_description(
+        normalize_row_one_paragraph(text),
+        limit=LOCAL_ARTICLE_CONTENT_PREVIEW_EXCERPT_CHARS,
+    )
 
 
 def _local_article_rendered_paragraph_indices(article: RowOneLocalArticle) -> set[int]:

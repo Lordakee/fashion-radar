@@ -1449,6 +1449,122 @@ def test_render_row_one_detail_uses_plain_local_article_when_zh_paragraphs_misma
     assert '<span data-lang="zh">一段中文。</span>' not in detail_html
 
 
+def test_render_row_one_detail_content_items_show_saved_paragraph_previews(
+    tmp_path,
+) -> None:
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Source article title",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=[
+            "First saved source paragraph about The Row.",
+            "Second saved source paragraph about Margaux.",
+            "Third saved source paragraph that should be capped.",
+        ],
+        paragraphs_zh=[
+            "第一段保存正文，关于 The Row。",
+            "第二段保存正文，关于 Margaux。",
+            "第三段保存正文会被上限省略。",
+        ],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(en="Takeaways", zh="要点"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="Source lead", zh="来源导语"),
+                        body=LocalizedText(en="Structured item body.", zh="结构化条目正文。"),
+                        paragraph_indices=[0, 1, 2],
+                    )
+                ],
+            )
+        ],
+    )
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    section_html = detail_html[
+        detail_html.index('id="local-article-content-section-1"') : detail_html.index(
+            'id="local-article-body"'
+        )
+    ]
+
+    assert 'class="local-article-content-previews"' in section_html
+    assert '<span data-lang="en">Saved paragraph 1</span>' in section_html
+    assert '<span data-lang="zh">保存段落 1</span>' in section_html
+    assert '<span data-lang="en">Saved paragraph 2</span>' in section_html
+    assert '<span data-lang="zh">保存段落 2</span>' in section_html
+    assert 'href="#local-article-paragraph-1"' in section_html
+    assert 'href="#local-article-paragraph-2"' in section_html
+    assert "First saved source paragraph about The Row." in section_html
+    assert "第一段保存正文，关于 The Row。" in section_html
+    assert "Second saved source paragraph about Margaux." in section_html
+    assert "第二段保存正文，关于 Margaux。" in section_html
+    assert "Third saved source paragraph that should be capped." not in section_html
+
+
+def test_render_row_one_detail_content_previews_filter_invalid_indices_and_escape(
+    tmp_path,
+) -> None:
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Source article title",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=[
+            "Valid <script>source</script> paragraph.",
+            "   ",
+            "Second valid paragraph.",
+        ],
+        paragraphs_zh=["中文长度不匹配。"],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(en="Takeaways", zh="要点"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="Source lead", zh="来源导语"),
+                        paragraph_indices=[0, 0, 1, -1, 99, 2],
+                    )
+                ],
+            )
+        ],
+    )
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    section_html = detail_html[
+        detail_html.index('id="local-article-content-section-1"') : detail_html.index(
+            'id="local-article-body"'
+        )
+    ]
+
+    assert section_html.count('class="local-article-content-preview"') == 2
+    assert "Valid &lt;script&gt;source&lt;/script&gt; paragraph." in section_html
+    assert "Second valid paragraph." in section_html
+    assert "中文长度不匹配。" not in section_html
+    assert 'href="#local-article-paragraph-1"' in section_html
+    assert 'href="#local-article-paragraph-2"' not in section_html
+    assert 'href="#local-article-paragraph-3"' in section_html
+
+
 def test_render_row_one_detail_skips_invalid_local_article_paragraph_links(
     tmp_path,
 ) -> None:
@@ -1507,7 +1623,7 @@ def test_render_row_one_detail_skips_invalid_local_article_paragraph_links(
         )
     ]
     assert reader_html.count('href="#local-article-paragraph-3"') == 1
-    assert content_sections_html.count('href="#local-article-paragraph-3"') == 2
+    assert content_sections_html.count('href="#local-article-paragraph-3"') == 3
     assert 'href="#local-article-paragraph-0"' not in detail_html
     assert 'href="#local-article-paragraph-2"' not in detail_html
     assert 'href="#local-article-paragraph-100"' not in detail_html

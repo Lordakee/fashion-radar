@@ -391,6 +391,18 @@ detail routes, does not change paragraph anchors, does not change schemas, does
 not write a new json artifact, does not add source collection, does not fetch
 article pages, does not add scoring, does not add llm calls, does not add
 connectors, and is not a compliance review feature.
+
+Stage 317 adds detail saved paragraph previews to generated ROW ONE detail
+pages. It is generated-site only and turns existing
+`data/articles/<story-id>.json` sidecars, existing saved local paragraphs, and
+existing `content_sections` into compact paragraph previews that link to
+existing paragraph anchors. It does not change `row-one-app/v7`, does not change
+`data/edition.json`, does not change `row-one-manifest/v1`, does not change
+`row-one-runtime/v1`, does not change detail routes, does not change paragraph
+anchors, does not change schemas, does not write a new json artifact, does not
+add source collection, does not fetch article pages, does not add scoring, does
+not add llm calls, does not add connectors, and is not a compliance review
+feature.
 Stage 310 adds a generated-site saved text reader on story detail pages. ROW ONE
 lists saved local paragraphs as numbered reader segments that link to the
 existing `#local-article-paragraph-N` anchors before the existing saved text.
