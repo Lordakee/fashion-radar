@@ -336,6 +336,16 @@ paragraphs as the deterministic fallback when no signal paragraph is present.
 Detail pages render a local article map for structured saved articles, and
 paragraph target highlight styling makes in-page paragraph jumps visibly land
 on the referenced saved text.
+Stage 309 adds newsroom digest polish: ROW ONE clusters duplicate saved
+local-article cards in `data/local-intelligence.json` for the homepage
+`strongest_reads` and `heat_movers` digest sections, evidence paragraph links
+use reader-facing copy, and detail pages show compact local article provenance
+from existing source/extraction/published/count fields. This is presentation
+and sidecar organization only; it does not change `row-one-app/v7`, does not
+change `data/edition.json`, does not change `row-one-manifest/v1`, and does
+not change `row-one-runtime/v1`. It does not add source collection, does not
+add scoring, and does not change collection, matching, story IDs, detail
+routes, paragraph anchors, or schemas.
 
 The latest-only cleanup has two local presentation surfaces.
 `row-one build --latest-only` and `row-one preview --latest-only` remove only

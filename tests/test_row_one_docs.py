@@ -817,3 +817,51 @@ def test_row_one_docs_describe_daily_local_intelligence() -> None:
     assert "source-backed reference excerpts" in row_one_docs
     assert "explicit brand, designer, person, bag, shoe, or product matches" in row_one_docs
     assert "paragraph target highlight" in row_one_docs
+
+
+def test_row_one_docs_describe_newsroom_digest_polish_boundary() -> None:
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    readme = _normalized(_read(README))
+
+    for phrase in (
+        "newsroom digest polish",
+        "clusters duplicate saved local-article cards",
+        "`data/local-intelligence.json`",
+        "`strongest_reads`",
+        "`heat_movers`",
+        "evidence paragraph links",
+        "local article provenance",
+        "presentation and sidecar organization only",
+        "does not change `row-one-app/v7`",
+        "does not change `data/edition.json`",
+        "does not change `row-one-manifest/v1`",
+        "does not change `row-one-runtime/v1`",
+        "does not add source collection",
+        "does not add scoring",
+    ):
+        assert phrase in row_one
+
+    for phrase in (
+        "newsroom digest polish",
+        "local article provenance",
+        "does not change `row-one-app/v7`",
+        "does not change `data/edition.json`",
+        "does not change `row-one-manifest/v1`",
+        "does not change `row-one-runtime/v1`",
+        "does not change detail routes",
+        "does not change paragraph anchors",
+        "does not change schemas",
+    ):
+        assert phrase in readme
+
+    for forbidden in (
+        "row-one-app/v8",
+        "adds local_intelligence to `data/edition.json`",
+        "changes story ids",
+        "changes detail routes",
+        "changes paragraph anchors",
+        "row-one status rebuilds",
+        "row-one status collects",
+        "row-one status fetches",
+    ):
+        assert forbidden not in row_one

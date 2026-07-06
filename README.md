@@ -145,6 +145,14 @@ brief, organized content cards, and full saved text. Local article takeaways
 prioritize source-backed signal paragraphs with explicit brand, designer,
 person, bag, shoe, or product matches before falling back to the first saved
 paragraphs.
+ROW ONE also applies newsroom digest polish to saved local articles: it
+clusters duplicate saved local-article cards in the homepage digest, evidence
+paragraph links point into saved local paragraphs with reader-facing copy, and
+detail pages show compact local article provenance. This does not change
+`row-one-app/v7`, does not change `data/edition.json`, and does not add source
+collection/scoring. It does not change `row-one-manifest/v1`, does not change
+`row-one-runtime/v1`, does not change detail routes, does not change paragraph
+anchors, and does not change schemas.
 `row-one-app/v7 remains stable`: this local-intelligence artifact is separate
 from `data/edition.json`, so app clients pinned to the existing app payload do
 not need to accept a new top-level field.

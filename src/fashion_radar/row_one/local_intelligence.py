@@ -41,6 +41,19 @@ class _ReferenceAggregate:
     segment_match_score: int = 0
 
 
+@dataclass
+class _StoryArticleAggregate:
+    canonical_story: RowOneStory
+    canonical_article: RowOneLocalArticle
+    stories: set[str] = field(default_factory=set)
+    articles: set[str] = field(default_factory=set)
+    source_names: list[str] = field(default_factory=list)
+    evidence_count: int = 0
+    heat_delta: int | None = None
+    references: list[RowOneReference] = field(default_factory=list)
+    segments: list[RowOneDailyLocalIntelligenceSegment] = field(default_factory=list)
+
+
 def build_row_one_local_article_intelligence(
     edition: RowOneEdition,
     local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
@@ -86,8 +99,8 @@ def _strongest_reads_section(
 ) -> RowOneDailyLocalIntelligenceSection:
     sorted_articles = sorted(story_articles, key=lambda pair: _story_sort_key(pair[0]))
     items = [
-        _story_article_item(story, article)
-        for story, article in sorted_articles[:MAX_STRONGEST_READS]
+        _story_article_aggregate_item(aggregate)
+        for aggregate in _story_article_aggregate(sorted_articles)[:MAX_STRONGEST_READS]
     ]
     return RowOneDailyLocalIntelligenceSection(
         key="strongest_reads",
@@ -163,7 +176,8 @@ def _heat_movers_section(
     ]
     heat_articles.sort(key=lambda pair: _story_sort_key(pair[0]))
     items = [
-        _story_article_item(story, article) for story, article in heat_articles[:MAX_HEAT_MOVERS]
+        _story_article_aggregate_item(aggregate)
+        for aggregate in _story_article_aggregate(heat_articles)[:MAX_HEAT_MOVERS]
     ]
     return RowOneDailyLocalIntelligenceSection(
         key="heat_movers",
@@ -176,24 +190,82 @@ def _heat_movers_section(
     )
 
 
-def _story_article_item(
+def _story_article_aggregate(
+    story_articles: list[tuple[RowOneStory, RowOneLocalArticle]],
+) -> list[_StoryArticleAggregate]:
+    aggregates: dict[str, _StoryArticleAggregate] = {}
+    for story, article in story_articles:
+        key = _story_article_cluster_key(story, article)
+        aggregate = aggregates.setdefault(
+            key,
+            _StoryArticleAggregate(canonical_story=story, canonical_article=article),
+        )
+        _append_story_article_aggregate(aggregate, story, article)
+    return list(aggregates.values())
+
+
+def _append_story_article_aggregate(
+    aggregate: _StoryArticleAggregate,
     story: RowOneStory,
     article: RowOneLocalArticle,
+) -> None:
+    aggregate.stories.add(story.id)
+    aggregate.articles.add(article.story_id)
+    aggregate.evidence_count += len(story.evidence)
+    aggregate.heat_delta = _max_optional_int(aggregate.heat_delta, story.heat_delta)
+    _append_unique(aggregate.source_names, article.source_name)
+    for reference in [*story.entity_refs, *story.designer_refs, *story.product_refs]:
+        _append_reference(aggregate.references, reference)
+    if story.id == aggregate.canonical_story.id and not aggregate.segments:
+        aggregate.segments = _article_segments(article)
+
+
+def _story_article_cluster_key(story: RowOneStory, article: RowOneLocalArticle) -> str:
+    source = _normalize_cluster_text(article.source_name)
+    body = _normalize_cluster_text(_article_cluster_text(article))
+    if source and body:
+        return f"{source}|{body}"
+    return f"{source}|{_normalize_cluster_text(article.title or '')}|{story.id}"
+
+
+def _article_cluster_text(article: RowOneLocalArticle) -> str:
+    paragraphs = [paragraph.strip() for paragraph in article.paragraphs if paragraph.strip()]
+    if paragraphs:
+        return "\n".join(paragraphs)
+    bodies: list[str] = []
+    for section in article.content_sections:
+        for item in section.items:
+            if item.body is not None and item.body.en.strip():
+                bodies.append(item.body.en.strip())
+    if bodies:
+        return "\n".join(bodies)
+    return article.title or ""
+
+
+def _normalize_cluster_text(value: str) -> str:
+    return " ".join(value.casefold().split())
+
+
+def _story_article_aggregate_item(
+    aggregate: _StoryArticleAggregate,
 ) -> RowOneDailyLocalIntelligenceItem:
+    story = aggregate.canonical_story
+    article = aggregate.canonical_article
     takeaway = _article_takeaway(article)
+    segments = aggregate.segments or _article_segments(article)
     return RowOneDailyLocalIntelligenceItem(
         title=LocalizedText(zh=story.headline, en=story.headline),
         body=takeaway.text,
         detail_path=_local_article_detail_path(story.detail_path),
-        source_name=article.source_name,
-        source_names=[article.source_name],
-        story_count=1,
-        article_count=1,
-        evidence_count=len(story.evidence),
-        heat_delta=story.heat_delta,
-        references=[*story.entity_refs, *story.designer_refs, *story.product_refs],
-        paragraph_indices=takeaway.paragraph_indices,
-        segments=_article_segments(article),
+        source_name=aggregate.source_names[0] if aggregate.source_names else article.source_name,
+        source_names=list(aggregate.source_names),
+        story_count=len(aggregate.stories),
+        article_count=len(aggregate.articles),
+        evidence_count=aggregate.evidence_count,
+        heat_delta=aggregate.heat_delta,
+        references=list(aggregate.references),
+        paragraph_indices=list(takeaway.paragraph_indices),
+        segments=list(segments),
     )
 
 
@@ -257,16 +329,36 @@ def _max_optional_int(left: object, right: int | None) -> int | None:
 
 
 def _append_unique(values: list[str], value: str) -> None:
-    normalized = value.casefold()
+    display_value = " ".join(value.split())
+    normalized = display_value.casefold()
     if normalized and all(existing.casefold() != normalized for existing in values):
-        values.append(value)
+        values.append(display_value)
 
 
 def _append_reference(references: list[RowOneReference], ref: RowOneReference) -> None:
     normalized = (_normalize_ref_name(ref.name), ref.type.casefold())
-    existing = {(_normalize_ref_name(item.name), item.type.casefold()) for item in references}
-    if normalized not in existing:
-        references.append(ref)
+    for index, item in enumerate(references):
+        existing = (_normalize_ref_name(item.name), item.type.casefold())
+        if normalized != existing:
+            continue
+        if _reference_display_preferred(ref, item):
+            references[index] = ref
+        return
+    references.append(ref)
+
+
+def _reference_display_preferred(candidate: RowOneReference, current: RowOneReference) -> bool:
+    candidate_label = candidate.label.casefold()
+    current_label = current.label.casefold()
+    if candidate_label == "tracked" and current_label != "tracked":
+        return True
+    if candidate.name.casefold() == current.name.casefold():
+        return _display_case_score(candidate.name) > _display_case_score(current.name)
+    return False
+
+
+def _display_case_score(value: str) -> int:
+    return sum(1 for char in value if char.isupper())
 
 
 class _ArticleTakeaway:

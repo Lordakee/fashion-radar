@@ -11,6 +11,10 @@ from pydantic import ValidationError
 import fashion_radar.row_one.render as row_one_render
 from fashion_radar.row_one.models import (
     LocalizedText,
+    RowOneDailyLocalIntelligenceItem,
+    RowOneDailyLocalIntelligenceSection,
+    RowOneDailyLocalIntelligenceSegment,
+    RowOneDailyLocalIntelligenceSegmentItem,
     RowOneEdition,
     RowOneLink,
     RowOneLocalArticle,
@@ -270,6 +274,7 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert 'class="source-action-link"' in detail_html
     assert '<span data-lang="en">Open Source Article</span>' in detail_html
     assert '<span data-lang="zh">打开原文</span>' in detail_html
+    assert 'class="source-action-link" href="https://example.com/the-row"' in detail_html
     assert 'class="evidence-trail"' in detail_html
     assert 'class="evidence-item evidence-item--safe"' in detail_html
     assert 'class="evidence-item evidence-item--retained"' in detail_html
@@ -468,6 +473,19 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     assert '<span data-lang="zh">本地正文</span>' in detail_html
     assert "Saved from Vogue Business" in detail_html
     assert "本地保存自 Vogue Business" in detail_html
+    assert 'class="local-article-provenance"' in detail_html
+    assert '<span data-lang="en">Source</span>' in detail_html
+    assert '<span data-lang="zh">来源</span>' in detail_html
+    assert '<span class="local-article-provenance-value">Vogue Business</span>' in detail_html
+    assert '<span data-lang="en">Saved</span>' in detail_html
+    assert '<span data-lang="zh">保存时间</span>' in detail_html
+    assert '<span data-lang="en">Published</span>' in detail_html
+    assert '<span data-lang="zh">发布时间</span>' in detail_html
+    assert '<span data-lang="en">Saved paragraphs</span>' in detail_html
+    assert '<span data-lang="zh">保存段落</span>' in detail_html
+    assert '<span data-lang="en">Organized sections</span>' in detail_html
+    assert '<span data-lang="zh">整理栏目</span>' in detail_html
+    assert '<span class="local-article-provenance-value">2</span>' in detail_html
     assert "First local paragraph about The Row demand." in detail_html
     assert "Second local paragraph with styling context." in detail_html
     assert 'id="local-article-paragraph-1"' in detail_html
@@ -582,6 +600,61 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     }
     assert "The Row demand moved." not in edition_json
     assert "First local paragraph about The Row demand." not in edition_json
+
+
+def test_render_row_one_detail_local_article_provenance_uses_article_source(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.source_name = "Story Feed"
+    story.source_url = "https://example.com/story-feed"
+    local_article = RowOneLocalArticle(
+        story_id=story.id,
+        title="Article source title",
+        url="https://example.com/local-article",
+        source_name="Article Desk",
+        extracted_at=AS_OF,
+        published_at=AS_OF,
+        paragraphs=["One saved local paragraph."],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(en="Takeaways", zh="要点"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="Source lead", zh="来源导语"),
+                        paragraph_indices=[0],
+                    )
+                ],
+            )
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    local_article_html = detail_html[
+        detail_html.index('id="local-article"') : detail_html.index('id="why-it-matters"')
+    ]
+
+    assert "Article source title" in local_article_html
+    assert "Article Desk" in local_article_html
+    assert "Story Feed" not in local_article_html
+    assert 'href="https://example.com/local-article"' in local_article_html
+    assert 'href="https://example.com/story-feed"' not in local_article_html
+    assert 'target="_blank" rel="noopener"' in local_article_html
+    assert "Jul 02, 2026" in local_article_html
+    assert '<span data-lang="en">Saved paragraphs</span>' in local_article_html
+    assert '<span data-lang="zh">保存段落</span>' in local_article_html
+    assert '<span data-lang="en">Organized sections</span>' in local_article_html
+    assert '<span data-lang="zh">整理栏目</span>' in local_article_html
 
 
 def test_render_row_one_detail_keeps_plain_local_article_without_zh_paragraphs(
@@ -738,6 +811,14 @@ def test_render_row_one_detail_skips_invalid_local_article_paragraph_links(
     assert 'id="local-article-paragraph-1"' in detail_html
     assert 'id="local-article-paragraph-2"' not in detail_html
     assert 'id="local-article-paragraph-3"' in detail_html
+    provenance_html = detail_html[
+        detail_html.index('class="local-article-provenance"') : detail_html.index(
+            "Source article title"
+        )
+    ]
+    assert '<span data-lang="en">Saved paragraphs</span>' in provenance_html
+    assert '<span class="local-article-provenance-value">2</span>' in provenance_html
+    assert '<span class="local-article-provenance-value">3</span>' not in provenance_html
     assert 'href="#local-article-paragraph-1"' in detail_html
     assert 'href="#local-article-paragraph-3"' in detail_html
     assert detail_html.count('href="#local-article-paragraph-3"') == 2
@@ -894,6 +975,36 @@ def test_render_row_one_detail_escapes_local_article_content(tmp_path) -> None:
     assert "<img" not in detail_html
 
 
+def test_render_row_one_detail_omits_unsafe_local_article_provenance_url(tmp_path) -> None:
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Unsafe source article",
+        url="javascript:alert(1)",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=["One source paragraph."],
+    )
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    local_article_html = detail_html[
+        detail_html.index('id="local-article"') : detail_html.index('id="why-it-matters"')
+    ]
+
+    assert "Unsafe source article" in local_article_html
+    assert "Vogue Business" in local_article_html
+    assert "javascript:alert" not in local_article_html
+    assert "Original URL" not in local_article_html
+    assert 'class="local-article-provenance-link"' not in local_article_html
+
+
 def _local_article_for_daily_intelligence() -> RowOneLocalArticle:
     return RowOneLocalArticle(
         story_id="the-row-signal-1234567890",
@@ -946,6 +1057,11 @@ def test_render_row_one_site_includes_daily_local_intelligence(tmp_path) -> None
     ) in html
     assert '<span data-lang="en">Open saved text</span>' in html
     assert '<span data-lang="zh">打开本地正文</span>' in html
+    assert "Open paragraph 1" not in html
+    assert "打开段落 1" not in html
+    assert "Evidence paragraph 1" in html
+    assert "证据段落 1" in html
+    assert 'href="details/the-row-signal-1234567890.html#local-article-paragraph-1"' in html
     assert '<a class="daily-local-intelligence-card"' not in html
 
     artifact = json.loads(
@@ -959,6 +1075,67 @@ def test_render_row_one_site_includes_daily_local_intelligence(tmp_path) -> None
     ]
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
     assert "local_article_intelligence" not in payload
+
+
+def test_render_row_one_site_clusters_duplicate_daily_local_intelligence_cards(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story_a = edition.stories[0]
+    story_a.id = "coach-a-1234567890"
+    story_a.headline = "Coach Brooklyn Bag gains heat"
+    story_a.detail_path = "details/coach-a-1234567890.html"
+    story_a.heat_delta = 6
+    story_b = story_a.model_copy(
+        deep=True,
+        update={
+            "id": "coach-b-1234567890",
+            "detail_path": "details/coach-b-1234567890.html",
+            "heat_delta": 9,
+        },
+    )
+    edition.stories = [story_a, story_b]
+    article_a = _local_article_for_daily_intelligence().model_copy(
+        deep=True,
+        update={
+            "story_id": story_a.id,
+            "url": "https://example.com/coach-a",
+            "paragraphs": ["Coach Brooklyn Bag appears in the saved local article body."],
+        },
+    )
+    article_b = article_a.model_copy(
+        deep=True,
+        update={
+            "story_id": story_b.id,
+            "url": "https://example.com/coach-b",
+        },
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story_a.id: article_a, story_b.id: article_b},
+    )
+
+    local_intelligence = json.loads(
+        (tmp_path / "data" / "local-intelligence.json").read_text(encoding="utf-8")
+    )
+    strongest = next(
+        section for section in local_intelligence if section["key"] == "strongest_reads"
+    )
+    heat = next(section for section in local_intelligence if section["key"] == "heat_movers")
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
+
+    assert len(strongest["items"]) == 1
+    assert len(heat["items"]) == 1
+    assert strongest["items"][0]["story_count"] == 2
+    assert strongest["items"][0]["article_count"] == 2
+    assert strongest["items"][0]["detail_path"] == "details/coach-b-1234567890.html#local-article"
+    assert (tmp_path / "details" / "coach-a-1234567890.html").exists()
+    assert (tmp_path / "details" / "coach-b-1234567890.html").exists()
+    assert (tmp_path / "data" / "articles" / "coach-a-1234567890.json").exists()
+    assert (tmp_path / "data" / "articles" / "coach-b-1234567890.json").exists()
+    assert "local_article_intelligence" not in edition_payload
 
 
 def test_render_row_one_site_writes_and_renders_daily_local_intelligence_segments(
@@ -1037,8 +1214,8 @@ def test_render_row_one_site_writes_and_renders_daily_local_intelligence_segment
     homepage_hrefs = "".join(re.findall(r'href="([^"]+)"', html))
     assert "#local-article-content-section-" not in homepage_hrefs
     assert "#local-article-body" not in homepage_hrefs
-    assert "Paragraph 1" in html
-    assert "段落 1" in html
+    assert "Evidence paragraph 1" in html
+    assert "证据段落 1" in html
 
     artifact = json.loads(
         (tmp_path / "data" / "local-intelligence.json").read_text(encoding="utf-8")
@@ -1051,6 +1228,54 @@ def test_render_row_one_site_writes_and_renders_daily_local_intelligence_segment
     assert strongest["items"][0]["segments"][0]["items"][0]["paragraph_indices"] == [0]
     payload = json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8"))
     assert "local_article_intelligence" not in payload
+
+
+def test_render_row_one_site_filters_daily_local_intelligence_segment_paragraph_indices() -> None:
+    html = render_index_html(
+        _edition(),
+        local_article_intelligence=[
+            RowOneDailyLocalIntelligenceSection(
+                key="strongest_reads",
+                title=LocalizedText(zh="优先阅读", en="Strongest Reads"),
+                dek=LocalizedText(zh="本地正文。", en="Saved local text."),
+                items=[
+                    RowOneDailyLocalIntelligenceItem(
+                        title=LocalizedText(zh="本地信号", en="Local Signal"),
+                        body=LocalizedText(zh="正文。", en="Body."),
+                        detail_path="details/the-row-signal-1234567890.html#local-article",
+                        paragraph_indices=[0],
+                        segments=[
+                            RowOneDailyLocalIntelligenceSegment(
+                                key="takeaways",
+                                title=LocalizedText(zh="正文重点", en="Takeaways"),
+                                items=[
+                                    RowOneDailyLocalIntelligenceSegmentItem(
+                                        label=LocalizedText(zh="来源段落", en="Source paragraph"),
+                                        paragraph_indices=[-1, 0, 0],
+                                    )
+                                ],
+                            )
+                        ],
+                    )
+                ],
+            )
+        ],
+    )
+
+    assert "Paragraph 0" not in html
+    assert "段落 0" not in html
+    meta_match = re.search(
+        r'<div class="daily-local-intelligence-segment-meta">(?P<meta>.*?)</div>',
+        html,
+        re.S,
+    )
+    assert meta_match is not None
+    meta_html = meta_match.group("meta")
+    assert meta_html.count("Paragraph 1") == 1
+    assert meta_html.count("段落 1") == 1
+    assert (
+        html.count('href="details/the-row-signal-1234567890.html#local-article-paragraph-1"') == 2
+    )
 
 
 def test_render_row_one_site_omits_daily_local_intelligence_without_saved_articles(
@@ -1493,6 +1718,61 @@ def test_render_row_one_site_includes_briefing_path_from_digest_blocks(tmp_path)
     assert "1 evidence link" in path_html
     assert index_html.index('class="edition-brief"') < index_html.index('class="lead-story"')
     assert index_html.index('class="briefing-path"') < index_html.index('class="section-block"')
+
+
+def test_render_row_one_site_sanitizes_briefing_topic_and_path_hrefs() -> None:
+    app_payload = {
+        "daily_digest": {
+            "briefing_topics": [
+                {
+                    "id": "unsafe-topic",
+                    "topic_type": "brand",
+                    "title": {"en": "Unsafe Topic", "zh": "不安全主题"},
+                    "label": {"en": "Brand", "zh": "品牌"},
+                    "story_count": 1,
+                    "evidence_count": 1,
+                    "positive_heat_delta_sum": 2,
+                    "cards": [
+                        {
+                            "id": "unsafe-topic-card",
+                            "detail_href": "javascript:alert(1)",
+                            "headline": "Unsafe topic headline",
+                            "editorial_takeaway": "Unsafe topic takeaway",
+                        }
+                    ],
+                }
+            ],
+            "blocks": [
+                {
+                    "key": "signals_to_watch",
+                    "title": {"en": "Signals To Watch", "zh": "观察信号"},
+                    "dek": {"en": "Unsafe path block.", "zh": "不安全路径。"},
+                    "cards": [
+                        {
+                            "id": "unsafe-path-card",
+                            "detail_href": "javascript:alert(2)",
+                            "headline": "Unsafe path headline",
+                            "editorial_takeaway": "Unsafe path takeaway",
+                            "source_name": "ROW ONE",
+                            "published_date": "2026-07-02",
+                            "evidence_count": 1,
+                            "heat_delta": 2,
+                        }
+                    ],
+                }
+            ],
+        }
+    }
+
+    index_html = render_index_html(_edition(), app_payload=app_payload)
+
+    assert "Unsafe topic headline" in index_html
+    assert "Unsafe path headline" in index_html
+    assert "javascript:alert" not in index_html
+    assert 'class="briefing-topic-card briefing-topic-card--brand" href="#main-content"' in (
+        index_html
+    )
+    assert 'class="briefing-path-card" href="#main-content"' in index_html
 
 
 def test_render_row_one_site_omits_briefing_path_when_digest_blocks_are_empty(tmp_path) -> None:

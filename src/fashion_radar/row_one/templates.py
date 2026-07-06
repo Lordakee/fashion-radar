@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from datetime import datetime
 from html import escape
 from pathlib import PurePosixPath
 
@@ -1220,6 +1221,24 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   font-size: 0.84rem;
   margin: 0 0 18px;
 }
+.local-article-provenance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+.local-article-provenance-item {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.76rem;
+  gap: 6px;
+  padding: 6px 8px;
+  text-decoration: none;
+}
+.local-article-provenance-link { color: var(--accent); font-weight: 700; }
+.local-article-provenance-value { color: var(--ink); }
 .local-article h3 {
   font-size: 1.35rem;
   font-weight: 700;
@@ -1877,7 +1896,7 @@ def _render_daily_local_intelligence_actions(
         if href is None:
             continue
         label = index + 1
-        links.append((href, f"Open paragraph {label}", f"打开段落 {label}"))
+        links.append((href, f"Evidence paragraph {label}", f"证据段落 {label}"))
     rendered = "".join(
         f'<a class="daily-local-intelligence-action" href="{_esc(href)}">'
         f'<span data-lang="en">{_esc(en)}</span>'
@@ -2007,7 +2026,7 @@ def _render_daily_local_intelligence_segment_meta(
             f'<span data-lang="zh">{_esc(ref_text)}</span>'
             f"</span>"
         )
-    for index in segment_item.paragraph_indices:
+    for index in _valid_daily_local_intelligence_paragraph_indices(segment_item.paragraph_indices):
         paragraph_label = index + 1
         href = (
             _daily_local_intelligence_paragraph_href(detail_href, index)
@@ -2029,6 +2048,17 @@ def _render_daily_local_intelligence_segment_meta(
         return ""
     rendered = "".join(parts)
     return f'<div class="daily-local-intelligence-segment-meta">{rendered}</div>'
+
+
+def _valid_daily_local_intelligence_paragraph_indices(indices: Sequence[int]) -> list[int]:
+    valid: list[int] = []
+    seen: set[int] = set()
+    for index in indices:
+        if index < 0 or index in seen:
+            continue
+        seen.add(index)
+        valid.append(index)
+    return valid
 
 
 def _daily_local_intelligence_meta(item: RowOneDailyLocalIntelligenceItem) -> str:
@@ -2145,7 +2175,11 @@ def _render_briefing_topic_card(topic: dict[str, object]) -> str:
     evidence_count = int(topic["evidence_count"])
     heat_delta = int(topic["positive_heat_delta_sum"])
     lead_story = _topic_lead_story(topic)
-    href = str(lead_story["detail_href"]) if lead_story is not None else "#main-content"
+    href = (
+        _safe_digest_detail_href(lead_story.get("detail_href")) if lead_story is not None else None
+    )
+    if href is None:
+        href = "#main-content"
     headline = _topic_localized_card_text(lead_story, "headline") if lead_story else title
     summary = _topic_localized_card_text(lead_story, "editorial_takeaway") if lead_story else title
     story_label_en = "1 story" if story_count == 1 else f"{story_count} stories"
@@ -2247,7 +2281,7 @@ def _render_briefing_path_block(
 
 
 def _render_briefing_path_card(card: dict[str, object]) -> str:
-    href = str(card["detail_href"])
+    href = _safe_digest_detail_href(card.get("detail_href")) or "#main-content"
     headline = _topic_localized_card_text(card, "headline")
     takeaway = _topic_localized_card_text(card, "editorial_takeaway")
     source_name = _esc(str(card.get("source_name") or "ROW ONE"))
@@ -2284,6 +2318,12 @@ def _int_or_zero(value: object) -> int:
     if value is None:
         return 0
     return int(value)
+
+
+def _safe_digest_detail_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    return href if _validated_detail_relative_path(href) is not None else None
 
 
 def _app_payload_digest_blocks(
@@ -2446,6 +2486,7 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
     if not paragraphs:
         return ""
     title = article.title or "Source article"
+    provenance = _render_local_article_provenance(article)
     brief = _render_local_article_brief(article)
     article_map = _render_local_article_map(article)
     content_sections = _render_local_article_content_sections(
@@ -2462,6 +2503,7 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
         <span data-lang="en">Saved from {_esc(article.source_name)}</span>
         <span data-lang="zh">本地保存自 {_esc(article.source_name)}</span>
       </p>
+{provenance}
       <h3>{_esc(title)}</h3>
 {article_map}
 {brief}
@@ -2470,6 +2512,67 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
 {rendered_paragraphs}
       </div>
     </section>"""
+
+
+def _render_local_article_provenance(article: RowOneLocalArticle) -> str:
+    items = [
+        _local_article_provenance_item("Source", "来源", article.source_name),
+        _local_article_provenance_item(
+            "Saved",
+            "保存时间",
+            _format_datetime(article.extracted_at),
+        ),
+    ]
+    if article.published_at is not None:
+        items.append(
+            _local_article_provenance_item(
+                "Published",
+                "发布时间",
+                _format_datetime(article.published_at),
+            )
+        )
+    items.extend(
+        [
+            _local_article_provenance_item(
+                "Saved paragraphs",
+                "保存段落",
+                str(_local_article_saved_paragraph_count(article)),
+            ),
+            _local_article_provenance_item(
+                "Organized sections",
+                "整理栏目",
+                str(len(article.content_sections)),
+            ),
+        ]
+    )
+    safe_url = _safe_external_url(article.url)
+    if safe_url is not None:
+        items.append(
+            '<a class="local-article-provenance-item local-article-provenance-link" '
+            f'href="{_esc(safe_url)}" target="_blank" rel="noopener">'
+            '<span data-lang="en">Original URL</span>'
+            '<span data-lang="zh">原文链接</span>'
+            "</a>"
+        )
+    return f'      <div class="local-article-provenance">{"".join(items)}</div>'
+
+
+def _local_article_provenance_item(label_en: str, label_zh: str, value: str) -> str:
+    return (
+        '<span class="local-article-provenance-item">'
+        f'<span data-lang="en">{_esc(label_en)}</span>'
+        f'<span data-lang="zh">{_esc(label_zh)}</span>'
+        f'<span class="local-article-provenance-value">{_esc(value)}</span>'
+        "</span>"
+    )
+
+
+def _local_article_saved_paragraph_count(article: RowOneLocalArticle) -> int:
+    return sum(1 for paragraph in article.paragraphs if paragraph.strip())
+
+
+def _format_datetime(value: datetime) -> str:
+    return value.strftime("%b %d, %Y")
 
 
 def _render_local_article_map(article: RowOneLocalArticle) -> str:

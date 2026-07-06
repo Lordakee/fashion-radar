@@ -101,6 +101,20 @@ def _article(story_id: str, *, source_name: str, paragraphs: list[str]) -> RowOn
     )
 
 
+def _article_with_title(
+    story_id: str,
+    *,
+    title: str,
+    source_name: str,
+    paragraphs: list[str],
+) -> RowOneLocalArticle:
+    return _article(
+        story_id,
+        source_name=source_name,
+        paragraphs=paragraphs,
+    ).model_copy(update={"title": title})
+
+
 def test_build_row_one_local_article_intelligence_uses_only_current_saved_articles() -> None:
     the_row = RowOneReference(name="The Row", type="brand", label="tracked")
     margaux = RowOneReference(name="Margaux", type="bag", label="product")
@@ -146,6 +160,208 @@ def test_build_row_one_local_article_intelligence_uses_only_current_saved_articl
     assert sections[2].items[0].title.en == "Margaux"
     assert sections[3].items[0].heat_delta == 9
     assert "stale" not in sections[0].items[0].body.en
+
+
+def test_build_row_one_local_article_intelligence_clusters_duplicate_story_articles() -> None:
+    ref = RowOneReference(name="Coach", type="brand", label="tracked")
+    product = RowOneReference(name="Brooklyn Bag", type="bag", label="product")
+    stories = [
+        _story(
+            "coach-a-1234567890",
+            "Coach Brooklyn Bag gains heat",
+            detail_path="details/coach-a-1234567890.html",
+            source_name="Vogue Business",
+            heat_delta=4,
+            entity_refs=[ref],
+            product_refs=[product],
+        ),
+        _story(
+            "coach-b-1234567890",
+            "Coach Brooklyn Bag gains heat",
+            detail_path="details/coach-b-1234567890.html",
+            source_name="Vogue Business",
+            heat_delta=9,
+            entity_refs=[RowOneReference(name="coach", type="brand", label="candidate")],
+            product_refs=[product],
+        ),
+    ]
+
+    sections = build_row_one_local_article_intelligence(
+        _edition(stories),
+        {
+            "coach-a-1234567890": _article_with_title(
+                "coach-a-1234567890",
+                title="Coach bag story",
+                source_name="Vogue Business",
+                paragraphs=["Coach Brooklyn Bag appears in the saved local article body."],
+            ),
+            "coach-b-1234567890": _article_with_title(
+                "coach-b-1234567890",
+                title="Coach bag story",
+                source_name="Vogue Business",
+                paragraphs=["Coach Brooklyn Bag appears in the saved local article body."],
+            ),
+        },
+    )
+
+    strongest = next(section for section in sections if section.key == "strongest_reads")
+    heat = next(section for section in sections if section.key == "heat_movers")
+
+    assert [item.title.en for item in strongest.items] == ["Coach Brooklyn Bag gains heat"]
+    assert [item.title.en for item in heat.items] == ["Coach Brooklyn Bag gains heat"]
+    item = strongest.items[0]
+    assert item.story_count == 2
+    assert item.article_count == 2
+    assert item.source_names == ["Vogue Business"]
+    assert item.evidence_count == 2
+    assert item.heat_delta == 9
+    assert [reference.name for reference in item.references] == ["Coach", "Brooklyn Bag"]
+    assert item.detail_path == "details/coach-b-1234567890.html#local-article"
+    assert item.paragraph_indices == [0]
+    assert item.segments
+
+
+def test_build_row_one_local_article_intelligence_keeps_distinct_saved_articles_separate() -> None:
+    stories = [
+        _story(
+            "row-a-1234567890",
+            "The Row market context",
+            detail_path="details/row-a-1234567890.html",
+            source_name="Vogue Business",
+            heat_delta=3,
+        ),
+        _story(
+            "row-b-1234567890",
+            "The Row market context",
+            detail_path="details/row-b-1234567890.html",
+            source_name="Vogue Business",
+            heat_delta=2,
+        ),
+    ]
+
+    sections = build_row_one_local_article_intelligence(
+        _edition(stories),
+        {
+            "row-a-1234567890": _article_with_title(
+                "row-a-1234567890",
+                title="The Row wholesale",
+                source_name="Vogue Business",
+                paragraphs=["The Row wholesale expansion is the first saved local signal."],
+            ),
+            "row-b-1234567890": _article_with_title(
+                "row-b-1234567890",
+                title="The Row footwear",
+                source_name="Vogue Business",
+                paragraphs=["The Row footwear demand is a different saved local signal."],
+            ),
+        },
+    )
+
+    strongest = next(section for section in sections if section.key == "strongest_reads")
+    assert len(strongest.items) == 2
+    assert [item.article_count for item in strongest.items] == [1, 1]
+
+
+def test_build_row_one_local_article_intelligence_clusters_same_text_with_different_headlines() -> (
+    None
+):
+    stories = [
+        _story(
+            "coach-a-1234567890",
+            "Coach bag demand accelerates",
+            detail_path="details/coach-a-1234567890.html",
+            source_name="Vogue Business",
+            heat_delta=3,
+        ),
+        _story(
+            "coach-b-1234567890",
+            "Brooklyn Bag becomes the read-first signal",
+            detail_path="details/coach-b-1234567890.html",
+            source_name="Vogue  Business",
+            heat_delta=8,
+        ),
+    ]
+
+    sections = build_row_one_local_article_intelligence(
+        _edition(stories),
+        {
+            "coach-a-1234567890": _article_with_title(
+                "coach-a-1234567890",
+                title="Coach bag story",
+                source_name="Vogue Business",
+                paragraphs=[
+                    "Coach Brooklyn Bag appears in the saved local article body.",
+                    "The same saved body should cluster even when headlines differ.",
+                ],
+            ),
+            "coach-b-1234567890": _article_with_title(
+                "coach-b-1234567890",
+                title="Coach bag story",
+                source_name="Vogue  Business",
+                paragraphs=[
+                    "Coach Brooklyn Bag appears in the saved local article body.",
+                    "The same saved body should cluster even when headlines differ.",
+                ],
+            ),
+        },
+    )
+
+    strongest = next(section for section in sections if section.key == "strongest_reads")
+    assert [item.title.en for item in strongest.items] == [
+        "Brooklyn Bag becomes the read-first signal"
+    ]
+    assert strongest.items[0].story_count == 2
+    assert strongest.items[0].article_count == 2
+    assert strongest.items[0].source_names == ["Vogue Business"]
+
+
+def test_build_row_one_local_article_intelligence_keeps_same_lead_different_bodies_separate() -> (
+    None
+):
+    stories = [
+        _story(
+            "row-a-1234567890",
+            "The Row market context",
+            detail_path="details/row-a-1234567890.html",
+            source_name="Vogue Business",
+            heat_delta=4,
+        ),
+        _story(
+            "row-b-1234567890",
+            "The Row market context",
+            detail_path="details/row-b-1234567890.html",
+            source_name="Vogue Business",
+            heat_delta=3,
+        ),
+    ]
+
+    sections = build_row_one_local_article_intelligence(
+        _edition(stories),
+        {
+            "row-a-1234567890": _article_with_title(
+                "row-a-1234567890",
+                title="The Row wholesale",
+                source_name="Vogue Business",
+                paragraphs=[
+                    "The Row opened with the same market lead.",
+                    "Wholesale expansion is the distinct saved signal.",
+                ],
+            ),
+            "row-b-1234567890": _article_with_title(
+                "row-b-1234567890",
+                title="The Row footwear",
+                source_name="Vogue Business",
+                paragraphs=[
+                    "The Row opened with the same market lead.",
+                    "Footwear demand is the distinct saved signal.",
+                ],
+            ),
+        },
+    )
+
+    strongest = next(section for section in sections if section.key == "strongest_reads")
+    assert len(strongest.items) == 2
+    assert [item.article_count for item in strongest.items] == [1, 1]
 
 
 def test_build_row_one_local_article_intelligence_aggregates_references_by_name() -> None:
