@@ -21,6 +21,9 @@ from fashion_radar.row_one.models import (
     RowOneStoryImage,
 )
 from fashion_radar.row_one.readiness import build_row_one_readiness
+from fashion_radar.row_one.saved_article_coverage import (
+    build_row_one_saved_article_coverage,
+)
 from fashion_radar.row_one.templates import (
     _validated_detail_relative_path,
     render_detail_html,
@@ -65,12 +68,17 @@ def render_row_one_site(
         edition,
         local_articles_by_story_id,
     )
+    saved_article_coverage = build_row_one_saved_article_coverage(
+        edition,
+        local_articles_by_story_id,
+    )
     index_path = output_dir / "index.html"
     index_path.write_text(
         render_index_html(
             edition,
             app_payload=app_payload,
             local_article_intelligence=local_article_intelligence,
+            saved_article_coverage=saved_article_coverage,
         ),
         encoding="utf-8",
     )

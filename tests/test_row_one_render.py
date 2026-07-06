@@ -32,6 +32,11 @@ from fashion_radar.row_one.render import (
     clean_row_one_site_children,
     render_row_one_site,
 )
+from fashion_radar.row_one.saved_article_coverage import (
+    RowOneSavedArticleCoverage,
+    RowOneSavedArticleCoverageItem,
+    RowOneSavedArticleCoverageSource,
+)
 from fashion_radar.row_one.templates import (
     _safe_daily_local_intelligence_href,
     render_index_html,
@@ -1682,6 +1687,165 @@ def test_render_row_one_detail_omits_unsafe_local_article_provenance_url(tmp_pat
     assert 'class="local-article-provenance-link"' not in local_article_html
 
 
+def test_render_row_one_site_includes_saved_article_coverage(tmp_path) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.section_key = "top_stories"
+    local_article = RowOneLocalArticle(
+        story_id=story.id,
+        title="The Row saved source",
+        url="https://example.com/the-row-local",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=["The Row saved paragraph.", "Second saved paragraph."],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(zh="要点", en="Takeaways"),
+            )
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: local_article},
+    )
+
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    edition_json = (tmp_path / "data" / "edition.json").read_text(encoding="utf-8")
+    manifest_json = (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8")
+    runtime_json = (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8")
+    coverage_html = html[
+        html.index('class="saved-article-coverage"') : html.index('class="lead-story"')
+    ]
+
+    assert 'class="saved-article-coverage"' in coverage_html
+    assert '<span data-lang="en">Saved Article Coverage</span>' in coverage_html
+    assert '<span data-lang="zh">保存正文覆盖</span>' in coverage_html
+    assert "1 saved article" in coverage_html
+    assert "2 saved paragraphs" in coverage_html
+    assert "1 organized section" in coverage_html
+    assert "1 source" in coverage_html
+    assert "Vogue Business" in coverage_html
+    assert "The Row &lt;signals&gt; &quot;quiet&quot; demand" in coverage_html
+    assert (
+        '<span data-lang="en">The Row &lt;signals&gt; &quot;quiet&quot; demand</span>'
+        in coverage_html
+    )
+    assert (
+        '<span data-lang="zh">The Row &lt;signals&gt; &quot;quiet&quot; demand</span>'
+        in coverage_html
+    )
+    assert "Top Stories" in coverage_html
+    assert 'href="details/the-row-signal-1234567890.html#local-article-digest"' in (coverage_html)
+    assert html.index('class="daily-local-intelligence"') < html.index(
+        'class="saved-article-coverage"'
+    )
+    assert html.index('class="saved-article-coverage"') < html.index('class="lead-story"')
+    for app_contract_json in (edition_json, manifest_json, runtime_json):
+        assert "saved_article_coverage" not in app_contract_json
+        assert "Saved Article Coverage" not in app_contract_json
+
+
+def test_render_row_one_site_omits_saved_article_coverage_without_saved_articles(
+    tmp_path,
+) -> None:
+    render_row_one_site(_edition(), tmp_path)
+
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert "saved-article-coverage" not in html
+
+
+def test_render_row_one_site_escapes_saved_article_coverage(tmp_path) -> None:
+    edition = _edition()
+    unsafe_story = edition.stories[0].model_copy(
+        update={"headline": '<script>alert("headline")</script>'}
+    )
+    edition.stories = [unsafe_story]
+    local_article = RowOneLocalArticle(
+        story_id=unsafe_story.id,
+        title="Unsafe coverage source",
+        url="https://example.com/unsafe",
+        source_name="<Vogue>",
+        extracted_at=AS_OF,
+        paragraphs=['<script>alert("body")</script>'],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={unsafe_story.id: local_article},
+    )
+
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    coverage_html = html[
+        html.index('class="saved-article-coverage"') : html.index('class="lead-story"')
+    ]
+
+    assert "&lt;script&gt;alert(&quot;headline&quot;)&lt;/script&gt;" in coverage_html
+    assert "&lt;Vogue&gt;" in coverage_html
+    assert "<script>" not in coverage_html
+    assert "<Vogue>" not in coverage_html
+
+
+def test_render_row_one_site_rejects_invalid_saved_article_coverage_links() -> None:
+    coverage = RowOneSavedArticleCoverage(
+        article_count=4,
+        saved_paragraph_count=4,
+        organized_section_count=0,
+        source_count=1,
+        sources=[RowOneSavedArticleCoverageSource(name="Vogue Business", article_count=4)],
+        items=[
+            _saved_article_coverage_item(
+                detail_path="details/the-row-signal-1234567890.html#local-article-digest",
+                title="Valid digest link",
+            ),
+            _saved_article_coverage_item(
+                detail_path="details/the-row-signal-1234567890.html#local-article-body",
+                title="Wrong fragment",
+            ),
+            _saved_article_coverage_item(
+                detail_path="../private.html#local-article-digest",
+                title="Traversal link",
+            ),
+            _saved_article_coverage_item(
+                detail_path="javascript:alert(1)#local-article-digest",
+                title="Script link",
+            ),
+        ],
+    )
+
+    html = render_index_html(_edition(), saved_article_coverage=coverage)
+    coverage_html = html[
+        html.index('class="saved-article-coverage"') : html.index('class="lead-story"')
+    ]
+
+    assert "Valid digest link" in coverage_html
+    assert "Wrong fragment" not in coverage_html
+    assert "Traversal link" not in coverage_html
+    assert "Script link" not in coverage_html
+    assert 'href="details/the-row-signal-1234567890.html#local-article-digest"' in (coverage_html)
+    assert "#local-article-body" not in coverage_html
+    assert "../private.html" not in coverage_html
+    assert "javascript:alert" not in coverage_html
+
+
+def _saved_article_coverage_item(
+    *,
+    detail_path: str,
+    title: str,
+) -> RowOneSavedArticleCoverageItem:
+    return RowOneSavedArticleCoverageItem(
+        title=LocalizedText(zh=title, en=title),
+        source_name="Vogue Business",
+        section_title=LocalizedText(zh="今日重点", en="Top Stories"),
+        detail_path=detail_path,
+        saved_paragraph_count=1,
+        organized_section_count=0,
+    )
+
+
 def _local_article_for_daily_intelligence() -> RowOneLocalArticle:
     return RowOneLocalArticle(
         story_id="the-row-signal-1234567890",
@@ -2678,6 +2842,21 @@ def test_row_one_css_includes_local_article_map_styles(tmp_path) -> None:
         ".local-article-body p:target",
     ):
         assert selector in css_text
+
+
+def test_row_one_css_includes_saved_article_coverage_styles(tmp_path) -> None:
+    css = render_row_one_site(_edition(), tmp_path).index_path
+    css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    for selector in (
+        ".saved-article-coverage",
+        ".saved-article-coverage-header",
+        ".saved-article-coverage-metrics",
+        ".saved-article-coverage-sources",
+        ".saved-article-coverage-grid",
+        ".saved-article-coverage-card",
+    ):
+        assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
 
 
 def test_render_row_one_site_escapes_briefing_path_payload_values() -> None:

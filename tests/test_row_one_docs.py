@@ -120,6 +120,57 @@ def test_row_one_docs_describe_saved_text_digest_boundary() -> None:
         assert phrase in docs
 
 
+def test_row_one_docs_describe_saved_article_coverage_boundary() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    docs = (ROOT / "docs" / "row-one.md").read_text(encoding="utf-8")
+    readme_stage_312 = readme[
+        readme.index("Stage 312 adds homepage saved article coverage") : readme.index(
+            "Stage 310 adds"
+        )
+    ]
+    docs_stage_312 = docs[
+        docs.index("Stage 312 adds homepage saved article coverage") : docs.index("Stage 310 adds")
+    ]
+    readme_stage_312_normalized = _normalized(readme_stage_312)
+    docs_stage_312_normalized = _normalized(docs_stage_312)
+
+    expected_phrases = [
+        "saved article coverage",
+        "homepage saved article coverage",
+        "uses existing `data/articles/<story-id>.json` sidecars",
+        "does not change `row-one-app/v7`",
+        "does not change `data/edition.json`",
+        "does not change `row-one-manifest/v1`",
+        "does not change `row-one-runtime/v1`",
+        "does not write a new json artifact",
+        "does not change detail routes",
+        "does not change paragraph anchors",
+        "does not change schemas",
+        "does not add source collection",
+        "does not add scoring",
+        "does not add llm calls",
+    ]
+    for phrase in expected_phrases:
+        assert phrase in readme_stage_312_normalized
+        assert phrase in docs_stage_312_normalized
+
+    forbidden_phrases = [
+        "row-one-app/v8",
+        "row-one-manifest/v2",
+        "row-one-runtime/v2",
+        "changes schemas",
+        "changes detail routes",
+        "adds source collection",
+        "adds scoring",
+        "adds llm calls",
+        "adds social connectors",
+        "adds community connectors",
+    ]
+    for phrase in forbidden_phrases:
+        assert phrase not in readme_stage_312_normalized
+        assert phrase not in docs_stage_312_normalized
+
+
 def test_row_one_docs_include_user_required_phrases() -> None:
     normalized = _normalized(_read(ROW_ONE_DOC))
 

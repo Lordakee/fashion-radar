@@ -23,6 +23,10 @@ from fashion_radar.row_one.models import (
     RowOneStory,
 )
 from fashion_radar.row_one.readiness import RowOneReadiness, build_row_one_readiness
+from fashion_radar.row_one.saved_article_coverage import (
+    RowOneSavedArticleCoverage,
+    RowOneSavedArticleCoverageItem,
+)
 from fashion_radar.row_one.text import (
     clean_row_one_sentences,
     clean_row_one_text,
@@ -44,6 +48,7 @@ def render_index_html(
     *,
     app_payload: dict[str, object] | None = None,
     local_article_intelligence: Sequence[RowOneDailyLocalIntelligenceSection] | None = None,
+    saved_article_coverage: RowOneSavedArticleCoverage | None = None,
 ) -> str:
     contents_nav = _render_edition_nav(edition)
     briefing_topics = _render_briefing_topics(app_payload)
@@ -55,6 +60,7 @@ def render_index_html(
     )
     signal_synthesis = _render_signal_synthesis(app_payload)
     daily_local_intelligence = _render_daily_local_intelligence(local_article_intelligence)
+    saved_article_coverage_section = _render_saved_article_coverage(saved_article_coverage)
     readiness = build_row_one_readiness(edition)
     status_strip = _render_edition_status(edition, readiness)
     summary_note_en = (
@@ -127,6 +133,7 @@ def render_index_html(
 {edition_brief}
 {signal_synthesis}
 {daily_local_intelligence}
+{saved_article_coverage_section}
 {lead_story_block}
 {briefing_topics}
 {briefing_path}
@@ -800,6 +807,81 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 }
 .daily-local-intelligence-paragraph-link {
   border-bottom: 1px solid currentColor;
+}
+.saved-article-coverage {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.saved-article-coverage-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.saved-article-coverage-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.2rem, 5vw, 5.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.92;
+  margin: 0;
+}
+.saved-article-coverage-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.saved-article-coverage-metrics,
+.saved-article-coverage-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+}
+.saved-article-coverage-metrics li,
+.saved-article-coverage-sources li {
+  border: 1px solid var(--line);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 8px 10px;
+}
+.saved-article-coverage-source-name {
+  color: var(--ink);
+  font-weight: 700;
+}
+.saved-article-coverage-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.saved-article-coverage-card {
+  background: var(--panel);
+  color: inherit;
+  display: grid;
+  gap: 10px;
+  min-height: 190px;
+  padding: 14px;
+  text-decoration: none;
+}
+.saved-article-coverage-card strong {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.2rem, 2vw, 2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+}
+.saved-article-coverage-card span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 .briefing-topics {
   border-bottom: 1px solid var(--ink);
@@ -1590,6 +1672,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .signal-synthesis-grid { grid-template-columns: 1fr; }
   .daily-local-intelligence-header { grid-template-columns: 1fr; }
   .daily-local-intelligence-grid { grid-template-columns: 1fr; }
+  .saved-article-coverage-header { grid-template-columns: 1fr; }
+  .saved-article-coverage-grid { grid-template-columns: 1fr; }
   .local-article-digest-grid { grid-template-columns: 1fr; }
   .briefing-topics-header { grid-template-columns: 1fr; }
   .briefing-topic-grid { grid-template-columns: 1fr; }
@@ -1955,6 +2039,148 @@ def _render_daily_local_intelligence(
   </div>
   <div class="daily-local-intelligence-grid">{"".join(rendered_sections)}</div>
 </section>"""
+
+
+def _render_saved_article_coverage(coverage: RowOneSavedArticleCoverage | None) -> str:
+    if coverage is None:
+        return ""
+    metrics = _render_saved_article_coverage_metrics(coverage)
+    sources = _render_saved_article_coverage_sources(coverage)
+    cards = "\n".join(_render_saved_article_coverage_card(item) for item in coverage.items)
+    return f"""<section class="saved-article-coverage" aria-label="Saved article coverage">
+  <div class="saved-article-coverage-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Saved Article Coverage</span>
+        <span data-lang="zh">保存正文覆盖</span>
+      </p>
+      <h2>
+        <span data-lang="en">Saved Article Coverage</span>
+        <span data-lang="zh">保存正文覆盖</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">The local source set behind today's saved article pages.</span>
+      <span data-lang="zh">今日保存正文页面背后的本地来源集合。</span>
+    </p>
+  </div>
+  {metrics}
+  {sources}
+  <div class="saved-article-coverage-grid">{cards}</div>
+</section>"""
+
+
+def _render_saved_article_coverage_metrics(coverage: RowOneSavedArticleCoverage) -> str:
+    metrics = [
+        _render_saved_article_coverage_metric(
+            _count_label(coverage.article_count, "saved article", "saved articles"),
+            f"{coverage.article_count} 篇保存文章",
+        ),
+        _render_saved_article_coverage_metric(
+            _count_label(
+                coverage.saved_paragraph_count,
+                "saved paragraph",
+                "saved paragraphs",
+            ),
+            f"{coverage.saved_paragraph_count} 个保存段落",
+        ),
+        _render_saved_article_coverage_metric(
+            _count_label(
+                coverage.organized_section_count,
+                "organized section",
+                "organized sections",
+            ),
+            f"{coverage.organized_section_count} 个整理栏目",
+        ),
+        _render_saved_article_coverage_metric(
+            _count_label(coverage.source_count, "source", "sources"),
+            f"{coverage.source_count} 个来源",
+        ),
+    ]
+    return '  <ul class="saved-article-coverage-metrics">\n' + "\n".join(metrics) + "\n  </ul>"
+
+
+def _render_saved_article_coverage_metric(label_en: str, label_zh: str) -> str:
+    return (
+        "    <li>"
+        f'<span data-lang="en">{_esc(label_en)}</span>'
+        f'<span data-lang="zh">{_esc(label_zh)}</span>'
+        "</li>"
+    )
+
+
+def _render_saved_article_coverage_sources(coverage: RowOneSavedArticleCoverage) -> str:
+    if not coverage.sources:
+        return ""
+    source_items = []
+    for source in coverage.sources:
+        article_count_en = _count_label(source.article_count, "article", "articles")
+        article_count_zh = f"{source.article_count} 篇文章"
+        source_items.append(
+            "    <li>"
+            f'<span class="saved-article-coverage-source-name">{_esc(source.name)}</span>'
+            f'<span data-lang="en">{_esc(article_count_en)}</span>'
+            f'<span data-lang="zh">{_esc(article_count_zh)}</span>'
+            "</li>"
+        )
+    sources = "\n".join(source_items)
+    return (
+        '  <ul class="saved-article-coverage-sources" aria-label="Saved article sources">\n'
+        + sources
+        + "\n  </ul>"
+    )
+
+
+def _render_saved_article_coverage_card(item: RowOneSavedArticleCoverageItem) -> str:
+    href = _safe_saved_article_coverage_href(item.detail_path)
+    if href is None:
+        return ""
+    paragraph_count_en = _count_label(
+        item.saved_paragraph_count,
+        "saved paragraph",
+        "saved paragraphs",
+    )
+    paragraph_count_zh = f"{item.saved_paragraph_count} 个保存段落"
+    section_count_en = _count_label(
+        item.organized_section_count,
+        "organized section",
+        "organized sections",
+    )
+    section_count_zh = f"{item.organized_section_count} 个整理栏目"
+    return f"""    <a class="saved-article-coverage-card" href="{_esc(href)}">
+      <strong>
+        <span data-lang="en">{_esc(item.title.en)}</span>
+        <span data-lang="zh">{_esc(item.title.zh)}</span>
+      </strong>
+      <span>{_esc(item.source_name)}</span>
+      <span>
+        <span data-lang="en">{_esc(item.section_title.en)}</span>
+        <span data-lang="zh">{_esc(item.section_title.zh)}</span>
+      </span>
+      <span>
+        <span data-lang="en">{_esc(paragraph_count_en)}</span>
+        <span data-lang="zh">{_esc(paragraph_count_zh)}</span>
+      </span>
+      <span>
+        <span data-lang="en">{_esc(section_count_en)}</span>
+        <span data-lang="zh">{_esc(section_count_zh)}</span>
+      </span>
+    </a>"""
+
+
+def _safe_saved_article_coverage_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if "#" not in href:
+        return None
+    path, fragment = href.split("#", 1)
+    if fragment != "local-article-digest":
+        return None
+    return href if _validated_detail_relative_path(path) is not None else None
+
+
+def _count_label(count: int, singular: str, plural: str) -> str:
+    return f"{count} {singular if count == 1 else plural}"
 
 
 def _render_daily_local_intelligence_section(
