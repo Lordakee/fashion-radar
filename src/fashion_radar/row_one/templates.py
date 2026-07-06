@@ -34,6 +34,8 @@ from fashion_radar.row_one.utils import safe_external_url
 
 _DETAIL_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html$")
 _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE = re.compile(r"local-article-paragraph-[1-9][0-9]*$")
+LOCAL_ARTICLE_DIGEST_EXCERPT_CHARS = 160
+LOCAL_ARTICLE_DIGEST_MAX_REFERENCES = 4
 LOCAL_ARTICLE_READER_EXCERPT_CHARS = 120
 
 
@@ -1308,6 +1310,73 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .local-article-reader-excerpt {
   min-width: 0;
 }
+.local-article-digest {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  margin: 14px 0 16px;
+  padding: 14px;
+}
+.local-article-digest-header {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.local-article-digest-header h4,
+.local-article-digest-header p {
+  margin: 0;
+}
+.local-article-digest-header h4 {
+  font-size: 0.9rem;
+}
+.local-article-digest-header p {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.local-article-digest-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.local-article-digest-card {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.local-article-digest-card h4 {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+.local-article-digest-card p {
+  line-height: 1.45;
+  margin: 0 0 8px;
+}
+.local-article-digest-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.local-article-digest-link-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.local-article-digest-chip,
+.local-article-digest-link-list a {
+  border: 1px solid var(--line);
+  color: var(--accent);
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 6px 8px;
+  text-decoration: none;
+}
 .local-article-brief {
   border: 1px solid var(--line);
   display: grid;
@@ -1521,6 +1590,7 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .signal-synthesis-grid { grid-template-columns: 1fr; }
   .daily-local-intelligence-header { grid-template-columns: 1fr; }
   .daily-local-intelligence-grid { grid-template-columns: 1fr; }
+  .local-article-digest-grid { grid-template-columns: 1fr; }
   .briefing-topics-header { grid-template-columns: 1fr; }
   .briefing-topic-grid { grid-template-columns: 1fr; }
   .briefing-path-header { grid-template-columns: 1fr; }
@@ -2531,8 +2601,13 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
     title = article.title or "Source article"
     provenance = _render_local_article_provenance(article)
     brief = _render_local_article_brief(article)
+    digest = _render_local_article_digest(article)
     reader = _render_local_article_reader(article)
-    article_map = _render_local_article_map(article, include_reader=bool(reader))
+    article_map = _render_local_article_map(
+        article,
+        include_digest=bool(digest),
+        include_reader=bool(reader),
+    )
     content_sections = _render_local_article_content_sections(
         article,
         rendered_indices=_local_article_rendered_paragraph_indices(article),
@@ -2550,6 +2625,7 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
 {provenance}
       <h3>{_esc(title)}</h3>
 {article_map}
+{digest}
 {reader}
 {brief}
 {content_sections}
@@ -2703,9 +2779,224 @@ def _render_local_article_reader_item(
           </li>"""
 
 
+def _render_local_article_digest(article: RowOneLocalArticle) -> str:
+    if not _local_article_rendered_paragraph_indices(article):
+        return ""
+    cards = [
+        card
+        for card in (
+            _render_local_article_digest_read_first(article),
+            _render_local_article_digest_references(
+                article,
+                keys=("entities",),
+                title_en="People & Brands",
+                title_zh="品牌与人物",
+            ),
+            _render_local_article_digest_references(
+                article,
+                keys=("product_signals",),
+                title_en="Products",
+                title_zh="产品",
+            ),
+            _render_local_article_digest_source_map(article),
+        )
+        if card
+    ]
+    if not cards:
+        return ""
+    rendered_cards = "\n".join(cards)
+    return (
+        '      <div id="local-article-digest" class="local-article-digest" '
+        'aria-label="Saved text digest">\n'
+        f"""        <div class="local-article-digest-header">
+          <h4>
+            <span data-lang="en">Saved Text Digest</span>
+            <span data-lang="zh">保存正文整理</span>
+          </h4>
+          <p>
+            <span data-lang="en">A scan-first organization of the existing saved text.</span>
+            <span data-lang="zh">基于现有保存正文的速览整理。</span>
+          </p>
+        </div>
+        <div class="local-article-digest-grid">
+{rendered_cards}
+        </div>
+      </div>"""
+    )
+
+
+def _render_local_article_digest_read_first(article: RowOneLocalArticle) -> str:
+    takeaway = _local_article_digest_takeaway(article)
+    if takeaway is None:
+        return ""
+    body_en, body_zh, paragraph_indices = takeaway
+    rendered_indices = _local_article_rendered_paragraph_indices(article)
+    links = _render_local_article_digest_paragraph_links(
+        paragraph_indices,
+        rendered_indices=rendered_indices,
+    )
+    body = (
+        f'            <span data-lang="en">{_esc(_local_article_digest_excerpt(body_en))}</span>\n'
+        f'            <span data-lang="zh">{_esc(_local_article_digest_excerpt(body_zh))}</span>'
+        if body_zh is not None
+        else f"            {_esc(_local_article_digest_excerpt(body_en))}"
+    )
+    return f"""          <article class="local-article-digest-card">
+            <h4>
+              <span data-lang="en">Read First</span>
+              <span data-lang="zh">先读</span>
+            </h4>
+            <p>
+{body}
+            </p>
+{links}
+          </article>"""
+
+
+def _local_article_digest_takeaway(
+    article: RowOneLocalArticle,
+) -> tuple[str, str | None, list[int]] | None:
+    rendered_indices = _local_article_rendered_paragraph_indices(article)
+    for section in article.content_sections:
+        if section.key != "takeaways":
+            continue
+        for item in section.items:
+            if item.body is None or not item.body.en.strip():
+                continue
+            return (
+                item.body.en,
+                item.body.zh if item.body.zh and item.body.zh.strip() else None,
+                _valid_local_article_paragraph_indices(
+                    item.paragraph_indices,
+                    rendered_indices,
+                ),
+            )
+    aligned_zh = (
+        article.paragraphs_zh if len(article.paragraphs_zh) == len(article.paragraphs) else []
+    )
+    for index, paragraph in enumerate(article.paragraphs):
+        if not paragraph.strip():
+            continue
+        zh = aligned_zh[index] if aligned_zh and aligned_zh[index].strip() else None
+        return (paragraph, zh, [index])
+    return None
+
+
+def _render_local_article_digest_references(
+    article: RowOneLocalArticle,
+    *,
+    keys: tuple[str, ...],
+    title_en: str,
+    title_zh: str,
+) -> str:
+    references: list[RowOneReference] = []
+    seen: set[tuple[str, str, str]] = set()
+    for section in article.content_sections:
+        if section.key not in keys:
+            continue
+        for item in section.items:
+            for ref in item.references:
+                normalized_name = normalize_row_one_paragraph(ref.name)
+                if not normalized_name:
+                    continue
+                dedupe_key = (
+                    normalized_name.casefold(),
+                    ref.type.strip().casefold(),
+                    ref.label.strip().casefold(),
+                )
+                if dedupe_key in seen:
+                    continue
+                seen.add(dedupe_key)
+                references.append(ref)
+                if len(references) >= LOCAL_ARTICLE_DIGEST_MAX_REFERENCES:
+                    break
+            if len(references) >= LOCAL_ARTICLE_DIGEST_MAX_REFERENCES:
+                break
+        if len(references) >= LOCAL_ARTICLE_DIGEST_MAX_REFERENCES:
+            break
+    if not references:
+        return ""
+    items = "\n".join(
+        f'              <li><span class="local-article-digest-chip">{_esc(ref.name)}</span></li>'
+        for ref in references
+    )
+    return f"""          <article class="local-article-digest-card">
+            <h4>
+              <span data-lang="en">{_esc(title_en)}</span>
+              <span data-lang="zh">{_esc(title_zh)}</span>
+            </h4>
+            <ul class="local-article-digest-list">
+{items}
+            </ul>
+          </article>"""
+
+
+def _render_local_article_digest_source_map(article: RowOneLocalArticle) -> str:
+    saved_count = _local_article_saved_paragraph_count(article)
+    section_count = len(article.content_sections)
+    saved_label = "paragraph" if saved_count == 1 else "paragraphs"
+    section_label = "section" if section_count == 1 else "sections"
+    saved_text_en = f"{saved_count} saved {saved_label}"
+    saved_text_zh = f"{saved_count} 个保存段落"
+    section_text_en = f"{section_count} organized {section_label}"
+    section_text_zh = f"{section_count} 个整理栏目"
+    return f"""          <article class="local-article-digest-card">
+            <h4>
+              <span data-lang="en">Source Map</span>
+              <span data-lang="zh">来源结构</span>
+            </h4>
+            <p>{_esc(article.source_name)}</p>
+            <ul class="local-article-digest-list">
+{_render_local_article_digest_count_chip(saved_text_en, saved_text_zh)}
+{_render_local_article_digest_count_chip(section_text_en, section_text_zh)}
+            </ul>
+          </article>"""
+
+
+def _render_local_article_digest_count_chip(label_en: str, label_zh: str) -> str:
+    return (
+        '              <li><span class="local-article-digest-chip">'
+        f'<span data-lang="en">{_esc(label_en)}</span>'
+        f'<span data-lang="zh">{_esc(label_zh)}</span>'
+        "</span></li>"
+    )
+
+
+def _render_local_article_digest_paragraph_links(
+    indices: list[int],
+    *,
+    rendered_indices: set[int],
+) -> str:
+    valid_indices = _valid_local_article_paragraph_indices(indices, rendered_indices)
+    if not valid_indices:
+        return ""
+    links: list[str] = []
+    for index in valid_indices:
+        href = f"#{_local_article_paragraph_anchor(index)}"
+        links.append(
+            "              "
+            f'<li><a href="{_esc(href)}">'
+            f'<span data-lang="en">Paragraph {index + 1}</span>'
+            f'<span data-lang="zh">段落 {index + 1}</span>'
+            "</a></li>"
+        )
+    rendered_links = "\n".join(links)
+    return f"""            <ul class="local-article-digest-link-list">
+{rendered_links}
+            </ul>"""
+
+
+def _local_article_digest_excerpt(text: str) -> str:
+    return _meta_description(
+        normalize_row_one_paragraph(text),
+        limit=LOCAL_ARTICLE_DIGEST_EXCERPT_CHARS,
+    )
+
+
 def _render_local_article_map(
     article: RowOneLocalArticle,
     *,
+    include_digest: bool = False,
     include_reader: bool = False,
 ) -> str:
     if not article.brief_sections and not article.content_sections:
@@ -2716,6 +3007,13 @@ def _render_local_article_map(
             '<a href="#local-article-brief">'
             '<span data-lang="en">Brief</span>'
             '<span data-lang="zh">本地简报</span>'
+            "</a>"
+        )
+    if include_digest:
+        links.append(
+            '<a href="#local-article-digest">'
+            '<span data-lang="en">Digest</span>'
+            '<span data-lang="zh">整理</span>'
             "</a>"
         )
     if include_reader:

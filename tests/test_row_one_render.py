@@ -505,7 +505,7 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     assert 'id="local-article-reader"' in detail_html
     local_article_map_html = detail_html[
         detail_html.index('class="local-article-map"') : detail_html.index(
-            'id="local-article-reader"'
+            'id="local-article-digest"'
         )
     ]
     reader_html = detail_html[
@@ -582,9 +582,15 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
     )
     assert '<span data-lang="zh">The Row 需求的来源摘录。</span>' in content_sections_html
     assert detail_html.index('class="local-article-map"') < detail_html.index(
+        'id="local-article-digest"'
+    )
+    assert detail_html.index('id="local-article-digest"') < detail_html.index(
         'id="local-article-reader"'
     )
     assert detail_html.index('href="#local-article-brief"') < detail_html.index(
+        'href="#local-article-digest"'
+    )
+    assert detail_html.index('href="#local-article-digest"') < detail_html.index(
         'href="#local-article-reader"'
     )
     assert detail_html.index('href="#local-article-reader"') < detail_html.index(
@@ -955,6 +961,366 @@ def test_render_row_one_detail_reader_keeps_app_contract_stable(tmp_path) -> Non
     assert "local-article-reader" not in edition_json
 
 
+def test_render_row_one_detail_includes_saved_text_digest_from_content_sections(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Structured digest source",
+        url="https://example.com/digest",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=[
+            "The Row demand moved through the saved source paragraph.",
+            "Zendaya styled the Margaux bag in the second saved paragraph.",
+        ],
+        paragraphs_zh=[
+            "The Row 需求出现在保存正文第一段。",
+            "Zendaya 在第二段中搭配 Margaux 包袋。",
+        ],
+        brief_sections=[
+            RowOneLocalArticleBriefSection(
+                key="what_happened",
+                title=LocalizedText(en="What Happened", zh="发生了什么"),
+                body=LocalizedText(en="Digest brief.", zh="整理简报。"),
+            )
+        ],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(en="Takeaways", zh="要点"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="Source lead", zh="来源导语"),
+                        body=LocalizedText(
+                            en="Zendaya styled the Margaux bag in the second saved paragraph.",
+                            zh="Zendaya 在第二段中搭配 Margaux 包袋。",
+                        ),
+                        paragraph_indices=[1],
+                    )
+                ],
+            ),
+            RowOneLocalArticleContentSection(
+                key="entities",
+                title=LocalizedText(en="Entities", zh="相关对象"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="The Row", zh="The Row"),
+                        references=[
+                            RowOneReference(name="The Row", type="brand", label="tracked"),
+                        ],
+                        paragraph_indices=[0],
+                    ),
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="Zendaya", zh="Zendaya"),
+                        references=[
+                            RowOneReference(name="Zendaya", type="celebrity", label="new"),
+                        ],
+                        paragraph_indices=[1],
+                    ),
+                ],
+            ),
+            RowOneLocalArticleContentSection(
+                key="product_signals",
+                title=LocalizedText(en="Product Signals", zh="产品信号"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="Margaux", zh="Margaux"),
+                        references=[
+                            RowOneReference(name="Margaux", type="bag", label="product"),
+                        ],
+                        paragraph_indices=[1],
+                    )
+                ],
+            ),
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    edition_json = (tmp_path / "data" / "edition.json").read_text(encoding="utf-8")
+    digest_html = detail_html[
+        detail_html.index('id="local-article-digest"') : detail_html.index(
+            'id="local-article-reader"'
+        )
+    ]
+    map_html = detail_html[
+        detail_html.index('class="local-article-map"') : detail_html.index(
+            'id="local-article-digest"'
+        )
+    ]
+    people_html = digest_html[
+        digest_html.index('<span data-lang="en">People &amp; Brands</span>') : digest_html.index(
+            '<span data-lang="en">Products</span>'
+        )
+    ]
+    products_html = digest_html[
+        digest_html.index('<span data-lang="en">Products</span>') : digest_html.index(
+            '<span data-lang="en">Source Map</span>'
+        )
+    ]
+    source_map_html = digest_html[digest_html.index('<span data-lang="en">Source Map</span>') :]
+
+    assert 'class="local-article-digest"' in digest_html
+    assert 'aria-label="Saved text digest"' in digest_html
+    assert '<span data-lang="en">Saved Text Digest</span>' in digest_html
+    assert '<span data-lang="zh">保存正文整理</span>' in digest_html
+    assert '<span data-lang="en">Read First</span>' in digest_html
+    assert '<span data-lang="zh">先读</span>' in digest_html
+    assert "Zendaya styled the Margaux bag in the second saved paragraph." in digest_html
+    assert "Zendaya 在第二段中搭配 Margaux 包袋。" in digest_html
+    assert 'href="#local-article-paragraph-2"' in digest_html
+    assert '<span data-lang="en">People &amp; Brands</span>' in digest_html
+    assert '<span data-lang="zh">品牌与人物</span>' in digest_html
+    assert people_html.count('class="local-article-digest-chip"') == 2
+    assert ">The Row<" in people_html
+    assert ">Zendaya<" in people_html
+    assert '<span data-lang="en">Products</span>' in digest_html
+    assert '<span data-lang="zh">产品</span>' in digest_html
+    assert products_html.count('class="local-article-digest-chip"') == 1
+    assert ">Margaux<" in products_html
+    assert '<span data-lang="en">Source Map</span>' in digest_html
+    assert '<span data-lang="zh">来源结构</span>' in digest_html
+    assert "Vogue Business" in source_map_html
+    assert '<span data-lang="en">2 saved paragraphs</span>' in source_map_html
+    assert '<span data-lang="zh">2 个保存段落</span>' in source_map_html
+    assert '<span data-lang="en">3 organized sections</span>' in source_map_html
+    assert '<span data-lang="zh">3 个整理栏目</span>' in source_map_html
+    assert 'href="#local-article-digest"' in map_html
+    assert '<span data-lang="en">Digest</span>' in map_html
+    assert '<span data-lang="zh">整理</span>' in map_html
+    assert 'id="local-article-digest"' not in map_html
+    assert 'class="local-article-digest"' not in map_html
+    assert 'class="local-article-reader"' not in map_html
+    assert detail_html.index('href="#local-article-brief"') < detail_html.index(
+        'href="#local-article-digest"'
+    )
+    assert detail_html.index('href="#local-article-digest"') < detail_html.index(
+        'href="#local-article-reader"'
+    )
+    assert detail_html.index('id="local-article-digest"') < detail_html.index(
+        'id="local-article-reader"'
+    )
+    assert detail_html.index('id="local-article-digest"') < detail_html.index(
+        'id="local-article-brief"'
+    )
+    assert "local-article-digest" not in edition_json
+
+
+def test_render_row_one_detail_plain_local_article_gets_digest_without_map(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Plain digest source",
+        url="https://example.com/plain-digest",
+        source_name="Fashion Desk",
+        extracted_at=AS_OF,
+        paragraphs=[
+            "First saved source paragraph becomes the digest fallback.",
+            "Second saved source paragraph stays in the saved text reader.",
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    digest_html = detail_html[
+        detail_html.index('id="local-article-digest"') : detail_html.index(
+            'id="local-article-reader"'
+        )
+    ]
+
+    assert 'id="local-article-digest"' in detail_html
+    assert "First saved source paragraph becomes the digest fallback." in digest_html
+    assert 'href="#local-article-paragraph-1"' in digest_html
+    assert "Fashion Desk" in digest_html
+    assert "2 saved paragraphs" in digest_html
+    assert "0 organized sections" in digest_html
+    assert 'class="local-article-map"' not in detail_html
+
+
+def test_render_row_one_detail_digest_escapes_dedupes_filters_and_truncates(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    long_text = (
+        "The Row paragraph includes <script>alert('x')</script> and a very long "
+        "saved source sentence that should be shortened inside the digest card "
+        "while the complete saved text remains available through its anchor."
+    )
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Escaped digest source",
+        url="https://example.com/escaped-digest",
+        source_name="Vogue <Business>",
+        extracted_at=AS_OF,
+        paragraphs=[long_text, "   ", "Final saved paragraph."],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(en="Takeaways", zh="要点"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="Unsafe", zh="不安全"),
+                        body=LocalizedText(en=long_text, zh=long_text),
+                        paragraph_indices=[0, 1, 99],
+                    )
+                ],
+            ),
+            RowOneLocalArticleContentSection(
+                key="entities",
+                title=LocalizedText(en="Entities", zh="相关对象"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="The Row", zh="The Row"),
+                        references=[
+                            RowOneReference(name="The Row", type="brand", label="tracked"),
+                            RowOneReference(name="The Row", type="brand", label="tracked"),
+                            RowOneReference(
+                                name="<script>Brand</script>",
+                                type="brand",
+                                label="unsafe",
+                            ),
+                        ],
+                    )
+                ],
+            ),
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    digest_html = detail_html[
+        detail_html.index('id="local-article-digest"') : detail_html.index(
+            'id="local-article-reader"'
+        )
+    ]
+    reference_html = digest_html[
+        digest_html.index('<span data-lang="en">People &amp; Brands</span>') : digest_html.index(
+            '<span data-lang="en">Source Map</span>'
+        )
+    ]
+    body_html = detail_html[detail_html.index('id="local-article-body"') :]
+
+    assert "&lt;script&gt;alert(&#x27;x&#x27;)&lt;/script&gt;" in digest_html
+    assert "&lt;script&gt;Brand&lt;/script&gt;" in digest_html
+    assert "<script>" not in digest_html
+    assert reference_html.count('class="local-article-digest-chip"') == 2
+    assert reference_html.count(">The Row<") == 1
+    assert 'href="#local-article-paragraph-1"' in digest_html
+    assert 'href="#local-article-paragraph-2"' not in digest_html
+    assert 'href="#local-article-paragraph-100"' not in digest_html
+    assert "2 saved paragraphs" in digest_html
+    assert "3 saved paragraphs" not in digest_html
+    assert "complete saved text remains available" not in digest_html
+    assert "…" in digest_html
+    assert "complete saved text remains available" in body_html
+
+
+def test_render_row_one_detail_digest_keeps_app_contract_stable(tmp_path) -> None:
+    edition = _edition()
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Contract digest source",
+        url="https://example.com/contract-digest",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=["Digest-only local paragraph for contract stability."],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+    edition_json = json.dumps(edition_payload, ensure_ascii=False)
+
+    assert edition_payload["contract_version"] == "row-one-app/v7"
+    assert manifest_payload["contract_version"] == "row-one-manifest/v1"
+    assert manifest_payload["app_contract"]["version"] == "row-one-app/v7"
+    assert runtime_payload["contract_version"] == "row-one-runtime/v1"
+    assert "Digest-only local paragraph for contract stability." not in edition_json
+    assert "local-article-digest" not in edition_json
+
+
+def test_render_row_one_detail_digest_keeps_takeaway_body_without_valid_links(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    local_article = RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Invalid link digest source",
+        url="https://example.com/invalid-link-digest",
+        source_name="Fashion Desk",
+        extracted_at=AS_OF,
+        paragraphs=["Only publishable saved paragraph.", "   "],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(en="Takeaways", zh="要点"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(en="Source lead", zh="来源导语"),
+                        body=LocalizedText(
+                            en="Use this organized takeaway even without valid paragraph links.",
+                            zh="即使没有有效段落链接，也使用这条整理要点。",
+                        ),
+                        paragraph_indices=[1, 99],
+                    )
+                ],
+            )
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    digest_html = detail_html[
+        detail_html.index('id="local-article-digest"') : detail_html.index(
+            'id="local-article-reader"'
+        )
+    ]
+
+    assert "Use this organized takeaway even without valid paragraph links." in digest_html
+    assert "即使没有有效段落链接，也使用这条整理要点。" in digest_html
+    assert 'href="#local-article-paragraph-2"' not in digest_html
+    assert 'href="#local-article-paragraph-100"' not in digest_html
+    assert "1 saved paragraph" in digest_html
+
+
 def test_render_row_one_detail_map_handles_brief_only_local_article(
     tmp_path,
 ) -> None:
@@ -985,16 +1351,22 @@ def test_render_row_one_detail_map_handles_brief_only_local_article(
     )
     local_article_map_html = detail_html[
         detail_html.index('class="local-article-map"') : detail_html.index(
-            'class="local-article-brief"'
+            'id="local-article-digest"'
         )
     ]
 
     assert 'href="#local-article-brief"' in local_article_map_html
+    assert 'href="#local-article-digest"' in local_article_map_html
     assert 'href="#local-article-reader"' in local_article_map_html
+    assert '<span data-lang="en">Digest</span>' in local_article_map_html
+    assert '<span data-lang="zh">整理</span>' in local_article_map_html
     assert '<span data-lang="en">Reader</span>' in local_article_map_html
     assert '<span data-lang="zh">阅读</span>' in local_article_map_html
     assert 'href="#local-article-body"' in local_article_map_html
     assert local_article_map_html.index('href="#local-article-brief"') < (
+        local_article_map_html.index('href="#local-article-digest"')
+    )
+    assert local_article_map_html.index('href="#local-article-digest"') < (
         local_article_map_html.index('href="#local-article-reader"')
     )
     assert local_article_map_html.index('href="#local-article-reader"') < (
@@ -1043,14 +1415,18 @@ def test_render_row_one_detail_uses_plain_local_article_when_zh_paragraphs_misma
     )
     local_article_map_html = detail_html[
         detail_html.index('class="local-article-map"') : detail_html.index(
-            'id="local-article-reader"'
+            'id="local-article-digest"'
         )
     ]
 
     assert '<p id="local-article-paragraph-1">One source paragraph.</p>' in detail_html
     assert '<p id="local-article-paragraph-2">Second source paragraph.</p>' in detail_html
     assert 'href="#local-article-paragraph-1"' in detail_html
+    assert 'href="#local-article-digest"' in local_article_map_html
     assert 'href="#local-article-reader"' in local_article_map_html
+    assert local_article_map_html.index('href="#local-article-digest"') < (
+        local_article_map_html.index('href="#local-article-reader"')
+    )
     assert '<span data-lang="en">Reader</span>' in local_article_map_html
     assert '<span data-lang="zh">阅读</span>' in local_article_map_html
     assert local_article_map_html.index('href="#local-article-reader"') < (
@@ -1262,7 +1638,7 @@ def test_render_row_one_detail_escapes_local_article_content(tmp_path) -> None:
     assert "&lt;script&gt;Ref&lt;/script&gt;" in detail_html
     local_article_map_html = detail_html[
         detail_html.index('class="local-article-map"') : detail_html.index(
-            'class="local-article-brief"'
+            'id="local-article-digest"'
         )
     ]
     assert 'href="#local-article-content-section-1"' in local_article_map_html
@@ -2291,6 +2667,13 @@ def test_row_one_css_includes_local_article_map_styles(tmp_path) -> None:
         ".local-article-reader-list a {",
         ".local-article-reader-number {",
         ".local-article-reader-excerpt {",
+        ".local-article-digest {",
+        ".local-article-digest-header {",
+        ".local-article-digest-grid {",
+        ".local-article-digest-card {",
+        ".local-article-digest-card h4 {",
+        ".local-article-digest-list {",
+        ".local-article-digest-link-list {",
         ".local-article-content-paragraph-links a",
         ".local-article-body p:target",
     ):
