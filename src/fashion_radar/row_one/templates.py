@@ -31,6 +31,11 @@ from fashion_radar.row_one.saved_article_briefs import (
     RowOneSavedArticleBriefItem,
     RowOneSavedArticleBriefs,
 )
+from fashion_radar.row_one.saved_article_content_organization import (
+    RowOneSavedArticleContentOrganization,
+    RowOneSavedArticleContentOrganizationCard,
+    RowOneSavedArticleContentOrganizationGroup,
+)
 from fashion_radar.row_one.saved_article_coverage import (
     RowOneSavedArticleCoverage,
     RowOneSavedArticleCoverageItem,
@@ -45,6 +50,9 @@ from fashion_radar.row_one.text import (
 from fashion_radar.row_one.utils import safe_external_url
 
 _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE = re.compile(r"local-article-paragraph-[1-9][0-9]*$")
+_LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE = re.compile(
+    r"local-article-content-section-[1-9][0-9]*$"
+)
 LOCAL_ARTICLE_DIGEST_EXCERPT_CHARS = 160
 LOCAL_ARTICLE_DIGEST_MAX_REFERENCES = 4
 LOCAL_ARTICLE_READER_EXCERPT_CHARS = 120
@@ -57,6 +65,7 @@ def render_index_html(
     local_article_intelligence: Sequence[RowOneDailyLocalIntelligenceSection] | None = None,
     saved_article_coverage: RowOneSavedArticleCoverage | None = None,
     saved_article_briefs: RowOneSavedArticleBriefs | None = None,
+    saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
 ) -> str:
     contents_nav = _render_edition_nav(edition)
     briefing_topics = _render_briefing_topics(app_payload)
@@ -70,6 +79,9 @@ def render_index_html(
     daily_local_intelligence = _render_daily_local_intelligence(local_article_intelligence)
     saved_article_coverage_section = _render_saved_article_coverage(saved_article_coverage)
     saved_article_briefs_section = _render_saved_article_briefs(saved_article_briefs)
+    saved_article_content_organization_section = _render_saved_article_content_organization(
+        saved_article_content_organization
+    )
     readiness = build_row_one_readiness(edition)
     status_strip = _render_edition_status(edition, readiness)
     summary_note_en = (
@@ -144,6 +156,7 @@ def render_index_html(
 {daily_local_intelligence}
 {saved_article_coverage_section}
 {saved_article_briefs_section}
+{saved_article_content_organization_section}
 {lead_story_block}
 {briefing_topics}
 {briefing_path}
@@ -991,6 +1004,118 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .saved-article-brief-chip span:last-child {
   color: var(--muted);
 }
+.saved-article-content-organization {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.saved-article-content-organization-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.saved-article-content-organization-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.2rem, 5vw, 5.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.92;
+  margin: 0;
+}
+.saved-article-content-organization-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.saved-article-content-organization-groups {
+  display: grid;
+  gap: 18px;
+}
+.saved-article-content-organization-group {
+  display: grid;
+  gap: 12px;
+}
+.saved-article-content-organization-group-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  justify-content: space-between;
+}
+.saved-article-content-organization-group-header h3,
+.saved-article-content-organization-group-header p {
+  margin: 0;
+}
+.saved-article-content-organization-group-header h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.4rem, 2.4vw, 2.6rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+}
+.saved-article-content-organization-group-header p {
+  color: var(--muted);
+  max-width: 520px;
+}
+.saved-article-content-organization-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.saved-article-content-organization-card {
+  background: var(--panel);
+  color: inherit;
+  display: grid;
+  gap: 12px;
+  min-height: 285px;
+  padding: 16px;
+  text-decoration: none;
+}
+.saved-article-content-organization-card h4 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.18rem, 1.8vw, 1.85rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.saved-article-content-organization-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 6px 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-content-organization-lead {
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.42;
+  margin: 0;
+}
+.saved-article-content-organization-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.saved-article-content-organization-chip {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  gap: 4px;
+  padding: 5px 7px;
+}
+.saved-article-content-organization-chip span:last-child {
+  color: var(--muted);
+}
 .briefing-topics {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -1784,6 +1909,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
   .saved-article-briefs-header { grid-template-columns: 1fr; }
   .saved-article-briefs-grid { grid-template-columns: 1fr; }
+  .saved-article-content-organization-header { grid-template-columns: 1fr; }
+  .saved-article-content-organization-grid { grid-template-columns: 1fr; }
   .local-article-digest-grid { grid-template-columns: 1fr; }
   .briefing-topics-header { grid-template-columns: 1fr; }
   .briefing-topic-grid { grid-template-columns: 1fr; }
@@ -2376,6 +2503,135 @@ def _render_saved_article_brief_chip(ref: RowOneReference) -> str:
         f"<span>{_esc(label)}</span>"
         "</span>"
     )
+
+
+def _render_saved_article_content_organization(
+    organization: RowOneSavedArticleContentOrganization | None,
+) -> str:
+    if organization is None:
+        return ""
+    groups = [
+        _render_saved_article_content_organization_group(group) for group in organization.groups
+    ]
+    groups = [group for group in groups if group]
+    if not groups:
+        return ""
+    return f"""<section class="saved-article-content-organization"
+  aria-label="Saved article content organization">
+  <div class="saved-article-content-organization-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Saved Article Content Organization</span>
+        <span data-lang="zh">保存正文内容整理</span>
+      </p>
+      <h2>
+        <span data-lang="en">Saved Article Content Organization</span>
+        <span data-lang="zh">保存正文内容整理</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">Scan-first groupings from locally saved article bodies.</span>
+      <span data-lang="zh">从本地保存正文中提炼的快速浏览分组。</span>
+    </p>
+  </div>
+  <div class="saved-article-content-organization-groups">{"".join(groups)}</div>
+</section>"""
+
+
+def _render_saved_article_content_organization_group(
+    group: RowOneSavedArticleContentOrganizationGroup,
+) -> str:
+    cards = [_render_saved_article_content_organization_card(card) for card in group.cards]
+    cards = [card for card in cards if card]
+    if not cards:
+        return ""
+    return f"""    <article class="saved-article-content-organization-group">
+      <div class="saved-article-content-organization-group-header">
+        <h3>
+          <span data-lang="en">{_esc(group.title.en)}</span>
+          <span data-lang="zh">{_esc(group.title.zh)}</span>
+        </h3>
+        <p>
+          <span data-lang="en">{_esc(group.dek.en)}</span>
+          <span data-lang="zh">{_esc(group.dek.zh)}</span>
+        </p>
+      </div>
+      <div class="saved-article-content-organization-grid">{"".join(cards)}</div>
+    </article>"""
+
+
+def _render_saved_article_content_organization_card(
+    card: RowOneSavedArticleContentOrganizationCard,
+) -> str:
+    href = _safe_saved_article_content_organization_href(card.detail_path)
+    if href is None:
+        return ""
+    chips = _render_saved_article_content_organization_chips(card)
+    chip_block = (
+        f'\n      <div class="saved-article-content-organization-chips">{chips}</div>'
+        if chips
+        else ""
+    )
+    return f"""        <a class="saved-article-content-organization-card" href="{_esc(href)}">
+      <div class="saved-article-content-organization-meta">
+        <span>{_esc(card.source_name)}</span>
+        <span>
+          <span data-lang="en">{_esc(card.section_title.en)}</span>
+          <span data-lang="zh">{_esc(card.section_title.zh)}</span>
+        </span>
+        <span>
+          <span data-lang="en">{_esc(card.section_label.en)}</span>
+          <span data-lang="zh">{_esc(card.section_label.zh)}</span>
+        </span>
+      </div>
+      <h4>
+        <span data-lang="en">{_esc(card.title.en)}</span>
+        <span data-lang="zh">{_esc(card.title.zh)}</span>
+      </h4>
+      <p class="saved-article-content-organization-lead">
+        <span data-lang="en">{_esc(_local_article_digest_excerpt(card.lead.en))}</span>
+        <span data-lang="zh">{_esc(_local_article_digest_excerpt(card.lead.zh))}</span>
+      </p>{chip_block}
+    </a>"""
+
+
+def _render_saved_article_content_organization_chips(
+    card: RowOneSavedArticleContentOrganizationCard,
+) -> str:
+    chips = [_render_saved_article_content_organization_ref_chip(ref) for ref in card.references]
+    if card.paragraph_indices:
+        paragraph_count = len(card.paragraph_indices)
+        paragraph_count_en = _count_label(paragraph_count, "paragraph", "paragraphs")
+        chips.append(
+            '<span class="saved-article-content-organization-chip">'
+            f'<span data-lang="en">{_esc(paragraph_count_en)}</span>'
+            f'<span data-lang="zh">{_esc(f"{paragraph_count} 个段落")}</span>'
+            "</span>"
+        )
+    return "".join(chips)
+
+
+def _render_saved_article_content_organization_ref_chip(ref: RowOneReference) -> str:
+    label = ref.label.strip() or ref.type.strip()
+    return (
+        '<span class="saved-article-content-organization-chip">'
+        f"<span>{_esc(ref.name)}</span>"
+        f"<span>{_esc(label)}</span>"
+        "</span>"
+    )
+
+
+def _safe_saved_article_content_organization_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if "#" not in href:
+        return None
+    path, fragment = href.split("#", 1)
+    if not _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment):
+        return None
+    if validated_row_one_detail_relative_path(path) is None:
+        return None
+    return href
 
 
 def _count_label(count: int, singular: str, plural: str) -> str:

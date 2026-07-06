@@ -277,12 +277,12 @@ def test_row_one_docs_describe_article_readiness_boundary() -> None:
     docs = (ROOT / "docs" / "row-one.md").read_text(encoding="utf-8")
     readme_stage_315 = readme[
         readme.index("Stage 315 adds ROW ONE article readiness diagnostics") : readme.index(
-            "Stage 310 adds"
+            "Stage 316 adds"
         )
     ]
     docs_stage_315 = docs[
         docs.index("Stage 315 adds ROW ONE article readiness diagnostics") : docs.index(
-            "Stage 310 adds"
+            "Stage 316 adds"
         )
     ]
     readme_stage_315_normalized = _normalized(readme_stage_315)
@@ -325,6 +325,64 @@ def test_row_one_docs_describe_article_readiness_boundary() -> None:
     for phrase in forbidden_phrases:
         assert phrase not in readme_stage_315_normalized
         assert phrase not in docs_stage_315_normalized
+
+
+def test_row_one_docs_describe_local_article_content_organization_boundary() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    docs = (ROOT / "docs" / "row-one.md").read_text(encoding="utf-8")
+    readme_stage_316 = readme[
+        readme.index("Stage 316 adds local article content organization") : readme.index(
+            "Stage 310 adds"
+        )
+    ]
+    docs_stage_316 = docs[
+        docs.index("Stage 316 adds local article content organization") : docs.index(
+            "Stage 310 adds"
+        )
+    ]
+    readme_stage_316_normalized = _normalized(readme_stage_316)
+    docs_stage_316_normalized = _normalized(docs_stage_316)
+
+    expected_phrases = [
+        "local article content organization",
+        "existing `data/articles/<story-id>.json` sidecars",
+        "existing saved local paragraphs",
+        "existing `content_sections`",
+        "generated-site only",
+        "does not change `row-one-app/v7`",
+        "does not change `data/edition.json`",
+        "does not change `row-one-manifest/v1`",
+        "does not change `row-one-runtime/v1`",
+        "does not change detail routes",
+        "does not change paragraph anchors",
+        "does not change schemas",
+        "does not write a new json artifact",
+        "does not add source collection",
+        "does not fetch article pages",
+        "does not add scoring",
+        "does not add llm calls",
+        "does not add connectors",
+        "not a compliance review feature",
+    ]
+    for phrase in expected_phrases:
+        assert phrase in readme_stage_316_normalized
+        assert phrase in docs_stage_316_normalized
+
+    forbidden_phrases = [
+        "row-one-app/v8",
+        "row-one-manifest/v2",
+        "row-one-runtime/v2",
+        "changes schemas",
+        "adds source collection",
+        "adds scoring",
+        "adds llm calls",
+        "adds social connectors",
+        "adds community connectors",
+        "adds compliance review",
+    ]
+    for phrase in forbidden_phrases:
+        assert phrase not in readme_stage_316_normalized
+        assert phrase not in docs_stage_316_normalized
 
 
 def test_row_one_docs_include_user_required_phrases() -> None:

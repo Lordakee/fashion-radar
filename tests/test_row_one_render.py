@@ -2270,9 +2270,16 @@ def test_render_row_one_site_writes_and_renders_daily_local_intelligence_segment
     assert ".daily-local-intelligence-actions" in css
     assert ".daily-local-intelligence-action" in css
     assert ".daily-local-intelligence-paragraph-link" in css
-    homepage_hrefs = "".join(re.findall(r'href="([^"]+)"', html))
-    assert "#local-article-content-section-" not in homepage_hrefs
-    assert "#local-article-body" not in homepage_hrefs
+    daily_local_intelligence_block = html[
+        html.index('class="daily-local-intelligence"') : html.index(
+            'class="saved-article-coverage"'
+        )
+    ]
+    daily_local_intelligence_hrefs = "".join(
+        re.findall(r'href="([^"]+)"', daily_local_intelligence_block)
+    )
+    assert "#local-article-content-section-" not in daily_local_intelligence_hrefs
+    assert "#local-article-body" not in daily_local_intelligence_hrefs
     assert "Evidence paragraph 1" in html
     assert "证据段落 1" in html
 

@@ -289,6 +289,9 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
             }
         ],
     )
+    stored_before = repository.get_item(item_id)
+    matches_before = repository.list_item_matches(item_id)
+    item_count_before = repository.count_items()
     source = SourceDefinition(
         name="Vogue Business",
         type=SourceType.RSS,
@@ -324,6 +327,8 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     manifest_payload = json.loads((output_dir / "data" / "manifest.json").read_text())
     runtime_payload = json.loads((output_dir / "data" / "runtime.json").read_text())
     stored = repository.get_item(item_id)
+    matches_after = repository.list_item_matches(item_id)
+    item_count_after = repository.count_items()
 
     assert 'id="local-article"' in detail_html
     assert "Local article paragraph for the ROW ONE detail page." in detail_html
@@ -336,6 +341,9 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         or "saved-article-coverage" in index_html
         or "saved-article-briefs" in index_html
     )
+    assert "Saved Article Content Organization" in index_html
+    assert "保存正文内容整理" in index_html
+    assert "#local-article-content-section-" in index_html
     assert edition_payload["contract_version"] == "row-one-app/v7"
     assert manifest_payload["contract_version"] == "row-one-manifest/v1"
     assert runtime_payload["contract_version"] == "row-one-runtime/v1"
@@ -348,9 +356,20 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         ensure_ascii=False,
     )
     assert '"local_articles"' not in generated_contract_payload
+    assert '"saved_article_content_organization"' not in generated_contract_payload
     assert '"local_article_count"' not in generated_contract_payload
     assert '"local_article_paragraph_count"' not in generated_contract_payload
+    top_level_data_files = {path.name for path in (output_dir / "data").glob("*.json")}
+    assert top_level_data_files <= {
+        "edition.json",
+        "manifest.json",
+        "runtime.json",
+        "local-intelligence.json",
+    }
     assert not (output_dir / "data" / "local-article-metrics.json").exists()
+    assert stored == stored_before
+    assert matches_after == matches_before
+    assert item_count_after == item_count_before
     assert stored["summary"] == "The Row handbag coverage."
 
 

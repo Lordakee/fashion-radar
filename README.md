@@ -190,6 +190,16 @@ not add llm calls. Use it when `row-one build` reports zero saved local
 articles; older platformdirs config directories may still contain source packs
 without `row_one_article.enabled: true`, while the current starter config can
 produce saved local article sidecars when matching stories exist.
+Stage 316 adds local article content organization to the generated ROW ONE
+homepage. It is generated-site only and organizes existing
+`data/articles/<story-id>.json` sidecars, existing saved local paragraphs, and
+existing `content_sections` into scan-first groups. It does not change
+`row-one-app/v7`, does not change `data/edition.json`, does not change
+`row-one-manifest/v1`, does not change `row-one-runtime/v1`, does not change
+detail routes, does not change paragraph anchors, does not change schemas, does
+not write a new json artifact, does not add source collection, does not fetch
+article pages, does not add scoring, does not add llm calls, does not add
+connectors, and is not a compliance review feature.
 Stage 310 adds a generated-site saved text reader on ROW ONE detail pages:
 saved local paragraphs are listed as numbered in-page reader segments that link
 to the existing paragraph anchors before the existing saved text. This is a
