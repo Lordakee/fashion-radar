@@ -413,7 +413,10 @@ def test_render_row_one_site_escapes_html_and_omits_unsafe_links(tmp_path) -> No
     assert '<span data-lang="en">Evidence Trail</span>' in detail_html
     assert 'class="briefing-topics"' not in detail_html
     assert 'class="edition-brief"' not in detail_html
+    assert 'class="daily-edit"' not in detail_html
     assert "Briefing Topics" not in detail_html
+    assert "Daily Edit" not in detail_html
+    assert "今日编辑简报" not in detail_html
     assert 'class="source-action-link"' in detail_html
     assert '<span data-lang="en">Open Source Article</span>' in detail_html
     assert '<span data-lang="zh">打开原文</span>' in detail_html
@@ -3369,6 +3372,322 @@ def test_render_row_one_site_displays_edition_brief_topic_mix_and_heat_watch(tmp
     assert "升温观察：2 条正向热度信号，最高 +7" in index_html
 
 
+def test_render_row_one_site_includes_daily_edit_section(tmp_path) -> None:
+    edition = _edition()
+    edition.stories[0].entity_refs = [
+        RowOneReference(name="The Row", type="brand", label="rising"),
+    ]
+
+    render_row_one_site(edition, tmp_path)
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    section_start = index_html.index('class="daily-edit"')
+    section_html = index_html[
+        section_start : index_html.index("</section>", section_start) + len("</section>")
+    ]
+
+    assert '<span data-lang="en">Daily Edit</span>' in section_html
+    assert '<span data-lang="zh">今日编辑简报</span>' in section_html
+    assert '<span data-lang="en">What To Know</span>' in section_html
+    assert '<span data-lang="zh">今日重点</span>' in section_html
+    assert '<span data-lang="en">Signals To Watch</span>' in section_html
+    assert '<span data-lang="zh">值得关注</span>' in section_html
+    assert '<span data-lang="en">Read Next</span>' in section_html
+    assert '<span data-lang="zh">阅读路径</span>' in section_html
+    assert '<span data-lang="en">Evidence Note</span>' in section_html
+    assert '<span data-lang="zh">线索边界</span>' in section_html
+    assert "The Row" in section_html
+    assert "evidence" in section_html
+    assert "review the underlying stories before acting" in section_html
+    assert 'href="details/the-row-signal-1234567890.html"' in section_html
+    assert index_html.index('class="edition-brief"') < section_start
+    assert index_html.index('class="signal-synthesis"') < section_start
+    assert section_start < index_html.index('class="lead-story"')
+
+
+def test_render_row_one_site_places_daily_edit_before_daily_local_intelligence() -> None:
+    index_html = render_index_html(
+        _edition(),
+        app_payload={
+            "edition_brief": {
+                "lead_story_headline": "The Row signal",
+                "lead_story_href": "details/the-row-signal-1234567890.html",
+                "summary_points": [
+                    {"en": "Read the lead story first.", "zh": "先读主线故事。"},
+                ],
+                "metrics": [],
+                "links": [],
+            },
+            "signal_synthesis": {
+                "title": {"en": "Signals", "zh": "信号"},
+                "dek": {"en": "Signals dek", "zh": "信号说明"},
+                "boundaries": {"en": "Existing evidence only.", "zh": "仅限现有证据。"},
+                "groups": [
+                    {
+                        "label": {"en": "Brands", "zh": "品牌"},
+                        "signals": [
+                            {
+                                "name": "The Row",
+                                "summary": {"en": "Brand signal.", "zh": "品牌信号。"},
+                                "lead_story_href": "details/the-row-signal-1234567890.html",
+                                "story_count": 1,
+                                "evidence_count": 1,
+                                "label": "brand",
+                            }
+                        ],
+                    }
+                ],
+            },
+            "daily_digest": {"evidence_count": 1, "blocks": [], "briefing_topics": []},
+        },
+        local_article_intelligence=[
+            RowOneDailyLocalIntelligenceSection(
+                key="strongest_reads",
+                title=LocalizedText(zh="优先阅读", en="Strongest Reads"),
+                dek=LocalizedText(zh="本地正文。", en="Saved local text."),
+                items=[
+                    RowOneDailyLocalIntelligenceItem(
+                        title=LocalizedText(zh="本地信号", en="Local Signal"),
+                        body=LocalizedText(zh="正文。", en="Body."),
+                    )
+                ],
+            )
+        ],
+    )
+
+    assert index_html.index('class="signal-synthesis"') < index_html.index('class="daily-edit"')
+    assert index_html.index('class="daily-edit"') < index_html.index(
+        'class="daily-local-intelligence"'
+    )
+
+
+def test_render_row_one_site_omits_daily_edit_without_usable_payload() -> None:
+    index_html = render_index_html(_edition(), app_payload={})
+    index_html_none = render_index_html(_edition(), app_payload=None)
+
+    assert 'class="daily-edit"' not in index_html
+    assert "Daily Edit" not in index_html
+    assert "今日编辑简报" not in index_html
+    assert 'class="daily-edit"' not in index_html_none
+    assert "Daily Edit" not in index_html_none
+    assert "今日编辑简报" not in index_html_none
+
+
+def test_render_row_one_site_escapes_daily_edit_payload_values() -> None:
+    index_html = render_index_html(
+        _edition(),
+        app_payload={
+            "edition_brief": {
+                "title": {"en": "Brief", "zh": "总览"},
+                "dek": {"en": "Dek", "zh": "说明"},
+                "lead_story_headline": "Lead <script>alert(1)</script>",
+                "lead_story_href": "javascript:alert(1)",
+                "summary_points": [
+                    {"en": "Point <b>bold</b>", "zh": "要点 <b>粗体</b>"},
+                ],
+                "metrics": [
+                    {
+                        "key": "evidence",
+                        "label": {"en": "Evidence", "zh": "证据"},
+                        "value": 1,
+                    },
+                ],
+                "links": [],
+            },
+            "signal_synthesis": {
+                "title": {"en": "Signals", "zh": "信号"},
+                "dek": {"en": "Dek", "zh": "说明"},
+                "boundaries": {"en": "Boundary <i>", "zh": "边界 <i>"},
+                "groups": [
+                    {
+                        "label": {"en": "Brands", "zh": "品牌"},
+                        "signals": [
+                            {
+                                "name": "Signal <script>",
+                                "summary": {"en": "Summary <b>", "zh": "摘要 <b>"},
+                                "lead_story_href": "https://evil.example/story",
+                                "story_count": 1,
+                                "evidence_count": 2,
+                                "max_heat_delta": 3,
+                                "label": "brand",
+                            }
+                        ],
+                    }
+                ],
+            },
+            "daily_digest": {"blocks": [], "briefing_topics": []},
+        },
+    )
+
+    section_start = index_html.index('class="daily-edit"')
+    section_html = index_html[
+        section_start : index_html.index("</section>", section_start) + len("</section>")
+    ]
+
+    assert "Lead &lt;script&gt;alert(1)&lt;/script&gt;" in section_html
+    assert "Point &lt;b&gt;bold&lt;/b&gt;" in section_html
+    assert "Signal &lt;script&gt;" in section_html
+    assert "Summary &lt;b&gt;" in section_html
+    assert "Boundary &lt;i&gt;" in section_html
+    assert "<script>" not in section_html
+    assert "<b>" not in section_html
+    assert "javascript:alert" not in section_html
+    assert "https://evil.example" not in section_html
+    assert 'href="#main-content"' in section_html
+
+
+def test_render_row_one_site_daily_edit_uses_briefing_topic_fallback() -> None:
+    index_html = render_index_html(
+        _edition(),
+        app_payload={
+            "edition_brief": {"summary_points": [], "metrics": [], "links": []},
+            "signal_synthesis": {
+                "title": {"en": "Signals", "zh": "信号"},
+                "dek": {"en": "No signals", "zh": "暂无信号"},
+                "boundaries": {"en": "Existing evidence only.", "zh": "仅限现有证据。"},
+                "groups": [{"label": {"en": "Brands", "zh": "品牌"}, "signals": [{"name": ""}]}],
+            },
+            "daily_digest": {
+                "evidence_count": 2,
+                "blocks": [],
+                "briefing_topics": [
+                    {
+                        "topic_type": "brand",
+                        "title": {"en": "Fallback Brand", "zh": "备用品牌"},
+                        "label": {"en": "Brand", "zh": "品牌"},
+                        "story_count": 1,
+                        "evidence_count": 2,
+                        "positive_heat_delta_sum": 4,
+                        "lead_story": {
+                            "detail_href": "details/fallback-brand-1234567890.html",
+                            "headline": {"en": "Fallback brand signal", "zh": "备用品牌信号"},
+                            "editorial_takeaway": {
+                                "en": "Topic fallback summary.",
+                                "zh": "主题备用摘要。",
+                            },
+                        },
+                    }
+                ],
+            },
+        },
+    )
+
+    section_start = index_html.index('class="daily-edit"')
+    section_html = index_html[
+        section_start : index_html.index("</section>", section_start) + len("</section>")
+    ]
+
+    assert "Fallback Brand" in section_html
+    assert "备用品牌" in section_html
+    assert "Topic fallback summary." in section_html
+    assert 'href="details/fallback-brand-1234567890.html"' in section_html
+
+
+def test_render_row_one_site_daily_edit_handles_topic_fallback_without_title() -> None:
+    index_html = render_index_html(
+        _edition(),
+        app_payload={
+            "edition_brief": {"summary_points": [], "metrics": [], "links": []},
+            "signal_synthesis": {
+                "title": {"en": "Signals", "zh": "信号"},
+                "dek": {"en": "No signals", "zh": "暂无信号"},
+                "boundaries": {"en": "Existing evidence only.", "zh": "仅限现有证据。"},
+                "groups": [{"label": {"en": "Brands", "zh": "品牌"}, "signals": [{"name": ""}]}],
+            },
+            "daily_digest": {
+                "evidence_count": 2,
+                "blocks": [],
+                "briefing_topics": [
+                    {
+                        "topic_type": "brand",
+                        "label": {"en": "Brand", "zh": "品牌"},
+                        "story_count": 1,
+                        "evidence_count": 2,
+                        "positive_heat_delta_sum": 4,
+                        "cards": [
+                            {
+                                "detail_href": "details/fallback-brand-1234567890.html",
+                                "headline": {
+                                    "en": "Fallback brand signal",
+                                    "zh": "备用品牌信号",
+                                },
+                                "editorial_takeaway": {
+                                    "en": "Topic fallback summary.",
+                                    "zh": "主题备用摘要。",
+                                },
+                            }
+                        ],
+                        "lead_story": {
+                            "detail_href": "details/fallback-brand-1234567890.html",
+                            "headline": {"en": "Fallback brand signal", "zh": "备用品牌信号"},
+                            "editorial_takeaway": {
+                                "en": "Topic fallback summary.",
+                                "zh": "主题备用摘要。",
+                            },
+                        },
+                    }
+                ],
+            },
+        },
+    )
+
+    assert 'class="daily-edit"' in index_html
+    assert "Fallback brand signal" in index_html
+    assert "Topic fallback summary." in index_html
+
+
+def test_render_row_one_site_daily_edit_uses_digest_block_read_next() -> None:
+    index_html = render_index_html(
+        _edition(),
+        app_payload={
+            "edition_brief": {"summary_points": [], "metrics": [], "links": []},
+            "signal_synthesis": {
+                "title": {"en": "Signals", "zh": "信号"},
+                "dek": {"en": "Signals dek", "zh": "信号说明"},
+                "boundaries": {"en": "Existing evidence only.", "zh": "仅限现有证据。"},
+                "groups": [],
+            },
+            "daily_digest": {
+                "evidence_count": 1,
+                "briefing_topics": [],
+                "blocks": [
+                    {
+                        "key": "read_first",
+                        "story_ids": ["read-first-1234567890"],
+                        "cards": [{"id": "read-first-1234567890"}],
+                    },
+                    {
+                        "key": "key_takeaways",
+                        "title": {"en": "Key Takeaways", "zh": "重点整理"},
+                        "dek": {"en": "Follow-up reads.", "zh": "后续阅读。"},
+                        "cards": [
+                            {
+                                "id": "read-next-1234567890",
+                                "detail_href": "details/read-next-1234567890.html",
+                                "headline": {"en": "Read next headline", "zh": "继续阅读标题"},
+                                "editorial_takeaway": {
+                                    "en": "Read next summary.",
+                                    "zh": "继续阅读摘要。",
+                                },
+                            }
+                        ],
+                    },
+                ],
+            },
+        },
+    )
+
+    section_start = index_html.index('class="daily-edit"')
+    section_html = index_html[
+        section_start : index_html.index("</section>", section_start) + len("</section>")
+    ]
+
+    assert "Read next headline" in section_html
+    assert "继续阅读标题" in section_html
+    assert "Read next summary." in section_html
+    assert 'href="details/read-next-1234567890.html"' in section_html
+
+
 def test_render_row_one_site_escapes_edition_brief_payload_values() -> None:
     index_html = render_index_html(
         _edition(),
@@ -3488,6 +3807,24 @@ def test_row_one_css_includes_edition_brief_styles(tmp_path) -> None:
         ".signal-synthesis-card",
     ):
         assert selector in css_text
+
+
+def test_row_one_css_includes_daily_edit_styles(tmp_path) -> None:
+    index_path = render_row_one_site(_edition(), tmp_path).index_path
+    css_text = (index_path.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    for selector in (
+        ".daily-edit",
+        ".daily-edit-header",
+        ".daily-edit-grid",
+        ".daily-edit-card",
+        ".daily-edit-card-meta",
+        ".daily-edit-link",
+    ):
+        assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
+
+    assert "@media (max-width: 760px)" in css_text
+    assert re.search(r"\.daily-edit-grid\s*\{[^}]*grid-template-columns:\s*1fr", css_text)
 
 
 def test_row_one_css_includes_local_article_map_styles(tmp_path) -> None:

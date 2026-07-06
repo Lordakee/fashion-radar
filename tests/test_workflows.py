@@ -377,6 +377,9 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         or "saved-article-coverage" in index_html
         or "saved-article-briefs" in index_html
     )
+    assert 'class="daily-edit"' in index_html
+    assert "Daily Edit" in index_html
+    assert "今日编辑简报" in index_html
     assert "Saved Article Content Organization" in index_html
     assert "保存正文内容整理" in index_html
     assert "#local-article-content-section-" in index_html
@@ -408,6 +411,8 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert '"related_stories"' not in generated_contract_payload
     assert '"detail_signal_briefing"' not in generated_contract_payload
     assert '"signal_briefing"' not in generated_contract_payload
+    assert '"daily_edit"' not in generated_contract_payload
+    assert '"daily_information_layer"' not in generated_contract_payload
     assert '"local_article_count"' not in generated_contract_payload
     assert '"local_article_paragraph_count"' not in generated_contract_payload
     top_level_data_files = {path.name for path in (output_dir / "data").glob("*.json")}

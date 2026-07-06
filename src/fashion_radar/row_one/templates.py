@@ -63,6 +63,9 @@ DETAIL_CONTINUE_READING_EXCERPT_CHARS = 120
 DETAIL_CONTINUE_READING_MAX_ITEMS = 3
 DETAIL_SIGNAL_BRIEFING_MAX_REFS = 8
 DETAIL_SIGNAL_BRIEFING_MAX_CUES = 3
+DAILY_EDIT_MAX_CARDS = 4
+DAILY_EDIT_MAX_SIGNALS = 3
+DAILY_EDIT_MAX_PATH_ITEMS = 3
 
 
 def render_index_html(
@@ -83,6 +86,7 @@ def render_index_html(
         has_path=bool(briefing_path),
     )
     signal_synthesis = _render_signal_synthesis(app_payload)
+    daily_edit = _render_daily_edit(app_payload)
     daily_local_intelligence = _render_daily_local_intelligence(local_article_intelligence)
     saved_article_coverage_section = _render_saved_article_coverage(saved_article_coverage)
     saved_article_briefs_section = _render_saved_article_briefs(saved_article_briefs)
@@ -160,6 +164,7 @@ def render_index_html(
 {contents_nav}
 {edition_brief}
 {signal_synthesis}
+{daily_edit}
 {daily_local_intelligence}
 {saved_article_coverage_section}
 {saved_article_briefs_section}
@@ -1126,6 +1131,82 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 }
 .saved-article-content-organization-chip span:last-child {
   color: var(--muted);
+}
+.daily-edit {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-edit-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-edit-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.2rem, 5vw, 5.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.92;
+  margin: 0;
+}
+.daily-edit-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.daily-edit-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.daily-edit-card {
+  background: var(--panel);
+  color: var(--ink);
+  display: grid;
+  gap: 12px;
+  min-height: 245px;
+  padding: 18px;
+  text-decoration: none;
+}
+.daily-edit-card h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.35rem, 2.2vw, 2.4rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.98;
+  margin: 0;
+}
+.daily-edit-card p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.daily-edit-card-meta {
+  align-self: end;
+  border-top: 1px solid var(--line);
+  color: var(--accent);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 8px 14px;
+  letter-spacing: 0.1em;
+  padding-top: 12px;
+  text-transform: uppercase;
+}
+.daily-edit-link {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  text-transform: uppercase;
 }
 .briefing-topics {
   border-bottom: 1px solid var(--ink);
@@ -2134,6 +2215,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .edition-brief-metrics { grid-template-columns: 1fr 1fr; }
   .signal-synthesis-header { grid-template-columns: 1fr; }
   .signal-synthesis-grid { grid-template-columns: 1fr; }
+  .daily-edit-header { grid-template-columns: 1fr; }
+  .daily-edit-grid { grid-template-columns: 1fr; }
   .daily-local-intelligence-header { grid-template-columns: 1fr; }
   .daily-local-intelligence-grid { grid-template-columns: 1fr; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
@@ -2478,6 +2561,414 @@ def _render_signal_synthesis_card(signal: dict[str, object]) -> str:
     if href is None:
         return f'<div class="signal-synthesis-card">{body}</div>'
     return f'<a class="signal-synthesis-card" href="{_esc(href)}">{body}</a>'
+
+
+def _render_daily_edit(app_payload: dict[str, object] | None) -> str:
+    cards = _daily_edit_cards(app_payload)
+    if not cards:
+        return ""
+    rendered_cards = "\n".join(_render_daily_edit_card(card) for card in cards)
+    return f"""<section class="daily-edit" aria-label="Daily edit">
+  <div class="daily-edit-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Daily Edit</span>
+        <span data-lang="zh">今日编辑简报</span>
+      </p>
+      <h2>
+        <span data-lang="en">What matters today</span>
+        <span data-lang="zh">今天值得先看什么</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">A scan-first edit from existing ROW ONE signals.</span>
+      <span data-lang="zh">基于现有 ROW ONE 信号整理的快速编辑简报。</span>
+    </p>
+  </div>
+  <div class="daily-edit-grid">
+{rendered_cards}
+  </div>
+</section>"""
+
+
+def _daily_edit_cards(app_payload: dict[str, object] | None) -> list[dict[str, object]]:
+    if app_payload is None:
+        return []
+    cards = [
+        _daily_edit_what_to_know(app_payload),
+        _daily_edit_signals_to_watch(app_payload),
+        _daily_edit_read_next(app_payload),
+        _daily_edit_evidence_note(app_payload),
+    ]
+    return [card for card in cards if card is not None][:DAILY_EDIT_MAX_CARDS]
+
+
+def _daily_edit_what_to_know(app_payload: dict[str, object]) -> dict[str, object] | None:
+    brief = _app_payload_edition_brief(app_payload)
+    if brief is None:
+        return None
+    point = _first_localized_payload(brief.get("summary_points"))
+    lead_headline = str(brief.get("lead_story_headline") or "").strip()
+    if not (point.en or point.zh or lead_headline):
+        return None
+    if lead_headline and (point.en or point.zh):
+        point = LocalizedText(
+            en=f"{lead_headline}: {point.en}" if point.en else lead_headline,
+            zh=f"{lead_headline}: {point.zh}" if point.zh else lead_headline,
+        )
+    elif not point.en and lead_headline:
+        point = LocalizedText(en=lead_headline, zh=lead_headline)
+    meta = []
+    lead_story_id = str(brief.get("lead_story_id") or "").strip()
+    if lead_story_id:
+        meta.append(LocalizedText(en="Read first", zh="先读"))
+    return _daily_edit_card(
+        title=LocalizedText(en="What To Know", zh="今日重点"),
+        body=point,
+        href=_safe_daily_edit_href(brief.get("lead_story_href")),
+        meta=meta,
+    )
+
+
+def _daily_edit_signals_to_watch(app_payload: dict[str, object]) -> dict[str, object] | None:
+    synthesis = _app_payload_signal_synthesis(app_payload)
+    if synthesis is not None:
+        for signal in _daily_edit_signal_candidates(synthesis):
+            card = _daily_edit_signal_card(signal)
+            if card is not None:
+                return card
+    return _daily_edit_topic_fallback_card(app_payload) or _daily_edit_read_first_signal_card(
+        app_payload
+    )
+
+
+def _daily_edit_signal_candidates(synthesis: dict[str, object]) -> list[dict[str, object]]:
+    candidates: list[dict[str, object]] = []
+    for group in _signal_synthesis_groups_from_payload(synthesis):
+        signals = group.get("signals")
+        if not isinstance(signals, list):
+            continue
+        for signal in signals:
+            if isinstance(signal, dict):
+                candidates.append(signal)
+                if len(candidates) >= DAILY_EDIT_MAX_SIGNALS:
+                    return candidates
+    return candidates
+
+
+def _daily_edit_signal_card(signal: dict[str, object]) -> dict[str, object] | None:
+    name = str(signal.get("name") or "").strip()
+    if not name:
+        return None
+    summary = _localized_from_payload(signal.get("summary"))
+    if not (summary.en or summary.zh):
+        summary = LocalizedText(en=name, zh=name)
+    meta = [
+        _daily_edit_count_meta(
+            _int_or_zero(signal.get("story_count")),
+            "story",
+            "stories",
+            "条故事",
+        ),
+        _daily_edit_count_meta(
+            _int_or_zero(signal.get("evidence_count")),
+            "evidence link",
+            "evidence links",
+            "条证据链接",
+        ),
+    ]
+    heat_delta = _int_or_zero(signal.get("max_heat_delta"))
+    if heat_delta > 0:
+        meta.append(LocalizedText(en=f"+{heat_delta} heat", zh=f"+{heat_delta} 热度"))
+    label = str(signal.get("label") or "").strip()
+    if label:
+        meta.insert(0, LocalizedText(en=label, zh=label))
+    return _daily_edit_card(
+        title=LocalizedText(en="Signals To Watch", zh="值得关注"),
+        body=LocalizedText(
+            en=f"{name}: {summary.en}" if summary.en else name,
+            zh=f"{name}: {summary.zh}" if summary.zh else name,
+        ),
+        href=_safe_daily_edit_href(signal.get("lead_story_href")),
+        meta=meta,
+    )
+
+
+def _daily_edit_topic_fallback_card(app_payload: dict[str, object]) -> dict[str, object] | None:
+    for topic in _app_payload_briefing_topics(app_payload):
+        title = _localized_topic_field(topic, "title")
+        lead_story = _topic_lead_story(topic) or _topic_nested_lead_story(topic)
+        headline = _topic_localized_card_text(lead_story, "headline")
+        takeaway = _topic_localized_card_text(lead_story, "editorial_takeaway")
+        body = takeaway if takeaway.en or takeaway.zh else headline
+        if not (title.en or title.zh or body.en or body.zh):
+            continue
+        meta = [
+            _daily_edit_count_meta(
+                _int_or_zero(topic.get("story_count")),
+                "story",
+                "stories",
+                "条故事",
+            ),
+            _daily_edit_count_meta(
+                _int_or_zero(topic.get("evidence_count")),
+                "evidence link",
+                "evidence links",
+                "条证据链接",
+            ),
+        ]
+        heat_delta = _int_or_zero(topic.get("positive_heat_delta_sum"))
+        if heat_delta > 0:
+            meta.append(LocalizedText(en=f"+{heat_delta} heat", zh=f"+{heat_delta} 热度"))
+        if body.en or body.zh:
+            body = LocalizedText(
+                en=f"{title.en}: {body.en}" if title.en and body.en else title.en or body.en,
+                zh=f"{title.zh}: {body.zh}" if title.zh and body.zh else title.zh or body.zh,
+            )
+        else:
+            body = title
+        href = _safe_daily_edit_href(lead_story.get("detail_href")) if lead_story else None
+        return _daily_edit_card(
+            title=LocalizedText(en="Signals To Watch", zh="值得关注"),
+            body=body,
+            href=href,
+            meta=meta,
+        )
+    return None
+
+
+def _daily_edit_read_first_signal_card(app_payload: dict[str, object]) -> dict[str, object] | None:
+    card = _daily_edit_read_first_card(app_payload)
+    if card is None:
+        return None
+    headline = _topic_localized_card_text(card, "headline")
+    takeaway = _topic_localized_card_text(card, "editorial_takeaway")
+    body = takeaway if takeaway.en or takeaway.zh else headline
+    if not (headline.en or headline.zh or body.en or body.zh):
+        return None
+    if headline.en or headline.zh:
+        body = LocalizedText(
+            en=(
+                f"{headline.en}: {body.en}"
+                if headline.en and body.en and body.en != headline.en
+                else headline.en or body.en
+            ),
+            zh=(
+                f"{headline.zh}: {body.zh}"
+                if headline.zh and body.zh and body.zh != headline.zh
+                else headline.zh or body.zh
+            ),
+        )
+    return _daily_edit_card(
+        title=LocalizedText(en="Signals To Watch", zh="值得关注"),
+        body=body,
+        href=_safe_daily_edit_href(card.get("detail_href")),
+        meta=[
+            _daily_edit_count_meta(
+                _int_or_zero(card.get("evidence_count")),
+                "evidence link",
+                "evidence links",
+                "条证据链接",
+            )
+        ],
+    )
+
+
+def _daily_edit_read_first_card(app_payload: dict[str, object]) -> dict[str, object] | None:
+    blocks = _app_payload_digest_blocks(app_payload)
+    read_first_block = next((block for block in blocks if block.get("key") == "read_first"), None)
+    if read_first_block is None:
+        return None
+    cards = _block_cards(read_first_block, set())
+    return cards[0] if cards else None
+
+
+def _daily_edit_read_next(app_payload: dict[str, object]) -> dict[str, object] | None:
+    blocks = _app_payload_digest_blocks(app_payload)
+    excluded_story_ids = _read_first_story_ids(blocks)
+    for key in ("key_takeaways", "signals_to_watch"):
+        for block in blocks:
+            if block.get("key") != key:
+                continue
+            for card in _block_cards(block, excluded_story_ids)[:DAILY_EDIT_MAX_PATH_ITEMS]:
+                headline = _topic_localized_card_text(card, "headline")
+                takeaway = _topic_localized_card_text(card, "editorial_takeaway")
+                body = takeaway if takeaway.en or takeaway.zh else headline
+                if not (headline.en or headline.zh or body.en or body.zh):
+                    continue
+                if headline.en or headline.zh:
+                    body = LocalizedText(
+                        en=(
+                            f"{headline.en}: {body.en}"
+                            if headline.en and body.en and body.en != headline.en
+                            else headline.en or body.en
+                        ),
+                        zh=(
+                            f"{headline.zh}: {body.zh}"
+                            if headline.zh and body.zh and body.zh != headline.zh
+                            else headline.zh or body.zh
+                        ),
+                    )
+                return _daily_edit_card(
+                    title=LocalizedText(en="Read Next", zh="阅读路径"),
+                    body=body,
+                    href=_safe_daily_edit_href(card.get("detail_href")),
+                    meta=[LocalizedText(en="Local reading path", zh="本地阅读路径")],
+                )
+    card = _daily_edit_read_first_card(app_payload)
+    if card is None:
+        return None
+    headline = _topic_localized_card_text(card, "headline")
+    takeaway = _topic_localized_card_text(card, "editorial_takeaway")
+    body = takeaway if takeaway.en or takeaway.zh else headline
+    if not (headline.en or headline.zh or body.en or body.zh):
+        return None
+    if headline.en or headline.zh:
+        body = LocalizedText(
+            en=(
+                f"{headline.en}: {body.en}"
+                if headline.en and body.en and body.en != headline.en
+                else headline.en or body.en
+            ),
+            zh=(
+                f"{headline.zh}: {body.zh}"
+                if headline.zh and body.zh and body.zh != headline.zh
+                else headline.zh or body.zh
+            ),
+        )
+    return _daily_edit_card(
+        title=LocalizedText(en="Read Next", zh="阅读路径"),
+        body=body,
+        href=_safe_daily_edit_href(card.get("detail_href")),
+        meta=[LocalizedText(en="Read first fallback", zh="先读兜底")],
+    )
+
+
+def _topic_nested_lead_story(topic: dict[str, object]) -> dict[str, object] | None:
+    lead_story = topic.get("lead_story")
+    return lead_story if isinstance(lead_story, dict) else None
+
+
+def _daily_edit_evidence_note(app_payload: dict[str, object]) -> dict[str, object] | None:
+    evidence_count = _daily_edit_evidence_count(app_payload)
+    synthesis = _app_payload_signal_synthesis(app_payload)
+    boundaries = (
+        _localized_from_payload(synthesis.get("boundaries")) if synthesis is not None else None
+    )
+    if evidence_count == 0 and (boundaries is None or not (boundaries.en or boundaries.zh)):
+        return None
+    evidence_en = (
+        "1 existing ROW ONE evidence link"
+        if evidence_count == 1
+        else f"{evidence_count} existing ROW ONE evidence links"
+    )
+    evidence_zh = f"{evidence_count} 条现有 ROW ONE 证据链接"
+    boundary_en = boundaries.en if boundaries is not None and boundaries.en else evidence_en
+    boundary_zh = boundaries.zh if boundaries is not None and boundaries.zh else evidence_zh
+    return _daily_edit_card(
+        title=LocalizedText(en="Evidence Note", zh="线索边界"),
+        body=LocalizedText(
+            en=(
+                f"Based on {evidence_en}; {boundary_en}; "
+                "review the underlying stories before acting."
+            ),
+            zh=f"基于{evidence_zh}；{boundary_zh}；行动前请复核底层故事。",
+        ),
+        href="#main-content",
+        meta=[LocalizedText(en="Existing evidence only", zh="仅限现有证据")],
+    )
+
+
+def _daily_edit_evidence_count(app_payload: dict[str, object]) -> int:
+    daily_digest = app_payload.get("daily_digest")
+    if isinstance(daily_digest, dict):
+        count = daily_digest.get("evidence_count")
+        if isinstance(count, int):
+            return count
+    brief = _app_payload_edition_brief(app_payload)
+    if brief is None:
+        return 0
+    metrics = brief.get("metrics")
+    if not isinstance(metrics, list):
+        return 0
+    for metric in metrics:
+        if not isinstance(metric, dict) or metric.get("key") != "evidence":
+            continue
+        return _int_or_zero(metric.get("value"))
+    return 0
+
+
+def _first_localized_payload(value: object) -> LocalizedText:
+    if not isinstance(value, list):
+        return LocalizedText(zh="", en="")
+    for item in value:
+        text = _localized_from_payload(item)
+        if text.en or text.zh:
+            return text
+    return LocalizedText(zh="", en="")
+
+
+def _daily_edit_count_meta(
+    count: int,
+    singular: str,
+    plural: str,
+    zh_suffix: str,
+) -> LocalizedText:
+    label = singular if count == 1 else plural
+    return LocalizedText(en=f"{count} {label}", zh=f"{count} {zh_suffix}")
+
+
+def _daily_edit_card(
+    *,
+    title: LocalizedText,
+    body: LocalizedText,
+    href: str | None,
+    meta: list[LocalizedText],
+) -> dict[str, object]:
+    return {"title": title, "body": body, "href": href, "meta": meta}
+
+
+def _render_daily_edit_card(card: dict[str, object]) -> str:
+    title = card["title"]
+    body = card["body"]
+    if not isinstance(title, LocalizedText) or not isinstance(body, LocalizedText):
+        return ""
+    href = _safe_daily_edit_href(card.get("href")) or "#main-content"
+    meta = card.get("meta")
+    rendered_meta = ""
+    if isinstance(meta, list):
+        parts = [
+            f'<span data-lang="en">{_esc(item.en)}</span>'
+            f'<span data-lang="zh">{_esc(item.zh)}</span>'
+            for item in meta
+            if isinstance(item, LocalizedText) and (item.en or item.zh)
+        ]
+        if parts:
+            rendered_meta = f'    <div class="daily-edit-card-meta">{"".join(parts)}</div>\n'
+    return f"""    <a class="daily-edit-card" href="{_esc(href)}">
+      <h3>
+        <span data-lang="en">{_esc(title.en)}</span>
+        <span data-lang="zh">{_esc(title.zh)}</span>
+      </h3>
+      <p>
+        <span data-lang="en">{_esc(body.en)}</span>
+        <span data-lang="zh">{_esc(body.zh)}</span>
+      </p>
+{rendered_meta}      <span class="daily-edit-link">
+        <span data-lang="en">Open local context</span>
+        <span data-lang="zh">打开本地上下文</span>
+      </span>
+    </a>"""
+
+
+def _safe_daily_edit_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href in {"#main-content", "#briefing-topics", "#briefing-path"}:
+        return href
+    if _validated_detail_relative_path(href) is not None:
+        return href
+    return None
 
 
 def _render_daily_local_intelligence(
@@ -3407,9 +3898,16 @@ def _app_payload_briefing_topics(
 
 
 def _localized_topic_field(topic: dict[str, object], field: str) -> LocalizedText:
-    value = topic[field]
+    value = topic.get(field)
+    if value is None:
+        return LocalizedText(zh="", en="")
     if isinstance(value, dict):
-        return LocalizedText(zh=str(value["zh"]), en=str(value["en"]))
+        zh = value.get("zh")
+        en = value.get("en")
+        return LocalizedText(
+            zh=str(zh) if zh is not None else "",
+            en=str(en) if en is not None else "",
+        )
     text = str(value)
     return LocalizedText(zh=text, en=text)
 

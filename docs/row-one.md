@@ -425,6 +425,17 @@ anchors, does not change schemas, does not write a new json artifact, does not
 add source collection, does not fetch article pages, does not add scoring, does
 not add llm calls, does not add connectors, and is not a compliance review
 feature.
+Stage 320 adds homepage Daily Edit to generated ROW ONE index pages. It is
+generated-site only and turns the existing `edition_brief`,
+existing `signal_synthesis`, existing `daily_digest.briefing_topics`, existing
+`daily_digest.blocks`, and existing story directory payload into a scan-first
+editorial briefing with safe internal detail links. It does not change
+`row-one-app/v7`, does not change `data/edition.json`, does not add `daily_edit`,
+does not change
+`row-one-manifest/v1`, does not change `row-one-runtime/v1`, does not change
+schemas, does not write a new json artifact, does not add source collection,
+does not fetch article pages, does not add scoring, does not add llm calls, does
+not add connectors, and is not a compliance review feature.
 Stage 310 adds a generated-site saved text reader on story detail pages. ROW ONE
 lists saved local paragraphs as numbered reader segments that link to the
 existing `#local-article-paragraph-N` anchors before the existing saved text.
