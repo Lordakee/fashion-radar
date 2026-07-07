@@ -267,9 +267,14 @@ def render_saved_article_library_html(
     library: RowOneSavedArticleLibrary,
     *,
     saved_signal_index: RowOneSavedSignalIndex | None = None,
+    saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
 ) -> str:
     groups = "\n".join(_render_saved_article_library_source(group) for group in library.groups)
     signal_index = _render_saved_signal_index(saved_signal_index)
+    content_organization = _render_saved_article_content_organization(
+        saved_article_content_organization,
+        href_prefix="../",
+    )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -310,6 +315,7 @@ def render_saved_article_library_html(
     {_render_saved_article_library_metrics(library, css_class="saved-article-library-metrics")}
   </section>
   {signal_index}
+  {content_organization}
   <div class="saved-article-library-grid">{groups}</div>
 </main>
 <script src="../assets/row-one.js"></script>
@@ -4378,11 +4384,14 @@ def _render_saved_article_brief_chip(ref: RowOneReference) -> str:
 
 def _render_saved_article_content_organization(
     organization: RowOneSavedArticleContentOrganization | None,
+    *,
+    href_prefix: str = "",
 ) -> str:
     if organization is None:
         return ""
     groups = [
-        _render_saved_article_content_organization_group(group) for group in organization.groups
+        _render_saved_article_content_organization_group(group, href_prefix=href_prefix)
+        for group in organization.groups
     ]
     groups = [group for group in groups if group]
     if not groups:
@@ -4411,8 +4420,13 @@ def _render_saved_article_content_organization(
 
 def _render_saved_article_content_organization_group(
     group: RowOneSavedArticleContentOrganizationGroup,
+    *,
+    href_prefix: str = "",
 ) -> str:
-    cards = [_render_saved_article_content_organization_card(card) for card in group.cards]
+    cards = [
+        _render_saved_article_content_organization_card(card, href_prefix=href_prefix)
+        for card in group.cards
+    ]
     cards = [card for card in cards if card]
     if not cards:
         return ""
@@ -4433,11 +4447,14 @@ def _render_saved_article_content_organization_group(
 
 def _render_saved_article_content_organization_card(
     card: RowOneSavedArticleContentOrganizationCard,
+    *,
+    href_prefix: str = "",
 ) -> str:
     href = _safe_saved_article_content_organization_href(card.detail_path)
     if href is None:
         return ""
-    chips = _render_saved_article_content_organization_chips(card)
+    href = _prefixed_saved_article_content_organization_href(href, href_prefix)
+    chips = _render_saved_article_content_organization_chips(card, href_prefix=href_prefix)
     chip_block = (
         f'\n      <div class="saved-article-content-organization-chips">{chips}</div>'
         if chips
@@ -4472,6 +4489,8 @@ def _render_saved_article_content_organization_card(
 
 def _render_saved_article_content_organization_chips(
     card: RowOneSavedArticleContentOrganizationCard,
+    *,
+    href_prefix: str = "",
 ) -> str:
     chips = [_render_saved_article_content_organization_ref_chip(ref) for ref in card.references]
     if card.paragraph_indices:
@@ -4483,12 +4502,17 @@ def _render_saved_article_content_organization_chips(
             f'<span data-lang="zh">{_esc(f"{paragraph_count} 个段落")}</span>'
             "</span>"
         )
-    evidence = _render_saved_article_content_organization_evidence(card)
+    evidence = _render_saved_article_content_organization_evidence(
+        card,
+        href_prefix=href_prefix,
+    )
     return "".join(chips) + evidence
 
 
 def _render_saved_article_content_organization_evidence(
     card: RowOneSavedArticleContentOrganizationCard,
+    *,
+    href_prefix: str = "",
 ) -> str:
     links: list[str] = []
     seen: set[int] = set()
@@ -4501,6 +4525,7 @@ def _render_saved_article_content_organization_evidence(
         )
         if href is None:
             continue
+        href = _prefixed_saved_article_content_organization_href(href, href_prefix)
         seen.add(paragraph_index)
         label_number = str(paragraph_index + 1)
         links.append(
@@ -4535,9 +4560,16 @@ def _safe_saved_article_content_organization_href(href: object) -> str | None:
     path, fragment = href.split("#", 1)
     if not _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment):
         return None
-    if validated_row_one_detail_relative_path(path) is None:
+    safe_path = validated_row_one_detail_relative_path(path)
+    if safe_path is None:
         return None
-    return href
+    return f"{safe_path}#{fragment}"
+
+
+def _prefixed_saved_article_content_organization_href(href: str, href_prefix: str) -> str:
+    if not href_prefix:
+        return href
+    return f"{href_prefix}{href}"
 
 
 def _safe_saved_article_content_organization_evidence_href(

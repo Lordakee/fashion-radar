@@ -29,6 +29,7 @@ from fashion_radar.row_one.saved_article_briefs import (
     build_row_one_saved_article_briefs,
 )
 from fashion_radar.row_one.saved_article_content_organization import (
+    RowOneSavedArticleContentOrganization,
     build_row_one_saved_article_content_organization,
 )
 from fashion_radar.row_one.saved_article_coverage import (
@@ -145,6 +146,7 @@ def render_row_one_site(
         output_dir / "articles",
         saved_article_library=saved_article_library,
         saved_signal_index=saved_signal_index,
+        saved_article_content_organization=saved_article_content_organization,
     )
     data_dir = output_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -239,6 +241,7 @@ def _write_saved_article_library_page(
     *,
     saved_article_library: RowOneSavedArticleLibrary | None,
     saved_signal_index: RowOneSavedSignalIndex | None,
+    saved_article_content_organization: RowOneSavedArticleContentOrganization | None,
 ) -> None:
     if saved_article_library is None:
         return
@@ -248,6 +251,7 @@ def _write_saved_article_library_page(
             edition,
             saved_article_library,
             saved_signal_index=saved_signal_index,
+            saved_article_content_organization=saved_article_content_organization,
         ),
         encoding="utf-8",
     )

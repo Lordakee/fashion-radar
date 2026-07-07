@@ -2933,6 +2933,59 @@ def test_render_row_one_site_includes_saved_signal_index_in_article_library(
     assert not (tmp_path / "data" / "saved-signal-index.json").exists()
 
 
+def test_render_row_one_site_includes_saved_article_content_organization_in_article_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+    section_html = _saved_article_content_organization_section_html(library_html)
+
+    assert 'class="saved-article-content-organization"' in section_html
+    assert "Saved Article Content Organization" in section_html
+    assert "保存正文内容整理" in section_html
+    assert "People &amp; Brands" in section_html
+    assert "Products" in section_html
+    assert "The Row appears in paragraph one." in section_html
+    assert "Alaia flats appear in paragraph two." in section_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+    ) in section_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"'
+    ) in section_html
+    assert (
+        library_html.index('class="saved-signal-index"')
+        < library_html.index('class="saved-article-content-organization"')
+        < library_html.index('class="saved-article-library-grid"')
+    )
+    assert (
+        'href="details/the-row-signal-1234567890.html#local-article-content-section-1"'
+    ) in homepage_html
+
+    for contract_json in (
+        json.dumps(edition_payload, ensure_ascii=False),
+        json.dumps(manifest_payload, ensure_ascii=False),
+        json.dumps(runtime_payload, ensure_ascii=False),
+    ):
+        assert "saved_article_content_organization" not in contract_json
+        assert "content_organization" not in contract_json
+        assert "saved-article-content-organization" not in contract_json
+        assert "Saved Article Content Organization" not in contract_json
+    assert not (tmp_path / "data" / "saved-article-content-organization.json").exists()
+
+
 def test_render_index_html_uses_source_only_copy_for_empty_saved_signal_index() -> None:
     html = render_index_html(
         _edition(),
@@ -3794,13 +3847,20 @@ def test_safe_daily_local_intelligence_href_accepts_only_safe_detail_links(
 def _saved_article_content_organization_section_html(index_html: str) -> str:
     marker = '<section class="saved-article-content-organization"'
     section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    boundary_offsets: list[int] = []
     next_section = re.search(
         r"\n<section class=",
-        index_html[section_start + len(marker) :],
+        tail,
     )
-    if next_section is None:
+    if next_section is not None:
+        boundary_offsets.append(next_section.start())
+    library_grid = tail.find('<div class="saved-article-library-grid">')
+    if library_grid >= 0:
+        boundary_offsets.append(library_grid)
+    if not boundary_offsets:
         return index_html[section_start:]
-    section_end = section_start + len(marker) + next_section.start()
+    section_end = section_start + len(marker) + min(boundary_offsets)
     assert section_end > section_start
     return index_html[section_start:section_end]
 
@@ -3975,6 +4035,114 @@ def test_render_index_html_filters_saved_article_content_organization_evidence_l
         )
         == 2
     )
+
+
+def test_render_saved_article_library_filters_content_organization_links_on_library_page() -> None:
+    safe_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="Safe card", zh="安全卡片"),
+        source_name="Source",
+        section_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        section_label=LocalizedText(en="Entity", zh="实体"),
+        lead=LocalizedText(en="Safe lead", zh="安全摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0, 2),
+        references=(),
+    )
+    invalid_path_cards = (
+        replace(
+            safe_card,
+            title=LocalizedText(en="JS card", zh="JS 卡片"),
+            detail_path="javascript:alert(1)#local-article-content-section-1",
+        ),
+        replace(
+            safe_card,
+            title=LocalizedText(en="Traversal card", zh="穿越卡片"),
+            detail_path="../secrets.html#local-article-content-section-1",
+        ),
+        replace(
+            safe_card,
+            title=LocalizedText(en="Wrong fragment card", zh="错误片段卡片"),
+            detail_path="details/the-row-signal-1234567890.html#local-article-paragraph-1",
+        ),
+    )
+    bad_index_card = replace(
+        safe_card,
+        title=LocalizedText(en="Bad index card", zh="坏索引卡片"),
+        paragraph_indices=(-1, True),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[safe_card, *invalid_path_cards, bad_index_card],
+            ),
+        ]
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    section_html = _saved_article_content_organization_section_html(html)
+
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+    ) in section_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    )
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-3"' in section_html
+    )
+    assert "javascript:alert" not in section_html
+    assert "../secrets" not in section_html
+    assert "#local-article-paragraph-0" not in section_html
+    assert "#local-article-paragraph-2" not in section_html
+    assert "JS card" not in section_html
+    assert "Traversal card" not in section_html
+    assert "Wrong fragment card" not in section_html
+    assert "Bad index card" in section_html
+
+
+def test_render_saved_article_library_canonicalizes_content_organization_links() -> None:
+    card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="Canonical card", zh="规范卡片"),
+        source_name="Source",
+        section_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        section_label=LocalizedText(en="Entity", zh="实体"),
+        lead=LocalizedText(en="Canonical lead", zh="规范摘要"),
+        detail_path="details/./the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[card],
+            ),
+        ]
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    section_html = _saved_article_content_organization_section_html(html)
+
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+    ) in section_html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in (
+        section_html
+    )
+    assert "details/./the-row-signal-1234567890.html" not in section_html
 
 
 def test_render_index_html_caps_and_dedupes_saved_article_content_organization_evidence_links() -> (

@@ -1061,6 +1061,25 @@ def test_row_one_docs_describe_daily_saved_article_library_boundary() -> None:
             assert phrase not in stage
 
 
+def test_row_one_docs_describe_stage_332_saved_article_library_content_groups_boundary() -> None:
+    expected = _normalized(
+        "Stage 332 adds generated-site only saved article content groups inside "
+        "`articles/index.html`; it reuses existing saved local article sidecars and "
+        "existing `content_sections` to organize the current edition's saved local "
+        "articles by read-first, people/brands, products, and source structure, "
+        "with links back to existing detail-page content-section and paragraph "
+        "anchors; it does not change row-one-app/v7, row-one-manifest/v1, "
+        "row-one-runtime/v1, schemas, JSON artifacts, source collection, fetching, "
+        "matching, extraction, scoring, ranking, LLM, connector, scheduling, "
+        "deployment, market grouping, domestic/international classification, or "
+        "compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+
+
 def test_row_one_docs_describe_stage_324_paragraph_evidence_index_boundary() -> None:
     readme = _normalized(_read(README))
     docs = _normalized(_read(ROW_ONE_DOC))
