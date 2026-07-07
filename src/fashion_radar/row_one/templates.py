@@ -3918,6 +3918,35 @@ def _render_saved_article_library_metrics(
             f"{library.organized_section_count} 个整理栏目",
         ),
     ]
+    if library.extracted_article_count:
+        metrics.append(
+            _render_saved_article_library_metric(
+                _count_label(
+                    library.extracted_article_count,
+                    "extracted text",
+                    "extracted text",
+                ),
+                f"{library.extracted_article_count} 篇提取正文",
+            )
+        )
+    if library.summary_fallback_article_count:
+        metrics.append(
+            _render_saved_article_library_metric(
+                _count_label(
+                    library.summary_fallback_article_count,
+                    "summary fallback",
+                    "summary fallback",
+                ),
+                f"{library.summary_fallback_article_count} 篇摘要兜底",
+            )
+        )
+    if library.skipped_article_count:
+        metrics.append(
+            _render_saved_article_library_metric(
+                _count_label(library.skipped_article_count, "skipped", "skipped"),
+                f"{library.skipped_article_count} 篇跳过",
+            )
+        )
     return f'<ul class="{_esc(css_class)}">\n' + "\n".join(metrics) + "\n  </ul>"
 
 
@@ -3989,11 +4018,34 @@ def _render_saved_article_library_card(entry: RowOneSavedArticleLibraryEntry) ->
               <span data-lang="en">{_esc(section_count_en)}</span>
               <span data-lang="zh">{_esc(f"{entry.organized_section_count} 个整理栏目")}</span>
             </li>
+            {_render_saved_article_library_body_source_chip(entry)}
           </ul>
           {refs}
           {paragraphs}
           {actions}
         </article>"""
+
+
+def _saved_article_library_body_source_label(body_source: str) -> str:
+    if body_source == "summary_fallback":
+        return "ROW ONE summary fallback"
+    if body_source == "skipped":
+        return "Skipped"
+    return "Extracted article text"
+
+
+def _render_saved_article_library_body_source_chip(
+    entry: RowOneSavedArticleLibraryEntry,
+) -> str:
+    return (
+        '<li class="saved-article-library-text-source">'
+        "<span>"
+        '<span data-lang="en">Text source</span>'
+        '<span data-lang="zh">正文来源</span>'
+        "</span>"
+        f"<span>{_esc(_saved_article_library_body_source_label(entry.body_source))}</span>"
+        "</li>"
+    )
 
 
 def _render_saved_article_library_refs(refs: Sequence[RowOneReference]) -> str:

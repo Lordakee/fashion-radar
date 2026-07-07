@@ -85,6 +85,7 @@ def _article(
     paragraphs: list[str] | None = None,
     paragraphs_zh: list[str] | None = None,
     content_sections: list[RowOneLocalArticleContentSection] | None = None,
+    body_source: str = "extracted",
 ) -> RowOneLocalArticle:
     return RowOneLocalArticle(
         story_id=story_id,
@@ -95,6 +96,7 @@ def _article(
         paragraphs=paragraphs or ["First saved paragraph.", "Second saved paragraph."],
         paragraphs_zh=paragraphs_zh or [],
         content_sections=content_sections or [],
+        body_source=body_source,
     )
 
 
@@ -234,6 +236,45 @@ def test_saved_article_library_groups_articles_by_source_and_builds_counts() -> 
     ]
 
 
+def test_saved_article_library_tracks_body_source_counts_for_included_articles() -> None:
+    extracted_story = _story("extracted-1234567890", "Extracted story")
+    fallback_story = _story("fallback-1234567890", "Fallback story")
+    skipped_story = _story("skipped-1234567890", "Skipped story")
+    empty_skipped_story = _story("empty-skipped-1234567890", "Empty skipped story")
+
+    library = build_row_one_saved_article_library(
+        _edition(extracted_story, fallback_story, skipped_story, empty_skipped_story),
+        {
+            extracted_story.id: _article(extracted_story.id, body_source="extracted"),
+            fallback_story.id: _article(
+                fallback_story.id,
+                body_source="summary_fallback",
+            ),
+            skipped_story.id: _article(
+                skipped_story.id,
+                body_source="skipped",
+                paragraphs=["Diagnostic paragraph."],
+            ),
+            empty_skipped_story.id: _article(
+                empty_skipped_story.id,
+                body_source="skipped",
+                paragraphs=["   "],
+            ),
+        },
+    )
+
+    assert library is not None
+    assert library.article_count == 3
+    assert library.extracted_article_count == 1
+    assert library.summary_fallback_article_count == 1
+    assert library.skipped_article_count == 1
+    assert [entry.body_source for entry in library.groups[0].entries] == [
+        "extracted",
+        "summary_fallback",
+        "skipped",
+    ]
+
+
 def test_saved_article_library_filters_unsafe_or_unusable_articles() -> None:
     valid_story = _story("valid-1234567890", "Valid story")
     unsafe_route_story = _story("unsafe-route-1234567890", "Unsafe route").model_copy(
@@ -298,6 +339,10 @@ def test_saved_article_library_caps_entries_references_and_paragraph_links() -> 
     library = build_row_one_saved_article_library(_edition(*stories), local_articles)
 
     assert library is not None
+    assert library.article_count == 12
+    assert library.extracted_article_count == 12
+    assert library.summary_fallback_article_count == 0
+    assert library.skipped_article_count == 0
     assert len(library.groups) == 4
     assert len(library.groups[0].entries) == 8
     assert len(library.groups[0].entries[0].references) == 6
@@ -318,6 +363,10 @@ def test_saved_article_library_caps_source_groups() -> None:
     library = build_row_one_saved_article_library(_edition(*stories), local_articles)
 
     assert library is not None
+    assert library.article_count == 10
+    assert library.extracted_article_count == 10
+    assert library.summary_fallback_article_count == 0
+    assert library.skipped_article_count == 0
     assert library.source_count == 10
     assert len(library.groups) == 8
     assert [group.source_name for group in library.groups] == [

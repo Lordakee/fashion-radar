@@ -187,6 +187,7 @@ def _saved_article_library_fixture() -> RowOneSavedArticleLibrary:
         section_title=LocalizedText(zh="今日重点", en="Top Stories"),
         saved_paragraph_count=1,
         organized_section_count=1,
+        body_source="summary_fallback",
         digest_path="details/the-row-signal-1234567890.html#local-article-digest",
         reader_path="details/the-row-signal-1234567890.html#local-article-reader",
         evidence_path=("details/the-row-signal-1234567890.html#local-article-paragraph-evidence"),
@@ -202,6 +203,9 @@ def _saved_article_library_fixture() -> RowOneSavedArticleLibrary:
         source_count=1,
         saved_paragraph_count=1,
         organized_section_count=1,
+        extracted_article_count=0,
+        summary_fallback_article_count=1,
+        skipped_article_count=0,
         groups=[
             RowOneSavedArticleLibrarySourceGroup(
                 source_name="Vogue Business",
@@ -2771,6 +2775,11 @@ def test_render_row_one_site_writes_saved_article_library_page(tmp_path) -> None
     assert "1 source" in html
     assert "2 saved paragraphs" in html
     assert "1 organized section" in html
+    assert "1 extracted text" in html
+    assert "1 篇提取正文" in html
+    assert '<span data-lang="en">Text source</span>' in html
+    assert '<span data-lang="zh">正文来源</span>' in html
+    assert "Extracted article text" in html
     assert "Vogue &lt;Business&gt;" in html
     assert "The Row &lt;source&gt;" in html
     assert "&lt;The Row&gt;" in html
@@ -2788,6 +2797,7 @@ def test_render_row_one_site_writes_saved_article_library_page(tmp_path) -> None
     assert 'class="saved-article-library-entry"' in home_html
     assert "Daily Saved Article Library" in home_html
     assert "每日本地文章库" in home_html
+    assert "1 extracted text" in home_html
     assert home_html.index('class="saved-article-coverage"') < home_html.index(
         'class="saved-article-library-entry"'
     )
@@ -2800,12 +2810,61 @@ def test_render_row_one_site_writes_saved_article_library_page(tmp_path) -> None
         json.dumps(manifest_payload, ensure_ascii=False),
         json.dumps(runtime_payload, ensure_ascii=False),
     ):
-        assert "saved_article_library" not in contract_json
-        assert "daily_saved_article_library" not in contract_json
-        assert "article_library" not in contract_json
-        assert "saved-article-library" not in contract_json
-        assert "Daily Saved Article Library" not in contract_json
+        for forbidden in (
+            "saved_article_library",
+            "daily_saved_article_library",
+            "article_library",
+            "saved-article-library",
+            "Daily Saved Article Library",
+            "saved_article_library_text_source",
+            "text_source_map",
+            "text_source",
+            "body_source",
+            "extracted_article_count",
+            "summary_fallback_article_count",
+            "skipped_article_count",
+            "Text source",
+            "Extracted article text",
+            "ROW ONE summary fallback",
+            "Skipped",
+        ):
+            assert forbidden not in contract_json
     assert not (tmp_path / "data" / "saved-article-library.json").exists()
+
+
+def test_render_row_one_site_saved_article_library_hides_summary_fallback_reason(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = RowOneLocalArticle(
+        story_id=story.id,
+        title="The Row fallback source",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        body_source="summary_fallback",
+        reason="robots_disallowed",
+        paragraphs=["Summary fallback paragraph."],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: local_article},
+    )
+
+    html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    chip_start = html.index('<li class="saved-article-library-text-source">')
+    chip_html = html[chip_start : html.index("</li>", chip_start) + len("</li>")]
+
+    assert "1 summary fallback" in html
+    assert "1 篇摘要兜底" in html
+    assert "ROW ONE summary fallback" in chip_html
+    assert "href=" not in chip_html
+    assert "<a " not in chip_html
+    assert "Fallback reason" not in html
+    assert "robots_disallowed" not in html
 
 
 def test_render_row_one_site_includes_saved_signal_index_in_article_library(
@@ -4088,6 +4147,10 @@ def test_render_saved_article_library_filters_content_organization_links_on_libr
     )
     section_html = _saved_article_content_organization_section_html(html)
 
+    assert "1 summary fallback" in html
+    assert "1 篇摘要兜底" in html
+    assert "ROW ONE summary fallback" in html
+    assert 'href="ROW ONE summary fallback"' not in html
     assert (
         'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
     ) in section_html
@@ -4143,6 +4206,29 @@ def test_render_saved_article_library_canonicalizes_content_organization_links()
         section_html
     )
     assert "details/./the-row-signal-1234567890.html" not in section_html
+
+
+def test_render_saved_article_library_renders_skipped_text_source_chip() -> None:
+    fixture = _saved_article_library_fixture()
+    entry = replace(fixture.groups[0].entries[0], body_source="skipped")
+    fixture = replace(
+        fixture,
+        extracted_article_count=0,
+        summary_fallback_article_count=0,
+        skipped_article_count=1,
+        groups=[replace(fixture.groups[0], entries=[entry])],
+    )
+
+    html = render_saved_article_library_html(_edition(), fixture)
+
+    assert '<li class="saved-article-library-text-source">' in html
+    assert '<span data-lang="en">Text source</span>' in html
+    assert '<span data-lang="zh">正文来源</span>' in html
+    assert "Skipped" in html
+    assert "1 skipped" in html
+    assert "1 篇跳过" in html
+    assert "1 summary fallback" not in html
+    assert "ROW ONE summary fallback" not in html
 
 
 def test_render_index_html_caps_and_dedupes_saved_article_content_organization_evidence_links() -> (

@@ -1080,6 +1080,48 @@ def test_row_one_docs_describe_stage_332_saved_article_library_content_groups_bo
         assert expected in normalized
 
 
+def test_row_one_docs_describe_stage_333_saved_article_library_text_source_boundary() -> None:
+    expected = _normalized(
+        "Stage 333 adds a generated-site only saved article library text-source "
+        "map inside `articles/index.html`; it reuses existing saved local article "
+        "`body_source` values to show included-library counts and per-card text "
+        "source chips for extracted article text, ROW ONE summary fallback, and "
+        "skipped saved bodies; it does not expose fallback reasons, does not "
+        "change row-one-app/v7, row-one-manifest/v1, row-one-runtime/v1, schemas, "
+        "JSON artifacts, source collection, fetching, matching, extraction, "
+        "scoring, ranking, LLM, connector, scheduling, deployment, market "
+        "grouping, domestic/international classification, or compliance-review "
+        "behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage = normalized[
+            normalized.index(
+                "stage 333 adds a generated-site only saved article library text-source map"
+            ) : normalized.index("stage 332 adds generated-site only saved article content groups")
+        ]
+        for stale_phrase in (
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "adds source collection",
+            "adds fetching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm calls",
+            "adds connectors",
+            "adds scheduling",
+            "adds compliance review",
+            "writes `data/saved-article-library.json`",
+            "exposes fallback reasons",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_324_paragraph_evidence_index_boundary() -> None:
     readme = _normalized(_read(README))
     docs = _normalized(_read(ROW_ONE_DOC))

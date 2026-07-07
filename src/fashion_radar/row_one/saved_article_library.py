@@ -9,6 +9,7 @@ from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneEdition,
     RowOneLocalArticle,
+    RowOneLocalArticleBodySource,
     RowOneLocalArticleContentSection,
     RowOneReference,
 )
@@ -37,6 +38,7 @@ class RowOneSavedArticleLibraryEntry:
     section_title: LocalizedText
     saved_paragraph_count: int
     organized_section_count: int
+    body_source: RowOneLocalArticleBodySource
     digest_path: str
     reader_path: str
     evidence_path: str
@@ -59,6 +61,9 @@ class RowOneSavedArticleLibrary:
     source_count: int
     saved_paragraph_count: int
     organized_section_count: int
+    extracted_article_count: int
+    summary_fallback_article_count: int
+    skipped_article_count: int
     groups: list[RowOneSavedArticleLibrarySourceGroup]
 
 
@@ -93,6 +98,7 @@ def build_row_one_saved_article_library(
             section_title=_section_title(edition, story.section_key),
             saved_paragraph_count=saved_paragraph_count,
             organized_section_count=len(article.content_sections),
+            body_source=article.body_source,
             digest_path=_detail_anchor(story.detail_path, LOCAL_ARTICLE_DIGEST_FRAGMENT),
             reader_path=_detail_anchor(story.detail_path, LOCAL_ARTICLE_READER_FRAGMENT),
             evidence_path=_detail_anchor(story.detail_path, LOCAL_ARTICLE_EVIDENCE_FRAGMENT),
@@ -126,6 +132,11 @@ def build_row_one_saved_article_library(
         source_count=len(grouped_entries),
         saved_paragraph_count=sum(entry.saved_paragraph_count for entry in entries),
         organized_section_count=sum(entry.organized_section_count for entry in entries),
+        extracted_article_count=sum(1 for entry in entries if entry.body_source == "extracted"),
+        summary_fallback_article_count=sum(
+            1 for entry in entries if entry.body_source == "summary_fallback"
+        ),
+        skipped_article_count=sum(1 for entry in entries if entry.body_source == "skipped"),
         groups=groups,
     )
 
