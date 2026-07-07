@@ -60,6 +60,11 @@ from fashion_radar.row_one.saved_article_reading_paths import (
     RowOneSavedArticleReadingPathStep,
     build_row_one_saved_article_reading_paths,
 )
+from fashion_radar.row_one.saved_article_theme_digest import (
+    RowOneSavedArticleThemeDigest,
+    RowOneSavedArticleThemeDigestItem,
+    RowOneSavedArticleThemeDigestTheme,
+)
 from fashion_radar.row_one.saved_signal_index import (
     RowOneSavedSignalIndex,
     RowOneSavedSignalIndexEntry,
@@ -321,6 +326,39 @@ def _signal_briefing_local_article() -> RowOneLocalArticle:
                 ],
             ),
         ],
+    )
+
+
+def _theme_digest_local_article() -> RowOneLocalArticle:
+    article = _signal_briefing_local_article()
+    return article.model_copy(
+        deep=True,
+        update={
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="takeaways",
+                    title=LocalizedText(en="Read First", zh="优先阅读"),
+                    body=LocalizedText(
+                        en="Start with the saved The Row signal.",
+                        zh="先看保存正文中的 The Row 信号。",
+                    ),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="Opening read", zh="入口阅读"),
+                            body=LocalizedText(
+                                en="Start with The Row retail signal.",
+                                zh="先看 The Row 零售信号。",
+                            ),
+                            references=[
+                                RowOneReference(name="The Row", type="brand", label="tracked"),
+                            ],
+                            paragraph_indices=[0],
+                        )
+                    ],
+                ),
+                *article.content_sections,
+            ],
+        },
     )
 
 
@@ -3139,6 +3177,95 @@ def test_render_row_one_site_includes_saved_article_reading_paths_in_article_lib
     assert not (tmp_path / "data" / "saved-article-reading-paths.json").exists()
 
 
+def test_render_row_one_site_includes_saved_article_theme_digest_in_article_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _theme_digest_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+    section_html = _saved_article_theme_digest_section_html(library_html)
+
+    assert 'class="saved-article-theme-digest"' in section_html
+    assert "Saved Article Theme Digest" in section_html
+    assert "保存文章主题简报" in section_html
+    assert "Read First" in section_html
+    assert "Products" in section_html
+    assert "Start with The Row retail signal." in section_html
+    assert "Alaia flats appear in paragraph two." in section_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    )
+    assert "https://example.com/the-row" not in section_html
+    assert (
+        library_html.index('class="saved-article-library-hero"')
+        < library_html.index('class="saved-article-theme-digest"')
+        < library_html.index('class="saved-signal-index"')
+        < library_html.index('class="saved-article-reading-paths"')
+        < library_html.index('class="saved-article-content-organization"')
+        < library_html.index('class="saved-article-library-grid"')
+    )
+    assert 'class="saved-article-theme-digest"' not in homepage_html
+
+    assert edition_payload["contract_version"] == "row-one-app/v7"
+    assert manifest_payload["contract_version"] == "row-one-manifest/v1"
+    assert manifest_payload["app_contract"]["version"] == "row-one-app/v7"
+    assert runtime_payload["contract_version"] == "row-one-runtime/v1"
+    for contract_json in (
+        json.dumps(edition_payload, ensure_ascii=False),
+        json.dumps(manifest_payload, ensure_ascii=False),
+        json.dumps(runtime_payload, ensure_ascii=False),
+    ):
+        assert "saved_article_theme_digest" not in contract_json
+        assert "theme_digest" not in contract_json
+        assert "saved-article-theme-digest" not in contract_json
+        assert "Saved Article Theme Digest" not in contract_json
+        assert "保存文章主题简报" not in contract_json
+        assert "Start with The Row retail signal." not in contract_json
+        assert "Alaia flats appear in paragraph two." not in contract_json
+        assert "Alaia flats" not in contract_json
+    assert not (tmp_path / "data" / "saved-article-theme-digest.json").exists()
+
+
+def test_render_row_one_site_omits_saved_article_theme_digest_when_no_saved_articles(
+    tmp_path,
+) -> None:
+    article_without_sections = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={"content_sections": []},
+    )
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: article_without_sections},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+
+    assert 'class="saved-article-theme-digest"' not in library_html
+    assert "Saved Article Theme Digest" not in library_html
+    assert "保存文章主题简报" not in library_html
+    assert 'class="saved-article-library-hero"' in library_html
+    assert 'class="saved-article-library-grid"' in library_html
+
+
 def test_render_index_html_uses_source_only_copy_for_empty_saved_signal_index() -> None:
     html = render_index_html(
         _edition(),
@@ -4018,6 +4145,25 @@ def _saved_article_content_organization_section_html(index_html: str) -> str:
     return index_html[section_start:section_end]
 
 
+def _saved_article_theme_digest_section_html(index_html: str) -> str:
+    marker = '<section class="saved-article-theme-digest"'
+    assert marker in index_html
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    boundary_offsets: list[int] = []
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is not None:
+        boundary_offsets.append(next_section.start())
+    library_grid = tail.find('<div class="saved-article-library-grid">')
+    if library_grid >= 0:
+        boundary_offsets.append(library_grid)
+    if not boundary_offsets:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + min(boundary_offsets)
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
 def _saved_article_reading_paths_section_html(index_html: str) -> str:
     marker = '<section class="saved-article-reading-paths"'
     assert marker in index_html
@@ -4322,6 +4468,159 @@ def test_render_saved_article_library_canonicalizes_content_organization_links()
         section_html
     )
     assert "details/./the-row-signal-1234567890.html" not in section_html
+
+
+def test_render_saved_article_library_html_escapes_and_truncates_theme_digest() -> None:
+    digest = RowOneSavedArticleThemeDigest(
+        theme_count=1,
+        item_count=1,
+        source_count=1,
+        themes=(
+            RowOneSavedArticleThemeDigestTheme(
+                key="read_first",
+                title=LocalizedText(en="Read <First>", zh="优先<阅读>"),
+                dek=LocalizedText(en="Theme dek", zh="主题说明"),
+                item_count=1,
+                source_count=1,
+                items=(
+                    RowOneSavedArticleThemeDigestItem(
+                        title=LocalizedText(en="The Row <script>", zh="The Row"),
+                        source_name="Source <Name>",
+                        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+                        section_label=LocalizedText(en="Read First", zh="优先阅读"),
+                        lead=LocalizedText(en="Long lead " * 80, zh="长摘要" * 80),
+                        detail_path=(
+                            "details/the-row-signal-1234567890.html#local-article-content-section-1"
+                        ),
+                        paragraph_indices=(0,),
+                        references=(
+                            RowOneReference(
+                                name="The Row <brand>",
+                                type="brand",
+                                label="tracked",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_theme_digest=digest,
+    )
+    section_html = _saved_article_theme_digest_section_html(html)
+
+    assert "Read &lt;First&gt;" in section_html
+    assert "Source &lt;Name&gt;" in section_html
+    assert "The Row &lt;script&gt;" in section_html
+    assert "The Row &lt;brand&gt;" in section_html
+    assert "<script>" not in section_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    )
+    assert "Long lead " * 80 not in section_html
+    assert section_html.count("Long lead") < 80
+
+
+def test_render_saved_article_library_html_filters_unsafe_theme_digest_items() -> None:
+    safe_item = RowOneSavedArticleThemeDigestItem(
+        title=LocalizedText(en="Safe theme item", zh="安全主题条目"),
+        source_name="Safe Source",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="Read First", zh="优先阅读"),
+        lead=LocalizedText(en="Safe theme lead", zh="安全主题摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(),
+        references=(),
+    )
+    digest = RowOneSavedArticleThemeDigest(
+        theme_count=1,
+        item_count=4,
+        source_count=1,
+        themes=(
+            RowOneSavedArticleThemeDigestTheme(
+                key="read_first",
+                title=LocalizedText(en="Read First", zh="优先阅读"),
+                dek=LocalizedText(en="Theme dek", zh="主题说明"),
+                item_count=4,
+                source_count=1,
+                items=(
+                    safe_item,
+                    replace(
+                        safe_item,
+                        title=LocalizedText(en="Javascript item", zh="脚本条目"),
+                        detail_path="javascript:alert(1)#local-article-content-section-1",
+                    ),
+                    replace(
+                        safe_item,
+                        title=LocalizedText(en="Traversal item", zh="越界条目"),
+                        detail_path="../secret.html#local-article-content-section-1",
+                    ),
+                    replace(
+                        safe_item,
+                        title=LocalizedText(en="Bad fragment item", zh="坏锚点条目"),
+                        detail_path="details/the-row-signal-1234567890.html#bad-fragment",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_theme_digest=digest,
+    )
+    section_html = _saved_article_theme_digest_section_html(html)
+
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert "Safe theme item" in section_html
+    assert "javascript:" not in section_html
+    assert "../secret.html" not in section_html
+    assert "#bad-fragment" not in section_html
+    assert "Javascript item" not in section_html
+    assert "Traversal item" not in section_html
+    assert "Bad fragment item" not in section_html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' not in (
+        section_html
+    )
+    assert section_html.count('class="saved-article-theme-digest-item"') == 1
+
+
+def test_render_saved_article_library_html_omits_empty_theme_digest_shell() -> None:
+    html_without_digest = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_theme_digest=None,
+    )
+    empty_digest = RowOneSavedArticleThemeDigest(
+        theme_count=0,
+        item_count=0,
+        source_count=0,
+        themes=(),
+    )
+    html_with_empty_digest = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_theme_digest=empty_digest,
+    )
+
+    for html in (html_without_digest, html_with_empty_digest):
+        assert 'class="saved-article-theme-digest"' not in html
+        assert "Saved Article Theme Digest" not in html
+        assert "保存文章主题简报" not in html
+        assert 'class="saved-article-library-hero"' in html
+        assert 'class="saved-article-library-grid"' in html
 
 
 def test_render_saved_article_library_shows_organized_snippets_on_source_cards() -> None:
@@ -6580,6 +6879,31 @@ def test_row_one_css_includes_saved_article_reading_path_styles(tmp_path) -> Non
         ".saved-article-reading-path-step-lead",
         ".saved-article-reading-path-link",
         ".saved-article-reading-path-evidence",
+    ):
+        assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
+
+
+def test_row_one_css_includes_saved_article_theme_digest_styles(tmp_path) -> None:
+    css = render_row_one_site(_edition(), tmp_path).index_path
+    css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    for selector in (
+        ".saved-article-theme-digest",
+        ".saved-article-theme-digest-header",
+        ".saved-article-theme-digest-metrics",
+        ".saved-article-theme-digest-grid",
+        ".saved-article-theme-digest-card",
+        ".saved-article-theme-digest-card-header",
+        ".saved-article-theme-digest-card-meta",
+        ".saved-article-theme-digest-items",
+        ".saved-article-theme-digest-item",
+        ".saved-article-theme-digest-item-meta",
+        ".saved-article-theme-digest-lead",
+        ".saved-article-theme-digest-actions",
+        ".saved-article-theme-digest-evidence",
+        ".saved-article-theme-digest-refs",
+        ".saved-article-theme-digest-link",
+        ".saved-article-theme-digest-ref",
     ):
         assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
 

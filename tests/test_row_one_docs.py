@@ -1124,6 +1124,50 @@ def test_row_one_docs_describe_stage_334_saved_article_library_local_excerpt_bou
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_336_saved_article_theme_digest_boundary() -> None:
+    expected = _normalized(
+        "Stage 336 adds generated-site only Saved Article Theme Digest inside "
+        "`articles/index.html`; it reuses existing saved local article sidecars, "
+        "existing saved local paragraphs, existing saved article content "
+        "organization, and existing detail-page "
+        "`#local-article-content-section-N` and `#local-article-paragraph-N` "
+        "anchors to summarize recurring themes from already-saved local text; "
+        "it does not publish full articles on the library index, does not add "
+        "LLM-generated summaries, does not change row-one-app/v7, "
+        "row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, "
+        "source collection, fetching, matching, extraction, scoring, ranking, "
+        "LLM, connector, scheduling, deployment, market grouping, "
+        "domestic/international classification, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage = normalized[
+            normalized.index(
+                "stage 336 adds generated-site only saved article theme digest"
+            ) : normalized.index("stage 335 adds generated-site only saved article reading paths")
+        ]
+        for stale_phrase in (
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "writes `data/saved-article-theme-digest.json`",
+            "writes a new json artifact",
+            "publishes full articles",
+            "adds source collection",
+            "adds fetching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds connectors",
+            "adds scheduling",
+            "adds compliance review",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_335_saved_article_reading_paths_boundary() -> None:
     expected = _normalized(
         "Stage 335 adds generated-site only Saved Article Reading Paths inside "

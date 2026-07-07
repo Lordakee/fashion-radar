@@ -53,6 +53,11 @@ from fashion_radar.row_one.saved_article_reading_paths import (
     RowOneSavedArticleReadingPaths,
     RowOneSavedArticleReadingPathStep,
 )
+from fashion_radar.row_one.saved_article_theme_digest import (
+    RowOneSavedArticleThemeDigest,
+    RowOneSavedArticleThemeDigestItem,
+    RowOneSavedArticleThemeDigestTheme,
+)
 from fashion_radar.row_one.saved_signal_index import (
     RowOneSavedSignalIndex,
     RowOneSavedSignalIndexEntry,
@@ -275,6 +280,7 @@ def render_saved_article_library_html(
     saved_signal_index: RowOneSavedSignalIndex | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     saved_article_reading_paths: RowOneSavedArticleReadingPaths | None = None,
+    saved_article_theme_digest: RowOneSavedArticleThemeDigest | None = None,
 ) -> str:
     snippets_by_detail_path = _saved_article_library_snippets_by_detail_path(
         saved_article_content_organization
@@ -287,6 +293,7 @@ def render_saved_article_library_html(
         for group in library.groups
     )
     signal_index = _render_saved_signal_index(saved_signal_index)
+    theme_digest = _render_saved_article_theme_digest(saved_article_theme_digest)
     reading_paths = _render_saved_article_reading_paths(saved_article_reading_paths)
     content_organization = _render_saved_article_content_organization(
         saved_article_content_organization,
@@ -331,6 +338,7 @@ def render_saved_article_library_html(
     </p>
     {_render_saved_article_library_metrics(library, css_class="saved-article-library-metrics")}
   </section>
+  {theme_digest}
   {signal_index}
   {reading_paths}
   {content_organization}
@@ -1425,6 +1433,141 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 }
 .saved-signal-index-actions a,
 .saved-signal-index-paragraphs a {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  gap: 4px;
+  overflow-wrap: anywhere;
+  padding: 5px 7px;
+  text-decoration: none;
+}
+.saved-article-theme-digest {
+  border-bottom: 1px solid var(--ink);
+  display: grid;
+  gap: 18px;
+  padding-bottom: 28px;
+}
+.saved-article-theme-digest-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.36fr) minmax(0, 1fr);
+}
+.saved-article-theme-digest-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 5vw, 5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.95;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-theme-digest-header p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-theme-digest-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-theme-digest-metrics li {
+  border: 1px solid var(--line);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 8px 10px;
+}
+.saved-article-theme-digest-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.saved-article-theme-digest-card {
+  background: var(--panel);
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+}
+.saved-article-theme-digest-card-header {
+  display: grid;
+  gap: 8px;
+}
+.saved-article-theme-digest-card-header h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.45rem, 3vw, 2.6rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-theme-digest-card-header p {
+  margin: 0;
+}
+.saved-article-theme-digest-card-meta,
+.saved-article-theme-digest-item-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  font-weight: 800;
+  gap: 6px 10px;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+.saved-article-theme-digest-items {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-theme-digest-item {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 10px;
+}
+.saved-article-theme-digest-item h4 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.15rem, 2vw, 1.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-theme-digest-lead {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-theme-digest-actions,
+.saved-article-theme-digest-evidence,
+.saved-article-theme-digest-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.saved-article-theme-digest-link,
+.saved-article-theme-digest-ref {
   border: 1px solid var(--line);
   color: var(--ink);
   display: inline-flex;
@@ -4382,6 +4525,146 @@ def _render_saved_article_reading_paths(
   </div>
   <div class="saved-article-reading-paths-grid">{"".join(cards)}</div>
 </section>"""
+
+
+def _render_saved_article_theme_digest(
+    digest: RowOneSavedArticleThemeDigest | None,
+) -> str:
+    if digest is None or not digest.themes:
+        return ""
+    cards = [_render_saved_article_theme_digest_theme(theme) for theme in digest.themes]
+    cards = [card for card in cards if card]
+    if not cards:
+        return ""
+    theme_count_label = _count_label(digest.theme_count, "theme", "themes")
+    item_count_label = _count_label(digest.item_count, "local lead", "local leads")
+    source_count_label = _count_label(digest.source_count, "source", "sources")
+    metrics = (
+        "<li>"
+        f'<span data-lang="en">{_esc(theme_count_label)}</span>'
+        f'<span data-lang="zh">{_esc(f"{digest.theme_count} 个主题")}</span>'
+        "</li>"
+        "<li>"
+        f'<span data-lang="en">{_esc(item_count_label)}</span>'
+        f'<span data-lang="zh">{_esc(f"{digest.item_count} 条本地线索")}</span>'
+        "</li>"
+        "<li>"
+        f'<span data-lang="en">{_esc(source_count_label)}</span>'
+        f'<span data-lang="zh">{_esc(f"{digest.source_count} 个来源")}</span>'
+        "</li>"
+    )
+    return f"""<section class="saved-article-theme-digest"
+  aria-label="Saved article theme digest">
+  <div class="saved-article-theme-digest-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Saved Article Theme Digest</span>
+        <span data-lang="zh">保存文章主题简报</span>
+      </p>
+      <h2>
+        <span data-lang="en">Saved Article Theme Digest</span>
+        <span data-lang="zh">保存文章主题简报</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">Recurring themes from today's saved local fashion text.</span>
+      <span data-lang="zh">从今天本地保存时尚正文中整理出的重复主题。</span>
+    </p>
+  </div>
+  <ul class="saved-article-theme-digest-metrics">{metrics}</ul>
+  <div class="saved-article-theme-digest-grid">{"".join(cards)}</div>
+</section>"""
+
+
+def _render_saved_article_theme_digest_theme(
+    theme: RowOneSavedArticleThemeDigestTheme,
+) -> str:
+    items = [_render_saved_article_theme_digest_item(item) for item in theme.items]
+    items = [item for item in items if item]
+    if not items:
+        return ""
+    return f"""    <article class="saved-article-theme-digest-card">
+      <div class="saved-article-theme-digest-card-header">
+        <p class="saved-article-theme-digest-card-meta">
+          <span data-lang="en">{_esc(_count_label(len(items), "lead", "leads"))}</span>
+          <span data-lang="zh">{_esc(f"{len(items)} 条线索")}</span>
+          <span data-lang="en">{_esc(_count_label(theme.source_count, "source", "sources"))}</span>
+          <span data-lang="zh">{_esc(f"{theme.source_count} 个来源")}</span>
+        </p>
+        <h3>
+          <span data-lang="en">{_esc(theme.title.en)}</span>
+          <span data-lang="zh">{_esc(theme.title.zh)}</span>
+        </h3>
+        <p>
+          <span data-lang="en">{_esc(theme.dek.en)}</span>
+          <span data-lang="zh">{_esc(theme.dek.zh)}</span>
+        </p>
+      </div>
+      <ol class="saved-article-theme-digest-items">{"".join(items)}</ol>
+    </article>"""
+
+
+def _render_saved_article_theme_digest_item(
+    item: RowOneSavedArticleThemeDigestItem,
+) -> str:
+    href = _safe_saved_article_content_organization_href(item.detail_path)
+    if href is None:
+        return ""
+    href = _prefixed_saved_article_content_organization_href(href, "../")
+    refs = "".join(
+        '<span class="saved-article-theme-digest-ref">'
+        f"<span>{_esc(ref.name)}</span>"
+        f"<span>{_esc(ref.label.strip() or ref.type)}</span>"
+        "</span>"
+        for ref in item.references[:LOCAL_ARTICLE_DIGEST_MAX_REFERENCES]
+        if ref.name.strip()
+    )
+    refs_block = (
+        f'\n          <div class="saved-article-theme-digest-refs">{refs}</div>' if refs else ""
+    )
+    evidence = _render_saved_article_theme_digest_evidence(item)
+    evidence_block = (
+        f'\n          <div class="saved-article-theme-digest-evidence">{evidence}</div>'
+        if evidence
+        else ""
+    )
+    return f"""        <li class="saved-article-theme-digest-item">
+          <p class="saved-article-theme-digest-item-meta">
+            <span>{_esc(item.source_name)}</span>
+            <span data-lang="en">{_esc(item.section_label.en)}</span>
+            <span data-lang="zh">{_esc(item.section_label.zh)}</span>
+          </p>
+          <h4>
+            <span data-lang="en">{_esc(item.title.en)}</span>
+            <span data-lang="zh">{_esc(item.title.zh)}</span>
+          </h4>
+          <p class="saved-article-theme-digest-lead">
+            <span data-lang="en">{_esc(_local_article_digest_excerpt(item.lead.en))}</span>
+            <span data-lang="zh">{_esc(_local_article_digest_excerpt(item.lead.zh))}</span>
+          </p>{refs_block}
+          <div class="saved-article-theme-digest-actions">
+            <a class="saved-article-theme-digest-link" href="{_esc(href)}">
+              <span data-lang="en">Open theme section</span>
+              <span data-lang="zh">打开主题栏目</span>
+            </a>
+          </div>{evidence_block}
+        </li>"""
+
+
+def _render_saved_article_theme_digest_evidence(
+    item: RowOneSavedArticleThemeDigestItem,
+) -> str:
+    card = RowOneSavedArticleContentOrganizationCard(
+        title=item.title,
+        source_name=item.source_name,
+        section_title=item.section_title,
+        section_label=item.section_label,
+        lead=item.lead,
+        detail_path=item.detail_path,
+        paragraph_indices=item.paragraph_indices,
+        references=item.references,
+    )
+    return _render_saved_article_content_organization_evidence(card, href_prefix="../")
 
 
 def _render_saved_article_reading_path(path: RowOneSavedArticleReadingPath) -> str:
