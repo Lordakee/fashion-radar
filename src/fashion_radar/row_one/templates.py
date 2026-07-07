@@ -42,6 +42,11 @@ from fashion_radar.row_one.saved_article_coverage import (
     RowOneSavedArticleCoverage,
     RowOneSavedArticleCoverageItem,
 )
+from fashion_radar.row_one.saved_article_evidence_board import (
+    RowOneSavedArticleEvidenceBoard,
+    RowOneSavedArticleEvidenceBoardCard,
+    RowOneSavedArticleEvidenceBoardGroup,
+)
 from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibrary,
     RowOneSavedArticleLibraryEntry,
@@ -288,6 +293,7 @@ def render_saved_article_library_html(
     saved_article_reading_paths: RowOneSavedArticleReadingPaths | None = None,
     saved_article_theme_digest: RowOneSavedArticleThemeDigest | None = None,
     saved_article_reference_atlas: RowOneSavedArticleReferenceAtlas | None = None,
+    saved_article_evidence_board: RowOneSavedArticleEvidenceBoard | None = None,
 ) -> str:
     snippets_by_detail_path = _saved_article_library_snippets_by_detail_path(
         saved_article_content_organization
@@ -303,6 +309,7 @@ def render_saved_article_library_html(
     theme_digest = _render_saved_article_theme_digest(saved_article_theme_digest)
     reference_atlas = _render_saved_article_reference_atlas(saved_article_reference_atlas)
     reading_paths = _render_saved_article_reading_paths(saved_article_reading_paths)
+    evidence_board = _render_saved_article_evidence_board(saved_article_evidence_board)
     content_organization = _render_saved_article_content_organization(
         saved_article_content_organization,
         href_prefix="../",
@@ -350,6 +357,7 @@ def render_saved_article_library_html(
   {reference_atlas}
   {signal_index}
   {reading_paths}
+  {evidence_board}
   {content_organization}
   <div class="saved-article-library-grid">{groups}</div>
 </main>
@@ -1852,6 +1860,137 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 }
 .saved-article-reading-path-evidence {
   display: contents;
+}
+.saved-article-evidence-board {
+  border-bottom: 1px solid var(--ink);
+  display: grid;
+  gap: 18px;
+  padding-bottom: 28px;
+}
+.saved-article-evidence-board-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.36fr) minmax(0, 1fr);
+}
+.saved-article-evidence-board-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 5vw, 5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.95;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-evidence-board-header p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-evidence-board-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-evidence-board-metrics li {
+  border: 1px solid var(--line);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 8px 10px;
+}
+.saved-article-evidence-board-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+}
+.saved-article-evidence-board-group {
+  background: var(--panel);
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+}
+.saved-article-evidence-board-group-header {
+  display: grid;
+  gap: 8px;
+}
+.saved-article-evidence-board-group-header h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.45rem, 3vw, 2.6rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-evidence-board-group-header p {
+  margin: 0;
+}
+.saved-article-evidence-board-cards {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.saved-article-evidence-board-card {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 10px;
+}
+.saved-article-evidence-board-card h4 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.15rem, 2vw, 1.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-evidence-board-card-meta,
+.saved-article-evidence-board-paragraph {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  font-weight: 800;
+  gap: 6px 10px;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+.saved-article-evidence-board-excerpt {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-evidence-board-actions,
+.saved-article-evidence-board-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.saved-article-evidence-board-link,
+.saved-article-evidence-board-ref {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  gap: 4px;
+  overflow-wrap: anywhere;
+  padding: 5px 7px;
+  text-decoration: none;
 }
 .saved-article-briefs {
   border-bottom: 1px solid var(--ink);
@@ -3395,6 +3534,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .saved-article-briefs-grid { grid-template-columns: 1fr; }
   .saved-article-content-organization-header { grid-template-columns: 1fr; }
   .saved-article-content-organization-grid { grid-template-columns: 1fr; }
+  .saved-article-evidence-board-header { grid-template-columns: 1fr; }
+  .saved-article-evidence-board-cards { grid-template-columns: 1fr; }
   .editorial-brief-header { grid-template-columns: 1fr; }
   .editorial-brief-grid { grid-template-columns: 1fr; }
   .local-article-digest-grid { grid-template-columns: 1fr; }
@@ -5071,6 +5212,144 @@ def _render_saved_article_reading_path_evidence(
         references=step.references,
     )
     return _render_saved_article_content_organization_evidence(card, href_prefix="../")
+
+
+def _render_saved_article_evidence_board(
+    evidence_board: RowOneSavedArticleEvidenceBoard | None,
+) -> str:
+    if evidence_board is None or not evidence_board.groups:
+        return ""
+    groups = [_render_saved_article_evidence_board_group(group) for group in evidence_board.groups]
+    groups = [group for group in groups if group]
+    if not groups:
+        return ""
+    group_count_label = _count_label(evidence_board.group_count, "group", "groups")
+    card_count_label = _count_label(evidence_board.card_count, "paragraph card", "paragraph cards")
+    source_count_label = _count_label(evidence_board.source_count, "source", "sources")
+    metrics = (
+        "<li>"
+        f'<span data-lang="en">{_esc(group_count_label)}</span>'
+        f'<span data-lang="zh">{_esc(f"{evidence_board.group_count} 个分组")}</span>'
+        "</li>"
+        "<li>"
+        f'<span data-lang="en">{_esc(card_count_label)}</span>'
+        f'<span data-lang="zh">{_esc(f"{evidence_board.card_count} 张段落卡片")}</span>'
+        "</li>"
+        "<li>"
+        f'<span data-lang="en">{_esc(source_count_label)}</span>'
+        f'<span data-lang="zh">{_esc(f"{evidence_board.source_count} 个来源")}</span>'
+        "</li>"
+    )
+    return f"""<section class="saved-article-evidence-board"
+  aria-label="Saved article paragraph evidence board">
+  <div class="saved-article-evidence-board-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Saved Article Paragraph Evidence Board</span>
+        <span data-lang="zh">保存文章段落证据板</span>
+      </p>
+      <h2>
+        <span data-lang="en">Saved Article Paragraph Evidence Board</span>
+        <span data-lang="zh">保存文章段落证据板</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">Capped local excerpts that point back to saved article paragraphs.</span>
+      <span data-lang="zh">限长展示的本地摘录，并回链到已保存文章段落。</span>
+    </p>
+  </div>
+  <ul class="saved-article-evidence-board-metrics">{metrics}</ul>
+  <div class="saved-article-evidence-board-grid">{"".join(groups)}</div>
+</section>"""
+
+
+def _render_saved_article_evidence_board_group(
+    group: RowOneSavedArticleEvidenceBoardGroup,
+) -> str:
+    cards = [_render_saved_article_evidence_board_card(card) for card in group.cards]
+    cards = [card for card in cards if card]
+    if not cards:
+        return ""
+    rendered_card_count = len(cards)
+    return f"""    <article class="saved-article-evidence-board-group">
+      <div class="saved-article-evidence-board-group-header">
+        <p class="saved-article-evidence-board-card-meta">
+          <span data-lang="en">{_esc(_count_label(rendered_card_count, "card", "cards"))}</span>
+          <span data-lang="zh">{_esc(f"{rendered_card_count} 张卡片")}</span>
+          <span data-lang="en">{_esc(_count_label(group.source_count, "source", "sources"))}</span>
+          <span data-lang="zh">{_esc(f"{group.source_count} 个来源")}</span>
+        </p>
+        <h3>
+          <span data-lang="en">{_esc(group.title.en)}</span>
+          <span data-lang="zh">{_esc(group.title.zh)}</span>
+        </h3>
+        <p>
+          <span data-lang="en">{_esc(group.dek.en)}</span>
+          <span data-lang="zh">{_esc(group.dek.zh)}</span>
+        </p>
+      </div>
+      <div class="saved-article-evidence-board-cards">{"".join(cards)}</div>
+    </article>"""
+
+
+def _render_saved_article_evidence_board_card(
+    card: RowOneSavedArticleEvidenceBoardCard,
+) -> str:
+    href = _safe_saved_article_evidence_board_href(card.href)
+    if href is None:
+        return ""
+    href = _saved_article_library_page_href(href)
+    refs = "".join(
+        '<span class="saved-article-evidence-board-ref">'
+        f"<span>{_esc(ref.name)}</span>"
+        f"<span>{_esc(ref.label.strip() or ref.type)}</span>"
+        "</span>"
+        for ref in card.references
+        if ref.name.strip()
+    )
+    refs_block = (
+        f'\n        <div class="saved-article-evidence-board-refs">{refs}</div>' if refs else ""
+    )
+    paragraph_label = str(card.paragraph_number)
+    return f"""        <article class="saved-article-evidence-board-card">
+          <p class="saved-article-evidence-board-card-meta">
+            <span>{_esc(card.source_name)}</span>
+            <span data-lang="en">{_esc(card.section_label.en)}</span>
+            <span data-lang="zh">{_esc(card.section_label.zh)}</span>
+          </p>
+          <h4>
+            <span data-lang="en">{_esc(card.title.en)}</span>
+            <span data-lang="zh">{_esc(card.title.zh)}</span>
+          </h4>
+          <p class="saved-article-evidence-board-paragraph">
+            <span data-lang="en">Paragraph {_esc(paragraph_label)}</span>
+            <span data-lang="zh">第 {_esc(paragraph_label)} 段</span>
+          </p>
+          <p class="saved-article-evidence-board-excerpt">
+            <span data-lang="en">{_esc(card.excerpt.en)}</span>
+            <span data-lang="zh">{_esc(card.excerpt.zh)}</span>
+          </p>{refs_block}
+          <div class="saved-article-evidence-board-actions">
+            <a class="saved-article-evidence-board-link" href="{_esc(href)}">
+              <span data-lang="en">Open saved paragraph</span>
+              <span data-lang="zh">打开保存段落</span>
+            </a>
+          </div>
+        </article>"""
+
+
+def _safe_saved_article_evidence_board_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    path, separator, fragment = href.partition("#")
+    if not separator:
+        return None
+    safe_path = validated_row_one_detail_relative_path(path)
+    if safe_path is None:
+        return None
+    if _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is None:
+        return None
+    return f"{safe_path}#{fragment}"
 
 
 def _saved_article_library_body_source_label(body_source: str) -> str:

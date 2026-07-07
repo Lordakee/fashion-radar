@@ -466,15 +466,27 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert '"saved_article_entity_index"' not in generated_contract_payload
     assert '"saved_article_brand_index"' not in generated_contract_payload
     assert '"saved_article_product_index"' not in generated_contract_payload
+    assert '"saved_article_evidence_board"' not in generated_contract_payload
+    assert '"saved_article_paragraph_evidence_board"' not in generated_contract_payload
+    assert '"paragraph_evidence_board"' not in generated_contract_payload
+    assert '"saved_paragraph_evidence_board"' not in generated_contract_payload
+    assert '"article_paragraph_evidence_board"' not in generated_contract_payload
+    assert '"evidence_board"' not in generated_contract_payload
+    assert '"saved_article_evidence_cards"' not in generated_contract_payload
+    assert '"paragraph_evidence_cards"' not in generated_contract_payload
     assert "saved-article-library" not in generated_contract_payload
     assert "saved-signal-index" not in generated_contract_payload
+    assert "saved-article-evidence-board" not in generated_contract_payload
     assert "Daily Saved Article Library" not in generated_contract_payload
     assert "Saved Signal Index" not in generated_contract_payload
+    assert "Saved Article Paragraph Evidence Board" not in generated_contract_payload
     assert "每日本地文章库" not in generated_contract_payload
     assert "本地信号索引" not in generated_contract_payload
+    assert "保存文章段落证据板" not in generated_contract_payload
     assert "saved-signal-index.json" not in generated_contract_payload
     assert "saved-signal-excerpts.json" not in generated_contract_payload
     assert "saved-signal-excerpt.html" not in generated_contract_payload
+    assert "saved-article-evidence-board.json" not in generated_contract_payload
     assert "ROW ONE ops check" not in generated_contract_payload
     articles_html_path = output_dir / "articles" / "index.html"
     if articles_html_path.exists():
@@ -497,6 +509,9 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "articles" / "saved-signal-excerpt.html",
         output_dir / "data" / "ops-check.json",
         output_dir / "data" / "saved-signal-excerpts.json",
+        output_dir / "saved-article-evidence-board.json",
+        output_dir / "articles" / "saved-article-evidence-board.json",
+        output_dir / "data" / "saved-article-evidence-board.json",
     ):
         assert not artifact_path.exists()
     assert stored == stored_before

@@ -1216,6 +1216,63 @@ def test_row_one_docs_describe_stage_337_saved_article_reference_atlas_boundary(
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_338_saved_article_paragraph_evidence_board_boundary() -> None:
+    expected = _normalized(
+        "Stage 338 adds generated-site only Saved Article Paragraph Evidence Board "
+        "inside `articles/index.html`; it reuses existing saved local article "
+        "sidecars, existing saved local paragraphs, existing saved article content "
+        "organization paragraph indices, existing saved article library routes, "
+        "and existing detail-page `#local-article-content-section-N` and "
+        "`#local-article-paragraph-N` anchors to show capped local paragraph "
+        "evidence excerpts behind saved article sections; it does not publish "
+        "full articles on the library index, does not add outbound article URLs "
+        "in the evidence board, does not write "
+        "`data/saved-article-evidence-board.json`, does not add LLM-generated "
+        "summaries, does not add extraction, ranking, trend scoring, or heat "
+        "ranking, does not change row-one-app/v7, row-one-manifest/v1, "
+        "row-one-runtime/v1, schemas, JSON artifacts, source collection, "
+        "fetching, matching, extraction, scoring, ranking, LLM, connector, "
+        "scheduling, deployment, market grouping, domestic/international "
+        "classification, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_338_pos = normalized.index(
+            "stage 338 adds generated-site only saved article paragraph evidence board"
+        )
+        stage_337_pos = normalized.index(
+            "stage 337 adds generated-site only saved article reference atlas"
+        )
+        assert stage_338_pos < stage_337_pos
+        stage = normalized[stage_338_pos:stage_337_pos]
+        for stale_phrase in (
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "writes `data/saved-article-evidence-board.json`",
+            "writes a new json artifact",
+            "publishes full articles",
+            "adds outbound article urls",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds ranking",
+            "adds trend scoring",
+            "adds heat ranking",
+            "adds connectors",
+            "adds scheduling",
+            "adds deployment behavior",
+            "adds social",
+            "adds community",
+            "adds compliance review",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_335_saved_article_reading_paths_boundary() -> None:
     expected = _normalized(
         "Stage 335 adds generated-site only Saved Article Reading Paths inside "

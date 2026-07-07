@@ -48,6 +48,11 @@ from fashion_radar.row_one.saved_article_coverage import (
     RowOneSavedArticleCoverageItem,
     RowOneSavedArticleCoverageSource,
 )
+from fashion_radar.row_one.saved_article_evidence_board import (
+    RowOneSavedArticleEvidenceBoard,
+    RowOneSavedArticleEvidenceBoardCard,
+    RowOneSavedArticleEvidenceBoardGroup,
+)
 from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibrary,
     RowOneSavedArticleLibraryEntry,
@@ -439,6 +444,63 @@ def _reference_atlas_local_article() -> RowOneLocalArticle:
                             ),
                         ],
                         paragraph_indices=[2],
+                    )
+                ],
+            ),
+        ],
+    )
+
+
+def _evidence_board_local_article() -> RowOneLocalArticle:
+    return RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Evidence board source article",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        published_at=AS_OF,
+        paragraphs=[
+            "The Row paragraph one anchors the saved local evidence board.",
+            "Alaia flats paragraph two carries a product reference.",
+            "Dover Street Market paragraph three is source context.",
+        ],
+        paragraphs_zh=[
+            "The Row 第一段支撑保存文章证据板。",
+            "Alaia 平底鞋第二段携带产品引用。",
+            "Dover Street Market 第三段提供来源语境。",
+        ],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(zh="优先阅读", en="Read First"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="入口段落", en="Opening paragraph"),
+                        body=LocalizedText(
+                            zh="The Row 第一段是证据入口。",
+                            en="The Row paragraph one is the evidence opener.",
+                        ),
+                        references=[
+                            RowOneReference(name="The Row", type="brand", label="tracked"),
+                        ],
+                        paragraph_indices=[0],
+                    )
+                ],
+            ),
+            RowOneLocalArticleContentSection(
+                key="product_signals",
+                title=LocalizedText(zh="产品", en="Products"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="Alaia flats", en="Alaia flats"),
+                        body=LocalizedText(
+                            zh="Alaia 平底鞋第二段是产品证据。",
+                            en="Alaia flats paragraph two is product evidence.",
+                        ),
+                        references=[
+                            RowOneReference(name="Alaia flats", type="shoe", label="product"),
+                        ],
+                        paragraph_indices=[1],
                     )
                 ],
             ),
@@ -3393,6 +3455,290 @@ def test_render_row_one_site_includes_saved_article_reference_atlas_in_article_l
     assert not (tmp_path / "data" / "saved-article-reference-atlas.json").exists()
 
 
+def test_render_row_one_site_includes_saved_article_evidence_board_in_article_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _evidence_board_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+    section_html = _saved_article_evidence_board_section_html(library_html)
+
+    assert 'class="saved-article-evidence-board"' in section_html
+    assert "Saved Article Paragraph Evidence Board" in section_html
+    assert "保存文章段落证据板" in section_html
+    assert "Read First" in section_html
+    assert "Paragraph 1" in section_html
+    assert "The Row paragraph one anchors the saved local evidence board." in section_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    )
+    assert "The Row" in section_html
+    assert "https://example.com/the-row" not in section_html
+    assert (
+        library_html.index('class="saved-article-reading-paths"')
+        < library_html.index('class="saved-article-evidence-board"')
+        < library_html.index('class="saved-article-content-organization"')
+        < library_html.index('class="saved-article-library-grid"')
+    )
+    assert 'class="saved-article-evidence-board"' not in homepage_html
+
+    assert edition_payload["contract_version"] == "row-one-app/v7"
+    assert manifest_payload["contract_version"] == "row-one-manifest/v1"
+    assert manifest_payload["app_contract"]["version"] == "row-one-app/v7"
+    assert runtime_payload["contract_version"] == "row-one-runtime/v1"
+    for contract_json in (
+        json.dumps(edition_payload, ensure_ascii=False),
+        json.dumps(manifest_payload, ensure_ascii=False),
+        json.dumps(runtime_payload, ensure_ascii=False),
+    ):
+        assert "saved_article_evidence_board" not in contract_json
+        assert "paragraph_evidence_board" not in contract_json
+        assert "saved-article-evidence-board" not in contract_json
+        assert "Saved Article Paragraph Evidence Board" not in contract_json
+        assert "保存文章段落证据板" not in contract_json
+        assert "The Row paragraph one anchors the saved local evidence board." not in contract_json
+    assert not (tmp_path / "data" / "saved-article-evidence-board.json").exists()
+    forbidden_tokens = (
+        "saved_article_evidence_board",
+        "paragraph_evidence_board",
+        "saved-article-evidence-board",
+    )
+    for artifact in (tmp_path / "data").rglob("*"):
+        relative_name = artifact.relative_to(tmp_path / "data").as_posix()
+        assert not any(token in relative_name for token in forbidden_tokens)
+        if artifact.is_file() and artifact.suffix == ".json":
+            artifact_text = artifact.read_text(encoding="utf-8")
+            assert not any(token in artifact_text for token in forbidden_tokens)
+
+
+def test_render_row_one_site_omits_saved_article_evidence_board_when_no_valid_paragraphs(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    article = _evidence_board_local_article().model_copy(
+        deep=True,
+        update={
+            "content_sections": [],
+            "paragraphs": ["A saved paragraph remains for the article library."],
+            "paragraphs_zh": ["文章库仍保留一个保存段落。"],
+        },
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: article},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+
+    assert 'class="saved-article-evidence-board"' not in library_html
+    assert "Saved Article Paragraph Evidence Board" not in library_html
+    assert "保存文章段落证据板" not in library_html
+    assert 'class="saved-article-library-hero"' in library_html
+    assert 'class="saved-article-library-grid"' in library_html
+
+
+def test_render_row_one_site_caps_saved_article_evidence_board_full_paragraphs(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    full_marker = "FULL_PARAGRAPH_END_MARKER"
+    long_paragraph = " ".join(["The Row evidence board long paragraph"] * 18) + f" {full_marker}"
+    article = _evidence_board_local_article().model_copy(
+        deep=True,
+        update={
+            "paragraphs": [long_paragraph, *_evidence_board_local_article().paragraphs[1:]],
+            "paragraphs_zh": [
+                " ".join(["The Row 证据板长段落"] * 18) + f" {full_marker}",
+                *_evidence_board_local_article().paragraphs_zh[1:],
+            ],
+        },
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: article},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    section_html = _saved_article_evidence_board_section_html(library_html)
+
+    assert 'class="saved-article-evidence-board"' in section_html
+    assert "The Row evidence board long paragraph" in section_html
+    assert full_marker not in section_html
+    assert long_paragraph not in section_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    )
+
+
+def test_render_row_one_site_does_not_publish_every_short_saved_paragraph(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    article = _evidence_board_local_article().model_copy(
+        deep=True,
+        update={
+            "paragraphs": [
+                "Short saved evidence paragraph one.",
+                "Short saved evidence paragraph two.",
+            ],
+            "paragraphs_zh": [
+                "短保存证据段落一。",
+                "短保存证据段落二。",
+            ],
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="takeaways",
+                    title=LocalizedText(zh="优先阅读", en="Read First"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(zh="入口段落", en="Opening paragraph"),
+                            body=LocalizedText(
+                                zh="短文章证据入口。",
+                                en="Short article evidence opener.",
+                            ),
+                            references=[
+                                RowOneReference(
+                                    name="The Row",
+                                    type="brand",
+                                    label="tracked",
+                                ),
+                            ],
+                            paragraph_indices=[0, 1],
+                        )
+                    ],
+                )
+            ],
+        },
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: article},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    section_html = _saved_article_evidence_board_section_html(library_html)
+
+    assert "Short saved evidence paragraph one." in section_html
+    assert "Short saved evidence paragraph two." not in section_html
+
+
+def test_render_saved_article_library_html_renders_saved_article_evidence_board_directly() -> None:
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_evidence_board=RowOneSavedArticleEvidenceBoard(
+            group_count=1,
+            card_count=1,
+            source_count=1,
+            groups=(
+                RowOneSavedArticleEvidenceBoardGroup(
+                    key="takeaways",
+                    title=LocalizedText(zh="Read First", en="Read First"),
+                    dek=LocalizedText(zh="Evidence", en="Evidence"),
+                    card_count=1,
+                    source_count=1,
+                    cards=(
+                        RowOneSavedArticleEvidenceBoardCard(
+                            title=LocalizedText(
+                                zh="The Row saved article",
+                                en="The Row saved article",
+                            ),
+                            source_name="Vogue Business",
+                            section_title=LocalizedText(zh="Top Stories", en="Top Stories"),
+                            section_label=LocalizedText(zh="Read First", en="Read First"),
+                            paragraph_number=1,
+                            excerpt=LocalizedText(
+                                zh="The Row paragraph one",
+                                en="The Row paragraph one",
+                            ),
+                            href="details/the-row-signal-1234567890.html#local-article-paragraph-1",
+                            references=(
+                                RowOneReference(name="The Row", type="brand", label="tracked"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    section_html = _saved_article_evidence_board_section_html(html)
+
+    assert "Saved Article Paragraph Evidence Board" in section_html
+    assert "The Row paragraph one" in section_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    )
+    assert "The Row" in section_html
+
+
+def test_render_saved_article_library_html_revalidates_saved_article_evidence_board_links() -> None:
+    unsafe_cards = tuple(
+        RowOneSavedArticleEvidenceBoardCard(
+            title=LocalizedText(zh="Unsafe", en="Unsafe"),
+            source_name="Bad Source",
+            section_title=LocalizedText(zh="Top Stories", en="Top Stories"),
+            section_label=LocalizedText(zh="Read First", en="Read First"),
+            paragraph_number=1,
+            excerpt=LocalizedText(zh="Unsafe paragraph", en="Unsafe paragraph"),
+            href=href,
+            references=(),
+        )
+        for href in (
+            "javascript:alert(1)#local-article-paragraph-1",
+            "details/../the-row-signal-1234567890.html#local-article-paragraph-1",
+            "details/the-row-signal-1234567890.html#local-article-content-section-1",
+            "details/the-row-signal-1234567890.html#local-article-paragraph-0",
+            "details/the-row-signal-1234567890.html#local-article-paragraph-01",
+        )
+    )
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_evidence_board=RowOneSavedArticleEvidenceBoard(
+            group_count=1,
+            card_count=len(unsafe_cards),
+            source_count=1,
+            groups=(
+                RowOneSavedArticleEvidenceBoardGroup(
+                    key="takeaways",
+                    title=LocalizedText(zh="Read First", en="Read First"),
+                    dek=LocalizedText(zh="Evidence", en="Evidence"),
+                    card_count=len(unsafe_cards),
+                    source_count=1,
+                    cards=unsafe_cards,
+                ),
+            ),
+        ),
+    )
+
+    assert "javascript:alert(1)" not in html
+    assert "../the-row-signal" not in html
+    assert "#local-article-content-section-1" not in html
+    assert "#local-article-paragraph-0" not in html
+    assert "#local-article-paragraph-01" not in html
+    assert 'class="saved-article-evidence-board-card"' not in html
+
+
 def test_render_row_one_site_omits_saved_article_theme_digest_when_no_saved_articles(
     tmp_path,
 ) -> None:
@@ -4322,6 +4668,28 @@ def _saved_article_reference_atlas_section_html(index_html: str) -> str:
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
     boundary_offsets: list[int] = []
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is not None:
+        boundary_offsets.append(next_section.start())
+    library_grid = tail.find('<div class="saved-article-library-grid">')
+    if library_grid >= 0:
+        boundary_offsets.append(library_grid)
+    if not boundary_offsets:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + min(boundary_offsets)
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _saved_article_evidence_board_section_html(index_html: str) -> str:
+    marker = '<section class="saved-article-evidence-board"'
+    assert marker in index_html
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    boundary_offsets: list[int] = []
+    content_organization = tail.find('<section class="saved-article-content-organization"')
+    if content_organization >= 0:
+        boundary_offsets.append(content_organization)
     next_section = re.search(r"\n\s*<section class=", tail)
     if next_section is not None:
         boundary_offsets.append(next_section.start())
@@ -7210,6 +7578,30 @@ def test_row_one_css_includes_saved_article_reference_atlas_styles(tmp_path) -> 
         ".saved-article-reference-atlas-evidence",
         ".saved-article-reference-atlas-link",
         ".saved-article-reference-atlas-ref",
+    ):
+        assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
+
+
+def test_row_one_css_includes_saved_article_evidence_board_styles(tmp_path) -> None:
+    css = render_row_one_site(_edition(), tmp_path).index_path
+    css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    for selector in (
+        ".saved-article-evidence-board",
+        ".saved-article-evidence-board-header",
+        ".saved-article-evidence-board-metrics",
+        ".saved-article-evidence-board-grid",
+        ".saved-article-evidence-board-group",
+        ".saved-article-evidence-board-group-header",
+        ".saved-article-evidence-board-cards",
+        ".saved-article-evidence-board-card",
+        ".saved-article-evidence-board-card-meta",
+        ".saved-article-evidence-board-paragraph",
+        ".saved-article-evidence-board-excerpt",
+        ".saved-article-evidence-board-actions",
+        ".saved-article-evidence-board-link",
+        ".saved-article-evidence-board-refs",
+        ".saved-article-evidence-board-ref",
     ):
         assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
 
