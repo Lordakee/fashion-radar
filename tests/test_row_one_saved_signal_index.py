@@ -358,6 +358,310 @@ def test_saved_signal_index_groups_references_and_builds_support_links() -> None
     assert row_entry.supports[0].paragraph_links[0].label.en == "Paragraph 1"
 
 
+def test_saved_signal_index_support_uses_matching_item_body_excerpt() -> None:
+    story = _story("the-row-excerpt-1234567890", "The Row signal")
+    index = build_row_one_saved_signal_index(
+        _edition(story),
+        {
+            story.id: _article(
+                story.id,
+                paragraphs=["Paragraph fallback should not win."],
+                content_sections=[
+                    _section(
+                        "entities",
+                        "People & Brands",
+                        items=[
+                            _item(
+                                "The Row",
+                                body="  The Row appears in the saved item body.  ",
+                                body_zh="The Row 出现在本地整理正文中。",
+                                paragraph_indices=[0],
+                                references=[_signal_ref("The Row")],
+                            )
+                        ],
+                    )
+                ],
+            )
+        },
+    )
+
+    assert index is not None
+    support = index.entries[0].supports[0]
+    assert support.excerpt is not None
+    assert support.excerpt.en == "The Row appears in the saved item body."
+    assert support.excerpt.zh == "The Row 出现在本地整理正文中。"
+
+
+def test_saved_signal_index_support_excerpt_uses_zh_when_en_body_blank() -> None:
+    story = _story("zh-only-body-excerpt-1234567890", "ZH only body signal")
+
+    index = build_row_one_saved_signal_index(
+        _edition(story),
+        {
+            story.id: _article(
+                story.id,
+                paragraphs=["Fallback should not win."],
+                content_sections=[
+                    _section(
+                        "entities",
+                        "People & Brands",
+                        items=[
+                            _item(
+                                "The Row",
+                                body="",
+                                body_zh="The Row 中文正文。",
+                                paragraph_indices=[0],
+                                references=[_signal_ref("The Row")],
+                            )
+                        ],
+                    )
+                ],
+            )
+        },
+    )
+
+    assert index is not None
+    support = index.entries[0].supports[0]
+    assert support.excerpt is not None
+    assert support.excerpt.en == "The Row 中文正文。"
+    assert support.excerpt.zh == "The Row 中文正文。"
+
+
+def test_saved_signal_index_support_excerpt_uses_first_matching_item_body() -> None:
+    story = _story("multi-item-excerpt-1234567890", "Multi item signal")
+
+    index = build_row_one_saved_signal_index(
+        _edition(story),
+        {
+            story.id: _article(
+                story.id,
+                paragraphs=["Paragraph fallback should not win."],
+                content_sections=[
+                    _section(
+                        "entities",
+                        "People & Brands",
+                        items=[
+                            _item(
+                                "The Row first",
+                                body="First matching body wins.",
+                                paragraph_indices=[0],
+                                references=[_signal_ref("The Row")],
+                            ),
+                            _item(
+                                "The Row second",
+                                body="Second matching body should not win.",
+                                paragraph_indices=[0],
+                                references=[_signal_ref("The Row")],
+                            ),
+                        ],
+                    )
+                ],
+            )
+        },
+    )
+
+    assert index is not None
+    support = index.entries[0].supports[0]
+    assert support.excerpt is not None
+    assert support.excerpt.en == "First matching body wins."
+
+
+def test_saved_signal_index_support_excerpt_falls_back_from_blank_body() -> None:
+    story = _story("blank-body-excerpt-1234567890", "Blank body signal")
+
+    index = build_row_one_saved_signal_index(
+        _edition(story),
+        {
+            story.id: _article(
+                story.id,
+                paragraphs=["Fallback paragraph wins."],
+                content_sections=[
+                    _section(
+                        "entities",
+                        "People & Brands",
+                        items=[
+                            _item(
+                                "The Row",
+                                body="   ",
+                                body_zh="  ",
+                                paragraph_indices=[0],
+                                references=[_signal_ref("The Row")],
+                            )
+                        ],
+                    )
+                ],
+            )
+        },
+    )
+
+    assert index is not None
+    support = index.entries[0].supports[0]
+    assert support.excerpt is not None
+    assert support.excerpt.en == "Fallback paragraph wins."
+    assert support.excerpt.zh == "Fallback paragraph wins."
+
+
+def test_saved_signal_index_support_falls_back_to_valid_saved_paragraph_excerpt() -> None:
+    story = _story("paragraph-excerpt-1234567890", "Paragraph signal")
+    item = _item(
+        "The Row",
+        references=[_signal_ref("The Row")],
+    ).model_copy(update={"paragraph_indices": [True, -1, 1, "2", 0, 0, 99]})
+
+    index = build_row_one_saved_signal_index(
+        _edition(story),
+        {
+            story.id: _article(
+                story.id,
+                paragraphs=["First paragraph wins.", "   "],
+                paragraphs_zh=["第一段胜出。"],
+                content_sections=[_section("entities", "People & Brands", items=[item])],
+            )
+        },
+    )
+
+    assert index is not None
+    support = index.entries[0].supports[0]
+    assert support.excerpt is not None
+    assert support.excerpt.en == "First paragraph wins."
+    assert support.excerpt.zh == "第一段胜出。"
+    assert [link.href for link in support.paragraph_links] == [
+        "details/paragraph-excerpt-1234567890.html#local-article-paragraph-1"
+    ]
+
+
+def test_saved_signal_index_support_excerpt_uses_english_when_zh_missing() -> None:
+    story = _story("paragraph-zh-fallback-1234567890", "Fallback signal")
+
+    index = build_row_one_saved_signal_index(
+        _edition(story),
+        {
+            story.id: _article(
+                story.id,
+                paragraphs=["English paragraph only."],
+                paragraphs_zh=[],
+                content_sections=[
+                    _section(
+                        "entities",
+                        "People & Brands",
+                        items=[
+                            _item(
+                                "The Row",
+                                paragraph_indices=[0],
+                                references=[_signal_ref("The Row")],
+                            )
+                        ],
+                    )
+                ],
+            )
+        },
+    )
+
+    assert index is not None
+    support = index.entries[0].supports[0]
+    assert support.excerpt is not None
+    assert support.excerpt.en == "English paragraph only."
+    assert support.excerpt.zh == "English paragraph only."
+
+
+def test_saved_signal_index_support_excerpt_is_capped() -> None:
+    story = _story("long-excerpt-1234567890", "Long signal")
+    long_body = " ".join(["The Row signal"] * 80)
+
+    index = build_row_one_saved_signal_index(
+        _edition(story),
+        {
+            story.id: _article(
+                story.id,
+                paragraphs=["Fallback."],
+                content_sections=[
+                    _section(
+                        "entities",
+                        "People & Brands",
+                        items=[
+                            _item(
+                                "The Row",
+                                body=long_body,
+                                paragraph_indices=[0],
+                                references=[_signal_ref("The Row")],
+                            )
+                        ],
+                    )
+                ],
+            )
+        },
+    )
+
+    assert index is not None
+    support = index.entries[0].supports[0]
+    assert support.excerpt is not None
+    assert len(support.excerpt.en) <= 220
+    assert support.excerpt.en.endswith("...")
+
+
+def test_saved_signal_index_support_excerpt_capping_edge_cases() -> None:
+    story_exact = _story("exact-excerpt-1234567890", "Exact excerpt")
+    story_long = _story("edge-long-excerpt-1234567890", "Long edge excerpt")
+
+    exact_index = build_row_one_saved_signal_index(
+        _edition(story_exact),
+        {
+            story_exact.id: _article(
+                story_exact.id,
+                paragraphs=["Fallback."],
+                content_sections=[
+                    _section(
+                        "entities",
+                        "People & Brands",
+                        items=[
+                            _item(
+                                "The Row",
+                                body="a" * 220,
+                                paragraph_indices=[0],
+                                references=[_signal_ref("The Row")],
+                            )
+                        ],
+                    )
+                ],
+            )
+        },
+    )
+    long_index = build_row_one_saved_signal_index(
+        _edition(story_long),
+        {
+            story_long.id: _article(
+                story_long.id,
+                paragraphs=["Fallback."],
+                content_sections=[
+                    _section(
+                        "entities",
+                        "People & Brands",
+                        items=[
+                            _item(
+                                "The Row",
+                                body="a" * 221,
+                                paragraph_indices=[0],
+                                references=[_signal_ref("The Row")],
+                            )
+                        ],
+                    )
+                ],
+            )
+        },
+    )
+
+    assert exact_index is not None
+    assert long_index is not None
+    exact_excerpt = exact_index.entries[0].supports[0].excerpt
+    long_excerpt = long_index.entries[0].supports[0].excerpt
+    assert exact_excerpt is not None
+    assert long_excerpt is not None
+    assert len(exact_excerpt.en) == 220
+    assert not exact_excerpt.en.endswith("...")
+    assert len(long_excerpt.en) == 220
+    assert long_excerpt.en.endswith("...")
+
+
 def test_saved_signal_index_filters_unsafe_or_unusable_articles() -> None:
     valid_story = _story("valid-1234567890", "Valid story")
     unsafe_route_story = _story("unsafe-route-1234567890", "Unsafe route").model_copy(

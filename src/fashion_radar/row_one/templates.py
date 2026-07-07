@@ -1360,6 +1360,13 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.saved-signal-index-support-excerpt {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
 .saved-signal-index-actions a,
 .saved-signal-index-paragraphs a {
   border: 1px solid var(--line);
@@ -4182,6 +4189,7 @@ def _render_saved_signal_index_support_row(
 ) -> str:
     actions = _render_saved_signal_actions(support)
     paragraphs = _render_saved_signal_paragraphs(support.paragraph_links)
+    excerpt = _render_saved_signal_support_excerpt(support.excerpt)
     return f"""<div class="saved-signal-index-support-row">
         <strong>
           <span data-lang="en">{_esc(support.title.en)}</span>
@@ -4198,9 +4206,19 @@ def _render_saved_signal_index_support_row(
             <span data-lang="zh">{_esc(support.content_section_title.zh)}</span>
           </span>
         </div>
+        {excerpt}
         {actions}
         {paragraphs}
       </div>"""
+
+
+def _render_saved_signal_support_excerpt(excerpt: LocalizedText | None) -> str:
+    if excerpt is None:
+        return ""
+    return f"""<p class="saved-signal-index-support-excerpt">
+          <span data-lang="en">{_esc(excerpt.en)}</span>
+          <span data-lang="zh">{_esc(excerpt.zh)}</span>
+        </p>"""
 
 
 def _render_saved_signal_actions(support: RowOneSavedSignalIndexSupport) -> str:

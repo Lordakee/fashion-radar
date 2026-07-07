@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from fashion_radar.row_one.articles import safe_local_article_story_id
@@ -12,10 +12,12 @@ from fashion_radar.row_one.models import (
     RowOneLocalArticleContentItem,
     RowOneLocalArticleContentSection,
 )
+from fashion_radar.row_one.text import normalize_row_one_paragraph
 
 MAX_SAVED_SIGNAL_INDEX_ENTRIES = 12
 MAX_SAVED_SIGNAL_INDEX_SUPPORTS = 4
 MAX_SAVED_SIGNAL_INDEX_PARAGRAPH_LINKS = 3
+SAVED_SIGNAL_INDEX_EXCERPT_CHARS = 220
 
 LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_PREFIX = "local-article-content-section"
 LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_PREFIX = "local-article-paragraph"
@@ -55,6 +57,7 @@ class RowOneSavedSignalIndexSupport:
     content_section_title: LocalizedText
     section_path: str
     paragraph_links: tuple[RowOneSavedSignalIndexParagraphLink, ...] = ()
+    excerpt: LocalizedText | None = None
 
 
 @dataclass(frozen=True)
@@ -177,8 +180,9 @@ def _add_story_signal_supports(
             seen_story_keys=seen_story_keys,
         )
         for key, items in section_items_by_key.items():
+            referenced_paragraph_indices = _referenced_paragraph_indices(items)
             paragraph_indices = _strict_valid_saved_signal_paragraph_indices(
-                _referenced_paragraph_indices(items),
+                referenced_paragraph_indices,
                 rendered_indices,
             )
             entries_by_key[key].article_ids.add(story_id)
@@ -192,6 +196,12 @@ def _add_story_signal_supports(
                     content_section_title=content_section.title,
                     section_path=_content_section_path(detail_path, section_position),
                     paragraph_links=_paragraph_links(detail_path, paragraph_indices),
+                    excerpt=_support_excerpt(
+                        article,
+                        items,
+                        referenced_paragraph_indices,
+                        rendered_indices,
+                    ),
                 )
             )
             seen_story_keys.add(key)
@@ -303,6 +313,70 @@ def _strict_valid_saved_signal_paragraph_indices(
         seen.add(index)
         valid.append(index)
     return tuple(valid)
+
+
+def _saved_signal_excerpt_text(value: str) -> str:
+    normalized = normalize_row_one_paragraph(value)
+    if len(normalized) <= SAVED_SIGNAL_INDEX_EXCERPT_CHARS:
+        return normalized
+    return normalized[: SAVED_SIGNAL_INDEX_EXCERPT_CHARS - 3].rstrip() + "..."
+
+
+def _localized_excerpt(en: str, zh: str) -> LocalizedText | None:
+    en_text = _saved_signal_excerpt_text(en)
+    zh_text = _saved_signal_excerpt_text(zh)
+    if not en_text and not zh_text:
+        return None
+    if not en_text:
+        en_text = zh_text
+    if not zh_text:
+        zh_text = en_text
+    return LocalizedText(en=en_text, zh=zh_text)
+
+
+def _item_body_excerpt(
+    items: Iterable[RowOneLocalArticleContentItem],
+) -> LocalizedText | None:
+    for item in items:
+        if item.body is None:
+            continue
+        excerpt = _localized_excerpt(item.body.en, item.body.zh)
+        if excerpt is not None:
+            return excerpt
+    return None
+
+
+def _paragraph_excerpt(
+    article: RowOneLocalArticle,
+    paragraph_indices: Sequence[object],
+    rendered_indices: set[int],
+) -> LocalizedText | None:
+    valid_indices = _strict_valid_saved_signal_paragraph_indices(
+        paragraph_indices,
+        rendered_indices,
+    )
+    for index in valid_indices:
+        en = article.paragraphs[index]
+        zh = article.paragraphs_zh[index] if index < len(article.paragraphs_zh) else ""
+        excerpt = _localized_excerpt(en, zh)
+        if excerpt is not None:
+            return excerpt
+    return None
+
+
+def _support_excerpt(
+    article: RowOneLocalArticle,
+    items: Iterable[RowOneLocalArticleContentItem],
+    paragraph_indices: Iterable[object],
+    rendered_indices: set[int],
+) -> LocalizedText | None:
+    item_list = tuple(items)
+    paragraph_index_list = tuple(paragraph_indices)
+    return _item_body_excerpt(item_list) or _paragraph_excerpt(
+        article,
+        paragraph_index_list,
+        rendered_indices,
+    )
 
 
 def _paragraph_links(

@@ -24,6 +24,24 @@ STAGE_327_SPEC = (
     / "specs"
     / "2026-07-07-stage-327-row-one-saved-signal-index-design.md"
 )
+STAGE_328_PLAN = (
+    ROOT
+    / "docs"
+    / "superpowers"
+    / "plans"
+    / "2026-07-07-stage-328-row-one-saved-signal-evidence-excerpts-plan.md"
+)
+STAGE_328_SPEC = (
+    ROOT
+    / "docs"
+    / "superpowers"
+    / "specs"
+    / "2026-07-07-stage-328-row-one-saved-signal-evidence-excerpts-design.md"
+)
+STAGE_328_PLAN_BOUNDARY_DOCS = (
+    STAGE_328_SPEC,
+    STAGE_328_PLAN,
+)
 STAGE_327_PLAN_BOUNDARY_DOCS = (
     STAGE_327_SPEC,
     STAGE_327_PLAN,
@@ -57,6 +75,10 @@ def _read(path: Path) -> str:
 
 def _normalized(text: str) -> str:
     return " ".join(text.split()).casefold()
+
+
+def _without_fenced_code(text: str) -> str:
+    return "".join(text.split("```")[::2])
 
 
 def _section(text: str, heading: str) -> str:
@@ -816,6 +838,60 @@ def test_row_one_docs_describe_saved_signal_index_boundary() -> None:
         assert "do not propose a separate generated child page for stage 327" in normalized
         assert "better scoped than creating" not in normalized
         assert "articles/entity-index.html" not in normalized
+
+
+def test_row_one_docs_describe_saved_signal_evidence_excerpts_boundary() -> None:
+    expected = _normalized(
+        "Stage 328 adds generated-site only evidence excerpts to the existing "
+        "ROW ONE Saved Signal Index inside `articles/index.html`; it shows "
+        "capped snippets from existing saved local article item bodies or saved "
+        "paragraphs and links back into existing detail-page local article "
+        "anchors; it does not change row-one-app/v7, row-one-manifest/v1, "
+        "row-one-runtime/v1, schemas, JSON artifacts, source collection, "
+        "fetching, matching, extraction, scoring, ranking, LLM, connector, "
+        "scheduling, deployment, market grouping, domestic/international "
+        "classification, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_328_pos = normalized.index("stage 328 adds generated-site only evidence excerpts")
+        stage_327_pos = normalized.index("stage 327 adds a generated-site only row one")
+        assert stage_328_pos < stage_327_pos
+        stage = normalized[stage_328_pos:stage_327_pos]
+        for phrase in (
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "saved_signal_excerpt",
+            "signal_excerpt",
+            "saved-signal-excerpts.json",
+            "saved-signal-excerpt.html",
+            "adds source collection",
+            "adds fetching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm calls",
+            "adds connectors",
+            "adds scheduling",
+            "adds deployment behavior",
+            "adds market grouping",
+            "adds domestic",
+            "adds international",
+            "adds compliance review",
+        ):
+            assert phrase not in stage
+
+    for path in STAGE_328_PLAN_BOUNDARY_DOCS:
+        normalized = _normalized(_without_fenced_code(_read(path)))
+        for phrase in (
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+        ):
+            assert phrase not in normalized
 
 
 def test_row_one_docs_describe_daily_saved_article_library_boundary() -> None:

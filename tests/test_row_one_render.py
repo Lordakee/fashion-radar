@@ -64,6 +64,7 @@ from fashion_radar.row_one.templates import (
     EDITORIAL_BRIEF_BODY_EXCERPT_CHARS,
     _EditorialBrief,
     _EditorialBriefItem,
+    _render_saved_signal_index_support_row,
     _safe_daily_local_intelligence_href,
     _strict_valid_local_article_paragraph_indices,
     render_detail_html,
@@ -2881,6 +2882,62 @@ def test_render_index_html_uses_source_only_copy_for_empty_saved_signal_index() 
     assert "Browse saved local articles by signals or sources." not in html
 
 
+def _saved_signal_support_with_excerpt(
+    excerpt: LocalizedText | None,
+) -> RowOneSavedSignalIndexSupport:
+    return RowOneSavedSignalIndexSupport(
+        title=LocalizedText(zh="Excerpt support", en="Excerpt support"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(zh="今日重点", en="Top Stories"),
+        content_section_title=LocalizedText(zh="品牌与人物", en="People & Brands"),
+        section_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_links=(
+            RowOneSavedSignalIndexParagraphLink(
+                label=LocalizedText(zh="段落 1", en="Paragraph 1"),
+                href="details/the-row-signal-1234567890.html#local-article-paragraph-1",
+            ),
+        ),
+        excerpt=excerpt,
+    )
+
+
+def test_render_saved_signal_index_support_row_escapes_excerpt_before_actions() -> None:
+    support = _saved_signal_support_with_excerpt(
+        LocalizedText(
+            en='The Row <script>alert("x")</script> body points to Margaux.',
+            zh='The Row <script>alert("x")</script> 中文正文。',
+        )
+    )
+
+    html = _render_saved_signal_index_support_row(support)
+
+    assert 'class="saved-signal-index-support-excerpt"' in html
+    assert (
+        "The Row &lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; body points to Margaux."
+    ) in html
+    assert "The Row &lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; 中文正文。" in html
+    assert "The Row <script>" not in html
+    assert (
+        html.index('class="saved-signal-index-support-meta"')
+        < html.index('class="saved-signal-index-support-excerpt"')
+        < html.index('class="saved-signal-index-actions"')
+        < html.index('class="saved-signal-index-paragraphs"')
+    )
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"' in html
+    )
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in html
+
+
+def test_render_saved_signal_index_support_row_omits_none_excerpt() -> None:
+    support = _saved_signal_support_with_excerpt(None)
+
+    html = _render_saved_signal_index_support_row(support)
+
+    assert "saved-signal-index-support-excerpt" not in html
+    assert 'class="saved-signal-index-actions"' in html
+
+
 def test_render_saved_article_library_filters_saved_signal_unsafe_links() -> None:
     index = RowOneSavedSignalIndex(
         signal_count=1,
@@ -2930,6 +2987,16 @@ def test_render_saved_article_library_filters_saved_signal_unsafe_links() -> Non
                             RowOneSavedSignalIndexParagraphLink(
                                 label=LocalizedText(zh="Bad", en="Bad"),
                                 href=123,  # type: ignore[arg-type]
+                            ),
+                        ),
+                        excerpt=LocalizedText(
+                            zh=(
+                                "Display ../details/<script>.html#local-article-content-section-9 "
+                                'id="from-excerpt" class="from-excerpt"'
+                            ),
+                            en=(
+                                "Display ../details/<script>.html#local-article-content-section-9 "
+                                'id="from-excerpt" class="from-excerpt"'
                             ),
                         ),
                     ),
@@ -2987,6 +3054,10 @@ def test_render_saved_article_library_filters_saved_signal_unsafe_links() -> Non
     assert "x-route-from-display" not in " ".join(structural_attributes)
     assert "x-id-from-display" not in " ".join(structural_attributes)
     assert "x-class-from-display" not in " ".join(structural_attributes)
+    assert "../details/<script>" not in html
+    assert "../details/&lt;script&gt;.html#local-article-content-section-9" in html
+    assert "from-excerpt" not in " ".join(structural_attributes)
+    assert "local-article-content-section-9" not in " ".join(structural_attributes)
     assert "x-route-from-display.html#display-fragment" in html
     assert "x-id-from-display" in html
     assert "x-class-from-display&quot; onclick=&quot;bad" in html
@@ -5613,6 +5684,7 @@ def test_row_one_css_includes_saved_signal_index_styles(tmp_path) -> None:
         ".saved-signal-index-support",
         ".saved-signal-index-support-row",
         ".saved-signal-index-support-meta",
+        ".saved-signal-index-support-excerpt",
         ".saved-signal-index-actions",
         ".saved-signal-index-paragraphs",
     ):

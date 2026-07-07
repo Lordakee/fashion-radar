@@ -454,7 +454,9 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert '"daily_saved_article_library"' not in generated_contract_payload
     assert '"article_library"' not in generated_contract_payload
     assert '"saved_signal_index"' not in generated_contract_payload
+    assert '"saved_signal_excerpt"' not in generated_contract_payload
     assert '"signal_index"' not in generated_contract_payload
+    assert '"signal_excerpt"' not in generated_contract_payload
     assert '"entity_index"' not in generated_contract_payload
     assert '"brand_index"' not in generated_contract_payload
     assert '"product_index"' not in generated_contract_payload
@@ -468,6 +470,13 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "每日本地文章库" not in generated_contract_payload
     assert "本地信号索引" not in generated_contract_payload
     assert "saved-signal-index.json" not in generated_contract_payload
+    assert "saved-signal-excerpts.json" not in generated_contract_payload
+    assert "saved-signal-excerpt.html" not in generated_contract_payload
+    articles_html_path = output_dir / "articles" / "index.html"
+    if articles_html_path.exists():
+        articles_html = articles_html_path.read_text(encoding="utf-8")
+        if "saved-signal-index-support-row" in articles_html:
+            assert "saved-signal-index-support-excerpt" in articles_html
     top_level_data_files = {path.name for path in (output_dir / "data").glob("*.json")}
     assert top_level_data_files <= {
         "edition.json",
@@ -476,6 +485,14 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "local-intelligence.json",
     }
     assert not (output_dir / "data" / "local-article-metrics.json").exists()
+    for artifact_path in (
+        output_dir / "saved-signal-excerpts.json",
+        output_dir / "saved-signal-excerpt.html",
+        output_dir / "articles" / "saved-signal-excerpts.json",
+        output_dir / "articles" / "saved-signal-excerpt.html",
+        output_dir / "data" / "saved-signal-excerpts.json",
+    ):
+        assert not artifact_path.exists()
     assert stored == stored_before
     assert matches_after == matches_before
     assert second_stored == second_stored_before
