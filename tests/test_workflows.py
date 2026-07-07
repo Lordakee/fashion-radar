@@ -396,6 +396,9 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "保存正文内容整理" in index_html
     assert "#local-article-content-section-" in index_html
     assert "local-article-content-previews" in detail_html
+    assert "Saved Paragraph Evidence" in detail_html
+    assert "本地段落线索" in detail_html
+    assert 'id="local-article-paragraph-evidence"' in detail_html
     assert "Saved paragraph" in detail_html
     assert "保存段落" in detail_html
     assert 'class="detail-signal-briefing"' in detail_html
@@ -437,6 +440,10 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert '"paragraph_trail"' not in generated_contract_payload
     assert '"evidence_paragraph_chips"' not in generated_contract_payload
     assert '"saved_article_content_organization_evidence"' not in generated_contract_payload
+    assert '"local_article_paragraph_evidence"' not in generated_contract_payload
+    assert '"paragraph_evidence_index"' not in generated_contract_payload
+    assert '"local_evidence_index"' not in generated_contract_payload
+    assert '"evidence_paragraph_index"' not in generated_contract_payload
     top_level_data_files = {path.name for path in (output_dir / "data").glob("*.json")}
     assert top_level_data_files <= {
         "edition.json",

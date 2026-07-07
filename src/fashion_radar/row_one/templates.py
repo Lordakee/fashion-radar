@@ -59,6 +59,11 @@ LOCAL_ARTICLE_DIGEST_EXCERPT_CHARS = 160
 LOCAL_ARTICLE_DIGEST_MAX_REFERENCES = 4
 LOCAL_ARTICLE_CONTENT_PREVIEW_EXCERPT_CHARS = 140
 LOCAL_ARTICLE_CONTENT_PREVIEW_MAX_ITEMS = 2
+LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_BODY_CHARS = 120
+LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_EXCERPT_CHARS = 140
+LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_ITEMS = 4
+LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_REFS = 4
+LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_ROWS = 8
 LOCAL_ARTICLE_READER_EXCERPT_CHARS = 120
 DETAIL_CONTINUE_READING_EXCERPT_CHARS = 120
 DETAIL_CONTINUE_READING_MAX_ITEMS = 3
@@ -91,6 +96,22 @@ class _EditorialBriefItem:
 @dataclass(frozen=True)
 class _EditorialBrief:
     items: tuple[_EditorialBriefItem, ...]
+
+
+@dataclass(frozen=True)
+class _LocalArticleParagraphEvidenceItem:
+    section_position: int
+    section_title: LocalizedText
+    item_label: LocalizedText
+    item_body: LocalizedText | None
+    references: tuple[RowOneReference, ...]
+
+
+@dataclass(frozen=True)
+class _LocalArticleParagraphEvidenceEntry:
+    paragraph_index: int
+    excerpt: LocalizedText
+    items: tuple[_LocalArticleParagraphEvidenceItem, ...]
 
 
 def render_index_html(
@@ -1879,6 +1900,84 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   display: inline-block;
   margin: 0 4px 4px 0;
 }
+.local-article-paragraph-evidence {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  margin: 14px 0 16px;
+  padding: 14px;
+}
+.local-article-paragraph-evidence-header {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.local-article-paragraph-evidence-header h4,
+.local-article-paragraph-evidence-header p {
+  margin: 0;
+}
+.local-article-paragraph-evidence-header h4 {
+  font-size: 0.9rem;
+}
+.local-article-paragraph-evidence-header p {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.local-article-paragraph-evidence-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.local-article-paragraph-evidence-row {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+}
+.local-article-paragraph-evidence-link {
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.local-article-paragraph-evidence-excerpt {
+  line-height: 1.45;
+  margin: 0;
+}
+.local-article-paragraph-evidence-supports {
+  display: grid;
+  gap: 8px;
+}
+.local-article-paragraph-evidence-support {
+  border-left: 2px solid var(--line);
+  display: grid;
+  gap: 5px;
+  padding-left: 10px;
+}
+.local-article-paragraph-evidence-support a {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.local-article-paragraph-evidence-support strong {
+  font-size: 0.82rem;
+}
+.local-article-paragraph-evidence-support p {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  margin: 0;
+}
+.local-article-paragraph-evidence-ref {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-block;
+  font-size: 0.7rem;
+  margin: 0 4px 4px 0;
+  padding: 4px 6px;
+}
 .local-article-reader {
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -2443,6 +2542,7 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .detail-signal-briefing-grid { grid-template-columns: 1fr; }
   .detail-signal-briefing-cue-grid { grid-template-columns: 1fr; }
   .continue-reading-grid { grid-template-columns: 1fr; }
+  .local-article-paragraph-evidence-grid { grid-template-columns: 1fr; }
 }
 """
 
@@ -4522,14 +4622,20 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
     brief = _render_local_article_brief(article)
     digest = _render_local_article_digest(article)
     reader = _render_local_article_reader(article)
+    rendered_indices = _local_article_rendered_paragraph_indices(article)
+    paragraph_evidence = _render_local_article_paragraph_evidence(
+        article,
+        rendered_indices=rendered_indices,
+    )
     article_map = _render_local_article_map(
         article,
         include_digest=bool(digest),
         include_reader=bool(reader),
+        include_paragraph_evidence=bool(paragraph_evidence),
     )
     content_sections = _render_local_article_content_sections(
         article,
-        rendered_indices=_local_article_rendered_paragraph_indices(article),
+        rendered_indices=rendered_indices,
     )
     rendered_paragraphs = "\n".join(paragraphs)
     return f"""<section id="local-article" class="local-article">
@@ -4544,6 +4650,7 @@ def _render_local_article(article: RowOneLocalArticle | None) -> str:
 {provenance}
       <h3>{_esc(title)}</h3>
 {article_map}
+{paragraph_evidence}
 {digest}
 {reader}
 {brief}
@@ -4917,6 +5024,7 @@ def _render_local_article_map(
     *,
     include_digest: bool = False,
     include_reader: bool = False,
+    include_paragraph_evidence: bool = False,
 ) -> str:
     if not article.brief_sections and not article.content_sections:
         return ""
@@ -4926,6 +5034,13 @@ def _render_local_article_map(
             '<a href="#local-article-brief">'
             '<span data-lang="en">Brief</span>'
             '<span data-lang="zh">本地简报</span>'
+            "</a>"
+        )
+    if include_paragraph_evidence:
+        links.append(
+            '<a href="#local-article-paragraph-evidence">'
+            '<span data-lang="en">Evidence</span>'
+            '<span data-lang="zh">线索</span>'
             "</a>"
         )
     if include_digest:
@@ -5158,6 +5273,232 @@ def _valid_local_article_paragraph_indices(
         seen.add(index)
         valid.append(index)
     return valid
+
+
+def _strict_valid_local_article_paragraph_indices(
+    indices: Sequence[object],
+    rendered_indices: set[int],
+) -> list[int]:
+    # Avoid bool/int coercion before building fragment links.
+    valid: list[int] = []
+    seen: set[int] = set()
+    for index in indices:
+        if not isinstance(index, int) or isinstance(index, bool):
+            continue
+        if index not in rendered_indices or index in seen:
+            continue
+        seen.add(index)
+        valid.append(index)
+    return valid
+
+
+def _local_article_paragraph_evidence_entries(
+    article: RowOneLocalArticle,
+    *,
+    rendered_indices: set[int],
+) -> tuple[_LocalArticleParagraphEvidenceEntry, ...]:
+    mapped: dict[int, list[_LocalArticleParagraphEvidenceItem]] = {}
+    seen_items: dict[int, set[tuple[object, ...]]] = {}
+    for section_position, section in enumerate(article.content_sections, start=1):
+        for item in section.items:
+            valid_indices = _strict_valid_local_article_paragraph_indices(
+                item.paragraph_indices,
+                rendered_indices,
+            )
+            if not valid_indices:
+                continue
+            evidence_item = _local_article_paragraph_evidence_item(
+                section=section,
+                section_position=section_position,
+                item=item,
+            )
+            dedupe_key = _local_article_paragraph_evidence_item_key(evidence_item)
+            for index in valid_indices:
+                item_keys = seen_items.setdefault(index, set())
+                if dedupe_key in item_keys:
+                    continue
+                item_keys.add(dedupe_key)
+                mapped.setdefault(index, []).append(evidence_item)
+    if not mapped:
+        return ()
+
+    aligned_zh = (
+        article.paragraphs_zh if len(article.paragraphs_zh) == len(article.paragraphs) else []
+    )
+    entries: list[_LocalArticleParagraphEvidenceEntry] = []
+    for index in sorted(mapped):
+        excerpt_en = _local_article_paragraph_evidence_excerpt(article.paragraphs[index])
+        excerpt_zh = (
+            _local_article_paragraph_evidence_excerpt(aligned_zh[index])
+            if aligned_zh and aligned_zh[index].strip()
+            else excerpt_en
+        )
+        entries.append(
+            _LocalArticleParagraphEvidenceEntry(
+                paragraph_index=index,
+                excerpt=LocalizedText(en=excerpt_en, zh=excerpt_zh),
+                items=tuple(mapped[index][:LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_ITEMS]),
+            )
+        )
+        if len(entries) >= LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_ROWS:
+            break
+    return tuple(entries)
+
+
+def _local_article_paragraph_evidence_item(
+    *,
+    section: RowOneLocalArticleContentSection,
+    section_position: int,
+    item: RowOneLocalArticleContentItem,
+) -> _LocalArticleParagraphEvidenceItem:
+    refs: list[RowOneReference] = []
+    seen_refs: set[tuple[str, str, str]] = set()
+    for ref in item.references:
+        dedupe_key = (
+            normalize_row_one_paragraph(ref.name).casefold(),
+            normalize_row_one_paragraph(ref.type).casefold(),
+            normalize_row_one_paragraph(ref.label).casefold(),
+        )
+        if dedupe_key in seen_refs:
+            continue
+        seen_refs.add(dedupe_key)
+        refs.append(ref)
+        if len(refs) >= LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_REFS:
+            break
+    return _LocalArticleParagraphEvidenceItem(
+        section_position=section_position,
+        section_title=section.title,
+        item_label=item.label,
+        item_body=item.body,
+        references=tuple(refs),
+    )
+
+
+def _local_article_paragraph_evidence_item_key(
+    item: _LocalArticleParagraphEvidenceItem,
+) -> tuple[object, ...]:
+    return (
+        item.section_position,
+        normalize_row_one_paragraph(item.section_title.en).casefold(),
+        normalize_row_one_paragraph(item.section_title.zh).casefold(),
+        normalize_row_one_paragraph(item.item_label.en).casefold(),
+        normalize_row_one_paragraph(item.item_label.zh).casefold(),
+        normalize_row_one_paragraph(item.item_body.en).casefold() if item.item_body else "",
+        normalize_row_one_paragraph(item.item_body.zh).casefold() if item.item_body else "",
+        tuple(
+            (
+                normalize_row_one_paragraph(ref.name).casefold(),
+                normalize_row_one_paragraph(ref.type).casefold(),
+                normalize_row_one_paragraph(ref.label).casefold(),
+            )
+            for ref in item.references
+        ),
+    )
+
+
+def _local_article_paragraph_evidence_excerpt(text: str) -> str:
+    return _meta_description(
+        normalize_row_one_paragraph(text),
+        limit=LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_EXCERPT_CHARS,
+    )
+
+
+def _local_article_paragraph_evidence_body(text: str) -> str:
+    return _meta_description(
+        normalize_row_one_paragraph(text),
+        limit=LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_BODY_CHARS,
+    )
+
+
+def _render_local_article_paragraph_evidence(
+    article: RowOneLocalArticle,
+    *,
+    rendered_indices: set[int],
+) -> str:
+    entries = _local_article_paragraph_evidence_entries(
+        article,
+        rendered_indices=rendered_indices,
+    )
+    if not entries:
+        return ""
+    rendered_entries = "\n".join(
+        _render_local_article_paragraph_evidence_entry(entry) for entry in entries
+    )
+    return (
+        '      <div id="local-article-paragraph-evidence" '
+        'class="local-article-paragraph-evidence" '
+        'aria-label="Saved paragraph evidence">\n'
+        f"""        <div class="local-article-paragraph-evidence-header">
+          <h4>
+            <span data-lang="en">Saved Paragraph Evidence</span>
+            <span data-lang="zh">本地段落线索</span>
+          </h4>
+          <p>
+            <span data-lang="en">Saved paragraphs used by the organized ROW ONE reading path.</span>
+            <span data-lang="zh">被 ROW ONE 正文整理引用的本地保存段落。</span>
+          </p>
+        </div>
+        <div class="local-article-paragraph-evidence-grid">
+{rendered_entries}
+        </div>
+      </div>"""
+    )
+
+
+def _render_local_article_paragraph_evidence_entry(
+    entry: _LocalArticleParagraphEvidenceEntry,
+) -> str:
+    paragraph_number = entry.paragraph_index + 1
+    paragraph_href = f"#{_local_article_paragraph_anchor(entry.paragraph_index)}"
+    supports = "\n".join(
+        _render_local_article_paragraph_evidence_support(item) for item in entry.items
+    )
+    return f"""          <article class="local-article-paragraph-evidence-row">
+            <a class="local-article-paragraph-evidence-link" href="{_esc(paragraph_href)}">
+              <span data-lang="en">Paragraph {paragraph_number}</span>
+              <span data-lang="zh">段落 {paragraph_number}</span>
+            </a>
+            <p class="local-article-paragraph-evidence-excerpt">
+              <span data-lang="en">{_esc(entry.excerpt.en)}</span>
+              <span data-lang="zh">{_esc(entry.excerpt.zh)}</span>
+            </p>
+            <div class="local-article-paragraph-evidence-supports">
+{supports}
+            </div>
+          </article>"""
+
+
+def _render_local_article_paragraph_evidence_support(
+    item: _LocalArticleParagraphEvidenceItem,
+) -> str:
+    section_href = f"#{_local_article_content_section_anchor(item.section_position)}"
+    body = ""
+    if item.item_body is not None:
+        body_en = _esc(_local_article_paragraph_evidence_body(item.item_body.en))
+        body_zh = _esc(_local_article_paragraph_evidence_body(item.item_body.zh))
+        body = (
+            "                <p>"
+            f'<span data-lang="en">{body_en}</span>'
+            f'<span data-lang="zh">{body_zh}</span>'
+            "</p>\n"
+        )
+    refs = "".join(_render_local_article_paragraph_evidence_ref(ref) for ref in item.references)
+    return f"""              <div class="local-article-paragraph-evidence-support">
+                <a href="{_esc(section_href)}">
+                  <span data-lang="en">{_esc(item.section_title.en)}</span>
+                  <span data-lang="zh">{_esc(item.section_title.zh)}</span>
+                </a>
+                <strong>
+                  <span data-lang="en">{_esc(item.item_label.en)}</span>
+                  <span data-lang="zh">{_esc(item.item_label.zh)}</span>
+                </strong>
+{body}                <div>{refs}</div>
+              </div>"""
+
+
+def _render_local_article_paragraph_evidence_ref(ref: RowOneReference) -> str:
+    label = f"{ref.name} ({ref.type} / {ref.label})"
+    return f'<span class="local-article-paragraph-evidence-ref">{_esc(label)}</span>'
 
 
 def _render_local_article_paragraph_links(

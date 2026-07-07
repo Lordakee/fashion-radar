@@ -724,6 +724,60 @@ def test_row_one_docs_describe_editorial_source_trail_boundary() -> None:
         assert phrase not in docs_stage_322_normalized
 
 
+def test_row_one_docs_describe_stage_324_paragraph_evidence_index_boundary() -> None:
+    readme = _normalized(_read(README))
+    docs = _normalized(_read(ROW_ONE_DOC))
+
+    for content in (readme, docs):
+        stage = content[
+            content.index("stage 324 adds paragraph evidence index") : content.index(
+                "stage 323 adds local-first reading"
+            )
+        ]
+        for phrase in (
+            "paragraph evidence index",
+            "saved paragraph evidence",
+            "`rowonelocalarticle.content_sections`",
+            "`paragraph_indices`",
+            "`references`",
+            "`#local-article-paragraph-n`",
+            "`#local-article-content-section-n`",
+            "generated-site only",
+            "does not change `row-one-app/v7`",
+            "does not change `data/edition.json`",
+            "does not change `row-one-manifest/v1`",
+            "does not change `row-one-runtime/v1`",
+            "does not change schemas",
+            "does not write a new json artifact",
+            "does not add source collection",
+            "does not fetch article pages",
+            "does not add extraction",
+            "does not add scoring",
+            "does not add ranking",
+            "does not add connectors",
+            "does not add llm calls",
+            "does not add translation calls",
+            "does not add image generation",
+            "does not add scheduling",
+            "does not add deployment behavior",
+            "does not add compliance-review product features",
+        ):
+            assert phrase in stage
+        for phrase in (
+            "adds source collection",
+            "adds article fetching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds connectors",
+            "adds llm calls",
+            "adds scheduling",
+            "adds deployment behavior",
+            "adds compliance review",
+        ):
+            assert phrase not in stage
+
+
 def test_row_one_docs_describe_local_first_reading_boundary() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     docs = (ROOT / "docs" / "row-one.md").read_text(encoding="utf-8")

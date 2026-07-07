@@ -245,6 +245,21 @@ does not change
 schemas, does not write a new json artifact, does not add source collection,
 does not fetch article pages, does not add scoring, does not add llm calls, does
 not add connectors, and is not a compliance review feature.
+Stage 324 adds Paragraph Evidence Index to generated ROW ONE detail pages. It is
+generated-site only and turns existing `RowOneLocalArticle.content_sections`
+items with existing `paragraph_indices`, existing `references`, existing
+`#local-article-paragraph-N` anchors, and existing
+`#local-article-content-section-N` anchors into a compact saved paragraph
+evidence index with safe internal links. It does not change `row-one-app/v7`,
+does not change `data/edition.json`, does not change `row-one-manifest/v1`,
+does not change `row-one-runtime/v1`, does not add
+`local_article_paragraph_evidence`, does not add `paragraph_evidence_index`,
+does not change schemas, does not write a new JSON artifact, does not add source
+collection, does not fetch article pages, does not add extraction, does not add
+scoring, does not add ranking, does not add LLM calls, does not add translation
+calls, does not add image generation, does not add connectors, does not add
+scheduling, does not add deployment behavior, and does not add
+compliance-review product features.
 Stage 323 adds Local-First Reading to generated ROW ONE pages. It is
 generated-site only and turns existing `data/articles/<story-id>.json`
 sidecars, existing saved local paragraphs, existing `#local-article`, and
