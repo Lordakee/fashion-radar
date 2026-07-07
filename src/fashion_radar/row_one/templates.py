@@ -5410,6 +5410,12 @@ def _local_article_paragraph_evidence_body(text: str) -> str:
     )
 
 
+def _local_article_paragraph_evidence_body_text(body: LocalizedText) -> LocalizedText:
+    en = _local_article_paragraph_evidence_body(body.en)
+    zh = _local_article_paragraph_evidence_body(body.zh) if body.zh.strip() else en
+    return LocalizedText(en=en, zh=zh)
+
+
 def _render_local_article_paragraph_evidence(
     article: RowOneLocalArticle,
     *,
@@ -5474,15 +5480,15 @@ def _render_local_article_paragraph_evidence_support(
     section_href = f"#{_local_article_content_section_anchor(item.section_position)}"
     body = ""
     if item.item_body is not None:
-        body_en = _esc(_local_article_paragraph_evidence_body(item.item_body.en))
-        body_zh = _esc(_local_article_paragraph_evidence_body(item.item_body.zh))
+        body_text = _local_article_paragraph_evidence_body_text(item.item_body)
         body = (
             "                <p>"
-            f'<span data-lang="en">{body_en}</span>'
-            f'<span data-lang="zh">{body_zh}</span>'
+            f'<span data-lang="en">{_esc(body_text.en)}</span>'
+            f'<span data-lang="zh">{_esc(body_text.zh)}</span>'
             "</p>\n"
         )
     refs = "".join(_render_local_article_paragraph_evidence_ref(ref) for ref in item.references)
+    refs_html = f"                <div>{refs}</div>\n" if refs else ""
     return f"""              <div class="local-article-paragraph-evidence-support">
                 <a href="{_esc(section_href)}">
                   <span data-lang="en">{_esc(item.section_title.en)}</span>
@@ -5492,8 +5498,7 @@ def _render_local_article_paragraph_evidence_support(
                   <span data-lang="en">{_esc(item.item_label.en)}</span>
                   <span data-lang="zh">{_esc(item.item_label.zh)}</span>
                 </strong>
-{body}                <div>{refs}</div>
-              </div>"""
+{body}{refs_html}              </div>"""
 
 
 def _render_local_article_paragraph_evidence_ref(ref: RowOneReference) -> str:

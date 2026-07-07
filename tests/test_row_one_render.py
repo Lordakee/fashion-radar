@@ -284,6 +284,12 @@ def test_render_row_one_detail_includes_local_article_paragraph_evidence_index()
     assert detail_html.index('class="local-article-map"') < detail_html.index(
         'id="local-article-paragraph-evidence"'
     )
+    map_html = detail_html[
+        detail_html.index('class="local-article-map"') : detail_html.index(
+            'id="local-article-paragraph-evidence"'
+        )
+    ]
+    assert 'href="#local-article-paragraph-evidence"' in map_html
     assert detail_html.index('id="local-article-paragraph-evidence"') < detail_html.index(
         'id="local-article-digest"'
     )
@@ -425,6 +431,79 @@ def test_render_row_one_detail_paragraph_evidence_escapes_values() -> None:
     assert "&lt;script&gt;Label&lt;/script&gt;" in evidence_html
     assert "&lt;script&gt;Ref&lt;/script&gt;" in evidence_html
     assert "&lt;img src=x onerror=&quot;alert(1)&quot;&gt; body" in evidence_html
+
+
+def test_render_row_one_detail_paragraph_evidence_omits_empty_reference_wrapper() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="entities",
+                    title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                    body=None,
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="The Row", zh="The Row"),
+                            body=LocalizedText(en="Support without refs", zh="无引用支持"),
+                            references=[],
+                            paragraph_indices=[0],
+                        )
+                    ],
+                )
+            ]
+        },
+    )
+
+    detail_html = render_detail_html(edition, story, local_article=local_article)
+    evidence_html = detail_html[
+        detail_html.index('id="local-article-paragraph-evidence"') : detail_html.index(
+            'id="local-article-digest"'
+        )
+    ]
+
+    assert 'class="local-article-paragraph-evidence-support"' in evidence_html
+    assert "<div></div>" not in evidence_html
+    assert 'class="local-article-paragraph-evidence-ref"' not in evidence_html
+
+
+def test_render_row_one_detail_paragraph_evidence_body_zh_falls_back_to_english() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="entities",
+                    title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                    body=None,
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="The Row", zh="The Row"),
+                            body=LocalizedText(en="English <fallback> body.", zh="   "),
+                            references=[],
+                            paragraph_indices=[0],
+                        )
+                    ],
+                )
+            ]
+        },
+    )
+
+    detail_html = render_detail_html(edition, story, local_article=local_article)
+    evidence_html = detail_html[
+        detail_html.index('id="local-article-paragraph-evidence"') : detail_html.index(
+            'id="local-article-digest"'
+        )
+    ]
+
+    assert '<span data-lang="en">English &lt;fallback&gt; body.</span>' in evidence_html
+    assert '<span data-lang="zh">English &lt;fallback&gt; body.</span>' in evidence_html
+    assert '<span data-lang="zh"></span>' not in evidence_html
+    assert "English <fallback> body." not in evidence_html
 
 
 def test_render_row_one_detail_paragraph_evidence_caps_rows_items_and_refs() -> None:
