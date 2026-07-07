@@ -34,6 +34,38 @@ from fashion_radar.utils.http import FashionHttpClient
 
 ROW_ONE_LOCAL_ARTICLES_ENV = "ROW_ONE_LOCAL_ARTICLES"
 LOCAL_ARTICLE_STORY_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}$")
+LOCAL_ARTICLE_NOISE_FULL_RE = re.compile(
+    r"^(?:"
+    r"advertisement|sponsored content|paid post|"
+    r"share this article|share article|back to top|skip to content|"
+    r"related articles?|more from .+|"
+    r"sign up for (?:our )?newsletter|subscribe to (?:our )?newsletter|"
+    r"download (?:our )?app|follow us on (?:instagram|tiktok|x|twitter)|"
+    r"subscribe to continue(?: reading)?(?: .*)?|sign in(?: to continue)?|"
+    r"create an account|already a subscriber|free article limit|"
+    r"we use cookies(?: .*)?|accept cookies|manage preferences|privacy policy|"
+    r"image credit:?.+|photo credit:?.+|photos?:\s*(?:courtesy|credit|via|by)\b.+|"
+    r"courtesy of .+|"
+    r"copyright .+|all rights reserved|rss feed|"
+    r"阅读全文|点击查看全文|订阅|登录后继续|广告|分享本文"
+    r")[。.]*$",
+    re.IGNORECASE,
+)
+LOCAL_ARTICLE_NOISE_PREFIX_RE = re.compile(
+    r"^(?:"
+    r"[Bb]y\s+[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){0,4}|"
+    r"published on .+|updated on .+|"
+    r"last modified .+|"
+    r"\d{1,2} [A-Z][a-z]+ \d{4}|"
+    r"[A-Z][a-z]+ \d{1,2}, \d{4}"
+    r")$"
+)
+LOCAL_ARTICLE_CODE_FRAGMENT_RE = re.compile(
+    r"(?:<script\b|</script>|window\.|document\.|function\s*\(|"
+    r"\{[^{}]{0,80}:[^{}]{0,80}\}|[.#]?[a-z0-9_-]+\s*\{[^{}]*\})",
+    re.IGNORECASE,
+)
+LOCAL_ARTICLE_URL_RE = re.compile(r"https?://\S+|www\.\S+", re.IGNORECASE)
 LOCAL_ARTICLE_REFERENCE_EXCERPT_MAX_CHARS = 280
 LOCAL_ARTICLE_MIN_TRUNCATED_PARAGRAPH_CHARS = 24
 LOCAL_ARTICLE_MIN_CONTEXT_CHARS = 240
@@ -109,6 +141,8 @@ def text_to_local_article_paragraphs(text: str, *, max_chars: int) -> list[str]:
         paragraph = normalize_row_one_paragraph(raw_paragraph)
         if not paragraph:
             continue
+        if not _publishable_local_article_paragraph(paragraph):
+            continue
         remaining = max_chars - used_chars
         if remaining <= 0:
             break
@@ -123,6 +157,31 @@ def text_to_local_article_paragraphs(text: str, *, max_chars: int) -> list[str]:
         if used_chars >= max_chars:
             break
     return paragraphs
+
+
+def _publishable_local_article_paragraph(paragraph: str) -> bool:
+    normalized = normalize_row_one_paragraph(paragraph)
+    if not normalized:
+        return False
+    compact = re.sub(r"\s+", " ", normalized).strip()
+    folded = compact.casefold()
+    if LOCAL_ARTICLE_NOISE_FULL_RE.fullmatch(compact):
+        return False
+    if len(compact) <= 140 and LOCAL_ARTICLE_NOISE_PREFIX_RE.fullmatch(compact):
+        return False
+    if LOCAL_ARTICLE_CODE_FRAGMENT_RE.search(compact):
+        return False
+    url_matches = LOCAL_ARTICLE_URL_RE.findall(compact)
+    if url_matches and (
+        len(compact) <= 120
+        or sum(len(match) for match in url_matches) / max(len(compact), 1) >= 0.35
+    ):
+        return False
+    if folded in {"menu", "search", "newsletter", "cookies", "privacy", "advertising"}:
+        return False
+    if folded in {"菜单", "搜索", "订阅", "登录", "广告", "隐私"}:
+        return False
+    return True
 
 
 def _story_local_article_paragraph_sets(

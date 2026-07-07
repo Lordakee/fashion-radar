@@ -294,6 +294,89 @@ def test_text_to_local_article_paragraphs_unescapes_entities_once() -> None:
     ]
 
 
+def test_text_to_local_article_paragraphs_filters_extraction_boilerplate() -> None:
+    text = """
+    We use cookies to improve your experience.
+
+    Sign up for our newsletter.
+
+    Share this article.
+
+    Advertisement.
+
+    Image credit: Courtesy of the brand.
+
+    https://example.com/fashion/story
+
+    The Row opened a Milan showroom after buyers cited stronger demand for quiet-luxury tailoring.
+
+    window.__INITIAL_STATE__ = {"tracking": true};
+
+    阅读全文。
+
+    Miu Miu named a new CEO.
+    """
+
+    paragraphs = text_to_local_article_paragraphs(text, max_chars=220)
+
+    assert paragraphs == [
+        "The Row opened a Milan showroom after buyers cited stronger demand for "
+        "quiet-luxury tailoring.",
+        "Miu Miu named a new CEO.",
+    ]
+
+
+def test_text_to_local_article_paragraphs_filters_noise_before_budgeting() -> None:
+    text = """
+    Subscribe to continue reading this article and unlock unlimited fashion coverage.
+
+    The Row opened a Milan showroom after buyers cited stronger demand.
+
+    Buyers cited demand.
+    """
+
+    paragraphs = text_to_local_article_paragraphs(text, max_chars=95)
+
+    assert paragraphs == [
+        "The Row opened a Milan showroom after buyers cited stronger demand.",
+        "Buyers cited demand.",
+    ]
+
+
+def test_text_to_local_article_paragraphs_preserves_short_valid_fashion_news() -> None:
+    text = """
+    Prices rose.
+
+    Buyers cited demand.
+
+    The Row opened a showroom.
+
+    Miu Miu named a CEO.
+
+    Zendaya wore Margaux.
+
+    Sales rose 8%.
+
+    品牌发布了新系列。
+
+    By Malene Birger opened a showroom.
+
+    Photography drove the campaign.
+    """
+
+    assert text_to_local_article_paragraphs(text, max_chars=500) == [
+        "Prices rose.",
+        "Buyers cited demand.",
+        "The Row opened a showroom.",
+        "Miu Miu named a CEO.",
+        "Zendaya wore Margaux.",
+        "Sales rose 8%.",
+        "品牌发布了新系列。",
+        "By Malene Birger opened a showroom.",
+        "Photography drove the campaign.",
+    ]
+
+
 def test_build_row_one_local_articles_extracts_enabled_source_and_caps_text() -> None:
     calls: list[tuple[str, int, bool]] = []
 
@@ -526,6 +609,100 @@ def test_build_row_one_local_articles_marks_empty_text_as_summary_fallback() -> 
 
     assert article.body_source == "summary_fallback"
     assert article.reason == "no_extractable_text"
+
+
+def test_build_row_one_local_articles_falls_back_when_extracted_text_has_only_noise() -> None:
+    edition = _edition()
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=240)],
+        now=AS_OF,
+        extractor=_extractor(
+            "\n\n".join(
+                [
+                    "Subscribe to continue reading this article.",
+                    "Share this article.",
+                    "Advertisement.",
+                    "阅读全文。",
+                ]
+            )
+        ),
+    )
+
+    article = articles["the-row-signal-1234567890"]
+    story = edition.stories[0]
+    assert article.body_source == "summary_fallback"
+    assert article.reason == "no_publishable_paragraphs"
+    assert article.title == story.headline
+    assert article.paragraphs
+    assert all("Subscribe to continue" not in paragraph for paragraph in article.paragraphs)
+
+
+def test_build_row_one_local_articles_keeps_extracted_body_after_filtering_mixed_text() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [RowOneReference(name="The Row", type="brand", label="tracked")]
+    story.product_refs = [RowOneReference(name="Margaux", type="product", label="bag")]
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=500)],
+        now=AS_OF,
+        extractor=_extractor(
+            "\n\n".join(
+                [
+                    "Share this article.",
+                    "The Row opened a Milan showroom as Margaux demand accelerated with buyers.",
+                    "Advertisement.",
+                    "Buyers cited demand for quieter luxury bags in the latest market notes.",
+                ]
+            )
+        ),
+    )
+
+    article = articles[story.id]
+    assert article.body_source == "extracted"
+    assert article.paragraphs[0].startswith("The Row")
+    assert len(article.paragraphs_zh) == len(article.paragraphs)
+    for section in article.content_sections:
+        for item in section.items:
+            for index in item.paragraph_indices:
+                assert 0 <= index < len(article.paragraphs)
+
+
+def test_build_row_one_local_articles_aligns_paragraph_indices_after_filtered_preface() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    story.entity_refs = [RowOneReference(name="The Row", type="brand", label="tracked")]
+    story.product_refs = [RowOneReference(name="Margaux", type="product", label="bag")]
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=500)],
+        now=AS_OF,
+        extractor=_extractor(
+            "\n\n".join(
+                [
+                    "Sign up for our newsletter.",
+                    "The Row opened a Milan showroom for wholesale appointments.",
+                    "The Margaux bag drew stronger demand from buyers.",
+                ]
+            )
+        ),
+    )
+
+    article = articles[story.id]
+    assert article.body_source == "extracted"
+    assert article.paragraphs[:2] == [
+        "The Row opened a Milan showroom for wholesale appointments.",
+        "The Margaux bag drew stronger demand from buyers.",
+    ]
+    assert _content_item(_content_section(article, "entities"), "The Row").paragraph_indices == [0]
+    assert _content_item(
+        _content_section(article, "product_signals"),
+        "Margaux",
+    ).paragraph_indices == [1]
 
 
 def test_build_row_one_local_articles_cleans_fallback_without_mutating_story_summary() -> None:

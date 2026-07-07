@@ -501,6 +501,14 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "saved-article-evidence-board.json" not in generated_contract_payload
     assert "local-article-pages.json" not in generated_contract_payload
     assert "saved-article-pages.json" not in generated_contract_payload
+    assert "saved-article-paragraph-quality-gate.json" not in generated_contract_payload
+    assert "saved_article_paragraph_quality_gate" not in generated_contract_payload
+    assert "paragraph_quality_gate" not in generated_contract_payload
+    assert "saved_paragraph_quality_gate" not in generated_contract_payload
+    assert "article_paragraph_quality_gate" not in generated_contract_payload
+    assert "saved-article-paragraph-quality-gate" not in generated_contract_payload
+    assert "paragraph-quality-gate" not in generated_contract_payload
+    assert "Saved Article Paragraph Quality Gate" not in generated_contract_payload
     assert "ROW ONE ops check" not in generated_contract_payload
     articles_html_path = output_dir / "articles" / "index.html"
     if articles_html_path.exists():
@@ -532,6 +540,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "saved-article-pages.json",
         output_dir / "articles" / "saved-article-pages.json",
         output_dir / "data" / "saved-article-pages.json",
+        output_dir / "saved-article-paragraph-quality-gate.json",
+        output_dir / "articles" / "saved-article-paragraph-quality-gate.json",
+        output_dir / "data" / "saved-article-paragraph-quality-gate.json",
+        output_dir / "saved-article-paragraph-quality-gate.html",
+        output_dir / "articles" / "saved-article-paragraph-quality-gate.html",
+        output_dir / "data" / "saved-article-paragraph-quality-gate.html",
     ):
         assert not artifact_path.exists()
     assert stored == stored_before

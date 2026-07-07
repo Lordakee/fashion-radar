@@ -1218,6 +1218,61 @@ def test_row_one_docs_describe_stage_337_saved_article_reference_atlas_boundary(
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_340_saved_article_paragraph_quality_gate_boundary() -> None:
+    expected = _normalized(
+        "Stage 340 adds saved local article paragraph quality gating for ROW ONE: "
+        "it filters high-confidence extraction boilerplate from saved local "
+        "article paragraphs before sidecar and HTML rendering while preserving "
+        "short valid fashion-news paragraphs, existing "
+        "summary_fallback/no_publishable_paragraphs fallback behavior, paragraph "
+        "anchors, paragraphs_zh alignment, content-section paragraph indices, "
+        "existing saved article library links, and first-class local article "
+        "pages; it does not create "
+        "`data/saved-article-paragraph-quality-gate.json`, does not remove saved "
+        "local articles with publishable paragraphs, does not publish full "
+        "articles on the library index, does not change row-one-app/v7, "
+        "row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, "
+        "source collection, fetching, matching, scoring, ranking, LLM, connector, "
+        "scheduling, deployment, market grouping, domestic/international "
+        "classification, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_340_pos = normalized.index(
+            "stage 340 adds saved local article paragraph quality gating"
+        )
+        stage_339_pos = normalized.index(
+            "stage 339 adds generated-site only first-class local article pages"
+        )
+        assert stage_340_pos < stage_339_pos
+        stage = normalized[stage_340_pos:stage_339_pos]
+        for stale_phrase in (
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "creates `data/saved-article-paragraph-quality-gate.json`",
+            "writes `data/saved-article-paragraph-quality-gate.json`",
+            "writes a new json artifact",
+            "removes saved local articles with publishable paragraphs",
+            "publishes full articles on the library index",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds ranking",
+            "adds llm calls",
+            "adds connectors",
+            "adds scheduling",
+            "adds deployment behavior",
+            "removes paragraph anchors",
+            "breaks paragraph indices",
+            "adds compliance review",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_339_first_class_local_article_pages_boundary() -> None:
     expected = _normalized(
         "Stage 339 adds generated-site only first-class local article pages at "
