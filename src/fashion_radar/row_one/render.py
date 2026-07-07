@@ -111,6 +111,7 @@ def render_row_one_site(
             saved_article_briefs=saved_article_briefs,
             saved_article_content_organization=saved_article_content_organization,
             editorial_brief=editorial_brief,
+            local_articles_by_story_id=local_articles_by_story_id,
         ),
         encoding="utf-8",
     )

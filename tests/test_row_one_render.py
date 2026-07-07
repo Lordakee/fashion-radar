@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import replace
 from datetime import UTC, datetime
 from html import escape
 
@@ -36,6 +37,11 @@ from fashion_radar.row_one.render import (
 from fashion_radar.row_one.saved_article_briefs import (
     RowOneSavedArticleBriefItem,
     RowOneSavedArticleBriefs,
+)
+from fashion_radar.row_one.saved_article_content_organization import (
+    RowOneSavedArticleContentOrganization,
+    RowOneSavedArticleContentOrganizationCard,
+    RowOneSavedArticleContentOrganizationGroup,
 )
 from fashion_radar.row_one.saved_article_coverage import (
     RowOneSavedArticleCoverage,
@@ -770,8 +776,17 @@ def test_render_row_one_detail_includes_local_article_content(tmp_path) -> None:
         'data-lang="zh">第一段本地正文'
     )
     assert 'href="#local-article"' in detail_html
-    assert detail_html.index('href="#summary"') < detail_html.index('href="#local-article"')
-    assert detail_html.index('href="#local-article"') < detail_html.index('href="#why-it-matters"')
+    contents_match = re.search(
+        r'<nav class="article-contents" aria-label="Article contents">(?P<contents>.*?)</nav>',
+        detail_html,
+        re.S,
+    )
+    assert contents_match is not None
+    contents_html = contents_match.group("contents")
+    assert contents_html.index('href="#summary"') < contents_html.index('href="#local-article"')
+    assert contents_html.index('href="#local-article"') < contents_html.index(
+        'href="#why-it-matters"'
+    )
     assert detail_html.index('id="summary"') < detail_html.index('id="local-article"')
     assert detail_html.index('id="local-article"') < detail_html.index('id="why-it-matters"')
     assert article_json["story_id"] == "the-row-signal-1234567890"
@@ -2907,6 +2922,238 @@ def test_safe_daily_local_intelligence_href_accepts_only_safe_detail_links(
     assert _safe_daily_local_intelligence_href(href) == expected
 
 
+def _saved_article_content_organization_section_html(index_html: str) -> str:
+    marker = '<section class="saved-article-content-organization"'
+    section_start = index_html.index(marker)
+    next_section = re.search(
+        r"\n<section class=",
+        index_html[section_start + len(marker) :],
+    )
+    if next_section is None:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + next_section.start()
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def test_render_row_one_site_prefers_saved_article_reading_on_homepage(tmp_path) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = _signal_briefing_local_article()
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: local_article},
+    )
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert 'class="local-read-path"' in index_html
+    assert "local-read-action" in index_html
+    assert "Read saved article" in index_html
+    assert "阅读本地正文" in index_html
+    assert "Saved locally" in index_html
+    assert "本地已保存" in index_html
+    assert 'href="details/the-row-signal-1234567890.html#local-article"' in index_html
+    assert '<span data-lang="en">Read the brief</span>' not in index_html
+    assert '<span data-lang="en">Read brief</span>' not in index_html
+
+
+def test_render_row_one_site_omits_homepage_local_first_action_without_saved_article(
+    tmp_path,
+) -> None:
+    render_row_one_site(_edition(), tmp_path, local_articles_by_story_id={})
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert 'class="local-read-path"' not in index_html
+    assert 'href="details/the-row-signal-1234567890.html#local-article"' not in index_html
+    assert "Read saved article" not in index_html
+    assert "阅读本地正文" not in index_html
+
+
+def test_render_detail_html_puts_saved_article_action_before_external_source() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    detail_html = render_detail_html(
+        edition,
+        story,
+        local_article=_signal_briefing_local_article(),
+    )
+
+    assert 'class="local-read-path detail-local-read-path"' in detail_html
+    assert 'href="#local-article"' in detail_html
+    assert "Read saved article" in detail_html
+    assert "阅读本地正文" in detail_html
+    assert detail_html.index('class="local-read-path detail-local-read-path"') < detail_html.index(
+        "Open Source Article"
+    )
+    assert "打开原文" in detail_html
+
+
+def test_render_row_one_site_saved_article_content_organization_links_evidence_paragraphs(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    section_html = _saved_article_content_organization_section_html(index_html)
+
+    assert '<article class="saved-article-content-organization-card">' in section_html
+    assert '<a class="saved-article-content-organization-card"' not in section_html
+    assert 'class="saved-article-content-organization-card-link"' in section_html
+    assert (
+        'href="details/the-row-signal-1234567890.html#local-article-content-section-'
+        in section_html
+    )
+    assert 'class="saved-article-content-organization-evidence"' in section_html
+    assert 'class="saved-article-content-organization-evidence-link"' in section_html
+    assert 'href="details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    assert "Evidence paragraph 1" in section_html
+    assert "证据段落 1" in section_html
+    assert 'id="local-article-paragraph-1"' in detail_html
+
+
+def test_render_index_html_filters_saved_article_content_organization_evidence_links() -> None:
+    safe_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="Safe card", zh="安全卡片"),
+        source_name="Source",
+        section_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        section_label=LocalizedText(en="Entity", zh="实体"),
+        lead=LocalizedText(en="Safe lead", zh="安全摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0, 2),
+        references=(),
+    )
+    invalid_path_cards = (
+        replace(
+            safe_card,
+            title=LocalizedText(en="JS card", zh="JS 卡片"),
+            detail_path="javascript:alert(1)",
+        ),
+        replace(
+            safe_card,
+            title=LocalizedText(en="Traversal card", zh="穿越卡片"),
+            detail_path="../secrets.html#local-article-content-section-1",
+        ),
+        replace(
+            safe_card,
+            title=LocalizedText(en="Wrong fragment card", zh="错误片段卡片"),
+            detail_path="details/the-row-signal-1234567890.html#local-article-paragraph-1",
+        ),
+    )
+    bad_index_card = replace(
+        safe_card,
+        title=LocalizedText(en="Bad index card", zh="坏索引卡片"),
+        paragraph_indices=(-1, True),
+    )
+    duplicate_card = replace(
+        safe_card,
+        title=LocalizedText(en="Duplicate card", zh="重复卡片"),
+        paragraph_indices=(0, 0, 1),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[safe_card, *invalid_path_cards, bad_index_card, duplicate_card],
+            ),
+        ]
+    )
+
+    index_html = render_index_html(
+        _edition(),
+        saved_article_content_organization=organization,
+    )
+    section_html = _saved_article_content_organization_section_html(index_html)
+
+    assert 'href="details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    assert 'href="details/the-row-signal-1234567890.html#local-article-paragraph-3"' in section_html
+    assert "javascript:alert" not in section_html
+    assert "../secrets" not in section_html
+    assert (
+        'href="details/the-row-signal-1234567890.html#local-article-paragraph-0"'
+        not in section_html
+    )
+    assert 'href="details/the-row-signal-1234567890.html#local-article-paragraph-2"' in section_html
+    assert (
+        section_html.count(
+            'href="details/the-row-signal-1234567890.html#local-article-paragraph-2"'
+        )
+        == 1
+    )
+    assert "JS card" not in section_html
+    assert "Traversal card" not in section_html
+    assert "Wrong fragment card" not in section_html
+    assert "Bad index card" in section_html
+    assert section_html.count('class="saved-article-content-organization-card"') == 3
+    assert (
+        section_html.count(
+            'href="details/the-row-signal-1234567890.html#local-article-paragraph-1"'
+        )
+        == 2
+    )
+
+
+def test_render_index_html_caps_and_dedupes_saved_article_content_organization_evidence_links() -> (
+    None
+):
+    card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="Evidence card", zh="证据卡片"),
+        source_name="Source",
+        section_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        section_label=LocalizedText(en="Entity", zh="实体"),
+        lead=LocalizedText(en="Lead", zh="摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0, 1, 1, 2, 3, 4),
+        references=(),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[card],
+            ),
+        ]
+    )
+
+    index_html = render_index_html(
+        _edition(),
+        saved_article_content_organization=organization,
+    )
+    section_html = _saved_article_content_organization_section_html(index_html)
+
+    assert section_html.count('class="saved-article-content-organization-evidence-link"') == 3
+    assert 'href="details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    assert 'href="details/the-row-signal-1234567890.html#local-article-paragraph-2"' in section_html
+    assert 'href="details/the-row-signal-1234567890.html#local-article-paragraph-3"' in section_html
+    assert (
+        'href="details/the-row-signal-1234567890.html#local-article-paragraph-4"'
+        not in section_html
+    )
+    assert (
+        section_html.count(
+            'href="details/the-row-signal-1234567890.html#local-article-paragraph-2"'
+        )
+        == 1
+    )
+
+
 def test_render_row_one_detail_information_map_escapes_story_values(tmp_path) -> None:
     edition = _edition()
     edition.stories[0].source_name = "Vogue <signals> Business"
@@ -4514,6 +4761,20 @@ def test_row_one_css_includes_editorial_brief_source_trail_styles(tmp_path) -> N
         ".editorial-brief-link",
     ):
         assert selector in css_text
+
+
+def test_row_one_css_includes_stage_323_local_first_and_evidence_selectors() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".local-read-path",
+        ".local-read-path-badge",
+        ".local-read-action",
+        ".saved-article-content-organization-card-link",
+        ".saved-article-content-organization-evidence",
+        ".saved-article-content-organization-evidence-link",
+    ):
+        assert selector in css
 
 
 def test_row_one_css_includes_local_article_map_styles(tmp_path) -> None:

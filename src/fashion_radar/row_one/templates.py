@@ -70,6 +70,7 @@ DAILY_EDIT_MAX_PATH_ITEMS = 3
 EDITORIAL_BRIEF_MAX_ITEMS = 3
 EDITORIAL_BRIEF_BODY_EXCERPT_CHARS = 220
 EDITORIAL_BRIEF_MAX_TRAIL_ITEMS = 3
+SAVED_ARTICLE_CONTENT_ORGANIZATION_EVIDENCE_LINK_LIMIT = 3
 
 
 @dataclass(frozen=True)
@@ -101,7 +102,9 @@ def render_index_html(
     saved_article_briefs: RowOneSavedArticleBriefs | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     editorial_brief: _EditorialBrief | None = None,
+    local_articles_by_story_id: dict[str, RowOneLocalArticle] | None = None,
 ) -> str:
+    local_articles_by_story_id = local_articles_by_story_id or {}
     contents_nav = _render_edition_nav(edition)
     briefing_topics = _render_briefing_topics(app_payload)
     briefing_path = _render_briefing_path(app_payload)
@@ -127,11 +130,22 @@ def render_index_html(
     summary_note_zh = f"{readiness.story_count} 条故事 · {readiness.safe_evidence_count} 条证据链接"
     lead_story = _lead_story(edition)
     lead_story_block = (
-        _render_lead_story(lead_story, _section_title(edition, lead_story.section_key))
+        _render_lead_story(
+            lead_story,
+            _section_title(edition, lead_story.section_key),
+            local_article=local_articles_by_story_id.get(lead_story.id),
+        )
         if lead_story
         else ""
     )
-    story_cards = "\n".join(_render_section(edition, section.key) for section in edition.sections)
+    story_cards = "\n".join(
+        _render_section(
+            edition,
+            section.key,
+            local_articles_by_story_id=local_articles_by_story_id,
+        )
+        for section in edition.sections
+    )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -222,6 +236,9 @@ def render_detail_html(
     source_action = _source_action_link(story.source_url)
     visual = _render_story_visual(story, section_title, context="detail-visual")
     local_article_section = _render_local_article(local_article)
+    local_read_path = _render_detail_local_read_path(
+        local_article if local_article_section else None
+    )
     article_contents = _render_article_contents(include_local_article=bool(local_article_section))
     detail_information_map = _render_detail_information_map(story, section_title)
     detail_signal_briefing = _render_detail_signal_briefing(story, local_article)
@@ -264,6 +281,7 @@ def render_detail_html(
     <h1>{_esc(story.headline)}</h1>
     {visual}
     <p class="story-source">{source_link}</p>
+    {local_read_path}
     {source_action}
     {article_contents}
     {detail_information_map}
@@ -1159,6 +1177,30 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .saved-article-content-organization-chip span:last-child {
   color: var(--muted);
 }
+.saved-article-content-organization-card-link {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.saved-article-content-organization-evidence {
+  display: contents;
+}
+.saved-article-content-organization-evidence-link {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 0.68rem;
+  font-weight: 800;
+  gap: 5px;
+  letter-spacing: 0.08em;
+  padding: 5px 7px;
+  text-decoration: none;
+  text-transform: uppercase;
+}
 .editorial-brief {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -1656,6 +1698,35 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .story-detail-link {
   color: var(--accent);
   font-weight: 700;
+}
+.local-read-path {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.74rem;
+  gap: 8px 10px;
+  letter-spacing: 0.08em;
+  margin: 12px 0 0;
+  text-transform: uppercase;
+}
+.local-read-path-badge {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+  padding: 4px 7px;
+}
+.local-read-action {
+  border-bottom: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 800;
+  padding-bottom: 3px;
+  text-decoration: none;
+}
+.detail-local-read-path {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
 }
 .story-tag-list {
   display: flex;
@@ -3432,7 +3503,7 @@ def _render_saved_article_content_organization_card(
         if chips
         else ""
     )
-    return f"""        <a class="saved-article-content-organization-card" href="{_esc(href)}">
+    return f"""        <article class="saved-article-content-organization-card">
       <div class="saved-article-content-organization-meta">
         <span>{_esc(card.source_name)}</span>
         <span>
@@ -3452,7 +3523,11 @@ def _render_saved_article_content_organization_card(
         <span data-lang="en">{_esc(_local_article_digest_excerpt(card.lead.en))}</span>
         <span data-lang="zh">{_esc(_local_article_digest_excerpt(card.lead.zh))}</span>
       </p>{chip_block}
-    </a>"""
+      <a class="saved-article-content-organization-card-link" href="{_esc(href)}">
+        <span data-lang="en">Open organized section</span>
+        <span data-lang="zh">打开整理栏目</span>
+      </a>
+    </article>"""
 
 
 def _render_saved_article_content_organization_chips(
@@ -3468,7 +3543,38 @@ def _render_saved_article_content_organization_chips(
             f'<span data-lang="zh">{_esc(f"{paragraph_count} 个段落")}</span>'
             "</span>"
         )
-    return "".join(chips)
+    evidence = _render_saved_article_content_organization_evidence(card)
+    return "".join(chips) + evidence
+
+
+def _render_saved_article_content_organization_evidence(
+    card: RowOneSavedArticleContentOrganizationCard,
+) -> str:
+    links: list[str] = []
+    seen: set[int] = set()
+    for paragraph_index in card.paragraph_indices:
+        if paragraph_index in seen:
+            continue
+        href = _safe_saved_article_content_organization_evidence_href(
+            card.detail_path,
+            paragraph_index,
+        )
+        if href is None:
+            continue
+        seen.add(paragraph_index)
+        label_number = str(paragraph_index + 1)
+        links.append(
+            '<a class="saved-article-content-organization-evidence-link" '
+            f'href="{_esc(href)}">'
+            f'<span data-lang="en">Evidence paragraph {_esc(label_number)}</span>'
+            f'<span data-lang="zh">证据段落 {_esc(label_number)}</span>'
+            "</a>"
+        )
+        if len(links) >= SAVED_ARTICLE_CONTENT_ORGANIZATION_EVIDENCE_LINK_LIMIT:
+            break
+    if not links:
+        return ""
+    return '<span class="saved-article-content-organization-evidence">' + "".join(links) + "</span>"
 
 
 def _render_saved_article_content_organization_ref_chip(ref: RowOneReference) -> str:
@@ -3492,6 +3598,27 @@ def _safe_saved_article_content_organization_href(href: object) -> str | None:
     if validated_row_one_detail_relative_path(path) is None:
         return None
     return href
+
+
+def _safe_saved_article_content_organization_evidence_href(
+    detail_path: object,
+    paragraph_index: object,
+) -> str | None:
+    safe_section_href = _safe_saved_article_content_organization_href(detail_path)
+    if safe_section_href is None:
+        return None
+    if not isinstance(paragraph_index, int) or isinstance(paragraph_index, bool):
+        return None
+    if paragraph_index < 0:
+        return None
+    path, _, _fragment = safe_section_href.partition("#")
+    safe_path = validated_row_one_detail_relative_path(path)
+    if safe_path is None:
+        return None
+    paragraph_fragment = f"local-article-paragraph-{paragraph_index + 1}"
+    if not _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(paragraph_fragment):
+        return None
+    return f"{safe_path}#{paragraph_fragment}"
 
 
 def _render_editorial_brief(editorial_brief: _EditorialBrief | None) -> str:
@@ -5478,8 +5605,24 @@ def _lead_story(edition: RowOneEdition) -> RowOneStory | None:
     return edition.stories[0] if edition.stories else None
 
 
-def _render_lead_story(story: RowOneStory, section_title: LocalizedText) -> str:
+def _render_lead_story(
+    story: RowOneStory,
+    section_title: LocalizedText,
+    *,
+    local_article: RowOneLocalArticle | None = None,
+) -> str:
     detail_href = _internal_detail_href(story.detail_path)
+    local_article_href = _local_article_href(story, local_article)
+    lead_action_href = _esc(local_article_href) if local_article_href else detail_href
+    lead_action_label = (
+        LocalizedText(en="Read saved article", zh="阅读本地正文")
+        if local_article_href
+        else LocalizedText(en="Read the brief", zh="查看详情")
+    )
+    lead_action_class = (
+        "lead-story-link local-read-action" if local_article_href else "lead-story-link"
+    )
+    local_read_path = _render_homepage_local_read_path(story, local_article)
     visual = _render_story_visual(story, section_title, context="lead-story-visual")
     summary_en = _display_summary_text(story.summary.en)
     summary_zh = _display_summary_text(story.summary.zh)
@@ -5503,19 +5646,33 @@ def _render_lead_story(story: RowOneStory, section_title: LocalizedText) -> str:
         <span data-lang="en">{_esc(summary_en)}</span>
         <span data-lang="zh">{_esc(summary_zh)}</span>
       </p>
-      <a class="lead-story-link" href="{detail_href}">
-        <span data-lang="en">Read the brief</span>
-        <span data-lang="zh">查看详情</span>
+      {local_read_path}
+      <a class="{_esc(lead_action_class)}" href="{lead_action_href}">
+        <span data-lang="en">{_esc(lead_action_label.en)}</span>
+        <span data-lang="zh">{_esc(lead_action_label.zh)}</span>
       </a>
     </div>
   </div>
 </section>"""
 
 
-def _render_section(edition: RowOneEdition, section_key: RowOneSectionKey) -> str:
+def _render_section(
+    edition: RowOneEdition,
+    section_key: RowOneSectionKey,
+    *,
+    local_articles_by_story_id: dict[str, RowOneLocalArticle] | None = None,
+) -> str:
     section = next(section for section in edition.sections if section.key == section_key)
     stories = edition.section_stories(section_key)
-    cards = "\n".join(_render_story_card(story, section.title) for story in stories)
+    local_articles_by_story_id = local_articles_by_story_id or {}
+    cards = "\n".join(
+        _render_story_card(
+            story,
+            section.title,
+            local_article=local_articles_by_story_id.get(story.id),
+        )
+        for story in stories
+    )
     if not cards:
         cards = (
             '<p class="empty-state">'
@@ -5541,8 +5698,21 @@ def _render_section(edition: RowOneEdition, section_key: RowOneSectionKey) -> st
 def _render_story_card(
     story: RowOneStory,
     section_title: LocalizedText,
+    *,
+    local_article: RowOneLocalArticle | None = None,
 ) -> str:
     detail_href = _internal_detail_href(story.detail_path)
+    local_article_href = _local_article_href(story, local_article)
+    story_action_href = _esc(local_article_href) if local_article_href else detail_href
+    story_action_label = (
+        LocalizedText(en="Read saved article", zh="阅读本地正文")
+        if local_article_href
+        else LocalizedText(en="Read brief", zh="阅读简报")
+    )
+    story_action_class = (
+        "story-detail-link local-read-action" if local_article_href else "story-detail-link"
+    )
+    local_read_path = _render_homepage_local_read_path(story, local_article)
     published = _published_label(story)
     evidence_count = sum(1 for link in story.evidence if _safe_external_url(link.url) is not None)
     source_name = _esc(story.source_name)
@@ -5572,15 +5742,16 @@ def _render_story_card(
       <span data-lang="en">{_esc(summary_en)}</span>
       <span data-lang="zh">{_esc(summary_zh)}</span>
     </p>
+    {local_read_path}
   </div>
   <div class="story-card-footer">
     <span class="story-evidence-count">
       <span data-lang="en">{_esc(evidence_label_en)}</span>
       <span data-lang="zh">{_esc(evidence_label_zh)}</span>
     </span>
-    <a class="story-detail-link" href="{detail_href}">
-      <span data-lang="en">Read brief</span>
-      <span data-lang="zh">阅读简报</span>
+    <a class="{_esc(story_action_class)}" href="{story_action_href}">
+      <span data-lang="en">{_esc(story_action_label.en)}</span>
+      <span data-lang="zh">{_esc(story_action_label.zh)}</span>
     </a>
   </div>{tags_block}
 </article>"""
@@ -5721,6 +5892,71 @@ def _internal_detail_href(path: str) -> str:
     if _validated_detail_relative_path(path) is None:
         return "#"
     return _esc(path)
+
+
+def _usable_local_article_paragraph_count(article: RowOneLocalArticle | None) -> int:
+    if article is None:
+        return 0
+    return sum(1 for paragraph in article.paragraphs if normalize_row_one_paragraph(paragraph))
+
+
+def _local_article_href(
+    story: RowOneStory,
+    article: RowOneLocalArticle | None,
+) -> str | None:
+    if _usable_local_article_paragraph_count(article) <= 0:
+        return None
+    detail_path = _validated_detail_relative_path(story.detail_path)
+    if detail_path is None:
+        return None
+    return f"{detail_path}#local-article"
+
+
+def _local_read_count_label(count: int) -> LocalizedText:
+    paragraph_label = "paragraph" if count == 1 else "paragraphs"
+    return LocalizedText(en=f"{count} saved {paragraph_label}", zh=f"{count} 个保存段落")
+
+
+def _render_homepage_local_read_path(
+    story: RowOneStory,
+    article: RowOneLocalArticle | None,
+) -> str:
+    href = _local_article_href(story, article)
+    count = _usable_local_article_paragraph_count(article)
+    if href is None or count <= 0:
+        return ""
+    count_label = _local_read_count_label(count)
+    return f"""<p class="local-read-path">
+      <span class="local-read-path-badge">
+        <span data-lang="en">Saved locally</span>
+        <span data-lang="zh">本地已保存</span>
+      </span>
+      <span>
+        <span data-lang="en">{_esc(count_label.en)}</span>
+        <span data-lang="zh">{_esc(count_label.zh)}</span>
+      </span>
+    </p>"""
+
+
+def _render_detail_local_read_path(local_article: RowOneLocalArticle | None) -> str:
+    count = _usable_local_article_paragraph_count(local_article)
+    if count <= 0:
+        return ""
+    count_label = _local_read_count_label(count)
+    return f"""<p class="local-read-path detail-local-read-path">
+  <span class="local-read-path-badge">
+    <span data-lang="en">Saved locally</span>
+    <span data-lang="zh">本地已保存</span>
+  </span>
+  <a class="local-read-action" href="#local-article">
+    <span data-lang="en">Read saved article</span>
+    <span data-lang="zh">阅读本地正文</span>
+  </a>
+  <span>
+    <span data-lang="en">{_esc(count_label.en)}</span>
+    <span data-lang="zh">{_esc(count_label.zh)}</span>
+  </span>
+</p>"""
 
 
 def _validated_detail_relative_path(path: str) -> PurePosixPath | None:

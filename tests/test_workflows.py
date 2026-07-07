@@ -372,6 +372,10 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
 
     assert 'id="local-article"' in detail_html
     assert "Local article paragraph for the ROW ONE detail page." in detail_html
+    assert "Read saved article" in detail_html
+    assert "阅读本地正文" in detail_html
+    assert "saved-article-content-organization-evidence-link" in index_html
+    assert "local-read-path" in detail_html
     assert all(
         "Local article paragraph for the ROW ONE detail page." in cached_article
         for cached_article in cached_articles
@@ -426,6 +430,13 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert '"daily_information_layer"' not in generated_contract_payload
     assert '"local_article_count"' not in generated_contract_payload
     assert '"local_article_paragraph_count"' not in generated_contract_payload
+    assert '"local_first_read"' not in generated_contract_payload
+    assert '"local_read_path"' not in generated_contract_payload
+    assert '"saved_article_cta"' not in generated_contract_payload
+    assert '"evidence_paragraph_trail"' not in generated_contract_payload
+    assert '"paragraph_trail"' not in generated_contract_payload
+    assert '"evidence_paragraph_chips"' not in generated_contract_payload
+    assert '"saved_article_content_organization_evidence"' not in generated_contract_payload
     top_level_data_files = {path.name for path in (output_dir / "data").glob("*.json")}
     assert top_level_data_files <= {
         "edition.json",

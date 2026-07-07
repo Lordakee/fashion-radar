@@ -245,6 +245,18 @@ does not change
 schemas, does not write a new json artifact, does not add source collection,
 does not fetch article pages, does not add scoring, does not add llm calls, does
 not add connectors, and is not a compliance review feature.
+Stage 323 adds Local-First Reading to generated ROW ONE pages. It is
+generated-site only and turns existing `data/articles/<story-id>.json`
+sidecars, existing saved local paragraphs, existing `#local-article`, and
+existing `#local-article-paragraph-N` anchors into saved article
+content-organization cards with a read saved article path and safe internal
+links. It does not change `row-one-app/v7`, does not change `data/edition.json`,
+does not change `row-one-manifest/v1`, does not change `row-one-runtime/v1`,
+does not add `local_first_read`, does not add `local_read_path`, does not add
+`saved_article_cta`, does not add `evidence_paragraph_trail`, does not change
+schemas, does not write a new json artifact, does not add source collection,
+does not fetch article pages, does not add scoring, does not add llm calls,
+does not add connectors, and is not a compliance review feature.
 Stage 322 adds Editorial Source Trail to the existing homepage Editorial Brief
 cards. It is generated-site only and turns existing saved local article source
 names, existing saved article titles, existing brief sections, existing content
