@@ -349,6 +349,13 @@ falls back to already collected local source summaries when extraction is
 unavailable, and is written only to the generated static site under
 `data/articles/` plus the matching detail page. It is not stored in SQLite, not
 added to the daily report JSON, and not added to `data/edition.json`.
+Saved sidecar JSON and detail pages carry local article body provenance in
+`body_source`: `extracted` marks usable extracted article text,
+`summary_fallback` marks a publishable ROW ONE local article body generated
+from the story summary/editorial fallback when extraction was skipped, failed,
+or unusable, and `skipped` marks no publishable saved body. This is sidecar/data detail-page
+provenance only; it does not change `data/edition.json`, does not change
+`row-one-runtime/v1`, and does not add compliance-review behavior.
 The homepage keeps local article bodies out of `data/edition.json`; when
 `data/local-intelligence.json` is present, cards link back to generated detail
 pages and exact `#local-article-paragraph-N` anchors.
@@ -461,6 +468,7 @@ does not change
 schemas, does not write a new json artifact, does not add source collection,
 does not fetch article pages, does not add scoring, does not add llm calls, does
 not add connectors, and is not a compliance review feature.
+Stage 331 documents local article body provenance for ROW ONE saved sidecar JSON and generated detail pages: `body_source` distinguishes `extracted`, `summary_fallback`, and `skipped`; `summary_fallback` means ROW ONE generated a publishable local article body from the story summary/editorial fallback when extraction was skipped, failed, or unusable. This is a sidecar/data detail-page provenance signal only; it does not change `data/edition.json`, does not change `row-one-runtime/v1`, and does not add compliance-review behavior. The row one summary fallback label is provenance for locally generated saved bodies, not a claim that saved paragraphs are extracted article text.
 Stage 329 adds `row-one ops-check` as a read-only local ROW ONE ops diagnostic for site freshness, server/port readiness, access URLs, and user systemd unit-file presence; it does not start servers, install or enable systemd units, kill processes, refresh or rebuild the site, write files, change row-one-app/v7, row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, source collection, fetching, extraction, scoring, ranking, LLM, connector, deployment automation, market grouping, domestic/international classification, or compliance-review behavior.
 Stage 328 adds generated-site only evidence excerpts to the existing ROW ONE Saved Signal Index inside `articles/index.html`; it shows capped snippets from existing saved local article item bodies or saved paragraphs and links back into existing detail-page local article anchors; it does not change row-one-app/v7, row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, source collection, fetching, matching, extraction, scoring, ranking, LLM, connector, scheduling, deployment, market grouping, domestic/international classification, or compliance-review behavior.
 Stage 327 adds a generated-site only ROW ONE Saved Signal Index inside

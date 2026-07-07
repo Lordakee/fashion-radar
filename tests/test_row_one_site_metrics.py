@@ -29,6 +29,9 @@ def test_local_article_site_metrics_are_zero_without_sidecars(tmp_path) -> None:
         "paragraph_count": 0,
         "organized_section_count": 0,
         "source_count": 0,
+        "extracted_article_count": 0,
+        "summary_fallback_article_count": 0,
+        "skipped_article_count": 0,
     }
 
 
@@ -111,6 +114,53 @@ def test_local_article_metrics_count_current_render_articles_without_scanning_si
     assert metrics.paragraph_count == 1
     assert metrics.organized_section_count == 0
     assert metrics.source_count == 1
+
+
+def test_local_article_metrics_count_body_sources() -> None:
+    articles = [
+        RowOneLocalArticle(
+            story_id="extracted-1234567890",
+            url="https://example.com/extracted",
+            source_name="Vogue Business",
+            extracted_at=AS_OF,
+            body_source="extracted",
+            paragraphs=["Extracted paragraph."],
+        ),
+        RowOneLocalArticle(
+            story_id="fallback-1234567890",
+            url="https://example.com/fallback",
+            source_name="Vogue Business",
+            extracted_at=AS_OF,
+            body_source="summary_fallback",
+            reason="robots_disallowed",
+            paragraphs=["Fallback paragraph."],
+        ),
+        RowOneLocalArticle(
+            story_id="skipped-1234567890",
+            url="https://example.com/skipped",
+            source_name="PurseBlog",
+            extracted_at=AS_OF,
+            body_source="skipped",
+            skipped=True,
+            reason="no_publishable_paragraphs",
+        ),
+    ]
+
+    metrics = build_row_one_local_article_metrics(articles)
+
+    assert metrics.article_count == 3
+    assert metrics.extracted_article_count == 1
+    assert metrics.summary_fallback_article_count == 1
+    assert metrics.skipped_article_count == 1
+    assert row_one_local_article_site_metrics_payload(metrics) == {
+        "article_count": 3,
+        "paragraph_count": 2,
+        "organized_section_count": 0,
+        "source_count": 2,
+        "extracted_article_count": 1,
+        "summary_fallback_article_count": 1,
+        "skipped_article_count": 1,
+    }
 
 
 def _write_article(

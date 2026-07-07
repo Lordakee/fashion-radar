@@ -29,6 +29,7 @@ RowOneLocalArticleContentKey = Literal[
     "product_signals",
     "brand_signals",
 ]
+RowOneLocalArticleBodySource = Literal["extracted", "summary_fallback", "skipped"]
 RowOneDailyLocalIntelligenceKey = Literal[
     "strongest_reads",
     "brand_watch",
@@ -143,6 +144,7 @@ class RowOneLocalArticle(BaseModel):
     paragraphs_zh: list[str] = Field(default_factory=list)
     brief_sections: list[RowOneLocalArticleBriefSection] = Field(default_factory=list)
     content_sections: list[RowOneLocalArticleContentSection] = Field(default_factory=list)
+    body_source: RowOneLocalArticleBodySource = "extracted"
     skipped: bool = False
     reason: str | None = None
 

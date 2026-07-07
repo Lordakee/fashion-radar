@@ -605,16 +605,42 @@ def _build_story_local_article(
             robots_checker=robots_checker,
         )
     except Exception:
-        return _fallback_story_summary_article(story, url, source, extracted_at=extracted_at)
-    if result.skipped or not result.text:
-        return _fallback_story_summary_article(story, url, source, extracted_at=extracted_at)
+        return _fallback_story_summary_article(
+            story,
+            url,
+            source,
+            extracted_at=extracted_at,
+            reason="extraction_failed",
+        )
+    if result.skipped:
+        return _fallback_story_summary_article(
+            story,
+            url,
+            source,
+            extracted_at=extracted_at,
+            reason=result.reason or "extraction_skipped",
+        )
+    if not result.text or not result.text.strip():
+        return _fallback_story_summary_article(
+            story,
+            url,
+            source,
+            extracted_at=extracted_at,
+            reason="no_extractable_text",
+        )
     paragraphs, paragraphs_zh, source_paragraph_count = _story_local_article_paragraph_sets(
         story,
         result.text,
         max_chars=source.row_one_article.max_chars,
     )
     if not paragraphs:
-        return _fallback_story_summary_article(story, url, source, extracted_at=extracted_at)
+        return _fallback_story_summary_article(
+            story,
+            url,
+            source,
+            extracted_at=extracted_at,
+            reason="no_publishable_paragraphs",
+        )
     return RowOneLocalArticle(
         story_id=story.id,
         title=result.title or story.headline,
@@ -631,6 +657,7 @@ def _build_story_local_article(
             paragraphs_zh,
             source_paragraph_count=source_paragraph_count,
         ),
+        body_source="extracted",
         skipped=False,
         reason=None,
     )
@@ -642,7 +669,8 @@ def _fallback_story_summary_article(
     source: SourceDefinition,
     *,
     extracted_at,
-) -> RowOneLocalArticle | None:
+    reason: str,
+) -> RowOneLocalArticle:
     summary_zh = text_to_local_article_paragraphs(
         story.summary.zh,
         max_chars=source.row_one_article.max_chars,
@@ -654,7 +682,12 @@ def _fallback_story_summary_article(
         source_paragraphs_zh=summary_zh,
     )
     if not paragraphs:
-        return None
+        return _skipped_story_local_article(
+            story,
+            url,
+            extracted_at=extracted_at,
+            reason=reason,
+        )
     return RowOneLocalArticle(
         story_id=story.id,
         title=story.headline,
@@ -671,8 +704,29 @@ def _fallback_story_summary_article(
             paragraphs_zh,
             source_paragraph_count=source_paragraph_count,
         ),
+        body_source="summary_fallback",
         skipped=False,
-        reason=None,
+        reason=reason,
+    )
+
+
+def _skipped_story_local_article(
+    story: RowOneStory,
+    url: str,
+    *,
+    extracted_at,
+    reason: str,
+) -> RowOneLocalArticle:
+    return RowOneLocalArticle(
+        story_id=story.id,
+        title=story.headline,
+        url=url,
+        source_name=story.source_name,
+        extracted_at=extracted_at,
+        published_at=story.published_at,
+        body_source="skipped",
+        skipped=True,
+        reason=reason,
     )
 
 

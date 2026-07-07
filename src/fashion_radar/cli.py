@@ -2224,8 +2224,7 @@ def row_one_status(
         typer.echo(f"Sections: {counts.get('section_count', 'unknown')}")
         typer.echo(f"Evidence links: {counts.get('evidence_count', 'unknown')}")
     local_articles = payload["local_articles"]
-    typer.echo(f"Saved local articles: {local_articles['article_count']}")
-    typer.echo(f"Saved local paragraphs: {local_articles['paragraph_count']}")
+    _echo_row_one_local_article_metrics_payload(local_articles)
     refresh = runtime.get("refresh")
     if isinstance(refresh, dict):
         typer.echo(f"Refresh time: {refresh.get('recommended_time', 'unknown')}")
@@ -2252,8 +2251,15 @@ def _load_row_one_edition_payload_if_present(site_dir: Path) -> dict[str, object
 
 def _echo_row_one_local_article_metrics(metrics: RowOneLocalArticleSiteMetrics) -> None:
     payload = row_one_local_article_site_metrics_payload(metrics)
+    _echo_row_one_local_article_metrics_payload(payload)
+
+
+def _echo_row_one_local_article_metrics_payload(payload: dict[str, int]) -> None:
     typer.echo(f"Saved local articles: {payload['article_count']}")
     typer.echo(f"Saved local paragraphs: {payload['paragraph_count']}")
+    typer.echo(f"Extracted local articles: {payload['extracted_article_count']}")
+    typer.echo(f"Summary fallback local articles: {payload['summary_fallback_article_count']}")
+    typer.echo(f"Skipped local articles: {payload['skipped_article_count']}")
 
 
 @row_one_app.command(name="article-readiness")
@@ -2301,8 +2307,7 @@ def row_one_article_readiness(
         f"Sources: {source_summary['enabled_sources']}/{source_summary['total_sources']} enabled"
     )
     typer.echo(f"ROW ONE article-enabled sources: {source_summary['article_enabled_sources']}")
-    typer.echo(f"Saved local articles: {local_articles['article_count']}")
-    typer.echo(f"Saved local paragraphs: {local_articles['paragraph_count']}")
+    _echo_row_one_local_article_metrics_payload(local_articles)
     typer.echo(
         "Story source coverage: "
         f"{story_coverage['eligible_story_count']}/{story_coverage['story_count']} eligible"

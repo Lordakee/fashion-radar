@@ -83,6 +83,20 @@ def _extractor(text: str):
     return extractor
 
 
+def _skipped_extractor(reason: str):
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        return ArticleExtractionResult(url=url, skipped=True, reason=reason)
+
+    return extractor
+
+
+def _raising_extractor():
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        raise RuntimeError("boom")
+
+    return extractor
+
+
 def _assert_local_article_brief_sections(article, story) -> None:
     assert [section.key for section in article.brief_sections] == [
         "what_happened",
@@ -134,6 +148,20 @@ def test_row_one_local_article_content_sections_default_empty() -> None:
     )
 
     assert article.content_sections == []
+
+
+def test_row_one_local_article_defaults_body_source_for_existing_sidecars() -> None:
+    article = RowOneLocalArticle.model_validate(
+        {
+            "story_id": "the-row-signal-1234567890",
+            "url": "https://example.com/the-row",
+            "source_name": "Vogue Business",
+            "extracted_at": AS_OF.isoformat(),
+            "paragraphs": ["Saved paragraph."],
+        }
+    )
+
+    assert article.body_source == "extracted"
 
 
 def test_text_to_local_article_paragraphs_caps_total_text_at_word_boundary() -> None:
@@ -292,6 +320,9 @@ def test_build_row_one_local_articles_extracts_enabled_source_and_caps_text() ->
     assert calls == [("https://example.com/the-row", 568, True)]
     assert article.title == "Extracted title"
     assert article.source_name == "Vogue Business"
+    assert article.body_source == "extracted"
+    assert article.reason is None
+    assert article.skipped is False
     assert article.paragraphs == [
         "First paragraph has compact context.",
         "Second paragraph has trailing...",
@@ -322,6 +353,21 @@ def test_build_row_one_local_articles_uses_extraction_buffer_before_final_cap() 
     assert sum(len(paragraph) for paragraph in paragraphs) <= 68
     assert paragraphs[-1].endswith("...")
     assert not paragraphs[-1].endswith("traili...")
+
+
+def test_build_row_one_local_articles_marks_extracted_body_source() -> None:
+    articles = build_row_one_local_articles(
+        _edition(),
+        [_source(max_chars=240)],
+        now=AS_OF,
+        extractor=_extractor("The Row opened a new showroom.\n\nBuyers cited demand."),
+    )
+
+    article = articles["the-row-signal-1234567890"]
+
+    assert article.body_source == "extracted"
+    assert article.reason is None
+    assert article.skipped is False
 
 
 def test_build_row_one_local_articles_env_kill_switch_wins(monkeypatch) -> None:
@@ -395,17 +441,17 @@ def test_build_row_one_local_articles_uses_first_enabled_hostname_match() -> Non
 def test_build_row_one_local_articles_falls_back_to_stored_summary_on_failure() -> None:
     edition = _edition()
 
-    def extractor(url: str, *, source, html_fetcher, robots_checker):
-        raise RuntimeError("network failed")
-
     articles = build_row_one_local_articles(
         edition,
         [_source()],
         now=AS_OF,
-        extractor=extractor,
+        extractor=_raising_extractor(),
     )
 
     article = articles["the-row-signal-1234567890"]
+    assert article.body_source == "summary_fallback"
+    assert article.reason == "extraction_failed"
+    assert article.skipped is False
     assert article.paragraphs == [
         "Summary",
         "Editorial",
@@ -415,6 +461,71 @@ def test_build_row_one_local_articles_falls_back_to_stored_summary_on_failure() 
         "编辑",
     ]
     _assert_local_article_brief_sections(article, edition.stories[0])
+
+
+def test_build_row_one_local_articles_marks_skipped_extraction_as_summary_fallback() -> None:
+    articles = build_row_one_local_articles(
+        _edition(),
+        [_source(max_chars=240)],
+        now=AS_OF,
+        extractor=_skipped_extractor("robots_disallowed"),
+    )
+
+    article = articles["the-row-signal-1234567890"]
+
+    assert article.body_source == "summary_fallback"
+    assert article.reason == "robots_disallowed"
+    assert article.skipped is False
+    assert article.paragraphs
+
+
+def test_build_row_one_local_articles_marks_exception_as_summary_fallback() -> None:
+    articles = build_row_one_local_articles(
+        _edition(),
+        [_source(max_chars=240)],
+        now=AS_OF,
+        extractor=_raising_extractor(),
+    )
+
+    article = articles["the-row-signal-1234567890"]
+
+    assert article.body_source == "summary_fallback"
+    assert article.reason == "extraction_failed"
+    assert article.skipped is False
+
+
+def test_build_row_one_local_articles_marks_unavailable_fallback_body_as_skipped() -> None:
+    edition = _edition()
+    edition.stories[0].summary = LocalizedText(en="   ", zh="   ")
+
+    articles = build_row_one_local_articles(
+        edition,
+        [_source(max_chars=240)],
+        now=AS_OF,
+        extractor=_raising_extractor(),
+    )
+
+    article = articles["the-row-signal-1234567890"]
+
+    assert article.body_source == "skipped"
+    assert article.reason == "extraction_failed"
+    assert article.skipped is True
+    assert article.paragraphs == []
+    assert article.paragraphs_zh == []
+
+
+def test_build_row_one_local_articles_marks_empty_text_as_summary_fallback() -> None:
+    articles = build_row_one_local_articles(
+        _edition(),
+        [_source(max_chars=240)],
+        now=AS_OF,
+        extractor=_extractor("   "),
+    )
+
+    article = articles["the-row-signal-1234567890"]
+
+    assert article.body_source == "summary_fallback"
+    assert article.reason == "no_extractable_text"
 
 
 def test_build_row_one_local_articles_cleans_fallback_without_mutating_story_summary() -> None:
@@ -439,6 +550,8 @@ def test_build_row_one_local_articles_cleans_fallback_without_mutating_story_sum
         "The Row showroom note.",
         "Editorial",
     ]
+    assert articles["the-row-signal-1234567890"].body_source == "summary_fallback"
+    assert articles["the-row-signal-1234567890"].reason == "no_extractable_text"
     assert articles["the-row-signal-1234567890"].paragraphs_zh == [
         "摘要",
         "编辑",

@@ -5509,7 +5509,20 @@ def _render_local_article_provenance(article: RowOneLocalArticle) -> str:
             "保存时间",
             _format_datetime(article.extracted_at),
         ),
+        _local_article_provenance_item(
+            "Text source",
+            "正文来源",
+            _local_article_body_source_label(article),
+        ),
     ]
+    if article.reason is not None and article.reason.strip():
+        items.append(
+            _local_article_provenance_item(
+                "Fallback reason",
+                "兜底原因",
+                article.reason,
+            )
+        )
     if article.published_at is not None:
         items.append(
             _local_article_provenance_item(
@@ -5542,6 +5555,14 @@ def _render_local_article_provenance(article: RowOneLocalArticle) -> str:
             "</a>"
         )
     return f'      <div class="local-article-provenance">{"".join(items)}</div>'
+
+
+def _local_article_body_source_label(article: RowOneLocalArticle) -> str:
+    if article.body_source == "summary_fallback":
+        return "ROW ONE summary fallback"
+    if article.body_source == "skipped" or article.skipped:
+        return "Skipped"
+    return "Extracted article text"
 
 
 def _local_article_provenance_item(label_en: str, label_zh: str, value: str) -> str:

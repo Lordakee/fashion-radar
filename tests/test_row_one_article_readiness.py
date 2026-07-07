@@ -46,10 +46,12 @@ def test_article_readiness_counts_article_enabled_sources_and_story_coverage() -
         ],
         edition_payload=_edition_payload(["Fashionista", "Legacy Fashion", "Unknown"]),
         local_article_metrics=RowOneLocalArticleSiteMetrics(
-            article_count=1,
+            article_count=2,
             paragraph_count=4,
             organized_section_count=2,
             source_count=1,
+            extracted_article_count=1,
+            summary_fallback_article_count=1,
         ),
     )
 
@@ -162,6 +164,9 @@ def test_article_readiness_payload_is_machine_readable() -> None:
             "paragraph_count": 0,
             "organized_section_count": 0,
             "source_count": 0,
+            "extracted_article_count": 0,
+            "summary_fallback_article_count": 0,
+            "skipped_article_count": 0,
         },
         "recommendations": [
             "Build or refresh ROW ONE before evaluating current story source coverage.",

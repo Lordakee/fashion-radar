@@ -279,6 +279,9 @@ def test_row_one_build_command_writes_empty_state_site(tmp_path: Path) -> None:
     assert "0 stories" in result.output
     assert "Saved local articles: 0" in result.output
     assert "Saved local paragraphs: 0" in result.output
+    assert "Extracted local articles: 0" in result.output
+    assert "Summary fallback local articles: 0" in result.output
+    assert "Skipped local articles: 0" in result.output
     assert (output_dir / "index.html").exists()
     assert (output_dir / "data" / "edition.json").exists()
     assert "No ROW ONE stories" in (output_dir / "index.html").read_text(encoding="utf-8")
@@ -323,6 +326,9 @@ def test_row_one_preview_builds_site_and_prints_readiness(tmp_path: Path) -> Non
     assert "Evidence links:" in result.output
     assert "Saved local articles: 0" in result.output
     assert "Saved local paragraphs: 0" in result.output
+    assert "Extracted local articles: 0" in result.output
+    assert "Summary fallback local articles: 0" in result.output
+    assert "Skipped local articles: 0" in result.output
     assert "Empty sections:" in result.output
     assert "Generated at:" in result.output
     assert "Readiness:" in result.output
@@ -371,6 +377,9 @@ def test_row_one_build_and_preview_metrics_ignore_stale_sidecars_without_latest_
     assert stale_article_path.exists()
     assert "Saved local articles: 0" in result.output
     assert "Saved local paragraphs: 0" in result.output
+    assert "Extracted local articles: 0" in result.output
+    assert "Summary fallback local articles: 0" in result.output
+    assert "Skipped local articles: 0" in result.output
 
 
 def test_row_one_preview_help_is_discoverable() -> None:
@@ -538,6 +547,9 @@ def test_row_one_refresh_runs_pipeline_and_writes_site(
     assert "Evidence links:" in result.output
     assert "Saved local articles: 0" in result.output
     assert "Saved local paragraphs: 0" in result.output
+    assert "Extracted local articles: 0" in result.output
+    assert "Summary fallback local articles: 0" in result.output
+    assert "Skipped local articles: 0" in result.output
     assert "Readiness:" in result.output
     assert "Open: http://127.0.0.1:8787" in result.output
 
@@ -1377,6 +1389,9 @@ def test_row_one_status_prints_generated_site_readiness(tmp_path: Path) -> None:
     assert "Evidence links: 0" in result.output
     assert "Saved local articles: 0" in result.output
     assert "Saved local paragraphs: 0" in result.output
+    assert "Extracted local articles: 0" in result.output
+    assert "Summary fallback local articles: 0" in result.output
+    assert "Skipped local articles: 0" in result.output
     assert "Refresh time: 04:00" in result.output
     assert "Generated at: 2026-07-02T04:00:00Z" in result.output
     assert "Readiness: empty" in result.output
@@ -1436,6 +1451,9 @@ def test_row_one_status_json_outputs_machine_readable_payload(tmp_path: Path) ->
         "paragraph_count": 0,
         "organized_section_count": 0,
         "source_count": 0,
+        "extracted_article_count": 0,
+        "summary_fallback_article_count": 0,
+        "skipped_article_count": 0,
     }
     assert payload["local_article_count"] == 0
     assert payload["local_article_paragraph_count"] == 0
@@ -1476,6 +1494,9 @@ def test_row_one_status_json_includes_local_article_metrics(tmp_path: Path) -> N
         "paragraph_count": 2,
         "organized_section_count": 2,
         "source_count": 1,
+        "extracted_article_count": 1,
+        "summary_fallback_article_count": 0,
+        "skipped_article_count": 0,
     }
     assert payload["local_article_count"] == 1
     assert payload["local_article_paragraph_count"] == 2
@@ -1509,6 +1530,9 @@ def test_row_one_article_readiness_prints_config_and_site_counts(tmp_path: Path)
     assert "ROW ONE article-enabled sources: 0" in result.output
     assert "Saved local articles: 1" in result.output
     assert "Saved local paragraphs: 2" in result.output
+    assert "Extracted local articles: 1" in result.output
+    assert "Summary fallback local articles: 0" in result.output
+    assert "Skipped local articles: 0" in result.output
     assert "Story source coverage: 0/1 eligible" in result.output
     assert "row_one_article.enabled: true" in result.output
 
@@ -1538,6 +1562,9 @@ def test_row_one_article_readiness_json_is_machine_readable(tmp_path: Path) -> N
     assert payload["site_dir"] == str(output_dir)
     assert payload["local_articles"]["article_count"] == 1
     assert payload["local_articles"]["paragraph_count"] == 2
+    assert payload["local_articles"]["extracted_article_count"] == 1
+    assert payload["local_articles"]["summary_fallback_article_count"] == 0
+    assert payload["local_articles"]["skipped_article_count"] == 0
     assert payload["story_coverage"]["story_count"] == 1
     assert payload["story_coverage"]["eligible_story_count"] == 0
     assert payload["recommendations"]

@@ -1205,6 +1205,74 @@ def test_render_row_one_detail_local_article_provenance_uses_article_source(
     assert '<span data-lang="zh">保存段落</span>' in local_article_html
     assert '<span data-lang="en">Organized sections</span>' in local_article_html
     assert '<span data-lang="zh">整理栏目</span>' in local_article_html
+    assert '<span data-lang="en">Text source</span>' in local_article_html
+    assert '<span data-lang="zh">正文来源</span>' in local_article_html
+    assert "Extracted article text" in local_article_html
+
+
+def test_render_row_one_detail_local_article_renders_body_source_and_reason(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = RowOneLocalArticle(
+        story_id=story.id,
+        title="The Row signal",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        body_source="summary_fallback",
+        reason="robots_disallowed",
+        paragraphs=["Summary fallback paragraph."],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    local_article_html = detail_html[
+        detail_html.index('id="local-article"') : detail_html.index('id="why-it-matters"')
+    ]
+
+    assert '<span data-lang="en">Text source</span>' in local_article_html
+    assert '<span data-lang="zh">正文来源</span>' in local_article_html
+    assert "ROW ONE summary fallback" in local_article_html
+    assert '<span data-lang="en">Fallback reason</span>' in local_article_html
+    assert '<span data-lang="zh">兜底原因</span>' in local_article_html
+    assert "robots_disallowed" in local_article_html
+
+
+def test_render_row_one_detail_suppresses_skipped_local_article(tmp_path) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = RowOneLocalArticle(
+        story_id=story.id,
+        title="The Row signal",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        body_source="skipped",
+        skipped=True,
+        reason="no_publishable_paragraphs",
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={local_article.story_id: local_article},
+    )
+
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'id="local-article"' not in detail_html
+    assert "no_publishable_paragraphs" not in detail_html
 
 
 def test_render_row_one_detail_keeps_plain_local_article_without_zh_paragraphs(

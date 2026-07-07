@@ -986,6 +986,44 @@ def test_row_one_docs_describe_ops_check_boundary() -> None:
             assert phrase not in stage_329
 
 
+def test_row_one_docs_describe_local_article_body_provenance_boundary() -> None:
+    expected = _normalized(
+        "Stage 331 documents local article body provenance for ROW ONE saved "
+        "sidecar JSON and generated detail pages: `body_source` distinguishes "
+        "`extracted`, `summary_fallback`, and `skipped`; `summary_fallback` "
+        "means ROW ONE generated a publishable local article body from the story "
+        "summary/editorial fallback when extraction was skipped, failed, or "
+        "unusable. This is a sidecar/data detail-page provenance signal only; "
+        "it does not change `data/edition.json`, does not change "
+        "`row-one-runtime/v1`, and does not add compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_331_start = normalized.index("stage 331 documents local article body provenance")
+        stage_331_end = normalized.index("stage 329 adds `row-one ops-check`")
+        stage_331 = normalized[stage_331_start:stage_331_end]
+        for phrase in (
+            "local article body provenance",
+            "`body_source`",
+            "`extracted`",
+            "`summary_fallback`",
+            "`skipped`",
+            "row one summary fallback",
+            "does not change `data/edition.json`",
+            "does not change `row-one-runtime/v1`",
+            "does not add compliance-review behavior",
+        ):
+            assert phrase in stage_331
+
+        for stale_phrase in (
+            "every saved local article is extracted source text",
+            "all saved local article paragraphs are extracted article text",
+        ):
+            assert stale_phrase not in normalized
+
+
 def test_row_one_docs_describe_daily_saved_article_library_boundary() -> None:
     expected = _normalized(
         "Stage 326 adds a generated-site only ROW ONE daily saved article library at "
