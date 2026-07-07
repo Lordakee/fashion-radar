@@ -116,6 +116,8 @@ def test_row_one_docs_describe_generated_files_and_cleanup_boundary() -> None:
         "`index.html`",
         "`details/`",
         "`articles/index.html`",
+        "`articles/<story-id>.html`",
+        "first-class local article pages",
         "`articles/`",
         "`assets/row-one.css`",
         "`assets/row-one.js`",
@@ -1211,6 +1213,61 @@ def test_row_one_docs_describe_stage_337_saved_article_reference_atlas_boundary(
             "adds heat ranking",
             "adds connectors",
             "adds scheduling",
+            "adds compliance review",
+        ):
+            assert stale_phrase not in stage
+
+
+def test_row_one_docs_describe_stage_339_first_class_local_article_pages_boundary() -> None:
+    expected = _normalized(
+        "Stage 339 adds generated-site only first-class local article pages at "
+        "`articles/<story-id>.html`; it reuses current-edition saved local "
+        "article sidecars, existing local article rendering sections, safe "
+        "story-id article routes, existing saved article library routes, and "
+        "existing detail-page `#local-article-*` anchors so `articles/index.html` "
+        "can make the local article page the primary local reading action while "
+        "existing detail anchors continue to work; it does not remove detail-page "
+        "local article sections or anchors, does not add outbound article URLs as "
+        "primary navigation, does not write `data/local-article-pages.json` or "
+        "`data/saved-article-pages.json`, does not change row-one-app/v7, "
+        "row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, "
+        "source collection, fetching, matching, extraction, scoring, ranking, "
+        "LLM, connector, scheduling, deployment, market grouping, "
+        "domestic/international classification, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_339_pos = normalized.index(
+            "stage 339 adds generated-site only first-class local article pages"
+        )
+        stage_338_pos = normalized.index(
+            "stage 338 adds generated-site only saved article paragraph evidence board"
+        )
+        assert stage_339_pos < stage_338_pos
+        stage = normalized[stage_339_pos:stage_338_pos]
+        for stale_phrase in (
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "writes `data/local-article-pages.json`",
+            "writes `data/saved-article-pages.json`",
+            "writes a new json artifact",
+            "publishes full articles on the library index",
+            "adds outbound article urls",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds ranking",
+            "adds llm calls",
+            "adds connectors",
+            "adds scheduling",
+            "adds deployment behavior",
+            "removes detail-page local article sections",
+            "removes detail-page anchors",
             "adds compliance review",
         ):
             assert stale_phrase not in stage

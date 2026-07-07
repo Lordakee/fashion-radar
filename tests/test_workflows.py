@@ -348,7 +348,13 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert not (output_dir / "saved-signal-index.html").exists()
     assert not (articles_dir / "saved-signal-index.html").exists()
     if articles_dir.exists():
-        assert {path.name for path in articles_dir.iterdir()} <= {"index.html"}
+        article_sidecar_stems = {
+            path.stem for path in (output_dir / "data" / "articles").glob("*.json")
+        }
+        allowed_article_pages = {"index.html"} | {
+            f"{story_id}.html" for story_id in article_sidecar_stems
+        }
+        assert {path.name for path in articles_dir.iterdir()} <= allowed_article_pages
 
     index_html = (output_dir / "index.html").read_text(encoding="utf-8")
     detail_pages = {
@@ -474,9 +480,15 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert '"evidence_board"' not in generated_contract_payload
     assert '"saved_article_evidence_cards"' not in generated_contract_payload
     assert '"paragraph_evidence_cards"' not in generated_contract_payload
+    assert '"local_article_pages"' not in generated_contract_payload
+    assert '"local_article_page"' not in generated_contract_payload
+    assert '"first_class_local_article"' not in generated_contract_payload
+    assert '"saved_article_pages"' not in generated_contract_payload
+    assert '"article_page_routes"' not in generated_contract_payload
     assert "saved-article-library" not in generated_contract_payload
     assert "saved-signal-index" not in generated_contract_payload
     assert "saved-article-evidence-board" not in generated_contract_payload
+    assert "local-article-page" not in generated_contract_payload
     assert "Daily Saved Article Library" not in generated_contract_payload
     assert "Saved Signal Index" not in generated_contract_payload
     assert "Saved Article Paragraph Evidence Board" not in generated_contract_payload
@@ -487,6 +499,8 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "saved-signal-excerpts.json" not in generated_contract_payload
     assert "saved-signal-excerpt.html" not in generated_contract_payload
     assert "saved-article-evidence-board.json" not in generated_contract_payload
+    assert "local-article-pages.json" not in generated_contract_payload
+    assert "saved-article-pages.json" not in generated_contract_payload
     assert "ROW ONE ops check" not in generated_contract_payload
     articles_html_path = output_dir / "articles" / "index.html"
     if articles_html_path.exists():
@@ -512,6 +526,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "saved-article-evidence-board.json",
         output_dir / "articles" / "saved-article-evidence-board.json",
         output_dir / "data" / "saved-article-evidence-board.json",
+        output_dir / "local-article-pages.json",
+        output_dir / "articles" / "local-article-pages.json",
+        output_dir / "data" / "local-article-pages.json",
+        output_dir / "saved-article-pages.json",
+        output_dir / "articles" / "saved-article-pages.json",
+        output_dir / "data" / "saved-article-pages.json",
     ):
         assert not artifact_path.exists()
     assert stored == stored_before

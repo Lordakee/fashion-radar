@@ -2973,7 +2973,9 @@ def test_render_row_one_site_writes_saved_article_library_page(tmp_path) -> None
     assert "Vogue &lt;Business&gt;" in html
     assert "The Row &lt;source&gt;" in html
     assert "&lt;The Row&gt;" in html
-    assert 'href="../details/the-row-signal-1234567890.html#local-article-reader"' in html
+    assert 'href="the-row-signal-1234567890.html"' in html
+    assert 'class="saved-article-library-primary-action"' in html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-reader"' not in html
     assert 'href="../details/the-row-signal-1234567890.html#local-article-digest"' in html
     assert (
         'href="../details/the-row-signal-1234567890.html#local-article-paragraph-evidence"' in html
@@ -3039,6 +3041,129 @@ def test_render_row_one_site_writes_saved_article_library_page(tmp_path) -> None
         ):
             assert forbidden not in contract_json
     assert not (tmp_path / "data" / "saved-article-library.json").exists()
+
+
+def test_render_row_one_site_writes_first_class_local_article_page(tmp_path) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    article_path = tmp_path / "articles" / f"{story.id}.html"
+    assert article_path.exists()
+    article_html = article_path.read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+
+    assert 'class="local-article-page"' in article_html
+    assert '<link rel="stylesheet" href="../assets/row-one.css">' in article_html
+    assert '<script src="../assets/row-one.js"></script>' in article_html
+    assert 'href="index.html"' in article_html
+    assert 'href="../index.html"' in article_html
+    assert 'href="../details/the-row-signal-1234567890.html"' in article_html
+    assert 'href="assets/row-one.css"' not in article_html
+    assert 'src="assets/row-one.js"' not in article_html
+    assert 'id="local-article"' in article_html
+    assert 'id="local-article-reader"' in article_html
+    assert 'id="local-article-paragraph-1"' in article_html
+    assert "Signal source article" in article_html
+    assert "The Row Margaux bag appears in saved source text." in article_html
+    assert f'href="{story.id}.html"' in library_html
+    assert 'class="saved-article-library-primary-action"' in library_html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-digest"' in library_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-evidence"'
+        in library_html
+    )
+    assert edition_payload["contract_version"] == "row-one-app/v7"
+    assert manifest_payload["contract_version"] == "row-one-manifest/v1"
+    assert runtime_payload["contract_version"] == "row-one-runtime/v1"
+    for contract_json in (
+        json.dumps(edition_payload, ensure_ascii=False),
+        json.dumps(manifest_payload, ensure_ascii=False),
+        json.dumps(runtime_payload, ensure_ascii=False),
+    ):
+        assert "local_article_pages" not in contract_json
+        assert "first_class_local_article" not in contract_json
+        assert "local-article-page" not in contract_json
+    assert not (tmp_path / "data" / "local-article-pages.json").exists()
+
+
+def test_render_row_one_site_omits_local_article_page_for_mismatched_article_id(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={"story_id": "other-story-1234567890"},
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: local_article},
+    )
+
+    assert not (tmp_path / "articles" / f"{story.id}.html").exists()
+    library_path = tmp_path / "articles" / "index.html"
+    if library_path.exists():
+        assert f'href="{story.id}.html"' not in library_path.read_text(encoding="utf-8")
+
+
+def test_render_row_one_site_omits_local_article_page_for_empty_saved_body(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={"paragraphs": ["", "   "], "paragraphs_zh": []},
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: local_article},
+    )
+
+    assert not (tmp_path / "articles" / f"{story.id}.html").exists()
+    library_path = tmp_path / "articles" / "index.html"
+    if library_path.exists():
+        assert f'href="{story.id}.html"' not in library_path.read_text(encoding="utf-8")
+
+
+def test_render_row_one_site_keeps_existing_error_for_unsafe_detail_path(tmp_path) -> None:
+    edition = _edition()
+    story = edition.stories[0].model_copy(
+        deep=True,
+        update={"detail_path": "../unsafe.html"},
+    )
+    edition.stories = [story]
+
+    with pytest.raises(ValueError):
+        render_row_one_site(
+            edition,
+            tmp_path,
+            local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+        )
+
+
+def test_render_row_one_site_latest_only_removes_stale_local_article_page(tmp_path) -> None:
+    articles_dir = tmp_path / "articles"
+    articles_dir.mkdir(parents=True)
+    (tmp_path / ".row-one-site").write_text("ROW ONE generated site\n", encoding="utf-8")
+    (articles_dir / "stale.html").write_text("stale", encoding="utf-8")
+
+    render_row_one_site(_edition(), tmp_path, latest_only=True)
+
+    assert not (articles_dir / "stale.html").exists()
 
 
 def test_render_row_one_site_saved_article_library_hides_summary_fallback_reason(
@@ -5160,6 +5285,32 @@ def test_render_saved_article_library_html_omits_empty_theme_digest_shell() -> N
         assert "保存文章主题简报" not in html
         assert 'class="saved-article-library-hero"' in html
         assert 'class="saved-article-library-grid"' in html
+
+
+def test_render_saved_article_library_html_omits_article_page_link_without_allowlist() -> None:
+    html = render_saved_article_library_html(_edition(), _saved_article_library_fixture())
+
+    assert 'href="the-row-signal-1234567890.html"' not in html
+    assert 'class="saved-article-library-primary-action"' not in html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-reader"' in html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-digest"' in html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-evidence"' in html
+    )
+
+
+def test_render_saved_article_library_html_revalidates_article_page_allowlist_hrefs() -> None:
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        local_article_page_hrefs_by_detail_path={
+            "details/the-row-signal-1234567890.html": "javascript:alert(1).html",
+        },
+    )
+
+    assert "javascript:alert" not in html
+    assert 'class="saved-article-library-primary-action"' not in html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-reader"' in html
 
 
 def test_render_saved_article_library_html_filters_unsafe_reference_atlas_supports() -> None:

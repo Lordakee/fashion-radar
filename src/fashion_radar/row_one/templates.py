@@ -7,6 +7,7 @@ from datetime import datetime
 from html import escape
 from pathlib import PurePosixPath
 
+from fashion_radar.row_one.articles import safe_local_article_story_id
 from fashion_radar.row_one.detail_routes import (
     safe_row_one_detail_fragment_href,
     validated_row_one_detail_relative_path,
@@ -294,6 +295,7 @@ def render_saved_article_library_html(
     saved_article_theme_digest: RowOneSavedArticleThemeDigest | None = None,
     saved_article_reference_atlas: RowOneSavedArticleReferenceAtlas | None = None,
     saved_article_evidence_board: RowOneSavedArticleEvidenceBoard | None = None,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None = None,
 ) -> str:
     snippets_by_detail_path = _saved_article_library_snippets_by_detail_path(
         saved_article_content_organization
@@ -302,6 +304,7 @@ def render_saved_article_library_html(
         _render_saved_article_library_source(
             group,
             snippets_by_detail_path=snippets_by_detail_path,
+            local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
         )
         for group in library.groups
     )
@@ -360,6 +363,79 @@ def render_saved_article_library_html(
   {evidence_board}
   {content_organization}
   <div class="saved-article-library-grid">{groups}</div>
+</main>
+<script src="../assets/row-one.js"></script>
+</body>
+</html>
+"""
+
+
+def render_local_article_page_html(
+    edition: RowOneEdition,
+    story: RowOneStory,
+    *,
+    local_article: RowOneLocalArticle,
+) -> str:
+    local_article_section = _render_local_article(local_article)
+    if not local_article_section:
+        return ""
+    section_title = _section_title(edition, story.section_key)
+    summary_en = _display_summary_text(story.summary.en)
+    detail_path = _validated_detail_relative_path(story.detail_path)
+    if detail_path is None:
+        return ""
+    detail_href = f"../{detail_path}"
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{
+        _render_meta_tags(
+            title=f"{local_article.title or story.headline} - {edition.brand}",
+            description=summary_en,
+            page_type="article",
+        )
+    }
+<title>{_esc(local_article.title or story.headline)} — {_esc(edition.brand)}</title>
+<link rel="stylesheet" href="../assets/row-one.css">
+</head>
+<body>
+<header class="detail-header local-article-page-header">
+  <a class="back-link" href="../index.html">ROW ONE</a>
+  <nav class="local-article-page-nav" aria-label="Saved article navigation">
+    <a href="index.html">
+      <span data-lang="en">Saved Article Library</span>
+      <span data-lang="zh">本地文章库</span>
+    </a>
+    <a href="{_esc(detail_href)}">
+      <span data-lang="en">Organized Detail</span>
+      <span data-lang="zh">整理详情页</span>
+    </a>
+  </nav>
+  <div class="language-toggle" aria-label="Language">
+    <button type="button" data-lang-toggle="en" aria-pressed="true">EN</button>
+    <button type="button" data-lang-toggle="zh" aria-pressed="false">中文</button>
+  </div>
+</header>
+<main class="detail-main">
+  <article class="local-article-page">
+    <div class="local-article-page-article">
+    <p class="story-section">
+      <span data-lang="en">{_esc(section_title.en)}</span>
+      <span data-lang="zh">{_esc(section_title.zh)}</span>
+    </p>
+    <p class="section-return">
+      <a href="../index.html#{_esc(story.section_key)}">
+        <span data-lang="en">Back to section</span>
+        <span data-lang="zh">回到栏目</span>
+      </a>
+    </p>
+    <h1>{_esc(local_article.title or story.headline)}</h1>
+    <p class="story-source">{_esc(local_article.source_name)}</p>
+    {local_article_section}
+    </div>
+  </article>
 </main>
 <script src="../assets/row-one.js"></script>
 </body>
@@ -1328,6 +1404,37 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   padding: 7px 9px;
   text-decoration: none;
   text-transform: uppercase;
+}
+.saved-article-library-primary-action {
+  background: var(--accent);
+  color: var(--panel) !important;
+}
+.local-article-page {
+  display: grid;
+  gap: 28px;
+}
+.local-article-page-header {
+  align-items: center;
+  gap: 18px;
+}
+.local-article-page-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.local-article-page-nav a {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 7px 9px;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.local-article-page-article {
+  display: grid;
+  gap: 18px;
 }
 .saved-signal-index {
   border-bottom: 1px solid var(--ink);
@@ -4576,11 +4683,13 @@ def _render_saved_article_library_source(
         Sequence[RowOneSavedArticleContentOrganizationCard],
     ]
     | None = None,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None = None,
 ) -> str:
     cards = "\n".join(
         _render_saved_article_library_card(
             entry,
             snippets_by_detail_path=snippets_by_detail_path,
+            local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
         )
         for entry in group.entries
     )
@@ -4612,10 +4721,14 @@ def _render_saved_article_library_card(
         Sequence[RowOneSavedArticleContentOrganizationCard],
     ]
     | None = None,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None = None,
 ) -> str:
     refs = _render_saved_article_library_refs(entry.references)
     paragraphs = _render_saved_article_library_paragraphs(entry.paragraph_links)
-    actions = _render_saved_article_library_actions(entry)
+    actions = _render_saved_article_library_actions(
+        entry,
+        local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+    )
     snippets = _render_saved_article_library_snippets(
         _saved_article_library_entry_snippets(entry, snippets_by_detail_path)
     )
@@ -5412,14 +5525,12 @@ def _render_saved_article_library_paragraphs(
     )
 
 
-def _render_saved_article_library_actions(entry: RowOneSavedArticleLibraryEntry) -> str:
+def _render_saved_article_library_actions(
+    entry: RowOneSavedArticleLibraryEntry,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None = None,
+) -> str:
     actions = [
-        (
-            entry.reader_path,
-            "local-article-reader",
-            "Read local article",
-            "阅读本地正文",
-        ),
         (
             entry.digest_path,
             "local-article-digest",
@@ -5437,6 +5548,27 @@ def _render_saved_article_library_actions(entry: RowOneSavedArticleLibraryEntry)
             )
         )
     rendered = []
+    article_page_href = _saved_article_library_entry_article_page_href(
+        entry,
+        local_article_page_hrefs_by_detail_path,
+    )
+    if article_page_href is not None:
+        rendered.append(
+            f"""<a class="saved-article-library-primary-action" href="{_esc(article_page_href)}">
+              <span data-lang="en">Read local article</span>
+              <span data-lang="zh">阅读本地正文</span>
+            </a>"""
+        )
+    else:
+        actions.insert(
+            0,
+            (
+                entry.reader_path,
+                "local-article-reader",
+                "Read local article",
+                "阅读本地正文",
+            ),
+        )
     for href, fragment, label_en, label_zh in actions:
         safe_href = safe_row_one_detail_fragment_href(href, fragment)
         if safe_href is None:
@@ -5450,6 +5582,25 @@ def _render_saved_article_library_actions(entry: RowOneSavedArticleLibraryEntry)
     if not rendered:
         return ""
     return '<div class="saved-article-library-actions">' + "".join(rendered) + "</div>"
+
+
+def _saved_article_library_entry_article_page_href(
+    entry: RowOneSavedArticleLibraryEntry,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str | None:
+    if not local_article_page_hrefs_by_detail_path:
+        return None
+    detail_path = _saved_article_library_entry_detail_path(entry)
+    if detail_path is None:
+        return None
+    href = local_article_page_hrefs_by_detail_path.get(detail_path)
+    if href is None:
+        return None
+    if href.startswith(".") or "/" in href or not href.endswith(".html"):
+        return None
+    if not safe_local_article_story_id(href.removesuffix(".html")):
+        return None
+    return href
 
 
 def _safe_saved_article_library_paragraph_href(href: object) -> str | None:

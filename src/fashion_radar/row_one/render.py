@@ -71,6 +71,7 @@ from fashion_radar.row_one.templates import (
     _validated_detail_relative_path,
     render_detail_html,
     render_index_html,
+    render_local_article_page_html,
     render_saved_article_library_html,
     row_one_css,
     row_one_js,
@@ -185,6 +186,7 @@ def render_row_one_site(
         saved_article_theme_digest=saved_article_theme_digest,
         saved_article_reference_atlas=saved_article_reference_atlas,
         saved_article_evidence_board=saved_article_evidence_board,
+        local_articles_by_story_id=local_articles_by_story_id,
     )
     data_dir = output_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -284,10 +286,16 @@ def _write_saved_article_library_page(
     saved_article_theme_digest: RowOneSavedArticleThemeDigest | None,
     saved_article_reference_atlas: RowOneSavedArticleReferenceAtlas | None,
     saved_article_evidence_board: RowOneSavedArticleEvidenceBoard | None,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
 ) -> None:
     if saved_article_library is None:
         return
     articles_dir.mkdir(parents=True, exist_ok=True)
+    article_page_hrefs_by_detail_path = _write_local_article_pages(
+        edition,
+        articles_dir,
+        local_articles_by_story_id=local_articles_by_story_id,
+    )
     (articles_dir / "index.html").write_text(
         render_saved_article_library_html(
             edition,
@@ -298,9 +306,43 @@ def _write_saved_article_library_page(
             saved_article_theme_digest=saved_article_theme_digest,
             saved_article_reference_atlas=saved_article_reference_atlas,
             saved_article_evidence_board=saved_article_evidence_board,
+            local_article_page_hrefs_by_detail_path=article_page_hrefs_by_detail_path,
         ),
         encoding="utf-8",
     )
+
+
+def _local_article_page_href(story_id: str) -> str | None:
+    if not safe_local_article_story_id(story_id):
+        return None
+    return f"{story_id}.html"
+
+
+def _write_local_article_pages(
+    edition: RowOneEdition,
+    articles_dir: Path,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+) -> dict[str, str]:
+    written_hrefs: dict[str, str] = {}
+    for story in edition.stories:
+        article = local_articles_by_story_id.get(story.id)
+        if article is None or article.story_id != story.id:
+            continue
+        if not any(paragraph.strip() for paragraph in article.paragraphs):
+            continue
+        article_page_href = _local_article_page_href(story.id)
+        if article_page_href is None:
+            continue
+        pure_detail_path = _validated_detail_relative_path(story.detail_path)
+        if pure_detail_path is None:
+            continue
+        html = render_local_article_page_html(edition, story, local_article=article)
+        if not html:
+            continue
+        (articles_dir / article_page_href).write_text(html, encoding="utf-8")
+        written_hrefs[str(pure_detail_path)] = article_page_href
+    return written_hrefs
 
 
 def _writable_local_articles(
