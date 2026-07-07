@@ -457,6 +457,9 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert '"saved_signal_excerpt"' not in generated_contract_payload
     assert '"signal_index"' not in generated_contract_payload
     assert '"signal_excerpt"' not in generated_contract_payload
+    assert '"ops_check"' not in generated_contract_payload
+    assert '"deploy_status"' not in generated_contract_payload
+    assert '"port_status"' not in generated_contract_payload
     assert '"entity_index"' not in generated_contract_payload
     assert '"brand_index"' not in generated_contract_payload
     assert '"product_index"' not in generated_contract_payload
@@ -472,6 +475,7 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "saved-signal-index.json" not in generated_contract_payload
     assert "saved-signal-excerpts.json" not in generated_contract_payload
     assert "saved-signal-excerpt.html" not in generated_contract_payload
+    assert "ROW ONE ops check" not in generated_contract_payload
     articles_html_path = output_dir / "articles" / "index.html"
     if articles_html_path.exists():
         articles_html = articles_html_path.read_text(encoding="utf-8")
@@ -486,10 +490,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     }
     assert not (output_dir / "data" / "local-article-metrics.json").exists()
     for artifact_path in (
+        output_dir / "ops-check.html",
         output_dir / "saved-signal-excerpts.json",
         output_dir / "saved-signal-excerpt.html",
         output_dir / "articles" / "saved-signal-excerpts.json",
         output_dir / "articles" / "saved-signal-excerpt.html",
+        output_dir / "data" / "ops-check.json",
         output_dir / "data" / "saved-signal-excerpts.json",
     ):
         assert not artifact_path.exists()

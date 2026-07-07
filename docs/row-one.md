@@ -15,6 +15,7 @@ AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar row-one refresh --as-of "$AS_OF" --output-dir reports/row-one/site
 uv run fashion-radar row-one preview --as-of "$AS_OF" --latest-only --dry-run-serve-url
 uv run fashion-radar row-one status --site-dir reports/row-one/site --json
+uv run fashion-radar row-one ops-check --site-dir reports/row-one/site --host 0.0.0.0 --port 8787 --json
 uv run fashion-radar row-one local-ops --time 04:00 --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one install-local --dry-run --time 04:00 --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787
@@ -258,6 +259,28 @@ contract change: the additive status fields are CLI output only and do not add
 fields to `row-one-runtime/v1`, `row-one-manifest/v1`, or `row-one-app/v7`.
 `data/edition.json` remains `row-one-app/v7`, `data/manifest.json` remains
 `row-one-manifest/v1`, and `data/runtime.json` remains `row-one-runtime/v1`.
+
+## Ops Check
+
+`row-one ops-check` is a read-only local ROW ONE operations diagnostic. It
+inspects generated site file presence, runtime freshness, local HTTP/port
+readiness, access URLs, and expected user systemd unit-file presence under the
+selected unit directory. It can print human-readable output or `--json` output
+for local operator dashboards.
+
+Its `ready` status requires generated site files, fresh runtime metadata, a
+local server already serving ROW ONE, and expected user systemd unit files;
+missing units keep the result in `attention` even when the site and server are
+otherwise healthy.
+
+It does not start servers, install or enable systemd units, call `systemctl`,
+kill processes, refresh or rebuild the site, write files or artifacts, change
+`row-one-app/v7`, `row-one-manifest/v1`, `row-one-runtime/v1`, schemas, source
+collection, fetching, extraction, scoring, ranking, LLM, connectors, deployment
+automation, market grouping, domestic/international classification, or
+compliance-review behavior. Use `row-one status --json` as the script-facing
+preflight surface; runtime metadata is local operational metadata only and is
+not a deployment record.
 The first-run smoke now performs a local HTTP serve fetch, not just
 `serve --dry-run`, after status has validated the generated site.
 
@@ -438,6 +461,7 @@ does not change
 schemas, does not write a new json artifact, does not add source collection,
 does not fetch article pages, does not add scoring, does not add llm calls, does
 not add connectors, and is not a compliance review feature.
+Stage 329 adds `row-one ops-check` as a read-only local ROW ONE ops diagnostic for site freshness, server/port readiness, access URLs, and user systemd unit-file presence; it does not start servers, install or enable systemd units, kill processes, refresh or rebuild the site, write files, change row-one-app/v7, row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, source collection, fetching, extraction, scoring, ranking, LLM, connector, deployment automation, market grouping, domestic/international classification, or compliance-review behavior.
 Stage 328 adds generated-site only evidence excerpts to the existing ROW ONE Saved Signal Index inside `articles/index.html`; it shows capped snippets from existing saved local article item bodies or saved paragraphs and links back into existing detail-page local article anchors; it does not change row-one-app/v7, row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, source collection, fetching, matching, extraction, scoring, ranking, LLM, connector, scheduling, deployment, market grouping, domestic/international classification, or compliance-review behavior.
 Stage 327 adds a generated-site only ROW ONE Saved Signal Index inside
 `articles/index.html`; it organizes the current edition's saved local article
@@ -554,6 +578,11 @@ untouched.
   status from `data/runtime.json` without rebuilding or serving the site.
   Important flags: `--site-dir`. Use `row-one status --json` as the
   script-facing preflight surface before serving.
+- `row-one ops-check`: runs a read-only local operations diagnostic for site
+  freshness, server/port readiness, access URLs, and user systemd unit-file
+  presence. Important flags: `--site-dir`, `--host`, `--port`, `--unit-dir`,
+  `--as-of`, and `--json`. It does not start servers, install systemd units,
+  refresh or rebuild the site, write files, or change ROW ONE contracts.
 - `row-one local-ops`: prints a ROW ONE local daily ops runbook for 04:00
   refresh, fixed IP:port serving, preview, `row-one status --json` preflight,
   source checkout commands, and cron snippets. It prints snippets only and does
@@ -598,6 +627,7 @@ cd /path/to/fashion-radar
 uv run fashion-radar row-one refresh --config-dir configs --data-dir data --reports-dir reports --output-dir reports/row-one/site --as-of "$AS_OF"
 uv run fashion-radar row-one preview --config-dir configs --data-dir data --reports-dir reports --output-dir reports/row-one/site --as-of "$AS_OF" --latest-only --host 0.0.0.0 --port 8787 --dry-run-serve-url
 uv run fashion-radar row-one status --site-dir reports/row-one/site --json
+uv run fashion-radar row-one ops-check --site-dir reports/row-one/site --host 0.0.0.0 --port 8787 --json
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 0.0.0.0 --port 8787
 ```
 
@@ -606,6 +636,7 @@ and operations scripts can validate the generated site before serving it.
 The copyable source-checkout command group includes
 `uv run fashion-radar row-one refresh`, `uv run fashion-radar row-one preview`,
 `uv run fashion-radar row-one status --site-dir reports/row-one/site --json`,
+`uv run fashion-radar row-one ops-check --site-dir reports/row-one/site --host 0.0.0.0 --port 8787 --json`,
 and `uv run fashion-radar row-one serve`.
 
 `row-one install-local --dry-run` prints the complete user systemd unit files and

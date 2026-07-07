@@ -149,6 +149,7 @@ from fashion_radar.row_one.article_readiness import (
     row_one_article_readiness_payload,
 )
 from fashion_radar.row_one.ops import render_row_one_local_ops_runbook
+from fashion_radar.row_one.ops_check import build_row_one_ops_check_payload
 from fashion_radar.row_one.readiness import build_row_one_readiness
 from fashion_radar.row_one.server import (
     format_row_one_site_access_message,
@@ -2276,6 +2277,75 @@ def row_one_article_readiness(
     if isinstance(recommendations, list):
         for recommendation in recommendations:
             typer.echo(f"Recommendation: {recommendation}")
+
+
+def _parse_row_one_ops_check_as_of(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    try:
+        return parse_datetime_utc(value)
+    except (TypeError, ValueError) as exc:
+        raise typer.BadParameter("must be an ISO datetime") from exc
+
+
+def _render_row_one_ops_check_text(payload: dict[str, object]) -> str:
+    freshness = payload.get("freshness") if isinstance(payload.get("freshness"), dict) else {}
+    server = payload.get("server") if isinstance(payload.get("server"), dict) else {}
+    systemd = payload.get("systemd") if isinstance(payload.get("systemd"), dict) else {}
+    access = payload.get("access") if isinstance(payload.get("access"), dict) else {}
+    actions = payload.get("actions") if isinstance(payload.get("actions"), list) else []
+    lines = [
+        "ROW ONE ops check",
+        f"Status: {payload.get('status', 'unknown')}",
+        f"Freshness: {freshness.get('status', 'unknown')}",
+        f"Server: {server.get('status', 'unknown')}",
+        f"Systemd units: {systemd.get('status', 'unknown')}",
+    ]
+    message = access.get("message")
+    if isinstance(message, str) and message:
+        lines.extend(["Access:", message])
+    if actions:
+        lines.append("Actions:")
+        lines.extend(f"- {action}" for action in actions if isinstance(action, str))
+    return "\n".join(lines)
+
+
+@row_one_app.command(name="ops-check")
+def row_one_ops_check(
+    site_dir: Path = ROW_ONE_SITE_DIR_OPTION,
+    host: str = ROW_ONE_HOST_OPTION,
+    port: int = ROW_ONE_PORT_OPTION,
+    unit_dir: Path = ROW_ONE_UNIT_DIR_OPTION,
+    as_of: str | None = typer.Option(None, help="Reference ISO datetime for freshness checks."),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Print machine-readable JSON ops check payload.",
+    ),
+) -> None:
+    """Read-only local ROW ONE operations readiness check."""
+    try:
+        parsed_as_of = _parse_row_one_ops_check_as_of(as_of)
+    except typer.BadParameter as exc:
+        typer.echo(f"--as-of {exc.message}", err=True)
+        raise typer.Exit(1) from exc
+
+    try:
+        payload = build_row_one_ops_check_payload(
+            site_dir=site_dir,
+            host=host,
+            port=port,
+            unit_dir=unit_dir,
+            as_of=parsed_as_of,
+        )
+    except Exception as exc:
+        typer.echo(f"ROW ONE ops check failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    if json_output:
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    typer.echo(_render_row_one_ops_check_text(payload))
 
 
 @row_one_app.command(name="local-ops")

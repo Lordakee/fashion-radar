@@ -894,6 +894,51 @@ def test_row_one_docs_describe_saved_signal_evidence_excerpts_boundary() -> None
             assert phrase not in normalized
 
 
+def test_row_one_docs_describe_ops_check_boundary() -> None:
+    expected = _normalized(
+        "Stage 329 adds `row-one ops-check` as a read-only local ROW ONE ops "
+        "diagnostic for site freshness, server/port readiness, access URLs, "
+        "and user systemd unit-file presence; it does not start servers, install "
+        "or enable systemd units, kill processes, refresh or rebuild the site, "
+        "write files, change row-one-app/v7, row-one-manifest/v1, "
+        "row-one-runtime/v1, schemas, JSON artifacts, source collection, "
+        "fetching, extraction, scoring, ranking, LLM, connector, deployment "
+        "automation, market grouping, domestic/international classification, "
+        "or compliance-review behavior."
+    )
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        for phrase in (
+            "`ready` status requires generated site files",
+            "fresh runtime metadata",
+            "local server already serving row one",
+            "expected user systemd unit files",
+            "missing units keep the result in `attention`",
+        ):
+            assert phrase in normalized
+        stage_329 = normalized[
+            normalized.index("stage 329 adds `row-one ops-check`") : normalized.index(
+                "stage 328 adds generated-site only evidence excerpts"
+            )
+        ]
+        for phrase in (
+            "starts servers",
+            "installs systemd",
+            "enables systemd",
+            "kills processes",
+            "refreshes the site",
+            "rebuilds the site",
+            "writes files",
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "adds deployment automation",
+            "adds compliance review",
+        ):
+            assert phrase not in stage_329
+
+
 def test_row_one_docs_describe_daily_saved_article_library_boundary() -> None:
     expected = _normalized(
         "Stage 326 adds a generated-site only ROW ONE daily saved article library at "
@@ -1497,7 +1542,7 @@ def test_row_one_docs_describe_manifest_and_editorial_polish() -> None:
     assert "do not upload generated ROW ONE site artifacts".lower() in checklist.lower()
 
 
-def test_row_one_cli_docs_list_build_preview_serve_and_schedule_commands() -> None:
+def test_row_one_cli_docs_list_build_preview_ops_check_serve_and_schedule_commands() -> None:
     normalized = _normalized(_read(CLI_REFERENCE))
 
     for phrase in (
@@ -1506,6 +1551,7 @@ def test_row_one_cli_docs_list_build_preview_serve_and_schedule_commands() -> No
         "`row-one status`",
         "`row-one local-ops`",
         "`row-one install-local`",
+        "`row-one ops-check`",
         "`row-one serve`",
         "`row-one schedule`",
         "`--output-dir`",

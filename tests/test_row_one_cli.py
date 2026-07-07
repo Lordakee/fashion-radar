@@ -580,6 +580,185 @@ def test_row_one_local_ops_help_is_discoverable() -> None:
     assert "--port" in result.output
 
 
+def test_row_one_ops_check_json_forwards_options_and_as_of(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    site_dir = tmp_path / "site"
+    unit_dir = tmp_path / "units"
+    captured: dict[str, object] = {}
+
+    def build_payload(
+        *,
+        site_dir: Path,
+        host: str,
+        port: int,
+        unit_dir: Path,
+        as_of: object,
+    ) -> dict[str, object]:
+        captured.update(
+            {
+                "site_dir": site_dir,
+                "host": host,
+                "port": port,
+                "unit_dir": unit_dir,
+                "as_of": as_of,
+            }
+        )
+        return {
+            "ok": True,
+            "status": "attention",
+            "site_dir": str(site_dir),
+            "as_of": "2026-07-07T08:00:00Z",
+            "freshness": {"status": "stale"},
+            "server": {"status": "serving_other"},
+            "systemd": {"status": "missing"},
+            "access": {
+                "message": "Open locally: http://127.0.0.1:8787",
+                "local_url": "http://127.0.0.1:8787",
+                "lan_url_hint": "http://<LAN-IP>:8787",
+            },
+            "actions": ["检查本地 ROW ONE 服务。"],
+        }
+
+    monkeypatch.setattr(
+        cli_module,
+        "build_row_one_ops_check_payload",
+        build_payload,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "ops-check",
+            "--site-dir",
+            str(site_dir),
+            "--unit-dir",
+            str(unit_dir),
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "8787",
+            "--as-of",
+            "2026-07-07T08:00:00Z",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured == {
+        "site_dir": site_dir,
+        "host": "127.0.0.1",
+        "port": 8787,
+        "unit_dir": unit_dir,
+        "as_of": parse_datetime_utc("2026-07-07T08:00:00Z"),
+    }
+    assert '\n  "status": "attention"' in result.output
+    assert "检查本地 ROW ONE 服务。" in result.output
+    payload = json.loads(result.output)
+    assert payload["freshness"]["status"] == "stale"
+    assert payload["systemd"]["status"] == "missing"
+    assert payload["access"]["local_url"] == "http://127.0.0.1:8787"
+
+
+def test_row_one_ops_check_human_output_is_read_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    site_dir = tmp_path / "site"
+    unit_dir = tmp_path / "units"
+
+    def build_payload(
+        *,
+        site_dir: Path,
+        host: str,
+        port: int,
+        unit_dir: Path,
+        as_of: object,
+    ) -> dict[str, object]:
+        return {
+            "ok": True,
+            "status": "ready",
+            "site_dir": str(site_dir),
+            "as_of": "2026-07-07T08:00:00Z",
+            "freshness": {"status": "fresh"},
+            "server": {"status": "serving_row_one"},
+            "systemd": {"status": "present"},
+            "access": {
+                "message": (
+                    "Open locally: http://127.0.0.1:8787\nOpen from LAN: http://<LAN-IP>:8787"
+                ),
+                "local_url": "http://127.0.0.1:8787",
+                "lan_url_hint": "http://<LAN-IP>:8787",
+            },
+            "actions": ["Review user systemd units."],
+        }
+
+    monkeypatch.setattr(
+        cli_module,
+        "build_row_one_ops_check_payload",
+        build_payload,
+        raising=False,
+    )
+    before = sorted(path.relative_to(tmp_path) for path in tmp_path.rglob("*"))
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "ops-check",
+            "--site-dir",
+            str(site_dir),
+            "--unit-dir",
+            str(unit_dir),
+            "--as-of",
+            "2026-07-07T08:00:00Z",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "ROW ONE ops check" in result.output
+    assert "Status: ready" in result.output
+    assert "Freshness: fresh" in result.output
+    assert "Server: serving_row_one" in result.output
+    assert "Systemd units: present" in result.output
+    assert "Access:" in result.output
+    assert "Open locally: http://127.0.0.1:8787" in result.output
+    assert "Actions:" in result.output
+    assert "- Review user systemd units." in result.output
+    after = sorted(path.relative_to(tmp_path) for path in tmp_path.rglob("*"))
+    assert after == before
+
+
+def test_row_one_ops_check_rejects_malformed_as_of(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def build_payload(**_kwargs: object) -> dict[str, object]:
+        raise AssertionError("diagnostic builder must not run for malformed --as-of")
+
+    monkeypatch.setattr(
+        cli_module,
+        "build_row_one_ops_check_payload",
+        build_payload,
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "ops-check",
+            "--site-dir",
+            str(tmp_path / "site"),
+            "--as-of",
+            "not-a-date",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "must be an ISO datetime" in result.output
+
+
 def test_row_one_install_local_dry_run_prints_systemd_files(tmp_path: Path) -> None:
     config_dir = tmp_path / "configs"
     data_dir = tmp_path / "data"

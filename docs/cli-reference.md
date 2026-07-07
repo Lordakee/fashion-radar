@@ -16,7 +16,7 @@ does not add connectors.
 | Setup | `init`, `migrate-db`, `doctor` | [first-run.md](first-run.md) |
 | Local sample/import | `community-signal-lint`, `import-signals`, `import-signals-dir` | [first-run.md](first-run.md) |
 | Match/report/review | `match`, `report`, `candidates`, `trends`, `trend-explanations`, `imported-signals` | [first-run.md](first-run.md) |
-| Daily site | `row-one build`, `row-one preview`, `row-one status`, `row-one local-ops`, `row-one install-local`, `row-one serve`, `row-one schedule` | [row-one.md](row-one.md) |
+| Daily site | `row-one build`, `row-one preview`, `row-one status`, `row-one ops-check`, `row-one local-ops`, `row-one install-local`, `row-one serve`, `row-one schedule` | [row-one.md](row-one.md) |
 | Dashboard | `dashboard` | [first-run.md](first-run.md) |
 | Optional entity matching | `entity-pack-lint` | [entity-packs.md](entity-packs.md) |
 | Cleanup | Reset The Repo-Local Sample | [first-run.md](first-run.md) |
@@ -121,6 +121,21 @@ first-run smoke now performs a local HTTP serve fetch, not just
   `data/manifest.json` remains `row-one-manifest/v1`, and `data/runtime.json`
   remains `row-one-runtime/v1`. The first-run smoke now performs a local HTTP
   serve fetch, not just `serve --dry-run`, after the generated site preflight.
+- `row-one ops-check`: read-only local ROW ONE operations readiness check. It
+  inspects generated site files, runtime freshness, local HTTP/port status,
+  access URLs, and expected user systemd unit files; supports `--site-dir`,
+  `--host`, `--port`, `--unit-dir`, `--as-of`, and `--json`. It does not start
+  servers, install or enable units, kill processes, refresh or rebuild the
+  site, write files or artifacts, or change ROW ONE app/runtime/manifest
+  contracts, schemas, source collection, fetching, extraction, scoring,
+  ranking, LLM, connectors, deployment automation, market grouping,
+  domestic/international classification, or compliance-review behavior.
+  Its `ready` status requires generated site files, fresh runtime metadata, a
+  local server already serving ROW ONE, and expected user systemd unit files;
+  missing units keep the result in `attention`.
+  `row-one status --json` remains the script-facing preflight surface, and
+  runtime metadata remains local operational metadata only, not a deployment
+  record.
 - `row-one local-ops`: print a local daily ops runbook for 04:00 refresh,
   fixed IP:port serving, preview, and cron snippets; supports `--project-dir`,
   `--config-dir`, `--data-dir`, `--reports-dir`, `--output-dir`, `--time`,
