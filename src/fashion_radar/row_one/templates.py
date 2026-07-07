@@ -48,6 +48,11 @@ from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibraryParagraphLink,
     RowOneSavedArticleLibrarySourceGroup,
 )
+from fashion_radar.row_one.saved_article_reading_paths import (
+    RowOneSavedArticleReadingPath,
+    RowOneSavedArticleReadingPaths,
+    RowOneSavedArticleReadingPathStep,
+)
 from fashion_radar.row_one.saved_signal_index import (
     RowOneSavedSignalIndex,
     RowOneSavedSignalIndexEntry,
@@ -269,6 +274,7 @@ def render_saved_article_library_html(
     *,
     saved_signal_index: RowOneSavedSignalIndex | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
+    saved_article_reading_paths: RowOneSavedArticleReadingPaths | None = None,
 ) -> str:
     snippets_by_detail_path = _saved_article_library_snippets_by_detail_path(
         saved_article_content_organization
@@ -281,6 +287,7 @@ def render_saved_article_library_html(
         for group in library.groups
     )
     signal_index = _render_saved_signal_index(saved_signal_index)
+    reading_paths = _render_saved_article_reading_paths(saved_article_reading_paths)
     content_organization = _render_saved_article_content_organization(
         saved_article_content_organization,
         href_prefix="../",
@@ -325,6 +332,7 @@ def render_saved_article_library_html(
     {_render_saved_article_library_metrics(library, css_class="saved-article-library-metrics")}
   </section>
   {signal_index}
+  {reading_paths}
   {content_organization}
   <div class="saved-article-library-grid">{groups}</div>
 </main>
@@ -1426,6 +1434,136 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   overflow-wrap: anywhere;
   padding: 5px 7px;
   text-decoration: none;
+}
+.saved-article-reading-paths {
+  border-bottom: 1px solid var(--ink);
+  display: grid;
+  gap: 18px;
+  padding-bottom: 28px;
+}
+.saved-article-reading-paths-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.36fr) minmax(0, 1fr);
+}
+.saved-article-reading-paths-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 5vw, 5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.95;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-reading-paths-header p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-reading-paths-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.saved-article-reading-path-card {
+  background: var(--panel);
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+}
+.saved-article-reading-path-card-header {
+  display: grid;
+  gap: 8px;
+}
+.saved-article-reading-path-card-header h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.45rem, 3vw, 2.6rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-reading-path-card-header p {
+  margin: 0;
+}
+.saved-article-reading-path-count {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-reading-path-steps {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-reading-path-step {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.saved-article-reading-path-step-link {
+  border-top: 1px solid var(--line);
+  color: inherit;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding-top: 10px;
+  text-decoration: none;
+}
+.saved-article-reading-path-step-number {
+  align-items: center;
+  border: 1px solid var(--line);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 800;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+.saved-article-reading-path-step-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.saved-article-reading-path-step-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.7rem;
+  font-weight: 800;
+  gap: 5px 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-reading-path-step-lead {
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.saved-article-reading-path-link,
+.saved-article-reading-path-evidence a {
+  color: var(--accent);
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 800;
+  gap: 5px;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.saved-article-reading-path-evidence {
+  display: contents;
 }
 .saved-article-briefs {
   border-bottom: 1px solid var(--ink);
@@ -4213,6 +4351,131 @@ def _render_saved_article_library_snippet(
                 <span data-lang="zh">打开整理栏目</span>
               </a>{evidence_block}
             </article>"""
+
+
+def _render_saved_article_reading_paths(
+    reading_paths: RowOneSavedArticleReadingPaths | None,
+) -> str:
+    if reading_paths is None or not reading_paths.paths:
+        return ""
+    cards = [_render_saved_article_reading_path(path) for path in reading_paths.paths]
+    cards = [card for card in cards if card]
+    if not cards:
+        return ""
+    return f"""<section class="saved-article-reading-paths"
+  aria-label="Saved article reading paths">
+  <div class="saved-article-reading-paths-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Saved Article Reading Paths</span>
+        <span data-lang="zh">保存文章阅读路径</span>
+      </p>
+      <h2>
+        <span data-lang="en">Saved Article Reading Paths</span>
+        <span data-lang="zh">保存文章阅读路径</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">Follow edited routes through today's saved local fashion text.</span>
+      <span data-lang="zh">沿着编辑整理的路径阅读今天保存的本地时尚正文。</span>
+    </p>
+  </div>
+  <div class="saved-article-reading-paths-grid">{"".join(cards)}</div>
+</section>"""
+
+
+def _render_saved_article_reading_path(path: RowOneSavedArticleReadingPath) -> str:
+    steps: list[str] = []
+    start_href = None
+    for step in path.steps:
+        safe_href = _safe_saved_article_content_organization_href(step.detail_path)
+        if safe_href is None:
+            continue
+        if start_href is None:
+            start_href = safe_href
+        rendered_step = _render_saved_article_reading_path_step(len(steps) + 1, step)
+        if rendered_step:
+            steps.append(rendered_step)
+    if not steps:
+        return ""
+    start_link = ""
+    if start_href is not None:
+        start_href = _prefixed_saved_article_content_organization_href(start_href, "../")
+        start_link = f"""      <a class="saved-article-reading-path-link" href="{_esc(start_href)}">
+        <span data-lang="en">Start path</span>
+        <span data-lang="zh">开始阅读</span>
+      </a>"""
+    rendered_step_count = len(steps)
+    return f"""    <article class="saved-article-reading-path-card">
+      <div class="saved-article-reading-path-card-header">
+        <p class="saved-article-reading-path-count">
+          <span data-lang="en">{_esc(_count_label(rendered_step_count, "step", "steps"))}</span>
+          <span data-lang="zh">{_esc(f"{rendered_step_count} 个步骤")}</span>
+        </p>
+        <h3>
+          <span data-lang="en">{_esc(path.title.en)}</span>
+          <span data-lang="zh">{_esc(path.title.zh)}</span>
+        </h3>
+        <p>
+          <span data-lang="en">{_esc(path.dek.en)}</span>
+          <span data-lang="zh">{_esc(path.dek.zh)}</span>
+        </p>
+      </div>
+      <ol class="saved-article-reading-path-steps">{"".join(steps)}</ol>
+{start_link}
+    </article>"""
+
+
+def _render_saved_article_reading_path_step(
+    index: int,
+    step: RowOneSavedArticleReadingPathStep,
+) -> str:
+    href = _safe_saved_article_content_organization_href(step.detail_path)
+    if href is None:
+        return ""
+    href = _prefixed_saved_article_content_organization_href(href, "../")
+    evidence = _render_saved_article_reading_path_evidence(step)
+    evidence_block = (
+        f'\n          <span class="saved-article-reading-path-evidence">{evidence}</span>'
+        if evidence
+        else ""
+    )
+    return f"""        <li class="saved-article-reading-path-step">
+          <a class="saved-article-reading-path-step-link" href="{_esc(href)}">
+            <span class="saved-article-reading-path-step-number">{_esc(str(index))}</span>
+            <span class="saved-article-reading-path-step-copy">
+              <span class="saved-article-reading-path-step-meta">
+                <span>{_esc(step.source_name)}</span>
+                <span data-lang="en">{_esc(step.section_label.en)}</span>
+                <span data-lang="zh">{_esc(step.section_label.zh)}</span>
+              </span>
+              <strong>
+                <span data-lang="en">{_esc(step.title.en)}</span>
+                <span data-lang="zh">{_esc(step.title.zh)}</span>
+              </strong>
+              <span class="saved-article-reading-path-step-lead">
+                <span data-lang="en">{_esc(_local_article_digest_excerpt(step.lead.en))}</span>
+                <span data-lang="zh">{_esc(_local_article_digest_excerpt(step.lead.zh))}</span>
+              </span>
+            </span>
+          </a>{evidence_block}
+        </li>"""
+
+
+def _render_saved_article_reading_path_evidence(
+    step: RowOneSavedArticleReadingPathStep,
+) -> str:
+    card = RowOneSavedArticleContentOrganizationCard(
+        title=step.title,
+        source_name=step.source_name,
+        section_title=step.section_title,
+        section_label=step.section_label,
+        lead=step.lead,
+        detail_path=step.detail_path,
+        paragraph_indices=step.paragraph_indices,
+        references=step.references,
+    )
+    return _render_saved_article_content_organization_evidence(card, href_prefix="../")
 
 
 def _saved_article_library_body_source_label(body_source: str) -> str:

@@ -39,6 +39,10 @@ from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibrary,
     build_row_one_saved_article_library,
 )
+from fashion_radar.row_one.saved_article_reading_paths import (
+    RowOneSavedArticleReadingPaths,
+    build_row_one_saved_article_reading_paths,
+)
 from fashion_radar.row_one.saved_signal_index import (
     RowOneSavedSignalIndex,
     build_row_one_saved_signal_index,
@@ -119,6 +123,10 @@ def render_row_one_site(
         edition,
         local_articles_by_story_id,
     )
+    saved_article_reading_paths = build_row_one_saved_article_reading_paths(
+        saved_article_library,
+        saved_article_content_organization,
+    )
     editorial_brief = _editorial_brief_payload(edition, local_articles_by_story_id)
     index_path = output_dir / "index.html"
     index_path.write_text(
@@ -147,6 +155,7 @@ def render_row_one_site(
         saved_article_library=saved_article_library,
         saved_signal_index=saved_signal_index,
         saved_article_content_organization=saved_article_content_organization,
+        saved_article_reading_paths=saved_article_reading_paths,
     )
     data_dir = output_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -242,6 +251,7 @@ def _write_saved_article_library_page(
     saved_article_library: RowOneSavedArticleLibrary | None,
     saved_signal_index: RowOneSavedSignalIndex | None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None,
+    saved_article_reading_paths: RowOneSavedArticleReadingPaths | None,
 ) -> None:
     if saved_article_library is None:
         return
@@ -252,6 +262,7 @@ def _write_saved_article_library_page(
             saved_article_library,
             saved_signal_index=saved_signal_index,
             saved_article_content_organization=saved_article_content_organization,
+            saved_article_reading_paths=saved_article_reading_paths,
         ),
         encoding="utf-8",
     )

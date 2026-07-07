@@ -54,6 +54,12 @@ from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibraryParagraphLink,
     RowOneSavedArticleLibrarySourceGroup,
 )
+from fashion_radar.row_one.saved_article_reading_paths import (
+    RowOneSavedArticleReadingPath,
+    RowOneSavedArticleReadingPaths,
+    RowOneSavedArticleReadingPathStep,
+    build_row_one_saved_article_reading_paths,
+)
 from fashion_radar.row_one.saved_signal_index import (
     RowOneSavedSignalIndex,
     RowOneSavedSignalIndexEntry,
@@ -3070,6 +3076,69 @@ def test_render_row_one_site_includes_saved_article_content_organization_in_arti
     assert not (tmp_path / "data" / "saved-article-content-organization.json").exists()
 
 
+def test_render_row_one_site_includes_saved_article_reading_paths_in_article_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+    section_html = _saved_article_reading_paths_section_html(library_html)
+
+    assert 'class="saved-article-reading-paths"' in section_html
+    assert "Saved Article Reading Paths" in section_html
+    assert "保存文章阅读路径" in section_html
+    assert "People &amp; Brands" in section_html
+    assert "Products" in section_html
+    assert "The Row appears in paragraph one." in section_html
+    assert "Alaia flats appear in paragraph two." in section_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    )
+    assert "https://example.com/the-row" not in section_html
+    assert (
+        library_html.index('class="saved-article-library-hero"')
+        < library_html.index('class="saved-signal-index"')
+        < library_html.index('class="saved-article-reading-paths"')
+        < library_html.index('class="saved-article-content-organization"')
+        < library_html.index('class="saved-article-library-grid"')
+    )
+    assert 'class="saved-article-reading-paths"' not in homepage_html
+
+    assert edition_payload["contract_version"] == "row-one-app/v7"
+    assert manifest_payload["contract_version"] == "row-one-manifest/v1"
+    assert manifest_payload["app_contract"]["version"] == "row-one-app/v7"
+    assert runtime_payload["contract_version"] == "row-one-runtime/v1"
+    for contract_json in (
+        json.dumps(edition_payload, ensure_ascii=False),
+        json.dumps(manifest_payload, ensure_ascii=False),
+        json.dumps(runtime_payload, ensure_ascii=False),
+    ):
+        assert "saved_article_reading_paths" not in contract_json
+        assert "saved_article_reading_path" not in contract_json
+        assert "article_reading_paths" not in contract_json
+        assert "saved-article-reading-paths" not in contract_json
+        assert "saved-article-reading-path" not in contract_json
+        assert "Saved Article Reading Paths" not in contract_json
+        assert "保存文章阅读路径" not in contract_json
+        assert "The Row appears in paragraph one." not in contract_json
+    assert not (tmp_path / "data" / "saved-article-reading-paths.json").exists()
+
+
 def test_render_index_html_uses_source_only_copy_for_empty_saved_signal_index() -> None:
     html = render_index_html(
         _edition(),
@@ -3933,10 +4002,32 @@ def _saved_article_content_organization_section_html(index_html: str) -> str:
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
     boundary_offsets: list[int] = []
-    next_section = re.search(
-        r"\n<section class=",
-        tail,
-    )
+    content_organization = tail.find('<section class="saved-article-content-organization"')
+    if content_organization >= 0:
+        boundary_offsets.append(content_organization)
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is not None:
+        boundary_offsets.append(next_section.start())
+    library_grid = tail.find('<div class="saved-article-library-grid">')
+    if library_grid >= 0:
+        boundary_offsets.append(library_grid)
+    if not boundary_offsets:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + min(boundary_offsets)
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _saved_article_reading_paths_section_html(index_html: str) -> str:
+    marker = '<section class="saved-article-reading-paths"'
+    assert marker in index_html
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    boundary_offsets: list[int] = []
+    content_organization = tail.find('<section class="saved-article-content-organization"')
+    if content_organization >= 0:
+        boundary_offsets.append(content_organization)
+    next_section = re.search(r"\n\s*<section class=", tail)
     if next_section is not None:
         boundary_offsets.append(next_section.start())
     library_grid = tail.find('<div class="saved-article-library-grid">')
@@ -4440,6 +4531,222 @@ def test_render_saved_article_library_canonicalizes_caps_and_truncates_organized
     assert grid_html.count("Canonical lead starts with The Row") == 1
     assert "…" in grid_html
     assert "unique tail marker" not in grid_html
+
+
+def test_render_saved_article_library_filters_unsafe_reading_path_view_model_steps() -> None:
+    safe_step = RowOneSavedArticleReadingPathStep(
+        title=LocalizedText(en="Safe card", zh="安全卡片"),
+        source_name="Source",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        lead=LocalizedText(en="Safe <script>lead</script>", zh="安全摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+    )
+    unsafe_steps = [
+        replace(
+            safe_step,
+            lead=LocalizedText(en="JS lead", zh="脚本摘要"),
+            detail_path="javascript:alert(1)#local-article-content-section-1",
+        ),
+        replace(
+            safe_step,
+            lead=LocalizedText(en="Traversal lead", zh="越界摘要"),
+            detail_path="../secrets.html#local-article-content-section-1",
+        ),
+        replace(
+            safe_step,
+            lead=LocalizedText(en="Paragraph-fragment lead", zh="段落锚点摘要"),
+            detail_path="details/the-row-signal-1234567890.html#local-article-paragraph-1",
+        ),
+        replace(
+            safe_step,
+            lead=LocalizedText(en="Zero-section lead", zh="零栏目摘要"),
+            detail_path="details/the-row-signal-1234567890.html#local-article-content-section-0",
+        ),
+        replace(
+            safe_step,
+            lead=LocalizedText(en="Padded-section lead", zh="补零栏目摘要"),
+            detail_path="details/the-row-signal-1234567890.html#local-article-content-section-01",
+        ),
+    ]
+    reading_paths = RowOneSavedArticleReadingPaths(
+        path_count=1,
+        step_count=1 + len(unsafe_steps),
+        paths=(
+            RowOneSavedArticleReadingPath(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                step_count=1 + len(unsafe_steps),
+                steps=(safe_step, *unsafe_steps),
+            ),
+        ),
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_reading_paths=reading_paths,
+    )
+    section_html = _saved_article_reading_paths_section_html(html)
+
+    assert "Safe &lt;script&gt;lead&lt;/script&gt;" in section_html
+    assert "1 step" in section_html
+    assert "1 个步骤" in section_html
+    assert "<script>" not in section_html
+    assert "javascript:alert" not in section_html
+    assert "../secrets" not in section_html
+    assert "JS lead" not in section_html
+    assert "Traversal lead" not in section_html
+    assert "Paragraph-fragment lead" not in section_html
+    assert "Zero-section lead" not in section_html
+    assert "Padded-section lead" not in section_html
+
+
+def test_render_saved_article_library_reading_path_hrefs_match_local_anchor_allowlist() -> None:
+    safe_step = RowOneSavedArticleReadingPathStep(
+        title=LocalizedText(en="Safe card", zh="安全卡片"),
+        source_name="Source",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        lead=LocalizedText(en="Safe lead", zh="安全摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0, 1),
+    )
+    reading_paths = RowOneSavedArticleReadingPaths(
+        path_count=1,
+        step_count=1,
+        paths=(
+            RowOneSavedArticleReadingPath(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                step_count=1,
+                steps=(safe_step,),
+            ),
+        ),
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_reading_paths=reading_paths,
+    )
+    section_html = _saved_article_reading_paths_section_html(html)
+    hrefs = re.findall(r'href="([^"]+)"', section_html)
+
+    assert hrefs
+    for href in hrefs:
+        assert re.fullmatch(
+            r"\.\./details/[a-z0-9][a-z0-9-]{0,63}-[0-9a-f]{10}\.html"
+            r"#local-article-(?:content-section|paragraph)-[1-9][0-9]*",
+            href,
+        )
+
+
+def test_render_saved_article_library_omits_reading_paths_for_unsafe_entry_paths() -> None:
+    safe_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="Safe card", zh="安全卡片"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        lead=LocalizedText(en="Safe lead", zh="安全摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[safe_card],
+            )
+        ]
+    )
+    fixture = _saved_article_library_fixture()
+    entry = replace(
+        fixture.groups[0].entries[0],
+        reader_path="../outside.html#local-article-reader",
+        digest_path="javascript:alert(1)#local-article-digest",
+        evidence_path="details/the-row-signal-1234567890.html#wrong-fragment",
+    )
+    fixture = replace(fixture, groups=[replace(fixture.groups[0], entries=[entry])])
+    reading_paths = build_row_one_saved_article_reading_paths(fixture, organization)
+
+    html = render_saved_article_library_html(
+        _edition(),
+        fixture,
+        saved_article_content_organization=organization,
+        saved_article_reading_paths=reading_paths,
+    )
+
+    assert 'class="saved-article-reading-paths"' not in html
+    assert "Safe lead" not in html[: html.index('class="saved-article-content-organization"')]
+
+
+def test_render_saved_article_library_canonicalizes_caps_and_truncates_reading_paths() -> None:
+    long_lead = (
+        "Canonical reading path starts with The Row and keeps going long enough that "
+        "the saved article reading path should show a capped excerpt instead of a "
+        "full organized content body ending with a unique reading path tail marker."
+    )
+    cards = [
+        RowOneSavedArticleContentOrganizationCard(
+            title=LocalizedText(en=f"Card {index}", zh=f"卡片 {index}"),
+            source_name="Source",
+            section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+            section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+            lead=LocalizedText(
+                en=long_lead if index == 0 else f"Lead {index}",
+                zh="中文摘要",
+            ),
+            detail_path=(
+                "details/./the-row-signal-1234567890.html#local-article-content-section-1"
+                if index == 0
+                else (
+                    "details/the-row-signal-1234567890.html"
+                    f"#local-article-content-section-{index + 1}"
+                )
+            ),
+            paragraph_indices=(0,),
+            references=(),
+        )
+        for index in range(5)
+    ]
+    cards.insert(1, cards[0])
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=cards,
+            )
+        ]
+    )
+    fixture = _saved_article_library_fixture()
+    reading_paths = build_row_one_saved_article_reading_paths(fixture, organization)
+
+    html = render_saved_article_library_html(
+        _edition(),
+        fixture,
+        saved_article_content_organization=organization,
+        saved_article_reading_paths=reading_paths,
+    )
+    section_html = _saved_article_reading_paths_section_html(html)
+
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert "details/./the-row-signal-1234567890.html" not in section_html
+    assert section_html.count('class="saved-article-reading-path-step"') == 3
+    assert section_html.count("Canonical reading path starts with The Row") == 1
+    assert "…" in section_html
+    assert "unique reading path tail marker" not in section_html
 
 
 def test_render_saved_article_library_renders_skipped_text_source_chip() -> None:
@@ -6249,6 +6556,30 @@ def test_row_one_css_includes_saved_signal_index_styles(tmp_path) -> None:
         ".saved-signal-index-support-excerpt",
         ".saved-signal-index-actions",
         ".saved-signal-index-paragraphs",
+    ):
+        assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
+
+
+def test_row_one_css_includes_saved_article_reading_path_styles(tmp_path) -> None:
+    css = render_row_one_site(_edition(), tmp_path).index_path
+    css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    for selector in (
+        ".saved-article-reading-paths",
+        ".saved-article-reading-paths-header",
+        ".saved-article-reading-paths-grid",
+        ".saved-article-reading-path-card",
+        ".saved-article-reading-path-card-header",
+        ".saved-article-reading-path-count",
+        ".saved-article-reading-path-steps",
+        ".saved-article-reading-path-step",
+        ".saved-article-reading-path-step-link",
+        ".saved-article-reading-path-step-number",
+        ".saved-article-reading-path-step-copy",
+        ".saved-article-reading-path-step-meta",
+        ".saved-article-reading-path-step-lead",
+        ".saved-article-reading-path-link",
+        ".saved-article-reading-path-evidence",
     ):
         assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
 

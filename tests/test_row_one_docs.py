@@ -1124,6 +1124,49 @@ def test_row_one_docs_describe_stage_334_saved_article_library_local_excerpt_bou
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_335_saved_article_reading_paths_boundary() -> None:
+    expected = _normalized(
+        "Stage 335 adds generated-site only Saved Article Reading Paths inside "
+        "`articles/index.html`; it reuses existing saved article library cards, "
+        "existing saved article content organization leads, existing detail-page "
+        "content-section anchors, and existing paragraph anchors to show capped "
+        "read-first paths through already-saved local text; it does not publish "
+        "full articles on the library index, does not change row-one-app/v7, "
+        "row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, "
+        "source collection, fetching, matching, extraction, scoring, ranking, "
+        "LLM, connector, scheduling, deployment, market grouping, "
+        "domestic/international classification, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage = normalized[
+            normalized.index(
+                "stage 335 adds generated-site only saved article reading paths"
+            ) : normalized.index("stage 334 adds generated-site only organized local excerpts")
+        ]
+        for stale_phrase in (
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "writes `data/saved-article-reading-paths.json`",
+            "writes a new json artifact",
+            "publishes full articles",
+            "adds source collection",
+            "adds fetching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm calls",
+            "adds connectors",
+            "adds scheduling",
+            "adds compliance review",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_333_saved_article_library_text_source_boundary() -> None:
     expected = _normalized(
         "Stage 333 adds a generated-site only saved article library text-source "
