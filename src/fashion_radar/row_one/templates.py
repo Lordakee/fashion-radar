@@ -69,6 +69,13 @@ DAILY_EDIT_MAX_SIGNALS = 3
 DAILY_EDIT_MAX_PATH_ITEMS = 3
 EDITORIAL_BRIEF_MAX_ITEMS = 3
 EDITORIAL_BRIEF_BODY_EXCERPT_CHARS = 220
+EDITORIAL_BRIEF_MAX_TRAIL_ITEMS = 3
+
+
+@dataclass(frozen=True)
+class _EditorialBriefTrailItem:
+    label: LocalizedText
+    href: str | None = None
 
 
 @dataclass(frozen=True)
@@ -77,6 +84,7 @@ class _EditorialBriefItem:
     body: LocalizedText
     meta: LocalizedText | None = None
     href: str | None = None
+    trail: tuple[_EditorialBriefTrailItem, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1216,13 +1224,46 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   padding-top: 12px;
   text-transform: uppercase;
 }
-.editorial-brief-link {
+.editorial-brief-trail {
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 12px;
+}
+.editorial-brief-trail-item,
+.editorial-brief-trail a {
+  border-radius: 999px;
+  border: 1px solid var(--line);
   color: var(--accent);
+  display: inline-flex;
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  gap: 4px;
+  letter-spacing: 0.08em;
+  padding: 5px 7px;
   text-decoration: none;
   text-transform: uppercase;
+}
+.editorial-brief-trail a:hover,
+.editorial-brief-trail a:focus-visible,
+.editorial-brief-link:hover,
+.editorial-brief-link:focus-visible {
+  opacity: 0.75;
+}
+.editorial-brief-link {
+  align-items: center;
+  color: var(--accent);
+  display: inline-flex;
+  font-size: 0.74rem;
+  font-weight: 800;
+  gap: 6px;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.editorial-brief-link::after {
+  content: "↗";
 }
 .daily-edit {
   border-bottom: 1px solid var(--ink);
@@ -3493,6 +3534,44 @@ def _render_editorial_brief(editorial_brief: _EditorialBrief | None) -> str:
 </section>"""
 
 
+def _render_editorial_brief_trail_item(label: LocalizedText, href: str | None) -> str:
+    body = (
+        f'<span data-lang="en">{_esc(label.en)}</span><span data-lang="zh">{_esc(label.zh)}</span>'
+    )
+    if href is None:
+        return f'        <span class="editorial-brief-trail-item">{body}</span>'
+    return f'        <a class="editorial-brief-trail-item" href="{_esc(href)}">{body}</a>'
+
+
+def _render_editorial_brief_trail(
+    items: Sequence[_EditorialBriefTrailItem],
+) -> str:
+    rendered_items: list[str] = []
+    seen: set[tuple[str, str, str | None]] = set()
+    for item in items:
+        label = LocalizedText(
+            en=_editorial_brief_display_text(item.label.en),
+            zh=_editorial_brief_display_text(item.label.zh),
+        )
+        if not (label.en or label.zh):
+            continue
+        href = _safe_editorial_brief_href(item.href)
+        key = (label.en.casefold(), label.zh.casefold(), href)
+        if key in seen:
+            continue
+        seen.add(key)
+        rendered_items.append(_render_editorial_brief_trail_item(label, href))
+        if len(rendered_items) >= EDITORIAL_BRIEF_MAX_TRAIL_ITEMS:
+            break
+    if not rendered_items:
+        return ""
+    items_html = "\n".join(rendered_items)
+    return f"""
+      <div class="editorial-brief-trail" aria-label="Editorial source trail / 编辑来源线索">
+{items_html}
+      </div>"""
+
+
 def _render_editorial_brief_card(item: _EditorialBriefItem) -> str:
     title = LocalizedText(
         en=_editorial_brief_display_text(item.title.en),
@@ -3517,6 +3596,15 @@ def _render_editorial_brief_card(item: _EditorialBriefItem) -> str:
         <span data-lang="en">{_esc(meta_text.en)}</span>
         <span data-lang="zh">{_esc(meta_text.zh)}</span>
       </p>"""
+    trail_block = _render_editorial_brief_trail(item.trail)
+    action_block = ""
+    href = _safe_editorial_brief_href(item.href)
+    if href is not None:
+        action_block = f"""
+      <a class="editorial-brief-link" href="{_esc(href)}">
+        <span data-lang="en">Read locally</span>
+        <span data-lang="zh">本地阅读</span>
+      </a>"""
     body_html = f"""      <h3>
         <span data-lang="en">{_esc(title.en)}</span>
         <span data-lang="zh">{_esc(title.zh)}</span>
@@ -3524,19 +3612,10 @@ def _render_editorial_brief_card(item: _EditorialBriefItem) -> str:
       <p>
         <span data-lang="en">{_esc(body.en)}</span>
         <span data-lang="zh">{_esc(body.zh)}</span>
-      </p>{meta_block}"""
-    href = _safe_editorial_brief_href(item.href)
-    if href is None:
-        return f"""    <article class="editorial-brief-card">
+      </p>{meta_block}{trail_block}{action_block}"""
+    return f"""    <article class="editorial-brief-card">
 {body_html}
     </article>"""
-    return f"""    <a class="editorial-brief-card" href="{_esc(href)}">
-{body_html}
-      <span class="editorial-brief-link">
-        <span data-lang="en">Read locally</span>
-        <span data-lang="zh">本地阅读</span>
-      </span>
-    </a>"""
 
 
 def _editorial_brief_body_excerpt(value: str) -> str:

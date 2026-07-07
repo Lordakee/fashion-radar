@@ -5,6 +5,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from shutil import rmtree
+from typing import Literal
 
 from fashion_radar.row_one.articles import safe_local_article_story_id
 from fashion_radar.row_one.briefing_topics import briefing_topics_payload
@@ -17,6 +18,7 @@ from fashion_radar.row_one.models import (
     RowOneLink,
     RowOneLocalArticle,
     RowOneLocalArticleBriefSection,
+    RowOneLocalArticleContentSection,
     RowOneSection,
     RowOneStory,
     RowOneStoryDisplay,
@@ -40,6 +42,7 @@ from fashion_radar.row_one.templates import (
     EDITORIAL_BRIEF_MAX_ITEMS,
     _EditorialBrief,
     _EditorialBriefItem,
+    _EditorialBriefTrailItem,
     _validated_detail_relative_path,
     render_detail_html,
     render_index_html,
@@ -297,6 +300,14 @@ def _editorial_brief_items(
             ),
             meta=_editorial_brief_meta(local_article),
             href=detail_href,
+            trail=_editorial_brief_source_trail(
+                story,
+                local_article,
+                brief_key="what_happened",
+                brief_href_target="paragraph_or_detail",
+                content_keys=(),
+                include_first_paragraph=False,
+            ),
         ),
         _EditorialBriefItem(
             title=LocalizedText(en="Why it matters", zh="为什么重要"),
@@ -307,6 +318,14 @@ def _editorial_brief_items(
                 why_it_matters.body if why_it_matters is not None else None,
             ),
             href=detail_href,
+            trail=_editorial_brief_source_trail(
+                story,
+                local_article,
+                brief_key="why_it_matters",
+                brief_href_target="detail",
+                content_keys=("entities", "brand_signals", "takeaways"),
+                include_first_paragraph=False,
+            ),
         ),
         _EditorialBriefItem(
             title=LocalizedText(en="What to read locally", zh="本地阅读路径"),
@@ -315,6 +334,14 @@ def _editorial_brief_items(
                 None,
             ),
             href=_editorial_brief_paragraph_href(story, local_article) or detail_href,
+            trail=_editorial_brief_source_trail(
+                story,
+                local_article,
+                brief_key="watch_next",
+                brief_href_target="paragraph_or_detail",
+                content_keys=("takeaways",),
+                include_first_paragraph=watch_next is None,
+            ),
         ),
     ]
     return _deduped_editorial_brief_items(items)
@@ -342,9 +369,99 @@ def _deduped_editorial_brief_items(
                 body=body,
                 meta=item.meta,
                 href=item.href,
+                trail=item.trail,
             )
         )
     return deduped
+
+
+def _editorial_brief_source_trail(
+    story: RowOneStory,
+    local_article: RowOneLocalArticle | None,
+    *,
+    brief_key: str | None = None,
+    brief_href_target: Literal["paragraph_or_detail", "detail"] = "paragraph_or_detail",
+    content_keys: tuple[str, ...] = (),
+    include_first_paragraph: bool = False,
+) -> tuple[_EditorialBriefTrailItem, ...]:
+    """Build stable trail payloads; template display-normalized dedupe is a safety net."""
+    if local_article is None:
+        return ()
+    items: list[_EditorialBriefTrailItem] = []
+    if brief_key is not None:
+        section = _local_article_brief_section(local_article, brief_key)
+        if section is not None:
+            brief_href = _editorial_brief_detail_href(story)
+            if brief_href_target == "paragraph_or_detail":
+                brief_href = _editorial_brief_paragraph_href(story, local_article) or brief_href
+            elif brief_href_target == "detail":
+                pass
+            items.append(
+                _EditorialBriefTrailItem(
+                    label=section.title,
+                    href=brief_href,
+                )
+            )
+    content_section = _first_local_article_content_section(local_article, content_keys)
+    if content_section is not None:
+        position, section = content_section
+        content_href = _editorial_brief_content_section_href(story, position)
+        if content_href is not None:
+            items.append(_EditorialBriefTrailItem(label=section.title, href=content_href))
+    if include_first_paragraph:
+        paragraph_href = _editorial_brief_paragraph_href(story, local_article)
+        existing_hrefs = {item.href for item in items if item.href is not None}
+        if paragraph_href is not None and paragraph_href not in existing_hrefs:
+            items.append(
+                _EditorialBriefTrailItem(
+                    label=LocalizedText(en="Saved paragraph 1", zh="保存段落 1"),
+                    href=paragraph_href,
+                )
+            )
+    return _deduped_editorial_brief_trail(items)
+
+
+def _first_local_article_content_section(
+    local_article: RowOneLocalArticle | None,
+    keys: tuple[str, ...],
+) -> tuple[int, RowOneLocalArticleContentSection] | None:
+    if local_article is None:
+        return None
+    for key in keys:
+        for position, section in enumerate(local_article.content_sections, start=1):
+            if section.key == key:
+                return (position, section)
+    return None
+
+
+def _editorial_brief_content_section_href(
+    story: RowOneStory,
+    position: int,
+) -> str | None:
+    detail_href = _editorial_brief_detail_href(story)
+    if detail_href is None or position < 1:
+        return None
+    return f"{detail_href}#local-article-content-section-{position}"
+
+
+def _deduped_editorial_brief_trail(
+    items: Sequence[_EditorialBriefTrailItem],
+) -> tuple[_EditorialBriefTrailItem, ...]:
+    deduped: list[_EditorialBriefTrailItem] = []
+    seen: set[tuple[str, str, str | None]] = set()
+    for item in items:
+        label = LocalizedText(
+            en=clean_row_one_text(item.label.en),
+            zh=clean_row_one_text(item.label.zh),
+        )
+        if not (label.en or label.zh):
+            continue
+        key = (label.en.casefold(), label.zh.casefold(), item.href)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(_EditorialBriefTrailItem(label=label, href=item.href))
+    return tuple(deduped)
 
 
 def _local_article_brief_section(

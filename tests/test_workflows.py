@@ -385,6 +385,7 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "Daily Edit" in index_html
     assert "今日编辑简报" in index_html
     assert 'class="editorial-brief"' in index_html
+    assert 'class="editorial-brief-trail"' in index_html
     assert "Editorial Brief" in index_html
     assert "编辑正文" in index_html
     assert "Saved Article Content Organization" in index_html
@@ -420,6 +421,8 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert '"signal_briefing"' not in generated_contract_payload
     assert '"daily_edit"' not in generated_contract_payload
     assert '"editorial_brief"' not in generated_contract_payload
+    assert '"editorial_source_trail"' not in generated_contract_payload
+    assert '"source_trail"' not in generated_contract_payload
     assert '"daily_information_layer"' not in generated_contract_payload
     assert '"local_article_count"' not in generated_contract_payload
     assert '"local_article_paragraph_count"' not in generated_contract_payload

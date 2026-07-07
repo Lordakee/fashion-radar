@@ -245,6 +245,18 @@ does not change
 schemas, does not write a new json artifact, does not add source collection,
 does not fetch article pages, does not add scoring, does not add llm calls, does
 not add connectors, and is not a compliance review feature.
+Stage 322 adds Editorial Source Trail to the existing homepage Editorial Brief
+cards. It is generated-site only and turns existing saved local article source
+names, existing saved article titles, existing brief sections, existing content
+sections, existing `data/articles/<story-id>.json` sidecars, and existing
+paragraph/content-section anchors into compact bilingual provenance chips with
+safe internal links. It does not change `row-one-app/v7`, does not change
+`data/edition.json`, does not add `editorial_source_trail`, does not add
+`source_trail`, does not change `row-one-manifest/v1`, does not change
+`row-one-runtime/v1`, does not change schemas, does not write a new json
+artifact, does not add source collection, does not fetch article pages, does not
+add scoring, does not add llm calls, does not add connectors, and is not a
+compliance review feature.
 Stage 321 adds homepage Editorial Brief to generated ROW ONE index pages. It is
 generated-site only and turns existing story summaries, existing story signal
 context, existing saved local article brief sections, existing
