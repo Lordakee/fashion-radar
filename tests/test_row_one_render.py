@@ -2789,6 +2789,17 @@ def test_render_row_one_site_writes_saved_article_library_page(tmp_path) -> None
         'href="../details/the-row-signal-1234567890.html#local-article-paragraph-evidence"' in html
     )
     assert 'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in html
+    library_grid_html = html[html.index('class="saved-article-library-grid"') :]
+    assert 'class="saved-article-library-snippets"' in library_grid_html
+    assert 'class="saved-article-library-snippet"' in library_grid_html
+    assert "People &amp; Brands" in library_grid_html
+    assert "品牌与人物" in library_grid_html
+    assert "The Row body." in library_grid_html
+    assert "The Row 正文。" in library_grid_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in library_grid_html
+    )
     assert "<source>" not in html
     assert "<Business>" not in html
     assert "<The Row>" not in html
@@ -2827,6 +2838,14 @@ def test_render_row_one_site_writes_saved_article_library_page(tmp_path) -> None
             "Extracted article text",
             "ROW ONE summary fallback",
             "Skipped",
+            "saved_article_library_snippets",
+            "saved_article_library_snippet",
+            "saved-article-library-snippets",
+            "saved-article-library-snippet",
+            "People & Brands",
+            "品牌与人物",
+            "The Row body.",
+            "The Row 正文。",
         ):
             assert forbidden not in contract_json
     assert not (tmp_path / "data" / "saved-article-library.json").exists()
@@ -3032,6 +3051,10 @@ def test_render_row_one_site_includes_saved_article_content_organization_in_arti
     assert (
         'href="details/the-row-signal-1234567890.html#local-article-content-section-1"'
     ) in homepage_html
+    library_grid_html = library_html[library_html.index('class="saved-article-library-grid"') :]
+    assert 'class="saved-article-library-snippets"' in library_grid_html
+    assert "The Row appears in paragraph one." in library_grid_html
+    assert "Alaia flats appear in paragraph two." in library_grid_html
 
     for contract_json in (
         json.dumps(edition_payload, ensure_ascii=False),
@@ -3042,6 +3065,8 @@ def test_render_row_one_site_includes_saved_article_content_organization_in_arti
         assert "content_organization" not in contract_json
         assert "saved-article-content-organization" not in contract_json
         assert "Saved Article Content Organization" not in contract_json
+        assert "saved-article-library-snippets" not in contract_json
+        assert "saved-article-library-snippet" not in contract_json
     assert not (tmp_path / "data" / "saved-article-content-organization.json").exists()
 
 
@@ -4206,6 +4231,215 @@ def test_render_saved_article_library_canonicalizes_content_organization_links()
         section_html
     )
     assert "details/./the-row-signal-1234567890.html" not in section_html
+
+
+def test_render_saved_article_library_shows_organized_snippets_on_source_cards() -> None:
+    safe_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="Safe card", zh="安全卡片"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        lead=LocalizedText(en="Safe lead", zh="安全摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[safe_card],
+            )
+        ]
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    grid_html = html[html.index('class="saved-article-library-grid"') :]
+
+    assert 'class="saved-article-library-snippets"' in grid_html
+    assert "People &amp; Brands" in grid_html
+    assert "品牌与人物" in grid_html
+    assert "Safe lead" in grid_html
+    assert "安全摘要" in grid_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in grid_html
+    )
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in grid_html
+    assert grid_html.index("Safe lead") < grid_html.index('class="saved-article-library-actions"')
+
+
+def test_render_saved_article_library_filters_unsafe_organized_snippets() -> None:
+    def card(
+        title: str,
+        detail_path: str,
+        lead: str,
+    ) -> RowOneSavedArticleContentOrganizationCard:
+        return RowOneSavedArticleContentOrganizationCard(
+            title=LocalizedText(en=title, zh=title),
+            source_name="Source",
+            section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+            section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+            lead=LocalizedText(en=lead, zh=lead),
+            detail_path=detail_path,
+            paragraph_indices=(0,),
+            references=(),
+        )
+
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[
+                    card(
+                        "Valid card",
+                        "details/the-row-signal-1234567890.html#local-article-content-section-1",
+                        "Safe <script>lead</script>",
+                    ),
+                    card(
+                        "JS card",
+                        "javascript:alert(1)#local-article-content-section-1",
+                        "JS lead",
+                    ),
+                    card(
+                        "Traversal card",
+                        "../secrets.html#local-article-content-section-1",
+                        "Traversal lead",
+                    ),
+                    card(
+                        "Wrong fragment card",
+                        "details/the-row-signal-1234567890.html#local-article-paragraph-1",
+                        "Wrong fragment lead",
+                    ),
+                ],
+            )
+        ]
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    grid_html = html[html.index('class="saved-article-library-grid"') :]
+
+    assert "Safe &lt;script&gt;lead&lt;/script&gt;" in grid_html
+    assert "<script>" not in grid_html
+    assert "javascript:alert" not in grid_html
+    assert "../secrets" not in grid_html
+    assert "JS lead" not in grid_html
+    assert "Traversal lead" not in grid_html
+    assert "Wrong fragment lead" not in grid_html
+
+
+def test_render_saved_article_library_omits_snippets_for_unsafe_entry_paths() -> None:
+    safe_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="Safe card", zh="安全卡片"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        lead=LocalizedText(en="Safe lead", zh="安全摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[safe_card],
+            )
+        ]
+    )
+    fixture = _saved_article_library_fixture()
+    entry = replace(
+        fixture.groups[0].entries[0],
+        reader_path="../outside.html#local-article-reader",
+        digest_path="javascript:alert(1)#local-article-digest",
+        evidence_path="details/the-row-signal-1234567890.html#wrong-fragment",
+    )
+    fixture = replace(fixture, groups=[replace(fixture.groups[0], entries=[entry])])
+
+    html = render_saved_article_library_html(
+        _edition(),
+        fixture,
+        saved_article_content_organization=organization,
+    )
+    grid_html = html[html.index('class="saved-article-library-grid"') :]
+
+    assert 'class="saved-article-library-snippets"' not in grid_html
+    assert "Safe lead" not in grid_html
+    assert "javascript:alert" not in grid_html
+    assert "../outside" not in grid_html
+
+
+def test_render_saved_article_library_canonicalizes_caps_and_truncates_organized_snippets() -> None:
+    long_lead = (
+        "Canonical lead starts with The Row and keeps going long enough that the saved "
+        "article library card should show a capped excerpt instead of a full organized "
+        "content body ending with a unique tail marker."
+    )
+    cards = [
+        RowOneSavedArticleContentOrganizationCard(
+            title=LocalizedText(en=f"Card {index}", zh=f"卡片 {index}"),
+            source_name="Source",
+            section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+            section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+            lead=LocalizedText(
+                en=long_lead if index == 0 else f"Lead {index}",
+                zh="中文摘要",
+            ),
+            detail_path=(
+                "details/./the-row-signal-1234567890.html#local-article-content-section-1"
+                if index == 0
+                else (
+                    "details/the-row-signal-1234567890.html"
+                    f"#local-article-content-section-{index + 1}"
+                )
+            ),
+            paragraph_indices=(0,),
+            references=(),
+        )
+        for index in range(5)
+    ]
+    cards.insert(1, cards[0])
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=cards,
+            )
+        ]
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    grid_html = html[html.index('class="saved-article-library-grid"') :]
+
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in grid_html
+    )
+    assert "details/./the-row-signal-1234567890.html" not in grid_html
+    assert grid_html.count('class="saved-article-library-snippet"') == 3
+    assert grid_html.count("Canonical lead starts with The Row") == 1
+    assert "…" in grid_html
+    assert "unique tail marker" not in grid_html
 
 
 def test_render_saved_article_library_renders_skipped_text_source_chip() -> None:
@@ -5987,6 +6221,12 @@ def test_row_one_css_includes_saved_article_library_styles(tmp_path) -> None:
         ".saved-article-library-actions",
         ".saved-article-library-refs",
         ".saved-article-library-paragraphs",
+        ".saved-article-library-snippets",
+        ".saved-article-library-snippet",
+        ".saved-article-library-snippet-label",
+        ".saved-article-library-snippet-body",
+        ".saved-article-library-snippet-link",
+        ".saved-article-library-snippet-evidence",
     ):
         assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from html import escape
@@ -87,6 +87,7 @@ DAILY_EDIT_MAX_PATH_ITEMS = 3
 EDITORIAL_BRIEF_MAX_ITEMS = 3
 EDITORIAL_BRIEF_BODY_EXCERPT_CHARS = 220
 EDITORIAL_BRIEF_MAX_TRAIL_ITEMS = 3
+SAVED_ARTICLE_LIBRARY_SNIPPETS_PER_CARD = 3
 SAVED_ARTICLE_CONTENT_ORGANIZATION_EVIDENCE_LINK_LIMIT = 3
 
 
@@ -269,7 +270,16 @@ def render_saved_article_library_html(
     saved_signal_index: RowOneSavedSignalIndex | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
 ) -> str:
-    groups = "\n".join(_render_saved_article_library_source(group) for group in library.groups)
+    snippets_by_detail_path = _saved_article_library_snippets_by_detail_path(
+        saved_article_content_organization
+    )
+    groups = "\n".join(
+        _render_saved_article_library_source(
+            group,
+            snippets_by_detail_path=snippets_by_detail_path,
+        )
+        for group in library.groups
+    )
     signal_index = _render_saved_signal_index(saved_signal_index)
     content_organization = _render_saved_article_content_organization(
         saved_article_content_organization,
@@ -1240,6 +1250,38 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+.saved-article-library-snippets {
+  display: grid;
+  gap: 10px;
+}
+.saved-article-library-snippet {
+  border-left: 2px solid var(--accent);
+  display: grid;
+  gap: 6px;
+  padding-left: 12px;
+}
+.saved-article-library-snippet-label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  margin: 0;
+  text-transform: uppercase;
+}
+.saved-article-library-snippet-body {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin: 0;
+}
+.saved-article-library-snippet-evidence {
+  display: contents;
+}
+.saved-article-library-snippet-link,
+.saved-article-library-snippet-evidence a {
+  color: var(--accent);
+  display: inline-flex;
+  font-size: 0.78rem;
+  margin-right: 8px;
+  text-decoration: none;
 }
 .saved-article-library-actions a {
   border: 1px solid var(--accent);
@@ -3961,8 +4003,20 @@ def _render_saved_article_library_metric(label_en: str, label_zh: str) -> str:
 
 def _render_saved_article_library_source(
     group: RowOneSavedArticleLibrarySourceGroup,
+    *,
+    snippets_by_detail_path: Mapping[
+        str,
+        Sequence[RowOneSavedArticleContentOrganizationCard],
+    ]
+    | None = None,
 ) -> str:
-    cards = "\n".join(_render_saved_article_library_card(entry) for entry in group.entries)
+    cards = "\n".join(
+        _render_saved_article_library_card(
+            entry,
+            snippets_by_detail_path=snippets_by_detail_path,
+        )
+        for entry in group.entries
+    )
     article_count_en = _count_label(group.article_count, "article", "articles")
     article_count_zh = f"{group.article_count} 篇文章"
     paragraph_count_en = _count_label(
@@ -3983,10 +4037,21 @@ def _render_saved_article_library_source(
     </section>"""
 
 
-def _render_saved_article_library_card(entry: RowOneSavedArticleLibraryEntry) -> str:
+def _render_saved_article_library_card(
+    entry: RowOneSavedArticleLibraryEntry,
+    *,
+    snippets_by_detail_path: Mapping[
+        str,
+        Sequence[RowOneSavedArticleContentOrganizationCard],
+    ]
+    | None = None,
+) -> str:
     refs = _render_saved_article_library_refs(entry.references)
     paragraphs = _render_saved_article_library_paragraphs(entry.paragraph_links)
     actions = _render_saved_article_library_actions(entry)
+    snippets = _render_saved_article_library_snippets(
+        _saved_article_library_entry_snippets(entry, snippets_by_detail_path)
+    )
     paragraph_count_en = _count_label(
         entry.saved_paragraph_count,
         "saved paragraph",
@@ -4020,10 +4085,134 @@ def _render_saved_article_library_card(entry: RowOneSavedArticleLibraryEntry) ->
             </li>
             {_render_saved_article_library_body_source_chip(entry)}
           </ul>
+          {snippets}
           {refs}
           {paragraphs}
           {actions}
         </article>"""
+
+
+def _saved_article_library_snippets_by_detail_path(
+    organization: RowOneSavedArticleContentOrganization | None,
+) -> dict[str, tuple[RowOneSavedArticleContentOrganizationCard, ...]]:
+    if organization is None:
+        return {}
+    grouped: dict[str, list[RowOneSavedArticleContentOrganizationCard]] = {}
+    seen: dict[str, set[tuple[str, str, str, str]]] = {}
+    for group in organization.groups:
+        for card in group.cards:
+            href = _safe_saved_article_content_organization_href(card.detail_path)
+            if href is None:
+                continue
+            detail_path = _saved_article_library_detail_path_key(href)
+            if detail_path is None:
+                continue
+            dedupe_key = (
+                href,
+                " ".join(card.section_label.en.split()).casefold(),
+                " ".join(card.lead.en.split()).casefold(),
+                " ".join(card.lead.zh.split()).casefold(),
+            )
+            seen_for_detail = seen.setdefault(detail_path, set())
+            if dedupe_key in seen_for_detail:
+                continue
+            seen_for_detail.add(dedupe_key)
+            grouped.setdefault(detail_path, []).append(card)
+    return {
+        detail_path: tuple(cards[:SAVED_ARTICLE_LIBRARY_SNIPPETS_PER_CARD])
+        for detail_path, cards in grouped.items()
+    }
+
+
+def _saved_article_library_detail_path_key(href: str) -> str | None:
+    path, separator, _fragment = href.partition("#")
+    if not separator:
+        return None
+    safe_path = validated_row_one_detail_relative_path(path)
+    if safe_path is None:
+        return None
+    return str(safe_path)
+
+
+def _saved_article_library_entry_detail_path(
+    entry: RowOneSavedArticleLibraryEntry,
+) -> str | None:
+    for href, fragment in (
+        (entry.reader_path, "local-article-reader"),
+        (entry.digest_path, "local-article-digest"),
+        (entry.evidence_path, "local-article-paragraph-evidence"),
+    ):
+        safe_href = safe_row_one_detail_fragment_href(href, fragment)
+        if safe_href is None:
+            continue
+        detail_path = _saved_article_library_detail_path_key(safe_href)
+        if detail_path is not None:
+            return detail_path
+    return None
+
+
+def _saved_article_library_entry_snippets(
+    entry: RowOneSavedArticleLibraryEntry,
+    snippets_by_detail_path: Mapping[
+        str,
+        Sequence[RowOneSavedArticleContentOrganizationCard],
+    ]
+    | None,
+) -> Sequence[RowOneSavedArticleContentOrganizationCard]:
+    if not snippets_by_detail_path:
+        return ()
+    detail_path = _saved_article_library_entry_detail_path(entry)
+    if detail_path is None:
+        return ()
+    return snippets_by_detail_path.get(detail_path, ())
+
+
+def _render_saved_article_library_snippets(
+    cards: Sequence[RowOneSavedArticleContentOrganizationCard],
+) -> str:
+    # Snippets are deduped and capped while the per-detail lookup is built.
+    snippets = [_render_saved_article_library_snippet(card) for card in cards]
+    snippets = [snippet for snippet in snippets if snippet]
+    if not snippets:
+        return ""
+    return (
+        '<div class="saved-article-library-snippets" '
+        'aria-label="Organized saved article excerpts">' + "".join(snippets) + "</div>"
+    )
+
+
+def _render_saved_article_library_snippet(
+    card: RowOneSavedArticleContentOrganizationCard,
+) -> str:
+    href = _safe_saved_article_content_organization_href(card.detail_path)
+    if href is None:
+        return ""
+    href = _prefixed_saved_article_content_organization_href(href, "../")
+    evidence = _render_saved_article_content_organization_evidence(
+        card,
+        href_prefix="../",
+    )
+    # The evidence helper returns its own display-contents wrapper; this span
+    # provides a library-card hook without changing shared evidence markup.
+    evidence_block = (
+        f'\n              <span class="saved-article-library-snippet-evidence">{evidence}</span>'
+        if evidence
+        else ""
+    )
+    return f"""<article class="saved-article-library-snippet">
+              <p class="saved-article-library-snippet-label">
+                <span data-lang="en">{_esc(card.section_label.en)}</span>
+                <span data-lang="zh">{_esc(card.section_label.zh)}</span>
+              </p>
+              <p class="saved-article-library-snippet-body">
+                <span data-lang="en">{_esc(_local_article_digest_excerpt(card.lead.en))}</span>
+                <span data-lang="zh">{_esc(_local_article_digest_excerpt(card.lead.zh))}</span>
+              </p>
+              <a class="saved-article-library-snippet-link" href="{_esc(href)}">
+                <span data-lang="en">Open organized section</span>
+                <span data-lang="zh">打开整理栏目</span>
+              </a>{evidence_block}
+            </article>"""
 
 
 def _saved_article_library_body_source_label(body_source: str) -> str:
