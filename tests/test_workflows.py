@@ -344,6 +344,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         local_article_extractor=extractor,
     )
 
+    articles_dir = output_dir / "articles"
+    assert not (output_dir / "saved-signal-index.html").exists()
+    assert not (articles_dir / "saved-signal-index.html").exists()
+    if articles_dir.exists():
+        assert {path.name for path in articles_dir.iterdir()} <= {"index.html"}
+
     index_html = (output_dir / "index.html").read_text(encoding="utf-8")
     detail_pages = {
         path.name: path.read_text(encoding="utf-8")
@@ -447,9 +453,21 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert '"saved_article_library"' not in generated_contract_payload
     assert '"daily_saved_article_library"' not in generated_contract_payload
     assert '"article_library"' not in generated_contract_payload
+    assert '"saved_signal_index"' not in generated_contract_payload
+    assert '"signal_index"' not in generated_contract_payload
+    assert '"entity_index"' not in generated_contract_payload
+    assert '"brand_index"' not in generated_contract_payload
+    assert '"product_index"' not in generated_contract_payload
+    assert '"saved_article_entity_index"' not in generated_contract_payload
+    assert '"saved_article_brand_index"' not in generated_contract_payload
+    assert '"saved_article_product_index"' not in generated_contract_payload
     assert "saved-article-library" not in generated_contract_payload
+    assert "saved-signal-index" not in generated_contract_payload
     assert "Daily Saved Article Library" not in generated_contract_payload
+    assert "Saved Signal Index" not in generated_contract_payload
     assert "每日本地文章库" not in generated_contract_payload
+    assert "本地信号索引" not in generated_contract_payload
+    assert "saved-signal-index.json" not in generated_contract_payload
     top_level_data_files = {path.name for path in (output_dir / "data").glob("*.json")}
     assert top_level_data_files <= {
         "edition.json",

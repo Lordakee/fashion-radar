@@ -38,6 +38,10 @@ from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibrary,
     build_row_one_saved_article_library,
 )
+from fashion_radar.row_one.saved_signal_index import (
+    RowOneSavedSignalIndex,
+    build_row_one_saved_signal_index,
+)
 from fashion_radar.row_one.site_metrics import (
     RowOneLocalArticleSiteMetrics,
     build_row_one_local_article_metrics,
@@ -110,6 +114,10 @@ def render_row_one_site(
         edition,
         local_articles_by_story_id,
     )
+    saved_signal_index = build_row_one_saved_signal_index(
+        edition,
+        local_articles_by_story_id,
+    )
     editorial_brief = _editorial_brief_payload(edition, local_articles_by_story_id)
     index_path = output_dir / "index.html"
     index_path.write_text(
@@ -119,6 +127,7 @@ def render_row_one_site(
             local_article_intelligence=local_article_intelligence,
             saved_article_coverage=saved_article_coverage,
             saved_article_library=saved_article_library,
+            saved_signal_index=saved_signal_index,
             saved_article_briefs=saved_article_briefs,
             saved_article_content_organization=saved_article_content_organization,
             editorial_brief=editorial_brief,
@@ -135,6 +144,7 @@ def render_row_one_site(
         edition,
         output_dir / "articles",
         saved_article_library=saved_article_library,
+        saved_signal_index=saved_signal_index,
     )
     data_dir = output_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -228,12 +238,17 @@ def _write_saved_article_library_page(
     articles_dir: Path,
     *,
     saved_article_library: RowOneSavedArticleLibrary | None,
+    saved_signal_index: RowOneSavedSignalIndex | None,
 ) -> None:
     if saved_article_library is None:
         return
     articles_dir.mkdir(parents=True, exist_ok=True)
     (articles_dir / "index.html").write_text(
-        render_saved_article_library_html(edition, saved_article_library),
+        render_saved_article_library_html(
+            edition,
+            saved_article_library,
+            saved_signal_index=saved_signal_index,
+        ),
         encoding="utf-8",
     )
 

@@ -48,6 +48,18 @@ from fashion_radar.row_one.saved_article_coverage import (
     RowOneSavedArticleCoverageItem,
     RowOneSavedArticleCoverageSource,
 )
+from fashion_radar.row_one.saved_article_library import (
+    RowOneSavedArticleLibrary,
+    RowOneSavedArticleLibraryEntry,
+    RowOneSavedArticleLibraryParagraphLink,
+    RowOneSavedArticleLibrarySourceGroup,
+)
+from fashion_radar.row_one.saved_signal_index import (
+    RowOneSavedSignalIndex,
+    RowOneSavedSignalIndexEntry,
+    RowOneSavedSignalIndexParagraphLink,
+    RowOneSavedSignalIndexSupport,
+)
 from fashion_radar.row_one.templates import (
     EDITORIAL_BRIEF_BODY_EXCERPT_CHARS,
     _EditorialBrief,
@@ -56,6 +68,7 @@ from fashion_radar.row_one.templates import (
     _strict_valid_local_article_paragraph_indices,
     render_detail_html,
     render_index_html,
+    render_saved_article_library_html,
     row_one_css,
 )
 
@@ -164,6 +177,40 @@ def _edition_with_stories(*stories: RowOneStory) -> RowOneEdition:
     edition = _edition()
     edition.stories = list(stories)
     return edition
+
+
+def _saved_article_library_fixture() -> RowOneSavedArticleLibrary:
+    entry = RowOneSavedArticleLibraryEntry(
+        title=LocalizedText(zh="The Row source", en="The Row source"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(zh="今日重点", en="Top Stories"),
+        saved_paragraph_count=1,
+        organized_section_count=1,
+        digest_path="details/the-row-signal-1234567890.html#local-article-digest",
+        reader_path="details/the-row-signal-1234567890.html#local-article-reader",
+        evidence_path=("details/the-row-signal-1234567890.html#local-article-paragraph-evidence"),
+        paragraph_links=(
+            RowOneSavedArticleLibraryParagraphLink(
+                label=LocalizedText(zh="段落 1", en="Paragraph 1"),
+                href="details/the-row-signal-1234567890.html#local-article-paragraph-1",
+            ),
+        ),
+    )
+    return RowOneSavedArticleLibrary(
+        article_count=1,
+        source_count=1,
+        saved_paragraph_count=1,
+        organized_section_count=1,
+        groups=[
+            RowOneSavedArticleLibrarySourceGroup(
+                source_name="Vogue Business",
+                article_count=1,
+                saved_paragraph_count=1,
+                organized_section_count=1,
+                entries=[entry],
+            )
+        ],
+    )
 
 
 def _signal_briefing_local_article() -> RowOneLocalArticle:
@@ -2690,6 +2737,304 @@ def test_render_row_one_site_writes_saved_article_library_page(tmp_path) -> None
         assert "saved-article-library" not in contract_json
         assert "Daily Saved Article Library" not in contract_json
     assert not (tmp_path / "data" / "saved-article-library.json").exists()
+
+
+def test_render_row_one_site_includes_saved_signal_index_in_article_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    second_story = story.model_copy(
+        update={
+            "id": "margaux-signal-1234567890",
+            "headline": "Margaux <bag> signal",
+            "detail_path": "details/margaux-signal-1234567890.html",
+        }
+    )
+    edition.stories.append(second_story)
+    local_articles = {
+        story.id: RowOneLocalArticle(
+            story_id=story.id,
+            title="The Row saved source",
+            url="https://example.com/the-row",
+            source_name="Vogue <Business>",
+            extracted_at=AS_OF,
+            paragraphs=["The Row saved paragraph."],
+            content_sections=[
+                RowOneLocalArticleContentSection(
+                    key="entities",
+                    title=LocalizedText(zh="品牌与人物", en="People & Brands"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(zh="The Row", en="The Row"),
+                            body=LocalizedText(zh="The Row 正文。", en="The Row body."),
+                            paragraph_indices=[0],
+                            references=[
+                                RowOneReference(
+                                    name="<The Row>",
+                                    type="brand",
+                                    label="tracked",
+                                )
+                            ],
+                        )
+                    ],
+                )
+            ],
+        ),
+        second_story.id: RowOneLocalArticle(
+            story_id=second_story.id,
+            title="Margaux saved source",
+            url="https://example.com/margaux",
+            source_name="WWD",
+            extracted_at=AS_OF,
+            paragraphs=["Margaux saved paragraph."],
+            content_sections=[
+                RowOneLocalArticleContentSection(
+                    key="product_signals",
+                    title=LocalizedText(zh="产品", en="Products"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(zh="Margaux", en="Margaux"),
+                            body=LocalizedText(zh="Margaux 正文。", en="Margaux body."),
+                            paragraph_indices=[0],
+                            references=[
+                                RowOneReference(
+                                    name="Margaux <bag>",
+                                    type="product",
+                                    label="bag",
+                                )
+                            ],
+                        )
+                    ],
+                )
+            ],
+        ),
+    }
+
+    render_row_one_site(edition, tmp_path, local_articles_by_story_id=local_articles)
+
+    html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    home_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+
+    assert "Saved Signal Index" in html
+    assert "本地信号索引" in html
+    assert "2 saved signals" in html
+    assert "2 supporting articles" in html
+    assert "2 sources" in html
+    assert "2 supporting paragraphs" in html
+    assert "&lt;The Row&gt;" in html
+    assert "Margaux &lt;bag&gt;" in html
+    assert "Vogue &lt;Business&gt;" in html
+    assert "<The Row>" not in html
+    assert "<bag>" not in html
+    assert "<Business>" not in html
+    assert html.index('class="saved-article-library-hero"') < html.index(
+        'class="saved-signal-index"'
+    )
+    assert html.index('class="saved-signal-index"') < html.index(
+        'class="saved-article-library-grid"'
+    )
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"' in html
+    )
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in html
+    assert (
+        'href="../details/margaux-signal-1234567890.html#local-article-content-section-1"' in html
+    )
+    assert 'href="../details/margaux-signal-1234567890.html#local-article-paragraph-1"' in html
+    assert "Browse saved local articles by signals or sources." in home_html
+    assert "按信号或来源浏览本地保存文章。" in home_html
+
+    for contract_json in (
+        json.dumps(edition_payload, ensure_ascii=False),
+        json.dumps(manifest_payload, ensure_ascii=False),
+        json.dumps(runtime_payload, ensure_ascii=False),
+    ):
+        assert "saved_signal_index" not in contract_json
+        assert "signal_index" not in contract_json
+        assert "entity_index" not in contract_json
+        assert "brand_index" not in contract_json
+        assert "product_index" not in contract_json
+        assert "saved-signal-index" not in contract_json
+        assert "Saved Signal Index" not in contract_json
+        assert "本地信号索引" not in contract_json
+    assert not (tmp_path / "data" / "saved-signal-index.json").exists()
+
+
+def test_render_index_html_uses_source_only_copy_for_empty_saved_signal_index() -> None:
+    html = render_index_html(
+        _edition(),
+        saved_article_library=_saved_article_library_fixture(),
+        saved_signal_index=RowOneSavedSignalIndex(
+            signal_count=0,
+            supporting_article_count=0,
+            source_count=0,
+            supporting_paragraph_count=0,
+            entries=[],
+        ),
+    )
+
+    assert "Browse the current edition&#x27;s saved local articles by source." in html
+    assert "Browse saved local articles by signals or sources." not in html
+
+
+def test_render_saved_article_library_filters_saved_signal_unsafe_links() -> None:
+    index = RowOneSavedSignalIndex(
+        signal_count=1,
+        supporting_article_count=1,
+        source_count=1,
+        supporting_paragraph_count=1,
+        entries=[
+            RowOneSavedSignalIndexEntry(
+                name="x-route-from-display.html#display-fragment",
+                type="x-id-from-display",
+                label='x-class-from-display" onclick="bad',
+                article_count=1,
+                source_count=1,
+                supporting_paragraph_count=1,
+                supports=[
+                    RowOneSavedSignalIndexSupport(
+                        title=LocalizedText(
+                            zh="Unsafe link support",
+                            en="Unsafe link support",
+                        ),
+                        source_name="Vogue Business",
+                        section_title=LocalizedText(zh="今日重点", en="Top Stories"),
+                        content_section_title=LocalizedText(zh="品牌", en="Brands"),
+                        section_path=(
+                            "details/the-row-signal-1234567890.html#local-article-content-section-1"
+                        ),
+                        paragraph_links=(
+                            RowOneSavedSignalIndexParagraphLink(
+                                label=LocalizedText(zh="段落 1", en="Paragraph 1"),
+                                href=(
+                                    "details/the-row-signal-1234567890.html"
+                                    "#local-article-paragraph-1"
+                                ),
+                            ),
+                            RowOneSavedSignalIndexParagraphLink(
+                                label=LocalizedText(zh="Bad", en="Bad"),
+                                href="javascript:alert(1)",
+                            ),
+                            RowOneSavedSignalIndexParagraphLink(
+                                label=LocalizedText(zh="Bad", en="Bad"),
+                                href="details/../escape.html#local-article-paragraph-1",
+                            ),
+                            RowOneSavedSignalIndexParagraphLink(
+                                label=LocalizedText(zh="Bad", en="Bad"),
+                                href="details/x.html#summary",
+                            ),
+                            RowOneSavedSignalIndexParagraphLink(
+                                label=LocalizedText(zh="Bad", en="Bad"),
+                                href=123,  # type: ignore[arg-type]
+                            ),
+                        ),
+                    ),
+                    RowOneSavedSignalIndexSupport(
+                        title=LocalizedText(zh="Bad action", en="Bad action"),
+                        source_name="WWD",
+                        section_title=LocalizedText(zh="产品", en="Products"),
+                        content_section_title=LocalizedText(zh="鞋履", en="Shoes"),
+                        section_path="javascript:alert(2)",  # type: ignore[arg-type]
+                        paragraph_links=(),
+                    ),
+                    RowOneSavedSignalIndexSupport(
+                        title=LocalizedText(zh="Bad action", en="Bad action"),
+                        source_name="WWD",
+                        section_title=LocalizedText(zh="产品", en="Products"),
+                        content_section_title=LocalizedText(zh="鞋履", en="Shoes"),
+                        section_path="details/../escape.html#local-article-content-section-1",
+                        paragraph_links=(),
+                    ),
+                    RowOneSavedSignalIndexSupport(
+                        title=LocalizedText(zh="Bad action", en="Bad action"),
+                        source_name="WWD",
+                        section_title=LocalizedText(zh="产品", en="Products"),
+                        content_section_title=LocalizedText(zh="鞋履", en="Shoes"),
+                        section_path="details/x.html#summary",
+                        paragraph_links=(),
+                    ),
+                    RowOneSavedSignalIndexSupport(
+                        title=LocalizedText(zh="Bad action", en="Bad action"),
+                        source_name="WWD",
+                        section_title=LocalizedText(zh="产品", en="Products"),
+                        content_section_title=LocalizedText(zh="鞋履", en="Shoes"),
+                        section_path=123,  # type: ignore[arg-type]
+                        paragraph_links=(),
+                    ),
+                ],
+            )
+        ],
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_signal_index=index,
+    )
+    structural_attributes = re.findall(r'\b(?:class|href|id)="([^"]*)"', html)
+
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"' in html
+    )
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in html
+    assert "javascript:" not in html
+    assert "details/../escape.html" not in html
+    assert "details/x.html#summary" not in html
+    assert "x-route-from-display" not in " ".join(structural_attributes)
+    assert "x-id-from-display" not in " ".join(structural_attributes)
+    assert "x-class-from-display" not in " ".join(structural_attributes)
+    assert "x-route-from-display.html#display-fragment" in html
+    assert "x-id-from-display" in html
+    assert "x-class-from-display&quot; onclick=&quot;bad" in html
+
+
+def test_render_row_one_site_omits_saved_signal_index_without_references(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = RowOneLocalArticle(
+        story_id=story.id,
+        title="Saved source without references",
+        url="https://example.com/no-refs",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        paragraphs=["Saved paragraph without structured references."],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="takeaways",
+                title=LocalizedText(zh="正文重点", en="Takeaways"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="Lead", en="Lead"),
+                        body=LocalizedText(zh="正文。", en="Body."),
+                        paragraph_indices=[0],
+                        references=[],
+                    )
+                ],
+            )
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: local_article},
+    )
+
+    html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    home_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert "saved-signal-index" not in html
+    assert "Saved Signal Index" not in html
+    assert "本地信号索引" not in html
+    assert "Browse the current edition&#x27;s saved local articles by source." in home_html
+    assert "Browse saved local articles by signals or sources." not in home_html
+    assert "按信号或来源浏览本地保存文章。" not in home_html
 
 
 def test_render_row_one_site_omits_saved_article_library_without_saved_articles(
@@ -5249,6 +5594,27 @@ def test_row_one_css_includes_saved_article_library_styles(tmp_path) -> None:
         ".saved-article-library-actions",
         ".saved-article-library-refs",
         ".saved-article-library-paragraphs",
+    ):
+        assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
+
+
+def test_row_one_css_includes_saved_signal_index_styles(tmp_path) -> None:
+    css = render_row_one_site(_edition(), tmp_path).index_path
+    css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    for selector in (
+        ".saved-signal-index",
+        ".saved-signal-index-header",
+        ".saved-signal-index-metrics",
+        ".saved-signal-index-grid",
+        ".saved-signal-index-card",
+        ".saved-signal-index-card-header",
+        ".saved-signal-index-card-meta",
+        ".saved-signal-index-support",
+        ".saved-signal-index-support-row",
+        ".saved-signal-index-support-meta",
+        ".saved-signal-index-actions",
+        ".saved-signal-index-paragraphs",
     ):
         assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
 

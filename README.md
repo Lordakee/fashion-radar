@@ -245,6 +245,13 @@ does not change
 schemas, does not write a new json artifact, does not add source collection,
 does not fetch article pages, does not add scoring, does not add llm calls, does
 not add connectors, and is not a compliance review feature.
+Stage 327 adds a generated-site only ROW ONE Saved Signal Index inside
+`articles/index.html`; it organizes the current edition's saved local article
+references by signal and links back into existing detail-page local article
+anchors; it does not change row-one-app/v7, row-one-manifest/v1,
+row-one-runtime/v1, schemas, JSON artifacts, source collection, fetching,
+matching, extraction, scoring, ranking, LLM, connector, scheduling, deployment,
+or compliance-review behavior.
 Stage 326 adds a generated-site only ROW ONE daily saved article library at
 `articles/index.html`; it organizes the current edition's saved local articles
 by source and links back into existing detail-page local article anchors; it

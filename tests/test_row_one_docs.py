@@ -10,6 +10,45 @@ CLI_REFERENCE = ROOT / "docs" / "cli-reference.md"
 FIRST_RUN_DOC = ROOT / "docs" / "first-run.md"
 SCHEDULING_DOC = ROOT / "docs" / "scheduling.md"
 UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
+STAGE_327_PLAN = (
+    ROOT
+    / "docs"
+    / "superpowers"
+    / "plans"
+    / "2026-07-07-stage-327-row-one-saved-signal-index-plan.md"
+)
+STAGE_327_SPEC = (
+    ROOT
+    / "docs"
+    / "superpowers"
+    / "specs"
+    / "2026-07-07-stage-327-row-one-saved-signal-index-design.md"
+)
+STAGE_327_PLAN_BOUNDARY_DOCS = (
+    STAGE_327_SPEC,
+    STAGE_327_PLAN,
+    ROOT / "docs" / "reviews" / "claude-code-stage-327-plan-review-prompt.md",
+    ROOT / "docs" / "reviews" / "opencode-stage-327-plan-review-prompt.md",
+    ROOT / "docs" / "reviews" / "opencode-stage-327-plan-review.md",
+    ROOT / "docs" / "reviews" / "opencode-stage-327-plan-rereview-prompt.md",
+    ROOT / "docs" / "reviews" / "opencode-stage-327-plan-rereview.md",
+)
+STAGE_327_PLAN_REVIEW_PROMPTS = (
+    ROOT / "docs" / "reviews" / "claude-code-stage-327-plan-review-prompt.md",
+    ROOT / "docs" / "reviews" / "opencode-stage-327-plan-review-prompt.md",
+)
+STAGE_327_DRIFT_PHRASES = (
+    "row-one-manifest/v2",
+    "row-one-runtime/v2",
+    "changes schemas",
+    "writes a new json artifact",
+    "adds a new json artifact",
+    "data/saved-signal-index.json",
+    "saved-signal-index.html",
+    "new generated page",
+    "new child page",
+    "separate child page",
+)
 
 
 def _read(path: Path) -> str:
@@ -726,6 +765,57 @@ def test_row_one_docs_describe_editorial_source_trail_boundary() -> None:
     for phrase in forbidden_phrases:
         assert phrase not in readme_stage_322_normalized
         assert phrase not in docs_stage_322_normalized
+
+
+def test_row_one_docs_describe_saved_signal_index_boundary() -> None:
+    expected = _normalized(
+        "Stage 327 adds a generated-site only ROW ONE Saved Signal Index inside "
+        "`articles/index.html`; it organizes the current edition's saved local "
+        "article references by signal and links back into existing detail-page "
+        "local article anchors; it does not change row-one-app/v7, "
+        "row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, "
+        "source collection, fetching, matching, extraction, scoring, ranking, "
+        "LLM, connector, scheduling, deployment, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+
+        stage = normalized[
+            normalized.index("stage 327 adds a generated-site only row one") : normalized.index(
+                "stage 326 adds a generated-site only row one"
+            )
+        ]
+        for phrase in (
+            "row-one-app/v8",
+            *STAGE_327_DRIFT_PHRASES,
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm calls",
+            "adds connectors",
+            "adds scheduling",
+            "adds deployment behavior",
+            "adds compliance review",
+        ):
+            assert phrase not in stage
+
+    for path in STAGE_327_PLAN_BOUNDARY_DOCS:
+        normalized = _normalized(_read(path))
+        for phrase in STAGE_327_DRIFT_PHRASES:
+            assert phrase not in normalized
+
+    for path in STAGE_327_PLAN_REVIEW_PROMPTS:
+        normalized = _normalized(_read(path))
+        assert "the embedded `articles/index.html` approach is feasible" in normalized
+        assert "no-child-page containment is adequately tested" in normalized
+        assert "do not propose a separate generated child page for stage 327" in normalized
+        assert "better scoped than creating" not in normalized
+        assert "articles/entity-index.html" not in normalized
 
 
 def test_row_one_docs_describe_daily_saved_article_library_boundary() -> None:
