@@ -1866,6 +1866,7 @@ def expected_first_run_flow_commands(
             str(context.reports_dir / "row-one" / "site"),
             "--as-of",
             smoke.AS_OF,
+            "--skip-data-retention",
         ),
         (
             "row-one",
@@ -4969,6 +4970,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                     "ROW ONE refresh\n"
                     "Latest-only reports: removed 3 stale files for 2026-06-13; "
                     "kept 3 current files\n"
+                    "SQLite retention: skipped\n"
                 ),
                 stderr="",
             )

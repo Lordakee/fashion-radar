@@ -931,11 +931,21 @@ ROW ONE supports IP:port local-network serving when you explicitly bind
 from another device. The local ROW ONE server has no authentication layer.
 Open Design imagery is optional and not required for tests.
 `row-one refresh` is the single local daily refresh command for ROW ONE: it
-refreshes the daily report data and generated site in one command.
-For the ROW ONE presentation path, `row-one refresh` also keeps generated dated
-report artifacts latest-only in the selected `--reports-dir`, pruning older
-`fashion-radar-YYYY-MM-DD.{md,json,html}` files while leaving SQLite/data
-retention to `clean-old-data`.
+refreshes the daily report data and generated site in one command. After the
+current site and reports are generated, it keeps generated dated report artifacts
+latest-only in the selected `--reports-dir`, pruning older
+`fashion-radar-YYYY-MM-DD.{md,json,html}` files, then runs SQLite item retention.
+The SQLite retention uses a default 1-day retention window for `items` and
+`item_entities` so test deployments stay disk-friendly. Use `--retention-days N`
+when you need longer local item history, or `--skip-data-retention` to opt out
+for a refresh. A 1-day SQLite item retention window reduces the multi-day local
+history available to future scoring window comparisons and heat scores, so raise
+`--retention-days` when you are tuning scoring or comparing heat over multiple
+days. The retention step does not prune `collector_runs`, does not prune
+`source_health`, does not prune `entity_first_seen`, does not prune config files,
+and does not prune generated site files. It also does not change ROW ONE
+contracts, detail routes, or schemas; report artifact pruning remains separate
+from SQLite item retention.
 `row-one local-ops` prints a local daily ops runbook for 04:00 refresh, preview,
 fixed IP:port serving, LAN access, cron snippets, latest-only cleanup, and a
 copyable source-checkout command group with its own `AS_OF`, `cd`, and
@@ -1204,10 +1214,14 @@ See [docs/daily-digest.md](docs/daily-digest.md).
 
 Use cleanup when you want to prune old collected items:
 
-ROW ONE report artifact pruning is separate from database retention:
+ROW ONE report artifact pruning remains separate from SQLite item retention.
 `row-one refresh` may prune older generated dated report files for the local
-presentation path, while `clean-old-data` is the command for pruning old
-collected SQLite rows.
+presentation path after the current report and site are generated, then runs
+default 1-day SQLite item retention with the same cleanup semantics as
+`clean-old-data`. Use `--retention-days N` for a longer ROW ONE local history or
+`--skip-data-retention` to opt out for a refresh. `clean-old-data` remains the
+standalone/manual cleanup command for pruning old collected SQLite rows outside
+the ROW ONE refresh path.
 
 To reset the deterministic repo-local sample, see
 [docs/first-run.md#reset-the-repo-local-sample](docs/first-run.md#reset-the-repo-local-sample).

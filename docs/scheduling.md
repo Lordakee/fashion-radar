@@ -58,9 +58,22 @@ anything.
 uv run fashion-radar row-one schedule --time 04:00
 ```
 
-This is 04:00 local scheduling for cron and systemd. The generated ROW ONE site
-can be served later with `row-one serve`; use `--host 0.0.0.0` only when you
-explicitly want IP:port local-network serving.
+This is 04:00 local scheduling for cron and systemd. The generated ROW ONE
+scheduled snippets run the refresh command directly. They do not use the preview
+path or the general serial collection/report command.
+
+`row-one refresh` prunes stale dated report and site artifacts for the local
+ROW ONE presentation path. By default, it also prunes SQLite items older than
+the retention window after generating the current edition; the default ROW ONE
+SQLite item retention window is 1 day. Pass `--retention-days N` to keep a
+longer local item-history window, or pass `--skip-data-retention` when a
+refresh should leave SQLite item history untouched.
+
+The generated ROW ONE site can be served later with `row-one serve`; use
+`--host 0.0.0.0` only when you explicitly want IP:port local-network serving.
+
+Standalone `fashion-radar clean-old-data` remains for manual or non-ROW ONE data
+retention.
 
 You can pass explicit paths to the ROW ONE scheduler:
 
@@ -166,7 +179,8 @@ The checkout must contain real `sources.yaml`, `entities.yaml`, and
 
 ## Cleanup
 
-Run retention cleanup separately and start with a dry run:
+For manual or non-ROW ONE SQLite data retention, run standalone cleanup
+separately and start with a dry run:
 
 ```bash
 uv run fashion-radar clean-old-data --data-dir "$PWD/data" --as-of "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --retention-days 30 --dry-run

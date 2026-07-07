@@ -555,11 +555,16 @@ writing the current dated report and rebuilding the site, it prunes older
 generated report artifacts in the selected `--reports-dir` that match
 `fashion-radar-YYYY-MM-DD.md`, `fashion-radar-YYYY-MM-DD.json`, and
 `fashion-radar-YYYY-MM-DD.html`. It keeps the current refresh date's report
-artifacts and does not prune SQLite data, collected rows, matcher rows, source
-config, connectors, or files outside the local reports/site output surfaces.
-Nonmatching digest and note files such as `latest.md`, `latest.json`,
-`report-index.json`, `fashion-radar-YYYY-MM-DD.eml`, and local notes are left
-untouched.
+artifacts. Report artifact pruning remains separate from SQLite item retention:
+after the current site and reports are generated, `row-one refresh` runs default
+1-day retention for SQLite `items` and `item_entities` unless
+`--skip-data-retention` is passed. Use `--retention-days N` to keep longer local
+SQLite item history. The SQLite retention step does not prune `collector_runs`,
+does not prune `source_health`, does not prune `entity_first_seen`, does not
+prune config files, does not prune generated site files, and does not change ROW
+ONE contracts, detail routes, or schemas. Nonmatching digest and note files such
+as `latest.md`, `latest.json`, `report-index.json`,
+`fashion-radar-YYYY-MM-DD.eml`, and local notes are left untouched.
 
 ## Commands
 
@@ -568,9 +573,11 @@ untouched.
   `--latest-only`.
 - `row-one refresh`: runs the single local daily refresh command for ROW ONE by
   refreshing the daily report data and generated site in one command. Important
-  flags: `--as-of`, `--reports-dir`, and `--output-dir`; latest-only site cleanup
-  is built in, and older generated dated report artifacts in `--reports-dir` are
-  pruned after the current report is written.
+  flags: `--as-of`, `--reports-dir`, `--output-dir`, `--retention-days`, and
+  `--skip-data-retention`; latest-only site cleanup is built in, older generated
+  dated report artifacts in `--reports-dir` are pruned after the current report
+  is written, and default 1-day SQLite item retention runs after the current
+  site and reports are generated.
 - `row-one preview`: builds the static ROW ONE site and prints daily readiness
   details. Important flags: `--as-of`, `--output-dir`, `--latest-only`,
   `--host`, `--port`, and `--dry-run-serve-url`.
@@ -604,8 +611,13 @@ untouched.
 ROW ONE scheduled refresh runs the single refresh command.
 `fashion-radar row-one refresh` is the single local daily refresh command for
 ROW ONE: it refreshes the daily report data and rebuilds the site in one local
-operation. Schedule output includes the 04:00 command, `--output-dir`, and
-serving guidance, but it prints snippets only.
+operation. It also runs default 1-day SQLite item retention after the current
+site and reports are generated. Use `--retention-days` for longer local history
+or `--skip-data-retention` when a scheduled refresh must leave item history
+untouched. The 1-day retention default is disk-friendly for test deployments, but
+it reduces multi-day item history available to future scoring window comparisons
+and heat scores. Schedule output includes the 04:00 command, `--output-dir`,
+and serving guidance, but it prints snippets only.
 
 Use:
 

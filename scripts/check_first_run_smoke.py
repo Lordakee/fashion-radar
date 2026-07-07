@@ -3579,6 +3579,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
         str(row_one_output_dir),
         "--as-of",
         AS_OF,
+        "--skip-data-retention",
     )
     for name in stale_report_artifact_names:
         assert_not_exists(context.reports_dir / name)

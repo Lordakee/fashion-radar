@@ -132,10 +132,57 @@ def test_row_one_docs_describe_generated_files_and_cleanup_boundary() -> None:
         "`fashion-radar-yyyy-mm-dd.md`",
         "`fashion-radar-yyyy-mm-dd.json`",
         "`fashion-radar-yyyy-mm-dd.html`",
-        "does not prune sqlite data",
+        "report artifact pruning remains separate from sqlite item retention",
+        "default 1-day retention",
+        "does not prune `collector_runs`",
         "`fashion-radar-yyyy-mm-dd.eml`",
     ):
         assert phrase in normalized
+
+
+def test_row_one_docs_describe_refresh_sqlite_retention() -> None:
+    docs = "\n".join(_normalized(_read(path)) for path in (README, ROW_ONE_DOC, FIRST_RUN_DOC))
+
+    for phrase in (
+        "`row-one refresh`",
+        "sqlite item retention",
+        "default 1-day retention",
+        "`--retention-days`",
+        "`--skip-data-retention`",
+        "after the current site and reports are generated",
+        "scoring window",
+        "heat scores",
+        "does not prune `collector_runs`",
+        "does not prune `source_health`",
+        "does not prune `entity_first_seen`",
+        "does not prune config files",
+        "does not prune generated site files",
+        "does not change row one contracts",
+        "does not change detail routes",
+        "does not change schemas",
+        "report artifact pruning remains separate",
+    ):
+        assert phrase in docs
+
+    cli_reference = _normalized(_read(CLI_REFERENCE))
+    for phrase in (
+        "`row-one refresh`",
+        "`--retention-days`",
+        "`--skip-data-retention`",
+        "sqlite retention",
+        "default 1-day retention",
+    ):
+        assert phrase in cli_reference
+
+    stale_docs = "\n".join(
+        _normalized(_read(path)) for path in (README, ROW_ONE_DOC, FIRST_RUN_DOC, CLI_REFERENCE)
+    )
+    for stale_phrase in (
+        "leaving sqlite/data retention to `clean-old-data`",
+        "leaves sqlite retention entirely to `clean-old-data`",
+        "leaves sqlite/data retention to `clean-old-data`",
+    ):
+        assert stale_phrase not in stale_docs
 
 
 def test_row_one_docs_describe_saved_article_reader_boundary() -> None:

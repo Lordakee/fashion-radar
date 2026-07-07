@@ -16,7 +16,7 @@ does not add connectors.
 | Setup | `init`, `migrate-db`, `doctor` | [first-run.md](first-run.md) |
 | Local sample/import | `community-signal-lint`, `import-signals`, `import-signals-dir` | [first-run.md](first-run.md) |
 | Match/report/review | `match`, `report`, `candidates`, `trends`, `trend-explanations`, `imported-signals` | [first-run.md](first-run.md) |
-| Daily site | `row-one build`, `row-one preview`, `row-one status`, `row-one ops-check`, `row-one local-ops`, `row-one install-local`, `row-one serve`, `row-one schedule` | [row-one.md](row-one.md) |
+| Daily site | `row-one refresh`, `row-one build`, `row-one preview`, `row-one status`, `row-one ops-check`, `row-one local-ops`, `row-one install-local`, `row-one serve`, `row-one schedule` | [row-one.md](row-one.md) |
 | Dashboard | `dashboard` | [first-run.md](first-run.md) |
 | Optional entity matching | `entity-pack-lint` | [entity-packs.md](entity-packs.md) |
 | Cleanup | Reset The Repo-Local Sample | [first-run.md](first-run.md) |
@@ -93,6 +93,15 @@ first-run smoke now performs a local HTTP serve fetch, not just
   Run `fashion-radar schedule-example --help` for current mode, time, project,
   config, data, and reports options.
 - `row-one`: parent command for ROW ONE local daily site helpers.
+- `row-one refresh`: run the single local daily ROW ONE refresh path:
+  collect configured sources, match stored items, write the current dated report,
+  generate the ROW ONE site, prune stale dated report artifacts, and then run
+  SQLite retention. Requires `--as-of` and supports `--config-dir`,
+  `--data-dir`, `--reports-dir`, `--output-dir`, `--retention-days`, and
+  `--skip-data-retention`. SQLite retention uses default 1-day retention after
+  the current site and reports are generated; pass `--retention-days N` for a
+  longer local item-history window or `--skip-data-retention` to leave SQLite
+  item history untouched for that refresh.
 - `row-one build`: build the ROW ONE local static site from existing daily
   report data; requires `--as-of` and supports `--config-dir`, `--data-dir`,
   `--reports-dir`, `--output-dir`, and `--latest-only`.

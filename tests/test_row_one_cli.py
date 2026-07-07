@@ -13,13 +13,14 @@ from types import SimpleNamespace
 
 import pytest
 from jsonschema import Draft202012Validator, FormatChecker
+from sqlalchemy import func, select
 from typer.testing import CliRunner
 
 import fashion_radar.cli as cli_module
 from fashion_radar.cli import app
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
-from fashion_radar.db.schema import initialize_schema
+from fashion_radar.db.schema import initialize_schema, item_entities, items
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.report import (
     DailyReport,
@@ -381,16 +382,15 @@ def test_row_one_preview_help_is_discoverable() -> None:
     assert "Print the local" in result.output
 
 
-def test_row_one_refresh_runs_pipeline_and_writes_site(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+def _patch_successful_row_one_refresh_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    config_dir: Path,
+    data_dir: Path,
+    reports_dir: Path,
+    output_dir: Path,
+    calls: list[str],
 ) -> None:
-    config_dir = tmp_path / "configs"
-    data_dir = tmp_path / "data"
-    reports_dir = tmp_path / "reports"
-    output_dir = tmp_path / "row-one-site"
-    _write_minimal_config(config_dir)
-    calls: list[str] = []
-
     class StoredMatches:
         matches_stored = 4
 
@@ -458,6 +458,36 @@ def test_row_one_refresh_runs_pipeline_and_writes_site(
         write_row_one_site_from_cli_options,
     )
 
+
+def test_row_one_refresh_runs_pipeline_and_writes_site(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+    calls: list[str] = []
+    _patch_successful_row_one_refresh_pipeline(
+        monkeypatch,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        output_dir=output_dir,
+        calls=calls,
+    )
+
+    def clean_old_data(**kwargs: object) -> SimpleNamespace:
+        assert kwargs == {
+            "data_dir": data_dir,
+            "as_of": AS_OF,
+            "retention_days": 1,
+        }
+        calls.append("clean_old_data")
+        return SimpleNamespace(items_deleted=5, item_entities_deleted=7, dry_run=False)
+
+    monkeypatch.setattr(cli_module, "clean_old_data", clean_old_data)
+
     result = CliRunner().invoke(
         app,
         [
@@ -487,6 +517,7 @@ def test_row_one_refresh_runs_pipeline_and_writes_site(
         "write_daily_report_files",
         "_write_row_one_site_from_cli_options",
         "prune_stale_daily_report_files",
+        "clean_old_data",
     ]
     assert "ROW ONE refresh" in result.output
     assert "Stored matches: 4" in result.output
@@ -495,6 +526,10 @@ def test_row_one_refresh_runs_pipeline_and_writes_site(
     assert f"HTML report: {reports_dir / 'daily.html'}" in result.output
     assert "Latest-only reports: removed 3 stale files for 2026-07-02; kept 3 current files" in (
         result.output
+    )
+    assert (
+        "SQLite retention: pruned 5 old items and 7 item/entity matches; retention window 1 days"
+        in result.output
     )
     assert f"Site: {output_dir / 'index.html'}" in result.output
     assert f"JSON: {output_dir / 'data' / 'edition.json'}" in result.output
@@ -507,6 +542,195 @@ def test_row_one_refresh_runs_pipeline_and_writes_site(
     assert "Open: http://127.0.0.1:8787" in result.output
 
 
+def test_row_one_refresh_can_skip_sqlite_retention(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+    calls: list[str] = []
+    _patch_successful_row_one_refresh_pipeline(
+        monkeypatch,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        output_dir=output_dir,
+        calls=calls,
+    )
+
+    def clean_old_data(**_kwargs: object) -> object:
+        raise AssertionError("clean_old_data must not run with --skip-data-retention")
+
+    monkeypatch.setattr(cli_module, "clean_old_data", clean_old_data)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "refresh",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--output-dir",
+            str(output_dir),
+            "--as-of",
+            AS_OF,
+            "--skip-data-retention",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "SQLite retention: skipped" in result.output
+    assert "clean_old_data" not in calls
+
+
+def test_row_one_refresh_warns_when_sqlite_retention_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+    calls: list[str] = []
+    _patch_successful_row_one_refresh_pipeline(
+        monkeypatch,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        output_dir=output_dir,
+        calls=calls,
+    )
+
+    def clean_old_data(**_kwargs: object) -> object:
+        calls.append("clean_old_data")
+        raise RuntimeError("database locked")
+
+    monkeypatch.setattr(cli_module, "clean_old_data", clean_old_data)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "refresh",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--output-dir",
+            str(output_dir),
+            "--as-of",
+            AS_OF,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "SQLite retention: failed: database locked" in result.output
+    assert "ROW ONE refresh failed" not in result.output
+    assert calls[-1] == "clean_old_data"
+
+
+def test_row_one_refresh_prunes_old_sqlite_items_after_successful_refresh(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+    engine = create_sqlite_engine(default_database_path(data_dir))
+    try:
+        initialize_schema(engine)
+        repository = ItemRepository(engine)
+        old_id = repository.upsert_item(
+            CollectedItem(
+                source_name="Old Source",
+                source_type=SourceType.RSS,
+                url="https://example.com/old",
+                title="Old signal",
+                published_at="2026-07-01T00:00:00Z",
+                summary="old",
+            ),
+            collected_at=parse_datetime_utc("2026-07-01T00:00:00Z"),
+        )
+        repository.replace_item_matches(
+            old_id,
+            [
+                {
+                    "entity_name": "The Row",
+                    "entity_type": "brand",
+                    "alias": "The Row",
+                    "confidence": 1.0,
+                    "reason": "accepted",
+                    "context_terms": [],
+                }
+            ],
+        )
+        current_id = repository.upsert_item(
+            CollectedItem(
+                source_name="Current Source",
+                source_type=SourceType.RSS,
+                url="https://example.com/current",
+                title="Current signal",
+                published_at=AS_OF,
+                summary="current",
+            ),
+            collected_at=parse_datetime_utc(AS_OF),
+        )
+
+        calls: list[str] = []
+        _patch_successful_row_one_refresh_pipeline(
+            monkeypatch,
+            config_dir=config_dir,
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+            output_dir=output_dir,
+            calls=calls,
+        )
+
+        result = CliRunner().invoke(
+            app,
+            [
+                "row-one",
+                "refresh",
+                "--config-dir",
+                str(config_dir),
+                "--data-dir",
+                str(data_dir),
+                "--reports-dir",
+                str(reports_dir),
+                "--output-dir",
+                str(output_dir),
+                "--as-of",
+                AS_OF,
+                "--retention-days",
+                "1",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "SQLite retention: pruned 1 old items and 1 item/entity matches" in result.output
+        assert repository.count_items() == 1
+        with engine.connect() as conn:
+            remaining_items = conn.execute(select(items.c.id, items.c.url)).mappings().all()
+            remaining_matches = conn.execute(
+                select(func.count()).select_from(item_entities)
+            ).scalar_one()
+        assert [(row["id"], row["url"]) for row in remaining_items] == [
+            (current_id, "https://example.com/current")
+        ]
+        assert remaining_matches == 0
+    finally:
+        engine.dispose()
+
+
 def test_row_one_refresh_help_is_discoverable() -> None:
     result = CliRunner().invoke(app, ["row-one", "refresh", "--help"])
 
@@ -515,6 +739,8 @@ def test_row_one_refresh_help_is_discoverable() -> None:
     assert "--output-dir" in result.output
     assert "--host" in result.output
     assert "--port" in result.output
+    assert "--retention-days" in result.output
+    assert "--skip-data-retention" in result.output
 
 
 def test_row_one_local_ops_command_prints_runbook(tmp_path: Path) -> None:

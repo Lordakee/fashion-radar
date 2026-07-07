@@ -83,10 +83,15 @@ UV_LOCK_INDEX_MARKER_PATTERN = re.compile(
     r"\b(?P<marker>index-url|extra-index-url|find-links|default-index|extra-index)\b",
     re.IGNORECASE,
 )
-REVIEW_CAPTURE_MIN_STAGE = 159
+OPENCODE_REVIEW_CAPTURE_MIN_STAGE = 159
+CLAUDE_CODE_REVIEW_CAPTURE_MIN_STAGE = 330
+REVIEW_CAPTURE_MIN_STAGE_BY_TOOL = {
+    "opencode": OPENCODE_REVIEW_CAPTURE_MIN_STAGE,
+    "claude-code": CLAUDE_CODE_REVIEW_CAPTURE_MIN_STAGE,
+}
 REVIEW_CAPTURE_ARTIFACT_PATTERN = re.compile(
     r"^docs/reviews/"
-    r"opencode-stage-(?P<stage>[0-9]+)-"
+    r"(?P<tool>opencode|claude-code)-stage-(?P<stage>[0-9]+)-"
     r"(?:plan|code|release)-(?:review|rereview(?:-[0-9]+)?)\.md$"
 )
 NON_STAGE_OPENCODE_REVIEW_ARTIFACT_PATTERN = re.compile(
@@ -447,7 +452,8 @@ def is_review_capture_artifact_path(path: str) -> bool:
     lower_path = path.lower()
     match = REVIEW_CAPTURE_ARTIFACT_PATTERN.fullmatch(lower_path)
     if match is not None:
-        return int(match.group("stage")) >= REVIEW_CAPTURE_MIN_STAGE
+        min_stage = REVIEW_CAPTURE_MIN_STAGE_BY_TOOL[match.group("tool")]
+        return int(match.group("stage")) >= min_stage
     if lower_path.endswith("-prompt.md"):
         return False
     return NON_STAGE_OPENCODE_REVIEW_ARTIFACT_PATTERN.fullmatch(lower_path) is not None

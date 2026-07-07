@@ -341,6 +341,72 @@ def test_stage_159_review_artifact_prompt_with_tool_status_example_is_ignored(
     assert result.stderr == ""
 
 
+@pytest.mark.parametrize(
+    ("content", "expected_suffix"),
+    [
+        ("   \n\n", ": empty output"),
+        (
+            "## Verdict\n\nWrote docs/reviews/claude-code-stage-330-code-review.md\n",
+            ":3: tool-status line",
+        ),
+    ],
+)
+def test_stage_330_claude_code_review_artifact_with_capture_noise_fails(
+    tmp_path: Path,
+    content: str,
+    expected_suffix: str,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/claude-code-stage-330-code-review.md",
+        content,
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 1
+    assert (
+        "forbidden review capture artifact in tracked file: "
+        "docs/reviews/claude-code-stage-330-code-review.md"
+        f"{expected_suffix}"
+    ) in result.stderr
+
+
+def test_stage_330_claude_code_review_artifact_prompt_is_ignored(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/claude-code-stage-330-code-review-prompt.md",
+        "Review this stage. Reject output containing Wrote lines.\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 0
+    assert result.stdout == "Release hygiene checks passed.\n"
+    assert result.stderr == ""
+
+
+def test_stage_329_claude_code_legacy_review_artifact_is_not_rechecked(
+    tmp_path: Path,
+) -> None:
+    repo_root = init_repo(tmp_path)
+    write_tracked(
+        repo_root,
+        "docs/reviews/claude-code-stage-329-code-review.md",
+        "I'll inspect the repository first.\n",
+    )
+
+    result = run_checker(repo_root)
+
+    assert result.returncode == 0
+    assert result.stdout == "Release hygiene checks passed.\n"
+    assert result.stderr == ""
+
+
 def test_stage_158_legacy_review_artifact_is_not_rechecked(tmp_path: Path) -> None:
     repo_root = init_repo(tmp_path)
     write_tracked(

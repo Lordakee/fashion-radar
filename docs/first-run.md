@@ -133,7 +133,13 @@ uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.
 ```
 
 `row-one refresh` is the single local daily refresh command for ROW ONE. It
-refreshes the daily report data and generated site in one local command.
+refreshes the daily report data and generated site in one local command. After
+the current site and reports are generated, it prunes older generated dated
+report artifacts and runs SQLite item retention with a default 1-day retention
+window. Use `--retention-days N` for longer local item history, or
+`--skip-data-retention` to opt out for one refresh. The 1-day default is
+disk-friendly for test deployments, but it reduces multi-day item history
+available to future scoring window comparisons and heat scores.
 ROW ONE local ops use a daily `04:00` refresh boundary and fixed local
 IP:port `127.0.0.1:8787`; use `0.0.0.0:8787` only for explicit LAN serving.
 The generated site includes `data/runtime.json` runtime metadata alongside

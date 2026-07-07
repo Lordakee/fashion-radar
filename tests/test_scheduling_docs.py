@@ -54,3 +54,28 @@ def test_scheduling_docs_keep_schedule_example_print_only_boundary() -> None:
         "does not install anything",
     ):
         assert phrase in normalized
+
+
+def test_scheduling_docs_keep_row_one_refresh_retention_boundary() -> None:
+    row_one_section = _section(_read_scheduling_doc(), "ROW ONE Daily Site")
+    normalized = _normalized(row_one_section)
+
+    for phrase in (
+        "row one scheduled refresh runs the single refresh command",
+        "the command is `fashion-radar row-one refresh`",
+        "prunes stale dated report and site artifacts",
+        (
+            "by default, it also prunes sqlite items older than the retention window after "
+            "generating the current edition"
+        ),
+        "the default row one sqlite item retention window is 1 day",
+        (
+            "standalone `fashion-radar clean-old-data` remains for manual or "
+            "non-row one data retention"
+        ),
+    ):
+        assert phrase in normalized
+
+    assert "--latest-only" not in row_one_section
+    assert "fashion-radar run" not in row_one_section
+    assert "leaves all sqlite cleanup entirely to clean-old-data" not in normalized

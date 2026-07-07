@@ -252,6 +252,11 @@ ROW_ONE_UNIT_DIR_OPTION = typer.Option(
 AS_OF_OPTION = typer.Option(..., help="UTC report timestamp, for example 2026-06-11T12:00:00Z.")
 NOW_OPTION = typer.Option(None, help="UTC collection timestamp override.")
 RETENTION_DAYS_OPTION = typer.Option(30, min=1, help="Retention window in days.")
+ROW_ONE_RETENTION_DAYS_OPTION = typer.Option(
+    1,
+    min=1,
+    help="ROW ONE SQLite retention window in days after refresh.",
+)
 CandidateOutputFormat = Literal["table", "json"]
 ManualSignalInputFormat = Literal["csv", "json"]
 CommunityCandidatesOutputFormat = Literal["table", "json"]
@@ -1498,6 +1503,12 @@ def row_one_refresh(
     output_dir: Path = ROW_ONE_OUTPUT_DIR_OPTION,
     host: str = ROW_ONE_HOST_OPTION,
     port: int = ROW_ONE_PORT_OPTION,
+    retention_days: int = ROW_ONE_RETENTION_DAYS_OPTION,
+    skip_data_retention: bool = typer.Option(
+        False,
+        "--skip-data-retention",
+        help="Skip ROW ONE SQLite item retention after refresh.",
+    ),
 ) -> None:
     """Refresh ROW ONE by collecting, matching, reporting, and rebuilding the site."""
     try:
@@ -1540,6 +1551,18 @@ def row_one_refresh(
         typer.echo(f"ROW ONE refresh failed: {exc}", err=True)
         raise typer.Exit(1) from exc
 
+    data_retention = None
+    data_retention_error = None
+    if not skip_data_retention:
+        try:
+            data_retention = clean_old_data(
+                data_dir=data_dir,
+                as_of=as_of,
+                retention_days=retention_days,
+            )
+        except Exception as exc:
+            data_retention_error = exc
+
     readiness = build_row_one_readiness(site_result.edition)
     typer.echo("ROW ONE refresh")
     typer.echo(f"Stored matches: {summary.matches_stored}")
@@ -1552,6 +1575,17 @@ def row_one_refresh(
         f"{report_retention.current_date}; "
         f"kept {report_retention.kept_current_count} current files"
     )
+    if skip_data_retention:
+        typer.echo("SQLite retention: skipped")
+    elif data_retention_error is not None:
+        typer.echo(f"SQLite retention: failed: {data_retention_error}")
+    elif data_retention is not None:
+        typer.echo(
+            "SQLite retention: "
+            f"pruned {data_retention.items_deleted} old items and "
+            f"{data_retention.item_entities_deleted} item/entity matches; "
+            f"retention window {retention_days} days"
+        )
     typer.echo(f"Site: {site_result.index_path}")
     typer.echo(f"JSON: {site_result.output_dir / 'data' / 'edition.json'}")
     typer.echo(f"Manifest: {site_result.output_dir / 'data' / 'manifest.json'}")
