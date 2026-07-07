@@ -42,6 +42,12 @@ from fashion_radar.row_one.saved_article_coverage import (
     RowOneSavedArticleCoverage,
     RowOneSavedArticleCoverageItem,
 )
+from fashion_radar.row_one.saved_article_library import (
+    RowOneSavedArticleLibrary,
+    RowOneSavedArticleLibraryEntry,
+    RowOneSavedArticleLibraryParagraphLink,
+    RowOneSavedArticleLibrarySourceGroup,
+)
 from fashion_radar.row_one.text import (
     clean_row_one_sentences,
     clean_row_one_text,
@@ -120,6 +126,7 @@ def render_index_html(
     app_payload: dict[str, object] | None = None,
     local_article_intelligence: Sequence[RowOneDailyLocalIntelligenceSection] | None = None,
     saved_article_coverage: RowOneSavedArticleCoverage | None = None,
+    saved_article_library: RowOneSavedArticleLibrary | None = None,
     saved_article_briefs: RowOneSavedArticleBriefs | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     editorial_brief: _EditorialBrief | None = None,
@@ -138,6 +145,7 @@ def render_index_html(
     daily_edit = _render_daily_edit(app_payload)
     daily_local_intelligence = _render_daily_local_intelligence(local_article_intelligence)
     saved_article_coverage_section = _render_saved_article_coverage(saved_article_coverage)
+    saved_article_library_entry = _render_saved_article_library_entry(saved_article_library)
     saved_article_briefs_section = _render_saved_article_briefs(saved_article_briefs)
     saved_article_content_organization_section = _render_saved_article_content_organization(
         saved_article_content_organization
@@ -228,6 +236,7 @@ def render_index_html(
 {daily_edit}
 {daily_local_intelligence}
 {saved_article_coverage_section}
+{saved_article_library_entry}
 {saved_article_briefs_section}
 {saved_article_content_organization_section}
 {editorial_brief_section}
@@ -238,6 +247,58 @@ def render_index_html(
 </main>
 </div>
 <script src="assets/row-one.js"></script>
+</body>
+</html>
+"""
+
+
+def render_saved_article_library_html(
+    edition: RowOneEdition,
+    library: RowOneSavedArticleLibrary,
+) -> str:
+    groups = "\n".join(_render_saved_article_library_source(group) for group in library.groups)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{
+        _render_meta_tags(
+            title=f"Daily Saved Article Library - {edition.brand}",
+            description="A generated ROW ONE index of today's saved local article bodies.",
+            page_type="website",
+        )
+    }
+<title>Daily Saved Article Library - {_esc(edition.brand)}</title>
+<link rel="stylesheet" href="../assets/row-one.css">
+</head>
+<body>
+<header class="detail-header">
+  <a class="back-link" href="../index.html">ROW ONE</a>
+  <div class="language-toggle" aria-label="Language">
+    <button type="button" data-lang-toggle="en" aria-pressed="true">EN</button>
+    <button type="button" data-lang-toggle="zh" aria-pressed="false">中文</button>
+  </div>
+</header>
+<main class="detail-main saved-article-library-page">
+  <section class="saved-article-library-hero" aria-label="Daily saved article library">
+    <p class="story-section">
+      <span data-lang="en">Saved Local Source Set</span>
+      <span data-lang="zh">本地保存来源集合</span>
+    </p>
+    <h1>
+      <span data-lang="en">Daily Saved Article Library</span>
+      <span data-lang="zh">每日本地文章库</span>
+    </h1>
+    <p>
+      <span data-lang="en">A current-edition index of saved local fashion articles.</span>
+      <span data-lang="zh">当前版本的本地保存时尚文章索引，并链接回已整理的本地正文。</span>
+    </p>
+    {_render_saved_article_library_metrics(library, css_class="saved-article-library-metrics")}
+  </section>
+  <div class="saved-article-library-grid">{groups}</div>
+</main>
+<script src="../assets/row-one.js"></script>
 </body>
 </html>
 """
@@ -987,6 +1048,191 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.35;
+}
+.saved-article-library-entry {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.saved-article-library-entry-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.saved-article-library-entry-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.2rem, 5vw, 5.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.92;
+  margin: 0;
+}
+.saved-article-library-entry-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.saved-article-library-entry-metrics,
+.saved-article-library-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+}
+.saved-article-library-entry-metrics li,
+.saved-article-library-metrics li {
+  border: 1px solid var(--line);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 8px 10px;
+}
+.saved-article-library-entry-link {
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 10px 12px;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.saved-article-library-page {
+  display: grid;
+  gap: 28px;
+}
+.saved-article-library-hero {
+  border-bottom: 1px solid var(--ink);
+  display: grid;
+  gap: 14px;
+  padding-bottom: 28px;
+}
+.saved-article-library-hero h1 {
+  font-size: clamp(3.2rem, 9vw, 8.5rem);
+}
+.saved-article-library-hero p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 760px;
+}
+.saved-article-library-grid {
+  display: grid;
+  gap: 24px;
+}
+.saved-article-library-source {
+  display: grid;
+  gap: 12px;
+}
+.saved-article-library-source-header {
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  justify-content: space-between;
+  padding-bottom: 10px;
+}
+.saved-article-library-source-header h2,
+.saved-article-library-source-header p {
+  margin: 0;
+}
+.saved-article-library-source-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.55rem, 3vw, 3rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-library-source-header p {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-library-source-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.saved-article-library-card {
+  background: var(--panel);
+  display: grid;
+  gap: 12px;
+  min-height: 260px;
+  min-width: 0;
+  padding: 16px;
+}
+.saved-article-library-card h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.25rem, 2vw, 2.05rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-library-card-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 6px 10px;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+.saved-article-library-card-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-library-card-counts li,
+.saved-article-library-ref,
+.saved-article-library-paragraphs a {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  gap: 4px;
+  overflow-wrap: anywhere;
+  padding: 5px 7px;
+  text-decoration: none;
+}
+.saved-article-library-actions,
+.saved-article-library-refs,
+.saved-article-library-paragraphs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.saved-article-library-actions a {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  font-weight: 800;
+  gap: 5px;
+  letter-spacing: 0.08em;
+  padding: 7px 9px;
+  text-decoration: none;
+  text-transform: uppercase;
 }
 .saved-article-briefs {
   border-bottom: 1px solid var(--ink);
@@ -2524,6 +2770,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-intelligence-grid { grid-template-columns: 1fr; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
+  .saved-article-library-entry-header { grid-template-columns: 1fr; }
+  .saved-article-library-source-grid { grid-template-columns: 1fr; }
   .saved-article-briefs-header { grid-template-columns: 1fr; }
   .saved-article-briefs-grid { grid-template-columns: 1fr; }
   .saved-article-content-organization-header { grid-template-columns: 1fr; }
@@ -3438,6 +3686,242 @@ def _render_saved_article_coverage_card(item: RowOneSavedArticleCoverageItem) ->
 
 def _safe_saved_article_coverage_href(href: object) -> str | None:
     return safe_row_one_detail_fragment_href(href, "local-article-digest")
+
+
+def _render_saved_article_library_entry(
+    library: RowOneSavedArticleLibrary | None,
+) -> str:
+    if library is None:
+        return ""
+    return f"""<section class="saved-article-library-entry"
+  aria-label="Daily saved article library">
+  <div class="saved-article-library-entry-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Daily Saved Article Library</span>
+        <span data-lang="zh">每日本地文章库</span>
+      </p>
+      <h2>
+        <span data-lang="en">Daily Saved Article Library</span>
+        <span data-lang="zh">每日本地文章库</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">Browse the current edition's saved local articles by source.</span>
+      <span data-lang="zh">按来源浏览当前版本的本地保存文章。</span>
+    </p>
+  </div>
+  {_render_saved_article_library_metrics(library, css_class="saved-article-library-entry-metrics")}
+  <a class="saved-article-library-entry-link" href="articles/index.html">
+    <span data-lang="en">Open saved article library</span>
+    <span data-lang="zh">打开本地文章库</span>
+  </a>
+</section>"""
+
+
+def _render_saved_article_library_metrics(
+    library: RowOneSavedArticleLibrary,
+    *,
+    css_class: str,
+) -> str:
+    metrics = [
+        _render_saved_article_library_metric(
+            _count_label(library.article_count, "saved article", "saved articles"),
+            f"{library.article_count} 篇保存文章",
+        ),
+        _render_saved_article_library_metric(
+            _count_label(library.source_count, "source", "sources"),
+            f"{library.source_count} 个来源",
+        ),
+        _render_saved_article_library_metric(
+            _count_label(
+                library.saved_paragraph_count,
+                "saved paragraph",
+                "saved paragraphs",
+            ),
+            f"{library.saved_paragraph_count} 个保存段落",
+        ),
+        _render_saved_article_library_metric(
+            _count_label(
+                library.organized_section_count,
+                "organized section",
+                "organized sections",
+            ),
+            f"{library.organized_section_count} 个整理栏目",
+        ),
+    ]
+    return f'<ul class="{_esc(css_class)}">\n' + "\n".join(metrics) + "\n  </ul>"
+
+
+def _render_saved_article_library_metric(label_en: str, label_zh: str) -> str:
+    return (
+        "    <li>"
+        f'<span data-lang="en">{_esc(label_en)}</span>'
+        f'<span data-lang="zh">{_esc(label_zh)}</span>'
+        "</li>"
+    )
+
+
+def _render_saved_article_library_source(
+    group: RowOneSavedArticleLibrarySourceGroup,
+) -> str:
+    cards = "\n".join(_render_saved_article_library_card(entry) for entry in group.entries)
+    article_count_en = _count_label(group.article_count, "article", "articles")
+    article_count_zh = f"{group.article_count} 篇文章"
+    paragraph_count_en = _count_label(
+        group.saved_paragraph_count,
+        "saved paragraph",
+        "saved paragraphs",
+    )
+    paragraph_count_zh = f"{group.saved_paragraph_count} 个保存段落"
+    return f"""    <section class="saved-article-library-source">
+      <div class="saved-article-library-source-header">
+        <h2>{_esc(group.source_name)}</h2>
+        <p>
+          <span data-lang="en">{_esc(article_count_en)}, {_esc(paragraph_count_en)}</span>
+          <span data-lang="zh">{_esc(article_count_zh)}，{_esc(paragraph_count_zh)}</span>
+        </p>
+      </div>
+      <div class="saved-article-library-source-grid">{cards}</div>
+    </section>"""
+
+
+def _render_saved_article_library_card(entry: RowOneSavedArticleLibraryEntry) -> str:
+    refs = _render_saved_article_library_refs(entry.references)
+    paragraphs = _render_saved_article_library_paragraphs(entry.paragraph_links)
+    actions = _render_saved_article_library_actions(entry)
+    paragraph_count_en = _count_label(
+        entry.saved_paragraph_count,
+        "saved paragraph",
+        "saved paragraphs",
+    )
+    section_count_en = _count_label(
+        entry.organized_section_count,
+        "organized section",
+        "organized sections",
+    )
+    return f"""        <article class="saved-article-library-card">
+          <div class="saved-article-library-card-meta">
+            <span>{_esc(entry.source_name)}</span>
+            <span>
+              <span data-lang="en">{_esc(entry.section_title.en)}</span>
+              <span data-lang="zh">{_esc(entry.section_title.zh)}</span>
+            </span>
+          </div>
+          <h3>
+            <span data-lang="en">{_esc(entry.title.en)}</span>
+            <span data-lang="zh">{_esc(entry.title.zh)}</span>
+          </h3>
+          <ul class="saved-article-library-card-counts">
+            <li>
+              <span data-lang="en">{_esc(paragraph_count_en)}</span>
+              <span data-lang="zh">{_esc(f"{entry.saved_paragraph_count} 个保存段落")}</span>
+            </li>
+            <li>
+              <span data-lang="en">{_esc(section_count_en)}</span>
+              <span data-lang="zh">{_esc(f"{entry.organized_section_count} 个整理栏目")}</span>
+            </li>
+          </ul>
+          {refs}
+          {paragraphs}
+          {actions}
+        </article>"""
+
+
+def _render_saved_article_library_refs(refs: Sequence[RowOneReference]) -> str:
+    if not refs:
+        return ""
+    chips = "".join(
+        '<span class="saved-article-library-ref">'
+        f"<span>{_esc(ref.name)}</span>"
+        f"<span>{_esc(ref.label.strip() or ref.type)}</span>"
+        "</span>"
+        for ref in refs
+    )
+    return f"""<div class="saved-article-library-refs" aria-label="Article references">
+            {chips}
+          </div>"""
+
+
+def _render_saved_article_library_paragraphs(
+    paragraph_links: Sequence[RowOneSavedArticleLibraryParagraphLink],
+) -> str:
+    links = []
+    for paragraph_link in paragraph_links:
+        href = _safe_saved_article_library_paragraph_href(paragraph_link.href)
+        if href is None:
+            continue
+        links.append(
+            f"""<a href="{_esc(_saved_article_library_page_href(href))}">
+              <span data-lang="en">{_esc(paragraph_link.label.en)}</span>
+              <span data-lang="zh">{_esc(paragraph_link.label.zh)}</span>
+            </a>"""
+        )
+    if not links:
+        return ""
+    return (
+        '<div class="saved-article-library-paragraphs" aria-label="Saved paragraph links">'
+        + "".join(links)
+        + "</div>"
+    )
+
+
+def _render_saved_article_library_actions(entry: RowOneSavedArticleLibraryEntry) -> str:
+    actions = [
+        (
+            entry.reader_path,
+            "local-article-reader",
+            "Read local article",
+            "阅读本地正文",
+        ),
+        (
+            entry.digest_path,
+            "local-article-digest",
+            "Open digest",
+            "打开整理摘要",
+        ),
+    ]
+    if entry.paragraph_links:
+        actions.append(
+            (
+                entry.evidence_path,
+                "local-article-paragraph-evidence",
+                "Open evidence",
+                "打开段落线索",
+            )
+        )
+    rendered = []
+    for href, fragment, label_en, label_zh in actions:
+        safe_href = safe_row_one_detail_fragment_href(href, fragment)
+        if safe_href is None:
+            continue
+        rendered.append(
+            f"""<a href="{_esc(_saved_article_library_page_href(safe_href))}">
+              <span data-lang="en">{_esc(label_en)}</span>
+              <span data-lang="zh">{_esc(label_zh)}</span>
+            </a>"""
+        )
+    if not rendered:
+        return ""
+    return '<div class="saved-article-library-actions">' + "".join(rendered) + "</div>"
+
+
+def _safe_saved_article_library_paragraph_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    path, separator, fragment = href.partition("#")
+    if not separator:
+        return None
+    safe_path = validated_row_one_detail_relative_path(path)
+    if safe_path is None:
+        return None
+    if _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is None:
+        return None
+    return f"{safe_path}#{fragment}"
+
+
+def _saved_article_library_page_href(href: str) -> str:
+    return f"../{href}"
 
 
 def _render_saved_article_briefs(briefs: RowOneSavedArticleBriefs | None) -> str:

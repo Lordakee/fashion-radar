@@ -54,13 +54,17 @@ def test_row_one_docs_describe_generated_files_and_cleanup_boundary() -> None:
     for phrase in (
         "`index.html`",
         "`details/`",
+        "`articles/index.html`",
+        "`articles/`",
         "`assets/row-one.css`",
         "`assets/row-one.js`",
         "`data/edition.json`",
         "`.row-one-site` marker",
         "`data/runtime.json`",
         "`data/local-intelligence.json`",
+        "publishable saved local articles for the daily saved article library",
         "remove only known row one generated children",
+        "`assets/`, `data/`, and `articles/`",
         "they do not delete unrelated files in the output directory",
         "row-one refresh",
         "prunes older generated report artifacts",
@@ -722,6 +726,43 @@ def test_row_one_docs_describe_editorial_source_trail_boundary() -> None:
     for phrase in forbidden_phrases:
         assert phrase not in readme_stage_322_normalized
         assert phrase not in docs_stage_322_normalized
+
+
+def test_row_one_docs_describe_daily_saved_article_library_boundary() -> None:
+    expected = _normalized(
+        "Stage 326 adds a generated-site only ROW ONE daily saved article library at "
+        "`articles/index.html`; it organizes the current edition's saved local "
+        "articles by source and links back into existing detail-page local article "
+        "anchors; it does not change row-one-app/v7, row-one-manifest/v1, "
+        "row-one-runtime/v1, schemas, JSON artifacts, source collection, fetching, "
+        "scoring, LLM, connector, scheduling, deployment, or compliance-review "
+        "behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+
+        stage = normalized[
+            normalized.index("stage 326 adds a generated-site only row one") : normalized.index(
+                "stage 324 adds paragraph evidence index"
+            )
+        ]
+        for phrase in (
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "adds source collection",
+            "adds fetching",
+            "adds scoring",
+            "adds llm calls",
+            "adds connectors",
+            "adds scheduling",
+            "adds deployment behavior",
+            "adds compliance review",
+        ):
+            assert phrase not in stage
 
 
 def test_row_one_docs_describe_stage_324_paragraph_evidence_index_boundary() -> None:

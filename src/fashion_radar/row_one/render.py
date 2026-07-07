@@ -34,6 +34,10 @@ from fashion_radar.row_one.saved_article_content_organization import (
 from fashion_radar.row_one.saved_article_coverage import (
     build_row_one_saved_article_coverage,
 )
+from fashion_radar.row_one.saved_article_library import (
+    RowOneSavedArticleLibrary,
+    build_row_one_saved_article_library,
+)
 from fashion_radar.row_one.site_metrics import (
     RowOneLocalArticleSiteMetrics,
     build_row_one_local_article_metrics,
@@ -46,13 +50,15 @@ from fashion_radar.row_one.templates import (
     _validated_detail_relative_path,
     render_detail_html,
     render_index_html,
+    render_saved_article_library_html,
     row_one_css,
     row_one_js,
 )
 from fashion_radar.row_one.text import clean_row_one_text
 from fashion_radar.row_one.utils import isoformat_z, safe_external_url, utc_datetime
 
-GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data")
+# Top-level articles/ is generated HTML. data/articles/ remains the JSON sidecar tree.
+GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data", "articles")
 ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v7"
 ROW_ONE_MANIFEST_CONTRACT_VERSION = "row-one-manifest/v1"
 ROW_ONE_MANIFEST_SCHEMA_PATH = "schemas/row-one-manifest.schema.json"
@@ -100,6 +106,10 @@ def render_row_one_site(
         edition,
         local_articles_by_story_id,
     )
+    saved_article_library = build_row_one_saved_article_library(
+        edition,
+        local_articles_by_story_id,
+    )
     editorial_brief = _editorial_brief_payload(edition, local_articles_by_story_id)
     index_path = output_dir / "index.html"
     index_path.write_text(
@@ -108,6 +118,7 @@ def render_row_one_site(
             app_payload=app_payload,
             local_article_intelligence=local_article_intelligence,
             saved_article_coverage=saved_article_coverage,
+            saved_article_library=saved_article_library,
             saved_article_briefs=saved_article_briefs,
             saved_article_content_organization=saved_article_content_organization,
             editorial_brief=editorial_brief,
@@ -119,6 +130,11 @@ def render_row_one_site(
         edition,
         output_dir / "details",
         local_articles_by_story_id=local_articles_by_story_id,
+    )
+    _write_saved_article_library_page(
+        edition,
+        output_dir / "articles",
+        saved_article_library=saved_article_library,
     )
     data_dir = output_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -205,6 +221,21 @@ def _write_detail_pages(
             ),
             encoding="utf-8",
         )
+
+
+def _write_saved_article_library_page(
+    edition: RowOneEdition,
+    articles_dir: Path,
+    *,
+    saved_article_library: RowOneSavedArticleLibrary | None,
+) -> None:
+    if saved_article_library is None:
+        return
+    articles_dir.mkdir(parents=True, exist_ok=True)
+    (articles_dir / "index.html").write_text(
+        render_saved_article_library_html(edition, saved_article_library),
+        encoding="utf-8",
+    )
 
 
 def _writable_local_articles(

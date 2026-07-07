@@ -304,6 +304,8 @@ story summaries.
 
 - `index.html`
 - `details/`
+- `articles/index.html` when the current edition has publishable saved local
+  articles for the daily saved article library
 - `assets/row-one.css`
 - `assets/row-one.js`
 - `data/edition.json`
@@ -436,6 +438,12 @@ does not change
 schemas, does not write a new json artifact, does not add source collection,
 does not fetch article pages, does not add scoring, does not add llm calls, does
 not add connectors, and is not a compliance review feature.
+Stage 326 adds a generated-site only ROW ONE daily saved article library at
+`articles/index.html`; it organizes the current edition's saved local articles
+by source and links back into existing detail-page local article anchors; it
+does not change row-one-app/v7, row-one-manifest/v1, row-one-runtime/v1,
+schemas, JSON artifacts, source collection, fetching, scoring, LLM, connector,
+scheduling, deployment, or compliance-review behavior.
 Stage 324 adds Paragraph Evidence Index to generated ROW ONE detail pages. It is
 generated-site only and turns existing `RowOneLocalArticle.content_sections`
 items with existing `paragraph_indices`, existing `references`, existing
@@ -505,9 +513,9 @@ routes, paragraph anchors, or schemas.
 The latest-only cleanup has two local presentation surfaces.
 `row-one build --latest-only` and `row-one preview --latest-only` remove only
 known ROW ONE generated children: `index.html`, `.row-one-site`, `details/`,
-`assets/`, and `data/`. They do not delete unrelated files in the output
-directory. If an existing directory has generated-looking children but no
-`.row-one-site` marker, cleanup refuses to continue so user files are not
+`assets/`, `data/`, and `articles/`. They do not delete unrelated files in the
+output directory. If an existing directory has generated-looking children but
+no `.row-one-site` marker, cleanup refuses to continue so user files are not
 silently removed.
 
 `row-one refresh` is latest-only for the local ROW ONE presentation path: after

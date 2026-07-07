@@ -444,6 +444,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert '"paragraph_evidence_index"' not in generated_contract_payload
     assert '"local_evidence_index"' not in generated_contract_payload
     assert '"evidence_paragraph_index"' not in generated_contract_payload
+    assert '"saved_article_library"' not in generated_contract_payload
+    assert '"daily_saved_article_library"' not in generated_contract_payload
+    assert '"article_library"' not in generated_contract_payload
+    assert "saved-article-library" not in generated_contract_payload
+    assert "Daily Saved Article Library" not in generated_contract_payload
+    assert "每日本地文章库" not in generated_contract_payload
     top_level_data_files = {path.name for path in (output_dir / "data").glob("*.json")}
     assert top_level_data_files <= {
         "edition.json",

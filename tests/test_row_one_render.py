@@ -2604,6 +2604,105 @@ def _saved_article_coverage_item(
     )
 
 
+def test_render_row_one_site_writes_saved_article_library_page(tmp_path) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = RowOneLocalArticle(
+        story_id=story.id,
+        title="The Row <source>",
+        url="https://example.com/the-row",
+        source_name="Vogue <Business>",
+        extracted_at=AS_OF,
+        paragraphs=["First local paragraph with <signals>.", "Second paragraph."],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="entities",
+                title=LocalizedText(zh="品牌与人物", en="People & Brands"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="The Row", en="The Row"),
+                        body=LocalizedText(zh="The Row 正文。", en="The Row body."),
+                        paragraph_indices=[0],
+                        references=[
+                            RowOneReference(name="<The Row>", type="brand", label="tracked")
+                        ],
+                    )
+                ],
+            )
+        ],
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: local_article},
+    )
+
+    library_path = tmp_path / "articles" / "index.html"
+    assert library_path.exists()
+    html = library_path.read_text(encoding="utf-8")
+    home_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+
+    assert '<link rel="stylesheet" href="../assets/row-one.css">' in html
+    assert '<script src="../assets/row-one.js"></script>' in html
+    assert 'href="../index.html"' in html
+    assert "Daily Saved Article Library" in html
+    assert "每日本地文章库" in html
+    assert "1 saved article" in html
+    assert "1 source" in html
+    assert "2 saved paragraphs" in html
+    assert "1 organized section" in html
+    assert "Vogue &lt;Business&gt;" in html
+    assert "The Row &lt;source&gt;" in html
+    assert "&lt;The Row&gt;" in html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-reader"' in html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-digest"' in html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-evidence"' in html
+    )
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in html
+    assert "<source>" not in html
+    assert "<Business>" not in html
+    assert "<The Row>" not in html
+
+    assert 'href="articles/index.html"' in home_html
+    assert 'class="saved-article-library-entry"' in home_html
+    assert "Daily Saved Article Library" in home_html
+    assert "每日本地文章库" in home_html
+    assert home_html.index('class="saved-article-coverage"') < home_html.index(
+        'class="saved-article-library-entry"'
+    )
+    assert home_html.index('class="saved-article-library-entry"') < home_html.index(
+        'class="saved-article-briefs"'
+    )
+
+    for contract_json in (
+        json.dumps(edition_payload, ensure_ascii=False),
+        json.dumps(manifest_payload, ensure_ascii=False),
+        json.dumps(runtime_payload, ensure_ascii=False),
+    ):
+        assert "saved_article_library" not in contract_json
+        assert "daily_saved_article_library" not in contract_json
+        assert "article_library" not in contract_json
+        assert "saved-article-library" not in contract_json
+        assert "Daily Saved Article Library" not in contract_json
+    assert not (tmp_path / "data" / "saved-article-library.json").exists()
+
+
+def test_render_row_one_site_omits_saved_article_library_without_saved_articles(
+    tmp_path,
+) -> None:
+    render_row_one_site(_edition(), tmp_path)
+
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert not (tmp_path / "articles" / "index.html").exists()
+    assert "saved-article-library-entry" not in html
+    assert "Daily Saved Article Library" not in html
+
+
 def test_render_row_one_site_includes_saved_article_briefs(tmp_path) -> None:
     edition = _edition()
     story = edition.stories[0]
@@ -5132,6 +5231,28 @@ def test_row_one_css_includes_saved_article_briefs_styles(tmp_path) -> None:
         assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
 
 
+def test_row_one_css_includes_saved_article_library_styles(tmp_path) -> None:
+    css = render_row_one_site(_edition(), tmp_path).index_path
+    css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    for selector in (
+        ".saved-article-library-entry",
+        ".saved-article-library-entry-header",
+        ".saved-article-library-entry-metrics",
+        ".saved-article-library-page",
+        ".saved-article-library-hero",
+        ".saved-article-library-metrics",
+        ".saved-article-library-source",
+        ".saved-article-library-grid",
+        ".saved-article-library-card",
+        ".saved-article-library-card-meta",
+        ".saved-article-library-actions",
+        ".saved-article-library-refs",
+        ".saved-article-library-paragraphs",
+    ):
+        assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
+
+
 def test_row_one_css_includes_continue_reading_styles(tmp_path) -> None:
     css = render_row_one_site(_edition(), tmp_path).index_path
     css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
@@ -5443,13 +5564,16 @@ def test_render_row_one_site_latest_only_preserves_unrelated_files(tmp_path) -> 
     stale_detail = tmp_path / "details" / "old.html"
     stale_asset = tmp_path / "assets" / "old.css"
     stale_data = tmp_path / "data" / "old.json"
+    stale_articles = tmp_path / "articles" / "index.html"
     stale_detail.parent.mkdir(parents=True)
     stale_asset.parent.mkdir(parents=True)
     stale_data.parent.mkdir(parents=True)
+    stale_articles.parent.mkdir(parents=True)
     keep_path.write_text("do not delete", encoding="utf-8")
     stale_detail.write_text("old", encoding="utf-8")
     stale_asset.write_text("old", encoding="utf-8")
     stale_data.write_text("old", encoding="utf-8")
+    stale_articles.write_text("old", encoding="utf-8")
     (tmp_path / "index.html").write_text("old", encoding="utf-8")
     (tmp_path / ".row-one-site").write_text("ROW ONE generated site\n", encoding="utf-8")
 
@@ -5459,6 +5583,8 @@ def test_render_row_one_site_latest_only_preserves_unrelated_files(tmp_path) -> 
     assert not stale_detail.exists()
     assert not stale_asset.exists()
     assert not stale_data.exists()
+    assert not stale_articles.exists()
+    assert not (tmp_path / "articles").exists()
     assert (tmp_path / "index.html").exists()
 
 
@@ -5466,12 +5592,15 @@ def test_render_row_one_site_latest_only_refuses_unmarked_directory_children(tmp
     stale_asset = tmp_path / "assets" / "keep.css"
     stale_detail = tmp_path / "details" / "manual.html"
     stale_data = tmp_path / "data" / "manual.json"
+    stale_articles = tmp_path / "articles" / "manual.html"
     stale_asset.parent.mkdir(parents=True)
     stale_detail.parent.mkdir(parents=True)
     stale_data.parent.mkdir(parents=True)
+    stale_articles.parent.mkdir(parents=True)
     stale_asset.write_text("keep", encoding="utf-8")
     stale_detail.write_text("keep", encoding="utf-8")
     stale_data.write_text("keep", encoding="utf-8")
+    stale_articles.write_text("keep", encoding="utf-8")
 
     with pytest.raises(ValueError, match="not marked"):
         render_row_one_site(_edition(), tmp_path, latest_only=True)
@@ -5479,6 +5608,7 @@ def test_render_row_one_site_latest_only_refuses_unmarked_directory_children(tmp
     assert stale_asset.exists()
     assert stale_detail.exists()
     assert stale_data.exists()
+    assert stale_articles.exists()
 
 
 def test_render_row_one_site_writes_validated_detail_path(tmp_path) -> None:
