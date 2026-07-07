@@ -60,6 +60,12 @@ from fashion_radar.row_one.saved_article_reading_paths import (
     RowOneSavedArticleReadingPathStep,
     build_row_one_saved_article_reading_paths,
 )
+from fashion_radar.row_one.saved_article_reference_atlas import (
+    RowOneSavedArticleReferenceAtlas,
+    RowOneSavedArticleReferenceAtlasBucket,
+    RowOneSavedArticleReferenceAtlasEntry,
+    RowOneSavedArticleReferenceAtlasSupport,
+)
 from fashion_radar.row_one.saved_article_theme_digest import (
     RowOneSavedArticleThemeDigest,
     RowOneSavedArticleThemeDigestItem,
@@ -359,6 +365,84 @@ def _theme_digest_local_article() -> RowOneLocalArticle:
                 *article.content_sections,
             ],
         },
+    )
+
+
+def _reference_atlas_local_article() -> RowOneLocalArticle:
+    return RowOneLocalArticle(
+        story_id="the-row-signal-1234567890",
+        title="Reference atlas source article",
+        url="https://example.com/the-row",
+        source_name="Vogue Business",
+        extracted_at=AS_OF,
+        published_at=AS_OF,
+        paragraphs=[
+            "The Row appears in paragraph one.",
+            "Alaia flats appear in paragraph two.",
+            "Retail context appears in paragraph three.",
+        ],
+        paragraphs_zh=[
+            "The Row 出现在第一段。",
+            "Alaia 平底鞋出现在第二段。",
+            "零售背景出现在第三段。",
+        ],
+        content_sections=[
+            RowOneLocalArticleContentSection(
+                key="entities",
+                title=LocalizedText(zh="品牌与人物", en="People & Brands"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="The Row", en="The Row"),
+                        body=LocalizedText(
+                            zh="The Row 是本地正文中的核心品牌信号。",
+                            en="The Row is the core brand signal in the local text.",
+                        ),
+                        references=[
+                            RowOneReference(name="The Row", type="brand", label="tracked"),
+                        ],
+                        paragraph_indices=[0],
+                    )
+                ],
+            ),
+            RowOneLocalArticleContentSection(
+                key="product_signals",
+                title=LocalizedText(zh="产品", en="Products"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="Alaia flats", en="Alaia flats"),
+                        body=LocalizedText(
+                            zh="Alaia 平底鞋是本地正文中的产品信号。",
+                            en="Alaia flats are the product signal in the local text.",
+                        ),
+                        references=[
+                            RowOneReference(name="Alaia flats", type="shoe", label="product"),
+                        ],
+                        paragraph_indices=[1],
+                    )
+                ],
+            ),
+            RowOneLocalArticleContentSection(
+                key="brand_signals",
+                title=LocalizedText(zh="市场语境", en="Market Context"),
+                items=[
+                    RowOneLocalArticleContentItem(
+                        label=LocalizedText(zh="Retail context", en="Retail context"),
+                        body=LocalizedText(
+                            zh="Dover Street Market 提供来源语境。",
+                            en="Dover Street Market provides source context.",
+                        ),
+                        references=[
+                            RowOneReference(
+                                name="Dover Street Market",
+                                type="retailer",
+                                label="market",
+                            ),
+                        ],
+                        paragraph_indices=[2],
+                    )
+                ],
+            ),
+        ],
     )
 
 
@@ -3241,6 +3325,74 @@ def test_render_row_one_site_includes_saved_article_theme_digest_in_article_libr
     assert not (tmp_path / "data" / "saved-article-theme-digest.json").exists()
 
 
+def test_render_row_one_site_includes_saved_article_reference_atlas_in_article_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _reference_atlas_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+    section_html = _saved_article_reference_atlas_section_html(library_html)
+
+    assert 'class="saved-article-reference-atlas"' in section_html
+    assert "Saved Article Reference Atlas" in section_html
+    assert "保存文章引用图谱" in section_html
+    assert "Brands" in section_html
+    assert "Products" in section_html
+    assert "Source Context" in section_html
+    assert "The Row" in section_html
+    assert "Alaia flats" in section_html
+    assert "Dover Street Market" in section_html
+    assert "Vogue Business" in section_html
+    assert "3 references" in section_html
+    assert "3 supports" in section_html
+    assert "1 source" in section_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    )
+    assert "https://example.com/the-row" not in section_html
+    assert (
+        library_html.index('class="saved-article-theme-digest"')
+        < library_html.index('class="saved-article-reference-atlas"')
+        < library_html.index('class="saved-signal-index"')
+        < library_html.index('class="saved-article-reading-paths"')
+        < library_html.index('class="saved-article-content-organization"')
+        < library_html.index('class="saved-article-library-grid"')
+    )
+    assert 'class="saved-article-reference-atlas"' not in homepage_html
+
+    assert edition_payload["contract_version"] == "row-one-app/v7"
+    assert manifest_payload["contract_version"] == "row-one-manifest/v1"
+    assert manifest_payload["app_contract"]["version"] == "row-one-app/v7"
+    assert runtime_payload["contract_version"] == "row-one-runtime/v1"
+    for contract_json in (
+        json.dumps(edition_payload, ensure_ascii=False),
+        json.dumps(manifest_payload, ensure_ascii=False),
+        json.dumps(runtime_payload, ensure_ascii=False),
+    ):
+        assert "saved_article_reference_atlas" not in contract_json
+        assert "reference_atlas" not in contract_json
+        assert "saved-article-reference-atlas" not in contract_json
+        assert "Saved Article Reference Atlas" not in contract_json
+        assert "保存文章引用图谱" not in contract_json
+        assert "Dover Street Market" not in contract_json
+    assert not (tmp_path / "data" / "saved-article-reference-atlas.json").exists()
+
+
 def test_render_row_one_site_omits_saved_article_theme_digest_when_no_saved_articles(
     tmp_path,
 ) -> None:
@@ -4164,6 +4316,25 @@ def _saved_article_theme_digest_section_html(index_html: str) -> str:
     return index_html[section_start:section_end]
 
 
+def _saved_article_reference_atlas_section_html(index_html: str) -> str:
+    marker = '<section class="saved-article-reference-atlas"'
+    assert marker in index_html
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    boundary_offsets: list[int] = []
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is not None:
+        boundary_offsets.append(next_section.start())
+    library_grid = tail.find('<div class="saved-article-library-grid">')
+    if library_grid >= 0:
+        boundary_offsets.append(library_grid)
+    if not boundary_offsets:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + min(boundary_offsets)
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
 def _saved_article_reading_paths_section_html(index_html: str) -> str:
     marker = '<section class="saved-article-reading-paths"'
     assert marker in index_html
@@ -4619,6 +4790,116 @@ def test_render_saved_article_library_html_omits_empty_theme_digest_shell() -> N
         assert 'class="saved-article-theme-digest"' not in html
         assert "Saved Article Theme Digest" not in html
         assert "保存文章主题简报" not in html
+        assert 'class="saved-article-library-hero"' in html
+        assert 'class="saved-article-library-grid"' in html
+
+
+def test_render_saved_article_library_html_filters_unsafe_reference_atlas_supports() -> None:
+    safe_support = RowOneSavedArticleReferenceAtlasSupport(
+        title=LocalizedText(en="Safe atlas support", zh="安全图谱支撑"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        lead=LocalizedText(en="Safe <script>atlas lead</script>", zh="安全图谱摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+    )
+    unsafe_supports = (
+        replace(
+            safe_support,
+            title=LocalizedText(en="JS atlas support", zh="脚本图谱支撑"),
+            lead=LocalizedText(en="JS atlas lead", zh="脚本图谱摘要"),
+            detail_path="javascript:alert(1)#local-article-content-section-1",
+        ),
+        replace(
+            safe_support,
+            title=LocalizedText(en="Traversal atlas support", zh="越界图谱支撑"),
+            lead=LocalizedText(en="Traversal atlas lead", zh="越界图谱摘要"),
+            detail_path="../secret.html#local-article-content-section-1",
+        ),
+        replace(
+            safe_support,
+            title=LocalizedText(en="Bad fragment atlas support", zh="坏锚点图谱支撑"),
+            lead=LocalizedText(en="Bad fragment atlas lead", zh="坏锚点图谱摘要"),
+            detail_path="details/the-row-signal-1234567890.html#bad-fragment",
+        ),
+    )
+    atlas = RowOneSavedArticleReferenceAtlas(
+        bucket_count=1,
+        reference_count=1,
+        support_count=4,
+        source_count=1,
+        buckets=(
+            RowOneSavedArticleReferenceAtlasBucket(
+                key="brands",
+                title=LocalizedText(en="Brands", zh="品牌"),
+                dek=LocalizedText(en="Brand references", zh="品牌引用"),
+                reference_count=1,
+                support_count=4,
+                source_count=1,
+                references=(
+                    RowOneSavedArticleReferenceAtlasEntry(
+                        name="The Row <brand>",
+                        reference_type="brand",
+                        label="tracked",
+                        support_count=4,
+                        source_count=1,
+                        supports=(safe_support, *unsafe_supports),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_reference_atlas=atlas,
+    )
+    section_html = _saved_article_reference_atlas_section_html(html)
+
+    assert "Safe atlas support" in section_html
+    assert "Safe &lt;script&gt;atlas lead&lt;/script&gt;" in section_html
+    assert "The Row &lt;brand&gt;" in section_html
+    assert "<script>" not in section_html
+    assert "javascript:alert" not in section_html
+    assert "../secret" not in section_html
+    assert "#bad-fragment" not in section_html
+    assert "JS atlas support" not in section_html
+    assert "Traversal atlas support" not in section_html
+    assert "Bad fragment atlas support" not in section_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    )
+
+
+def test_render_saved_article_library_html_omits_empty_reference_atlas_shell() -> None:
+    html_without_atlas = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_reference_atlas=None,
+    )
+    empty_atlas = RowOneSavedArticleReferenceAtlas(
+        bucket_count=0,
+        reference_count=0,
+        support_count=0,
+        source_count=0,
+        buckets=(),
+    )
+    html_with_empty_atlas = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_reference_atlas=empty_atlas,
+    )
+
+    for html in (html_without_atlas, html_with_empty_atlas):
+        assert 'class="saved-article-reference-atlas"' not in html
+        assert "Saved Article Reference Atlas" not in html
+        assert "保存文章引用图谱" not in html
         assert 'class="saved-article-library-hero"' in html
         assert 'class="saved-article-library-grid"' in html
 
@@ -6904,6 +7185,31 @@ def test_row_one_css_includes_saved_article_theme_digest_styles(tmp_path) -> Non
         ".saved-article-theme-digest-refs",
         ".saved-article-theme-digest-link",
         ".saved-article-theme-digest-ref",
+    ):
+        assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
+
+
+def test_row_one_css_includes_saved_article_reference_atlas_styles(tmp_path) -> None:
+    css = render_row_one_site(_edition(), tmp_path).index_path
+    css_text = (css.parent / "assets" / "row-one.css").read_text(encoding="utf-8")
+
+    for selector in (
+        ".saved-article-reference-atlas",
+        ".saved-article-reference-atlas-header",
+        ".saved-article-reference-atlas-metrics",
+        ".saved-article-reference-atlas-grid",
+        ".saved-article-reference-atlas-bucket",
+        ".saved-article-reference-atlas-bucket-header",
+        ".saved-article-reference-atlas-list",
+        ".saved-article-reference-atlas-entry",
+        ".saved-article-reference-atlas-entry-meta",
+        ".saved-article-reference-atlas-support",
+        ".saved-article-reference-atlas-support-meta",
+        ".saved-article-reference-atlas-lead",
+        ".saved-article-reference-atlas-actions",
+        ".saved-article-reference-atlas-evidence",
+        ".saved-article-reference-atlas-link",
+        ".saved-article-reference-atlas-ref",
     ):
         assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
 

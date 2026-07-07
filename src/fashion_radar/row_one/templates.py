@@ -53,6 +53,12 @@ from fashion_radar.row_one.saved_article_reading_paths import (
     RowOneSavedArticleReadingPaths,
     RowOneSavedArticleReadingPathStep,
 )
+from fashion_radar.row_one.saved_article_reference_atlas import (
+    RowOneSavedArticleReferenceAtlas,
+    RowOneSavedArticleReferenceAtlasBucket,
+    RowOneSavedArticleReferenceAtlasEntry,
+    RowOneSavedArticleReferenceAtlasSupport,
+)
 from fashion_radar.row_one.saved_article_theme_digest import (
     RowOneSavedArticleThemeDigest,
     RowOneSavedArticleThemeDigestItem,
@@ -281,6 +287,7 @@ def render_saved_article_library_html(
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     saved_article_reading_paths: RowOneSavedArticleReadingPaths | None = None,
     saved_article_theme_digest: RowOneSavedArticleThemeDigest | None = None,
+    saved_article_reference_atlas: RowOneSavedArticleReferenceAtlas | None = None,
 ) -> str:
     snippets_by_detail_path = _saved_article_library_snippets_by_detail_path(
         saved_article_content_organization
@@ -294,6 +301,7 @@ def render_saved_article_library_html(
     )
     signal_index = _render_saved_signal_index(saved_signal_index)
     theme_digest = _render_saved_article_theme_digest(saved_article_theme_digest)
+    reference_atlas = _render_saved_article_reference_atlas(saved_article_reference_atlas)
     reading_paths = _render_saved_article_reading_paths(saved_article_reading_paths)
     content_organization = _render_saved_article_content_organization(
         saved_article_content_organization,
@@ -339,6 +347,7 @@ def render_saved_article_library_html(
     {_render_saved_article_library_metrics(library, css_class="saved-article-library-metrics")}
   </section>
   {theme_digest}
+  {reference_atlas}
   {signal_index}
   {reading_paths}
   {content_organization}
@@ -1568,6 +1577,142 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 }
 .saved-article-theme-digest-link,
 .saved-article-theme-digest-ref {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  gap: 4px;
+  overflow-wrap: anywhere;
+  padding: 5px 7px;
+  text-decoration: none;
+}
+.saved-article-reference-atlas {
+  border-bottom: 1px solid var(--ink);
+  display: grid;
+  gap: 18px;
+  padding-bottom: 28px;
+}
+.saved-article-reference-atlas-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.36fr) minmax(0, 1fr);
+}
+.saved-article-reference-atlas-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 5vw, 5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.95;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-reference-atlas-header p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-reference-atlas-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-reference-atlas-metrics li {
+  border: 1px solid var(--line);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 8px 10px;
+}
+.saved-article-reference-atlas-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.saved-article-reference-atlas-bucket {
+  background: var(--panel);
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+}
+.saved-article-reference-atlas-bucket-header {
+  display: grid;
+  gap: 8px;
+}
+.saved-article-reference-atlas-bucket-header h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.45rem, 3vw, 2.6rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-reference-atlas-bucket-header p,
+.saved-article-reference-atlas-lead {
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-reference-atlas-entry-meta,
+.saved-article-reference-atlas-support-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  font-weight: 800;
+  gap: 6px 10px;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+.saved-article-reference-atlas-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-reference-atlas-entry {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 10px;
+}
+.saved-article-reference-atlas-entry h4 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.15rem, 2vw, 1.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-reference-atlas-support {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.saved-article-reference-atlas-actions,
+.saved-article-reference-atlas-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.saved-article-reference-atlas-link,
+.saved-article-reference-atlas-ref {
   border: 1px solid var(--line);
   color: var(--ink);
   display: inline-flex;
@@ -4663,6 +4808,173 @@ def _render_saved_article_theme_digest_evidence(
         detail_path=item.detail_path,
         paragraph_indices=item.paragraph_indices,
         references=item.references,
+    )
+    return _render_saved_article_content_organization_evidence(card, href_prefix="../")
+
+
+def _render_saved_article_reference_atlas(
+    atlas: RowOneSavedArticleReferenceAtlas | None,
+) -> str:
+    if atlas is None or not atlas.buckets:
+        return ""
+    buckets = [_render_saved_article_reference_atlas_bucket(bucket) for bucket in atlas.buckets]
+    buckets = [bucket for bucket in buckets if bucket]
+    if not buckets:
+        return ""
+    reference_count_label = _count_label(atlas.reference_count, "reference", "references")
+    support_count_label = _count_label(atlas.support_count, "support", "supports")
+    source_count_label = _count_label(atlas.source_count, "source", "sources")
+    metrics = (
+        "<li>"
+        f'<span data-lang="en">{_esc(reference_count_label)}</span>'
+        f'<span data-lang="zh">{_esc(f"{atlas.reference_count} 个引用")}</span>'
+        "</li>"
+        "<li>"
+        f'<span data-lang="en">{_esc(support_count_label)}</span>'
+        f'<span data-lang="zh">{_esc(f"{atlas.support_count} 条支撑")}</span>'
+        "</li>"
+        "<li>"
+        f'<span data-lang="en">{_esc(source_count_label)}</span>'
+        f'<span data-lang="zh">{_esc(f"{atlas.source_count} 个来源")}</span>'
+        "</li>"
+    )
+    intro_en = (
+        "Entities and items already referenced inside today's saved local article organization."
+    )
+    return f"""<section class="saved-article-reference-atlas"
+  aria-label="Saved article reference atlas">
+  <div class="saved-article-reference-atlas-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Saved Article Reference Atlas</span>
+        <span data-lang="zh">保存文章引用图谱</span>
+      </p>
+      <h2>
+        <span data-lang="en">Saved Article Reference Atlas</span>
+        <span data-lang="zh">保存文章引用图谱</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">{_esc(intro_en)}</span>
+      <span data-lang="zh">从今天本地保存文章整理中汇总已经出现的实体与单品引用。</span>
+    </p>
+  </div>
+  <ul class="saved-article-reference-atlas-metrics">{metrics}</ul>
+  <div class="saved-article-reference-atlas-grid">{"".join(buckets)}</div>
+</section>"""
+
+
+def _render_saved_article_reference_atlas_bucket(
+    bucket: RowOneSavedArticleReferenceAtlasBucket,
+) -> str:
+    entries = [_render_saved_article_reference_atlas_entry(entry) for entry in bucket.references]
+    entries = [entry for entry in entries if entry]
+    if not entries:
+        return ""
+    reference_count_en = _count_label(bucket.reference_count, "reference", "references")
+    support_count_en = _count_label(bucket.support_count, "support", "supports")
+    source_count_en = _count_label(bucket.source_count, "source", "sources")
+    return f"""    <article class="saved-article-reference-atlas-bucket">
+      <div class="saved-article-reference-atlas-bucket-header">
+        <p class="saved-article-reference-atlas-entry-meta">
+          <span data-lang="en">{_esc(reference_count_en)}</span>
+          <span data-lang="zh">{_esc(f"{bucket.reference_count} 个引用")}</span>
+          <span data-lang="en">{_esc(support_count_en)}</span>
+          <span data-lang="zh">{_esc(f"{bucket.support_count} 条支撑")}</span>
+          <span data-lang="en">{_esc(source_count_en)}</span>
+          <span data-lang="zh">{_esc(f"{bucket.source_count} 个来源")}</span>
+        </p>
+        <h3>
+          <span data-lang="en">{_esc(bucket.title.en)}</span>
+          <span data-lang="zh">{_esc(bucket.title.zh)}</span>
+        </h3>
+        <p>
+          <span data-lang="en">{_esc(bucket.dek.en)}</span>
+          <span data-lang="zh">{_esc(bucket.dek.zh)}</span>
+        </p>
+      </div>
+      <ol class="saved-article-reference-atlas-list">{"".join(entries)}</ol>
+    </article>"""
+
+
+def _render_saved_article_reference_atlas_entry(
+    entry: RowOneSavedArticleReferenceAtlasEntry,
+) -> str:
+    supports = [
+        _render_saved_article_reference_atlas_support(support) for support in entry.supports
+    ]
+    supports = [support for support in supports if support]
+    if not supports:
+        return ""
+    label = entry.label.strip() or entry.reference_type.strip()
+    ref_chip = (
+        f'<span class="saved-article-reference-atlas-ref"><span>{_esc(label)}</span></span>'
+        if label
+        else ""
+    )
+    support_count_en = _count_label(entry.support_count, "support", "supports")
+    source_count_en = _count_label(entry.source_count, "source", "sources")
+    return f"""        <li class="saved-article-reference-atlas-entry">
+          <p class="saved-article-reference-atlas-entry-meta">
+            <span data-lang="en">{_esc(support_count_en)}</span>
+            <span data-lang="zh">{_esc(f"{entry.support_count} 条支撑")}</span>
+            <span data-lang="en">{_esc(source_count_en)}</span>
+            <span data-lang="zh">{_esc(f"{entry.source_count} 个来源")}</span>
+          </p>
+          <h4>{_esc(entry.name)}</h4>
+          {ref_chip}
+          {"".join(supports)}
+        </li>"""
+
+
+def _render_saved_article_reference_atlas_support(
+    support: RowOneSavedArticleReferenceAtlasSupport,
+) -> str:
+    href = _safe_saved_article_content_organization_href(support.detail_path)
+    if href is None:
+        return ""
+    href = _prefixed_saved_article_content_organization_href(href, "../")
+    evidence = _render_saved_article_reference_atlas_evidence(support)
+    evidence_block = (
+        f'\n            <div class="saved-article-reference-atlas-evidence">{evidence}</div>'
+        if evidence
+        else ""
+    )
+    return f"""          <article class="saved-article-reference-atlas-support">
+            <p class="saved-article-reference-atlas-support-meta">
+              <span>{_esc(support.source_name)}</span>
+              <span data-lang="en">{_esc(support.section_label.en)}</span>
+              <span data-lang="zh">{_esc(support.section_label.zh)}</span>
+            </p>
+            <strong>
+              <span data-lang="en">{_esc(support.title.en)}</span>
+              <span data-lang="zh">{_esc(support.title.zh)}</span>
+            </strong>
+            <p class="saved-article-reference-atlas-lead">
+              <span data-lang="en">{_esc(_local_article_digest_excerpt(support.lead.en))}</span>
+              <span data-lang="zh">{_esc(_local_article_digest_excerpt(support.lead.zh))}</span>
+            </p>
+            <div class="saved-article-reference-atlas-actions">
+              <a class="saved-article-reference-atlas-link" href="{_esc(href)}">
+                <span data-lang="en">Open organized section</span>
+                <span data-lang="zh">打开整理栏目</span>
+              </a>
+            </div>{evidence_block}
+          </article>"""
+
+
+def _render_saved_article_reference_atlas_evidence(
+    support: RowOneSavedArticleReferenceAtlasSupport,
+) -> str:
+    card = RowOneSavedArticleContentOrganizationCard(
+        title=support.title,
+        source_name=support.source_name,
+        section_title=support.section_title,
+        section_label=support.section_label,
+        lead=support.lead,
+        detail_path=support.detail_path,
+        paragraph_indices=support.paragraph_indices,
+        references=(),
     )
     return _render_saved_article_content_organization_evidence(card, href_prefix="../")
 
