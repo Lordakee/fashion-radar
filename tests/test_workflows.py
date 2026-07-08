@@ -366,6 +366,13 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         for html in detail_pages.values()
         if "Local article paragraph for the ROW ONE detail page." in html
     )
+    article_pages = [
+        path for path in (output_dir / "articles").glob("*.html") if path.name != "index.html"
+    ]
+    assert article_pages
+    article_html = article_pages[0].read_text(encoding="utf-8")
+    assert 'class="local-article-paragraph-context"' in article_html
+    assert 'id="local-article-paragraph-1"' in article_html
     article_files = list((output_dir / "data" / "articles").glob("*.json"))
     assert article_files
     cached_articles = [article_file.read_text(encoding="utf-8") for article_file in article_files]
@@ -517,6 +524,15 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "article-reading-improvements" not in generated_contract_payload
     assert "Local Article Reading Improvements" not in generated_contract_payload
     assert "local-article-reading-improvements.json" not in generated_contract_payload
+    assert "saved_paragraph_context_cues" not in generated_contract_payload
+    assert "local_article_paragraph_contexts" not in generated_contract_payload
+    assert "local_article_context_cues" not in generated_contract_payload
+    assert "paragraph_context_cues" not in generated_contract_payload
+    assert "Saved Paragraph Context Cues" not in generated_contract_payload
+    assert "saved-paragraph-context-cues" not in generated_contract_payload
+    assert "local-article-paragraph-contexts" not in generated_contract_payload
+    assert "local-article-context-cues" not in generated_contract_payload
+    assert "paragraph-context-cues" not in generated_contract_payload
     assert "ROW ONE ops check" not in generated_contract_payload
     articles_html_path = output_dir / "articles" / "index.html"
     if articles_html_path.exists():
@@ -560,6 +576,21 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "local-article-reading-improvements.html",
         output_dir / "articles" / "local-article-reading-improvements.html",
         output_dir / "data" / "local-article-reading-improvements.html",
+        output_dir / "saved-paragraph-context-cues.json",
+        output_dir / "articles" / "saved-paragraph-context-cues.json",
+        output_dir / "data" / "saved-paragraph-context-cues.json",
+        output_dir / "local-article-paragraph-contexts.json",
+        output_dir / "articles" / "local-article-paragraph-contexts.json",
+        output_dir / "data" / "local-article-paragraph-contexts.json",
+        output_dir / "saved-paragraph-context-cues.html",
+        output_dir / "articles" / "saved-paragraph-context-cues.html",
+        output_dir / "data" / "saved-paragraph-context-cues.html",
+        output_dir / "local-article-context-cues.json",
+        output_dir / "articles" / "local-article-context-cues.json",
+        output_dir / "data" / "local-article-context-cues.json",
+        output_dir / "local-article-context-cues.html",
+        output_dir / "articles" / "local-article-context-cues.html",
+        output_dir / "data" / "local-article-context-cues.html",
     ):
         assert not artifact_path.exists()
     assert stored == stored_before

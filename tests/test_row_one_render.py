@@ -3090,6 +3090,49 @@ def test_render_local_article_information_panel_uses_local_anchors() -> None:
     assert 'href="../details/' not in panel
 
 
+def test_render_local_article_page_labels_saved_paragraphs_with_paragraph_context_cues() -> None:
+    story = _edition().stories[0]
+    html = render_local_article_page_html(
+        _edition(),
+        story,
+        local_article=_signal_briefing_local_article(),
+    )
+
+    assert 'id="local-article-paragraph-1"' in html
+    assert 'class="local-article-paragraph-context"' in html
+    assert 'href="#local-article-content-section-1"' in html
+    assert '<span data-lang="en">Used in</span>' in html
+    assert '<span data-lang="zh">用于</span>' in html
+    assert "People &amp; Brands - The Row" in html
+
+
+def test_render_local_article_information_panel_shows_saved_paragraph_context_cues() -> None:
+    base_article = _signal_briefing_local_article()
+    article = base_article.model_copy(
+        update={
+            "paragraphs": [
+                "Unique runway buyer context cue.",
+                "Unique handbag market context cue.",
+                "Unreferenced paragraph should stay out of cue previews.",
+            ],
+            "paragraphs_zh": [
+                "独特秀场买手上下文提示。",
+                "独特手袋市场上下文提示。",
+                "未引用段落不应出现在提示预览。",
+            ],
+        }
+    )
+    html = render_local_article_page_html(_edition(), _edition().stories[0], local_article=article)
+    panel = _html_between(html, '<section class="local-article-information"', 'id="local-article"')
+
+    assert 'href="#local-article-paragraph-1"' in panel
+    assert 'href="#local-article-paragraph-2"' in panel
+    assert "Unique runway buyer context cue." in panel
+    assert "Unique handbag market context cue." in panel
+    assert "独特秀场买手上下文提示。" in panel
+    assert "未引用段落不应出现在提示预览。" not in panel
+
+
 def test_render_local_article_information_panel_dedupes_caps_and_escapes_refs() -> None:
     edition = _edition()
     story = edition.stories[0]
@@ -3163,6 +3206,74 @@ def test_render_local_article_information_panel_filters_invalid_paragraph_indice
     assert 'href="#local-article-paragraph-100"' not in panel
 
 
+def test_render_row_one_detail_labels_saved_paragraphs_with_paragraph_context_cues() -> None:
+    story = _edition().stories[0]
+    html = render_detail_html(
+        _edition(),
+        story,
+        local_article=_signal_briefing_local_article(),
+    )
+
+    assert 'id="local-article-paragraph-1"' in html
+    assert 'class="local-article-paragraph-context"' in html
+    assert 'href="#local-article-content-section-1"' in html
+    assert "People &amp; Brands - The Row" in html
+
+
+def test_render_local_article_paragraph_context_filters_invalid_duplicate_indices() -> None:
+    base_article = _signal_briefing_local_article()
+    section = base_article.content_sections[0]
+    invalid_item = section.items[0].model_copy(
+        update={"paragraph_indices": [True, 0, 0, -1, 99, 1]}
+    )
+    article = base_article.model_copy(
+        update={
+            "content_sections": [
+                section.model_copy(update={"items": [invalid_item]}),
+            ]
+        }
+    )
+
+    html = render_local_article_page_html(_edition(), _edition().stories[0], local_article=article)
+
+    assert 'class="local-article-paragraph-context"' in html
+    assert 'href="#local-article-content-section-1"' in html
+    assert "#local-article-paragraph-0" not in html
+    assert "#local-article-paragraph-100" not in html
+
+
+def test_render_local_article_paragraph_context_escapes_and_caps_labels() -> None:
+    base_article = _signal_briefing_local_article()
+    sections = []
+    for index in range(1, 6):
+        section = base_article.content_sections[0].model_copy(
+            update={
+                "title": LocalizedText(zh=f"栏目 <{index}>", en=f"Section <{index}>"),
+                "items": [
+                    base_article.content_sections[0]
+                    .items[0]
+                    .model_copy(
+                        update={
+                            "label": LocalizedText(
+                                zh=f"条目 <{index}>",
+                                en=f"Item <{index}>",
+                            ),
+                            "paragraph_indices": [0],
+                        }
+                    )
+                ],
+            }
+        )
+        sections.append(section)
+    article = base_article.model_copy(update={"content_sections": sections})
+
+    html = render_local_article_page_html(_edition(), _edition().stories[0], local_article=article)
+
+    assert "Section &lt;1&gt; - Item &lt;1&gt;" in html
+    assert "Section <1>" not in html
+    assert "Section &lt;5&gt; - Item &lt;5&gt;" not in html
+
+
 def test_render_row_one_site_writes_first_class_local_article_page(tmp_path) -> None:
     edition = _edition()
     story = edition.stories[0]
@@ -3218,6 +3329,32 @@ def test_render_row_one_site_writes_first_class_local_article_page(tmp_path) -> 
         assert "local_article_reading_improvements" not in contract_json
     assert not (tmp_path / "data" / "local-article-pages.json").exists()
     assert not (tmp_path / "data" / "local-article-reading-improvements.json").exists()
+
+
+def test_render_row_one_site_local_article_page_paragraph_context_cues_are_html_only(
+    tmp_path,
+) -> None:
+    story = _edition().stories[0]
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    assert 'class="local-article-paragraph-context"' in article_html
+    assert 'id="local-article-paragraph-1"' in article_html
+
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+    assert "saved_paragraph_context_cues" not in generated_contract_payload
+    assert "paragraph_context_cues" not in generated_contract_payload
+    assert not (tmp_path / "data" / "saved-paragraph-context-cues.json").exists()
 
 
 def test_render_row_one_site_omits_local_article_page_for_mismatched_article_id(
@@ -7676,6 +7813,18 @@ def test_row_one_css_includes_local_article_information_styles() -> None:
         ".local-article-information-card",
         ".local-article-information-refs",
         ".local-article-information-paragraphs",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_local_article_paragraph_context_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".local-article-paragraph-context",
+        ".local-article-paragraph-context-label",
+        ".local-article-paragraph-context-links",
+        ".local-article-paragraph-context a",
     ):
         assert selector in css
 

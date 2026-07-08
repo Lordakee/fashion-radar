@@ -98,6 +98,7 @@ LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_EXCERPT_CHARS = 140
 LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_ITEMS = 4
 LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_REFS = 4
 LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_ROWS = 8
+LOCAL_ARTICLE_PARAGRAPH_CONTEXT_LIMIT = 4
 LOCAL_ARTICLE_READER_EXCERPT_CHARS = 120
 LOCAL_ARTICLE_INFORMATION_BODY_MAX_CHARS = 120
 LOCAL_ARTICLE_INFORMATION_MAX_ITEMS_PER_SECTION = 2
@@ -152,6 +153,13 @@ class _LocalArticleParagraphEvidenceEntry:
     paragraph_index: int
     excerpt: LocalizedText
     items: tuple[_LocalArticleParagraphEvidenceItem, ...]
+
+
+@dataclass(frozen=True)
+class _LocalArticleParagraphContextCue:
+    anchor: str
+    label: LocalizedText
+    excerpt: LocalizedText
 
 
 def render_index_html(
@@ -1504,6 +1512,45 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .local-article-information-paragraphs a {
   color: var(--accent);
   font-weight: 800;
+}
+.local-article-information-context-cues {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+}
+.local-article-information-context-cues h3,
+.local-article-information-context-cues p {
+  margin: 0;
+}
+.local-article-information-context-cues h3 {
+  font-size: 0.9rem;
+}
+.local-article-information-context-cue-list {
+  display: grid;
+  gap: 7px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.local-article-information-context-cue-list a {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  gap: 4px;
+  padding: 8px 9px;
+  text-decoration: none;
+}
+.local-article-information-context-cue-list strong {
+  color: var(--accent);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.local-article-information-context-cue-list span:last-child {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 .local-article-information-grid {
   display: grid;
@@ -3113,6 +3160,31 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .local-article-content-paragraph-links a {
   display: inline-block;
   margin: 0 4px 4px 0;
+}
+.local-article-paragraph-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+.local-article-paragraph-context-label {
+  color: var(--muted);
+}
+.local-article-paragraph-context-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.local-article-paragraph-context a {
+  border-bottom: 1px solid rgba(36, 84, 255, 0.3);
+  color: var(--accent);
+  text-decoration: none;
 }
 .local-article-paragraph-evidence {
   border: 1px solid var(--line);
@@ -7299,6 +7371,10 @@ def _render_local_article_information_panel(
         article,
         rendered_indices=rendered_indices,
     )
+    context_cues = _render_local_article_information_context_cues(
+        article,
+        rendered_indices=rendered_indices,
+    )
     story_context = _meta_description(
         _display_summary_text(story.summary.en),
         limit=LOCAL_ARTICLE_INFORMATION_BODY_MAX_CHARS,
@@ -7322,6 +7398,7 @@ def _render_local_article_information_panel(
       </div>
       <div class="local-article-information-metrics">{metrics}</div>
 {jumps}
+{context_cues}
 {sections}
     </section>"""
 
@@ -7427,6 +7504,49 @@ def _render_local_article_information_sections(
     return (
         '      <div class="local-article-information-grid">\n' + "\n".join(cards) + "\n      </div>"
     )
+
+
+def _render_local_article_information_context_cues(
+    article: RowOneLocalArticle,
+    *,
+    rendered_indices: set[int],
+) -> str:
+    contexts = _local_article_paragraph_contexts(article, rendered_indices=rendered_indices)
+    rows: list[str] = []
+    for paragraph_index in sorted(contexts)[:LOCAL_ARTICLE_INFORMATION_MAX_PARAGRAPH_LINKS]:
+        paragraph = article.paragraphs[paragraph_index]
+        excerpt_en = _local_article_information_excerpt(paragraph)
+        excerpt_zh = excerpt_en
+        if len(article.paragraphs_zh) == len(article.paragraphs):
+            zh = article.paragraphs_zh[paragraph_index]
+            if zh.strip():
+                excerpt_zh = _local_article_information_excerpt(zh)
+        href = f"#{_local_article_paragraph_anchor(paragraph_index)}"
+        rows.append(
+            f"""          <li>
+            <a href="{_esc(href)}">
+              <strong>
+                <span data-lang="en">Paragraph {paragraph_index + 1}</span>
+                <span data-lang="zh">段落 {paragraph_index + 1}</span>
+              </strong>
+              <span data-lang="en">{_esc(excerpt_en)}</span>
+              <span data-lang="zh">{_esc(excerpt_zh)}</span>
+            </a>
+          </li>"""
+        )
+    if not rows:
+        return ""
+    rendered = "\n".join(rows)
+    return f"""      <section class="local-article-information-context-cues"
+        aria-label="Saved paragraph context cues">
+        <h3>
+          <span data-lang="en">Saved Paragraph Context Cues</span>
+          <span data-lang="zh">保存段落上下文</span>
+        </h3>
+        <ul class="local-article-information-context-cue-list">
+{rendered}
+        </ul>
+      </section>"""
 
 
 def _render_local_article_information_section(
@@ -8133,6 +8253,98 @@ def _local_article_content_preview_excerpt(text: str) -> str:
     )
 
 
+def _local_article_paragraph_contexts(
+    article: RowOneLocalArticle,
+    *,
+    rendered_indices: set[int] | None = None,
+) -> dict[int, list[_LocalArticleParagraphContextCue]]:
+    if rendered_indices is None:
+        rendered_indices = _local_article_rendered_paragraph_indices(article)
+    contexts: dict[int, list[_LocalArticleParagraphContextCue]] = {}
+    seen_by_index: dict[int, set[tuple[str, str, str, str, str]]] = {}
+    for section_position, section in enumerate(article.content_sections, start=1):
+        section_anchor = _local_article_content_section_anchor(section_position)
+        section_title_en = normalize_row_one_paragraph(section.title.en)
+        section_title_zh = normalize_row_one_paragraph(section.title.zh)
+        for item in section.items:
+            item_label_en = normalize_row_one_paragraph(item.label.en)
+            item_label_zh = normalize_row_one_paragraph(item.label.zh)
+            if section_title_en and item_label_en:
+                label_en = f"{section_title_en} - {item_label_en}"
+            else:
+                label_en = item_label_en or section_title_en
+            if section_title_zh and item_label_zh:
+                label_zh = f"{section_title_zh} - {item_label_zh}"
+            else:
+                label_zh = item_label_zh or section_title_zh or label_en
+            if not label_en:
+                continue
+            label = LocalizedText(en=label_en, zh=label_zh)
+            dedupe_key = (
+                section_anchor,
+                label.en.casefold(),
+                label.zh.casefold(),
+                item_label_en.casefold(),
+                item_label_zh.casefold(),
+            )
+            for paragraph_index in _strict_valid_local_article_paragraph_indices(
+                item.paragraph_indices,
+                rendered_indices,
+            ):
+                seen = seen_by_index.setdefault(paragraph_index, set())
+                if dedupe_key in seen:
+                    continue
+                seen.add(dedupe_key)
+                entries = contexts.setdefault(paragraph_index, [])
+                if len(entries) < LOCAL_ARTICLE_PARAGRAPH_CONTEXT_LIMIT:
+                    entries.append(
+                        _LocalArticleParagraphContextCue(
+                            anchor=section_anchor,
+                            label=label,
+                            excerpt=_local_article_paragraph_context_excerpt(
+                                article,
+                                paragraph_index,
+                            ),
+                        )
+                    )
+    return contexts
+
+
+def _local_article_paragraph_context_excerpt(
+    article: RowOneLocalArticle,
+    paragraph_index: int,
+) -> LocalizedText:
+    excerpt_en = _local_article_information_excerpt(article.paragraphs[paragraph_index])
+    excerpt_zh = excerpt_en
+    if len(article.paragraphs_zh) == len(article.paragraphs):
+        paragraph_zh = article.paragraphs_zh[paragraph_index]
+        if paragraph_zh.strip():
+            excerpt_zh = _local_article_information_excerpt(paragraph_zh)
+    return LocalizedText(en=excerpt_en, zh=excerpt_zh)
+
+
+def _render_local_article_paragraph_context(
+    entries: Sequence[_LocalArticleParagraphContextCue],
+) -> str:
+    if not entries:
+        return ""
+    links = "".join(
+        f'<a href="#{_esc(entry.anchor)}">'
+        f'<span data-lang="en">{_esc(entry.label.en)}</span>'
+        f'<span data-lang="zh">{_esc(entry.label.zh)}</span></a>'
+        for entry in entries
+    )
+    return (
+        '<span class="local-article-paragraph-context">'
+        '<span class="local-article-paragraph-context-label">'
+        '<span data-lang="en">Used in</span>'
+        '<span data-lang="zh">用于</span>'
+        "</span>"
+        f'<span class="local-article-paragraph-context-links">{links}</span>'
+        "</span>"
+    )
+
+
 def _local_article_rendered_paragraph_indices(article: RowOneLocalArticle) -> set[int]:
     return {index for index, paragraph in enumerate(article.paragraphs) if paragraph.strip()}
 
@@ -8438,6 +8650,11 @@ def _render_local_article_paragraphs(article: RowOneLocalArticle) -> list[str]:
             anchor = _local_article_paragraph_anchor(index)
             rendered.append(f'      <p id="{_esc(anchor)}">{_esc(paragraph)}</p>')
         return rendered
+    rendered_indices = _local_article_rendered_paragraph_indices(article)
+    paragraph_contexts = _local_article_paragraph_contexts(
+        article,
+        rendered_indices=rendered_indices,
+    )
     rendered: list[str] = []
     for index, (paragraph_en, paragraph_zh) in enumerate(
         zip(article.paragraphs, article.paragraphs_zh, strict=True)
@@ -8446,8 +8663,10 @@ def _render_local_article_paragraphs(article: RowOneLocalArticle) -> list[str]:
             continue
         zh = paragraph_zh if paragraph_zh.strip() else paragraph_en
         anchor = _local_article_paragraph_anchor(index)
+        context = _render_local_article_paragraph_context(paragraph_contexts.get(index, []))
         rendered.append(
             f'      <p id="{_esc(anchor)}">'
+            f"{context}"
             f'<span data-lang="en">{_esc(paragraph_en)}</span>'
             f'<span data-lang="zh">{_esc(zh)}</span>'
             "</p>"
