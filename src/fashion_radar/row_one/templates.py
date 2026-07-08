@@ -115,7 +115,7 @@ DAILY_EDIT_MAX_PATH_ITEMS = 3
 EDITORIAL_BRIEF_MAX_ITEMS = 3
 EDITORIAL_BRIEF_BODY_EXCERPT_CHARS = 220
 EDITORIAL_BRIEF_MAX_TRAIL_ITEMS = 3
-SAVED_ARTICLE_LIBRARY_SNIPPETS_PER_CARD = 3
+SAVED_ARTICLE_BODY_GUIDE_ITEMS_PER_CARD = 2
 SAVED_ARTICLE_CONTENT_ORGANIZATION_EVIDENCE_LINK_LIMIT = 3
 SAVED_ARTICLE_CONTENT_ORGANIZATION_SUMMARY_MAX_REFS = 5
 SAVED_ARTICLE_CONTENT_ORGANIZATION_MAX_PARAGRAPH_INDEX = 50
@@ -1469,32 +1469,48 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   flex-wrap: wrap;
   gap: 6px;
 }
-.saved-article-library-snippets {
+.saved-article-body-guide {
+  border: 1px solid rgba(18, 18, 18, 0.12);
+  background: rgba(255, 255, 255, 0.62);
   display: grid;
   gap: 10px;
+  padding: 1rem;
 }
-.saved-article-library-snippet {
+.saved-article-body-guide-header {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-body-guide-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-body-guide-item {
   border-left: 2px solid var(--accent);
   display: grid;
   gap: 6px;
   padding-left: 12px;
 }
-.saved-article-library-snippet-label {
+.saved-article-body-guide-label {
   color: var(--muted);
   font-size: 0.76rem;
   margin: 0;
   text-transform: uppercase;
 }
-.saved-article-library-snippet-body {
+.saved-article-body-guide-body {
   font-size: 0.95rem;
   line-height: 1.55;
   margin: 0;
 }
-.saved-article-library-snippet-evidence {
+.saved-article-body-guide-evidence {
   display: contents;
 }
-.saved-article-library-snippet-link,
-.saved-article-library-snippet-evidence a {
+.saved-article-body-guide-link,
+.saved-article-body-guide-evidence a {
   color: var(--accent);
   display: inline-flex;
   font-size: 0.78rem;
@@ -5260,7 +5276,7 @@ def _render_saved_article_library_card(
         entry,
         local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
     )
-    snippets = _render_saved_article_library_snippets(
+    snippets = _render_saved_article_body_guide(
         _saved_article_library_entry_snippets(entry, snippets_by_detail_path)
     )
     paragraph_count_en = _count_label(
@@ -5318,6 +5334,8 @@ def _saved_article_library_snippets_by_detail_path(
             detail_path = _saved_article_library_detail_path_key(href)
             if detail_path is None:
                 continue
+            if card.paragraph_indices and not _saved_article_body_guide_has_safe_evidence(card):
+                continue
             dedupe_key = (
                 href,
                 " ".join(card.section_label.en.split()).casefold(),
@@ -5330,7 +5348,7 @@ def _saved_article_library_snippets_by_detail_path(
             seen_for_detail.add(dedupe_key)
             grouped.setdefault(detail_path, []).append(card)
     return {
-        detail_path: tuple(cards[:SAVED_ARTICLE_LIBRARY_SNIPPETS_PER_CARD])
+        detail_path: tuple(cards[:SAVED_ARTICLE_BODY_GUIDE_ITEMS_PER_CARD])
         for detail_path, cards in grouped.items()
     }
 
@@ -5378,21 +5396,38 @@ def _saved_article_library_entry_snippets(
     return snippets_by_detail_path.get(detail_path, ())
 
 
-def _render_saved_article_library_snippets(
-    cards: Sequence[RowOneSavedArticleContentOrganizationCard],
-) -> str:
-    # Snippets are deduped and capped while the per-detail lookup is built.
-    snippets = [_render_saved_article_library_snippet(card) for card in cards]
-    snippets = [snippet for snippet in snippets if snippet]
-    if not snippets:
-        return ""
-    return (
-        '<div class="saved-article-library-snippets" '
-        'aria-label="Organized saved article excerpts">' + "".join(snippets) + "</div>"
+def _saved_article_body_guide_has_safe_evidence(
+    card: RowOneSavedArticleContentOrganizationCard,
+) -> bool:
+    return any(
+        _safe_saved_article_content_organization_evidence_href(
+            card.detail_path,
+            paragraph_index,
+        )
+        is not None
+        for paragraph_index in card.paragraph_indices
     )
 
 
-def _render_saved_article_library_snippet(
+def _render_saved_article_body_guide(
+    cards: Sequence[RowOneSavedArticleContentOrganizationCard],
+) -> str:
+    # Snippets are deduped and capped while the per-detail lookup is built.
+    items = [_render_saved_article_body_guide_item(card) for card in cards]
+    items = [item for item in items if item]
+    if not items:
+        return ""
+    return (
+        '<div class="saved-article-body-guide" aria-label="Saved article body guide">'
+        '<div class="saved-article-body-guide-header">'
+        '<span data-lang="en">What this article says</span>'
+        '<span data-lang="zh">正文导读</span>'
+        "</div>"
+        '<ul class="saved-article-body-guide-list">' + "".join(items) + "</ul></div>"
+    )
+
+
+def _render_saved_article_body_guide_item(
     card: RowOneSavedArticleContentOrganizationCard,
 ) -> str:
     href = _safe_saved_article_content_organization_href(card.detail_path)
@@ -5403,27 +5438,29 @@ def _render_saved_article_library_snippet(
         card,
         href_prefix="../",
     )
+    if card.paragraph_indices and not evidence:
+        return ""
     # The evidence helper returns its own display-contents wrapper; this span
     # provides a library-card hook without changing shared evidence markup.
     evidence_block = (
-        f'\n              <span class="saved-article-library-snippet-evidence">{evidence}</span>'
+        f'\n              <span class="saved-article-body-guide-evidence">{evidence}</span>'
         if evidence
         else ""
     )
-    return f"""<article class="saved-article-library-snippet">
-              <p class="saved-article-library-snippet-label">
+    return f"""<li class="saved-article-body-guide-item">
+              <p class="saved-article-body-guide-label">
                 <span data-lang="en">{_esc(card.section_label.en)}</span>
                 <span data-lang="zh">{_esc(card.section_label.zh)}</span>
               </p>
-              <p class="saved-article-library-snippet-body">
+              <p class="saved-article-body-guide-body">
                 <span data-lang="en">{_esc(_local_article_digest_excerpt(card.lead.en))}</span>
                 <span data-lang="zh">{_esc(_local_article_digest_excerpt(card.lead.zh))}</span>
               </p>
-              <a class="saved-article-library-snippet-link" href="{_esc(href)}">
+              <a class="saved-article-body-guide-link" href="{_esc(href)}">
                 <span data-lang="en">Open organized section</span>
                 <span data-lang="zh">打开整理栏目</span>
               </a>{evidence_block}
-            </article>"""
+            </li>"""
 
 
 def _render_saved_article_reading_paths(

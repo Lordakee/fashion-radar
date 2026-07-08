@@ -2983,8 +2983,10 @@ def test_render_row_one_site_writes_saved_article_library_page(tmp_path) -> None
     )
     assert 'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in html
     library_grid_html = html[html.index('class="saved-article-library-grid"') :]
-    assert 'class="saved-article-library-snippets"' in library_grid_html
-    assert 'class="saved-article-library-snippet"' in library_grid_html
+    assert 'class="saved-article-body-guide"' in library_grid_html
+    assert 'class="saved-article-body-guide-item"' in library_grid_html
+    assert "What this article says" in library_grid_html
+    assert "正文导读" in library_grid_html
     assert "People &amp; Brands" in library_grid_html
     assert "品牌与人物" in library_grid_html
     assert "The Row body." in library_grid_html
@@ -3031,10 +3033,12 @@ def test_render_row_one_site_writes_saved_article_library_page(tmp_path) -> None
             "Extracted article text",
             "ROW ONE summary fallback",
             "Skipped",
-            "saved_article_library_snippets",
-            "saved_article_library_snippet",
-            "saved-article-library-snippets",
-            "saved-article-library-snippet",
+            "saved_article_body_guide",
+            "article_body_guide",
+            "saved-article-body-guide",
+            "article-body-guide",
+            "What this article says",
+            "正文导读",
             "People & Brands",
             "品牌与人物",
             "The Row body.",
@@ -3629,7 +3633,7 @@ def test_render_row_one_site_includes_saved_article_content_organization_in_arti
         'href="details/the-row-signal-1234567890.html#local-article-content-section-1"'
     ) in homepage_html
     library_grid_html = library_html[library_html.index('class="saved-article-library-grid"') :]
-    assert 'class="saved-article-library-snippets"' in library_grid_html
+    assert 'class="saved-article-body-guide"' in library_grid_html
     assert "The Row appears in paragraph one." in library_grid_html
     assert "Alaia flats appear in paragraph two." in library_grid_html
 
@@ -3642,8 +3646,10 @@ def test_render_row_one_site_includes_saved_article_content_organization_in_arti
         assert "content_organization" not in contract_json
         assert "saved-article-content-organization" not in contract_json
         assert "Saved Article Content Organization" not in contract_json
-        assert "saved-article-library-snippets" not in contract_json
-        assert "saved-article-library-snippet" not in contract_json
+        assert "saved_article_body_guide" not in contract_json
+        assert "article_body_guide" not in contract_json
+        assert "saved-article-body-guide" not in contract_json
+        assert "article-body-guide" not in contract_json
     assert not (tmp_path / "data" / "saved-article-content-organization.json").exists()
 
 
@@ -5167,6 +5173,39 @@ def _saved_article_daily_summary_section_html(index_html: str) -> str:
     return index_html[section_start:section_end]
 
 
+def _saved_article_library_first_card_html(index_html: str) -> str:
+    marker = '<article class="saved-article-library-card">'
+    assert marker in index_html
+    card_start = index_html.index(marker)
+    next_card = index_html.find(marker, card_start + len(marker))
+    source_boundary = index_html.find("</section>", card_start)
+    card_end = next_card if next_card >= 0 else source_boundary
+    assert card_end > card_start
+    return index_html[card_start:card_end]
+
+
+def _saved_article_body_guide_html(index_html: str) -> str:
+    marker = '<div class="saved-article-body-guide"'
+    assert marker in index_html
+    start = index_html.index(marker)
+    depth = 0
+    position = start
+    while position < len(index_html):
+        open_position = index_html.find("<div", position)
+        close_position = index_html.find("</div>", position)
+        if close_position < 0:
+            break
+        if open_position >= 0 and open_position < close_position:
+            depth += 1
+            position = open_position + len("<div")
+            continue
+        depth -= 1
+        position = close_position + len("</div>")
+        if depth == 0:
+            return index_html[start:position]
+    raise AssertionError("Unbalanced div in saved article body guide HTML")
+
+
 def _saved_article_theme_digest_section_html(index_html: str) -> str:
     marker = '<section class="saved-article-theme-digest"'
     assert marker in index_html
@@ -6259,7 +6298,10 @@ def test_render_saved_article_library_shows_organized_snippets_on_source_cards()
     )
     grid_html = html[html.index('class="saved-article-library-grid"') :]
 
-    assert 'class="saved-article-library-snippets"' in grid_html
+    assert 'class="saved-article-body-guide"' in grid_html
+    assert 'class="saved-article-body-guide-item"' in grid_html
+    assert "What this article says" in grid_html
+    assert "正文导读" in grid_html
     assert "People &amp; Brands" in grid_html
     assert "品牌与人物" in grid_html
     assert "Safe lead" in grid_html
@@ -6374,7 +6416,7 @@ def test_render_saved_article_library_omits_snippets_for_unsafe_entry_paths() ->
     )
     grid_html = html[html.index('class="saved-article-library-grid"') :]
 
-    assert 'class="saved-article-library-snippets"' not in grid_html
+    assert 'class="saved-article-body-guide"' not in grid_html
     assert "Safe lead" not in grid_html
     assert "javascript:alert" not in grid_html
     assert "../outside" not in grid_html
@@ -6433,10 +6475,198 @@ def test_render_saved_article_library_canonicalizes_caps_and_truncates_organized
         in grid_html
     )
     assert "details/./the-row-signal-1234567890.html" not in grid_html
-    assert grid_html.count('class="saved-article-library-snippet"') == 3
+    assert grid_html.count('class="saved-article-body-guide-item"') == 2
     assert grid_html.count("Canonical lead starts with The Row") == 1
     assert "…" in grid_html
     assert "unique tail marker" not in grid_html
+
+
+def test_render_row_one_site_includes_saved_article_body_guide_in_article_cards(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _theme_digest_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    card_html = _saved_article_library_first_card_html(library_html)
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+
+    assert 'class="saved-article-body-guide"' in card_html
+    assert "What this article says" in card_html
+    assert "正文导读" in card_html
+    assert "Start with The Row retail signal." in card_html
+    assert "先看 The Row 零售信号。" in card_html
+    assert "People &amp; Brands" in card_html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-paragraph-1"' in card_html
+    assert card_html.index('class="saved-article-body-guide"') < card_html.index(
+        'class="saved-article-library-refs"'
+    )
+    assert 'class="saved-article-body-guide"' not in (tmp_path / "index.html").read_text(
+        encoding="utf-8"
+    )
+
+    for contract_json in (
+        json.dumps(edition_payload, ensure_ascii=False),
+        json.dumps(manifest_payload, ensure_ascii=False),
+        json.dumps(runtime_payload, ensure_ascii=False),
+    ):
+        assert "saved_article_body_guide" not in contract_json
+        assert "article_body_guide" not in contract_json
+        assert "saved-article-body-guide" not in contract_json
+        assert "article-body-guide" not in contract_json
+        assert "What this article says" not in contract_json
+        assert "正文导读" not in contract_json
+    assert not (tmp_path / "data" / "saved-article-body-guide.json").exists()
+
+
+def test_render_saved_article_library_body_guide_escapes_dedupes_and_caps() -> None:
+    base_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="The Row source", zh="The Row 来源"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People <Brands>", zh="品牌 <人物>"),
+        lead=LocalizedText(
+            en="Long <script>body</script> " + ("detail " * 80),
+            zh="很长 <script>正文</script> " + ("细节 " * 80),
+        ),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体上下文"),
+                cards=[
+                    base_card,
+                    replace(base_card),
+                    replace(
+                        base_card,
+                        section_label=LocalizedText(en="Products", zh="单品"),
+                        lead=LocalizedText(en="Second body guide.", zh="第二条正文导读。"),
+                        paragraph_indices=(1,),
+                    ),
+                    replace(
+                        base_card,
+                        section_label=LocalizedText(en="Overflow", zh="溢出"),
+                        lead=LocalizedText(en="Third body guide.", zh="第三条正文导读。"),
+                        paragraph_indices=(2,),
+                    ),
+                ],
+            )
+        ],
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    guide_html = _saved_article_body_guide_html(html)
+
+    assert 'class="saved-article-body-guide"' in guide_html
+    assert guide_html.count('class="saved-article-body-guide-item"') == 2
+    assert "People &lt;Brands&gt;" in guide_html
+    assert "Long &lt;script&gt;body&lt;/script&gt;" in guide_html
+    assert "<script>" not in guide_html
+    assert guide_html.count("Long &lt;script&gt;body&lt;/script&gt;") == 1
+    assert "Second body guide." in guide_html
+    assert "Third body guide." not in guide_html
+    assert guide_html.count("detail") < 80
+
+
+def test_render_saved_article_library_body_guide_filters_unsafe_hrefs() -> None:
+    safe_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="Safe", zh="安全"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="Safe guide", zh="安全导读"),
+        lead=LocalizedText(en="Safe body guide.", zh="安全正文导读。"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体上下文"),
+                cards=[
+                    replace(
+                        safe_card,
+                        section_label=LocalizedText(en="Script guide", zh="脚本导读"),
+                        lead=LocalizedText(en="Script body guide.", zh="脚本正文导读。"),
+                        detail_path="javascript:alert(1)#local-article-content-section-1",
+                    ),
+                    replace(
+                        safe_card,
+                        section_label=LocalizedText(en="Traversal guide", zh="越界导读"),
+                        lead=LocalizedText(en="Traversal body guide.", zh="越界正文导读。"),
+                        detail_path="../secret.html#local-article-content-section-1",
+                    ),
+                    replace(
+                        safe_card,
+                        section_label=LocalizedText(en="Boolean guide", zh="布尔导读"),
+                        lead=LocalizedText(en="Boolean body guide.", zh="布尔正文导读。"),
+                        paragraph_indices=(True,),
+                    ),
+                    replace(
+                        safe_card,
+                        section_label=LocalizedText(en="Negative guide", zh="负数导读"),
+                        lead=LocalizedText(en="Negative body guide.", zh="负数正文导读。"),
+                        paragraph_indices=(-1,),
+                    ),
+                    safe_card,
+                    replace(
+                        safe_card,
+                        section_label=LocalizedText(en="Second safe guide", zh="第二条安全导读"),
+                        lead=LocalizedText(en="Second safe body guide.", zh="第二条安全正文导读。"),
+                        paragraph_indices=(0,),
+                    ),
+                ],
+            )
+        ],
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    guide_html = _saved_article_body_guide_html(html)
+
+    assert "Safe body guide." in guide_html
+    assert "Second safe body guide." in guide_html
+    assert "Script body guide." not in guide_html
+    assert "Traversal body guide." not in guide_html
+    assert "Boolean body guide." not in guide_html
+    assert "Negative body guide." not in guide_html
+    assert "javascript:" not in guide_html
+    assert "../secret.html" not in guide_html
+    assert "#local-article-paragraph-True" not in guide_html
+    assert "#local-article-paragraph-0" not in guide_html
+
+
+def test_render_saved_article_library_html_omits_empty_body_guide_shell() -> None:
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=None,
+    )
+
+    assert 'class="saved-article-body-guide"' not in html
+    assert "What this article says" not in html
 
 
 def test_render_saved_article_library_filters_unsafe_reading_path_view_model_steps() -> None:
@@ -8473,12 +8703,14 @@ def test_row_one_css_includes_saved_article_library_styles(tmp_path) -> None:
         ".saved-article-library-actions",
         ".saved-article-library-refs",
         ".saved-article-library-paragraphs",
-        ".saved-article-library-snippets",
-        ".saved-article-library-snippet",
-        ".saved-article-library-snippet-label",
-        ".saved-article-library-snippet-body",
-        ".saved-article-library-snippet-link",
-        ".saved-article-library-snippet-evidence",
+        ".saved-article-body-guide",
+        ".saved-article-body-guide-header",
+        ".saved-article-body-guide-list",
+        ".saved-article-body-guide-item",
+        ".saved-article-body-guide-label",
+        ".saved-article-body-guide-body",
+        ".saved-article-body-guide-link",
+        ".saved-article-body-guide-evidence",
         ".saved-article-daily-summary",
         ".saved-article-daily-summary-header",
         ".saved-article-daily-summary-metrics",
