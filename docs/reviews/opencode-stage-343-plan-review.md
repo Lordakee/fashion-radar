@@ -1,14 +1,3 @@
-I'll review the Stage 343 plan. Let me start by reading the three primary documents in parallel.
-Let me verify the plan's assumptions against the actual source code, since the plan references many existing helpers.
-Let me read the key sections of the source to verify the plan's integration assumptions.
-Let me verify the test helpers, `Sequence` import, and check for any existing CSS to avoid collisions.
-The first grep returned cross-file results. Let me directly inspect the test file and the render entry point.
-Let me read the relevant test file sections directly to confirm the test helpers exist.
-Let me read the section extraction helper and confirm the render signature accepts the `saved_article_content_organization` keyword.
-Let me verify the test file imports (`replace`, `RowOneReference`) needed by the plan's new tests.
-Let me confirm `_count_label`'s signature and the `_edition()` helper used in the plan's tests.
-Let me verify the Stage 342 anchor phrase exists in both docs (the new guard depends on it), and confirm the docs guard normalization convention matches prior stages.
-Let me read the existing Stage 342 docs guard to confirm the plan follows the established convention exactly.
 ## opencode Stage 343 Plan Review Verdict
 
 **Verdict: The plan is acceptable and ready for implementation.** No critical or important corrections are required before proceeding.

@@ -118,6 +118,9 @@ EDITORIAL_BRIEF_MAX_TRAIL_ITEMS = 3
 SAVED_ARTICLE_LIBRARY_SNIPPETS_PER_CARD = 3
 SAVED_ARTICLE_CONTENT_ORGANIZATION_EVIDENCE_LINK_LIMIT = 3
 SAVED_ARTICLE_CONTENT_ORGANIZATION_SUMMARY_MAX_REFS = 5
+SAVED_ARTICLE_CONTENT_ORGANIZATION_MAX_PARAGRAPH_INDEX = 50
+SAVED_ARTICLE_ORGANIZATION_COVERAGE_MAX_ROWS = 6
+SAVED_ARTICLE_ORGANIZATION_COVERAGE_MAX_REFS = 5
 
 
 @dataclass(frozen=True)
@@ -2373,6 +2376,93 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   line-height: 1.45;
   margin: 0;
   max-width: 720px;
+}
+.saved-article-organization-coverage-matrix {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 12px;
+}
+.saved-article-organization-coverage-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  justify-content: space-between;
+}
+.saved-article-organization-coverage-header h3,
+.saved-article-organization-coverage-header p {
+  margin: 0;
+}
+.saved-article-organization-coverage-header h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.35rem, 2.2vw, 2.35rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+}
+.saved-article-organization-coverage-header p {
+  color: var(--muted);
+  max-width: 560px;
+}
+.saved-article-organization-coverage-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+}
+.saved-article-organization-coverage-row {
+  background: var(--panel);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.85fr) minmax(0, 1.4fr);
+  padding: 12px;
+}
+.saved-article-organization-coverage-title {
+  display: grid;
+  gap: 6px;
+}
+.saved-article-organization-coverage-title h4 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.12rem, 1.7vw, 1.7rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.saved-article-organization-coverage-title p,
+.saved-article-organization-coverage-meta {
+  color: var(--muted);
+  font-size: 0.74rem;
+  margin: 0;
+}
+.saved-article-organization-coverage-meta,
+.saved-article-organization-coverage-chips,
+.saved-article-organization-coverage-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.saved-article-organization-coverage-chip,
+.saved-article-organization-coverage-ref {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  gap: 5px;
+  padding: 6px 8px;
+}
+.saved-article-organization-coverage-ref span:last-child {
+  color: var(--muted);
+}
+.saved-article-organization-coverage-link {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  text-transform: uppercase;
 }
 .saved-article-content-organization-groups {
   display: grid;
@@ -6126,6 +6216,10 @@ def _render_saved_article_content_organization(
     groups = [group for group in groups if group]
     if not groups:
         return ""
+    coverage_matrix = _render_saved_article_organization_coverage_matrix(
+        organization,
+        href_prefix=href_prefix,
+    )
     return f"""<section class="saved-article-content-organization"
   aria-label="Saved article content organization">
   <div class="saved-article-content-organization-header">
@@ -6144,8 +6238,197 @@ def _render_saved_article_content_organization(
       <span data-lang="zh">从本地保存正文中提炼的快速浏览分组。</span>
     </p>
   </div>
+{coverage_matrix}
   <div class="saved-article-content-organization-groups">{"".join(groups)}</div>
 </section>"""
+
+
+@dataclass(frozen=True)
+class _SavedArticleOrganizationCoverageRow:
+    title: LocalizedText
+    source_name: str
+    href: str
+    group_titles: tuple[LocalizedText, ...]
+    section_count: int
+    evidence_count: int
+    references: tuple[RowOneReference, ...]
+
+
+def _render_saved_article_organization_coverage_matrix(
+    organization: RowOneSavedArticleContentOrganization | None,
+    *,
+    href_prefix: str = "",
+) -> str:
+    rows = _saved_article_organization_coverage_rows(organization)
+    if not rows:
+        return ""
+    rendered_rows = "".join(
+        _render_saved_article_organization_coverage_row(row, href_prefix=href_prefix)
+        for row in rows[:SAVED_ARTICLE_ORGANIZATION_COVERAGE_MAX_ROWS]
+    )
+    dek_en = "Article-by-article coverage across existing saved organization groups."
+    return f"""  <div class="saved-article-organization-coverage-matrix"
+    role="region"
+    aria-label="Saved article organization coverage matrix">
+    <div class="saved-article-organization-coverage-header">
+      <h3>
+        <span data-lang="en">Organization Coverage Matrix</span>
+        <span data-lang="zh">正文整理覆盖矩阵</span>
+      </h3>
+      <p>
+        <span data-lang="en">{_esc(dek_en)}</span>
+        <span data-lang="zh">按文章查看其覆盖了哪些已保存正文整理分组。</span>
+      </p>
+    </div>
+    <div class="saved-article-organization-coverage-grid">{rendered_rows}</div>
+  </div>"""
+
+
+def _saved_article_organization_coverage_rows(
+    organization: RowOneSavedArticleContentOrganization | None,
+) -> tuple[_SavedArticleOrganizationCoverageRow, ...]:
+    if organization is None:
+        return ()
+    rows: dict[str, dict[str, object]] = {}
+    ordered_detail_paths: list[str] = []
+    for group in organization.groups:
+        for card in group.cards:
+            href = _safe_saved_article_content_organization_href(card.detail_path)
+            if href is None:
+                continue
+            detail_path = _saved_article_content_organization_detail_path_key(href)
+            if not detail_path:
+                continue
+            if detail_path not in rows:
+                rows[detail_path] = {
+                    "title": card.title,
+                    "source_name": normalize_row_one_paragraph(card.source_name),
+                    "href": href,
+                    "groups": {},
+                    "section_count": 0,
+                    "evidence": set(),
+                    "refs": [],
+                    "seen_refs": set(),
+                }
+                ordered_detail_paths.append(detail_path)
+            row = rows[detail_path]
+            groups = row["groups"]
+            if isinstance(groups, dict):
+                groups.setdefault(group.key, group.title)
+            row["section_count"] = int(row["section_count"]) + 1
+            evidence = row["evidence"]
+            if isinstance(evidence, set):
+                for raw_paragraph_index in card.paragraph_indices:
+                    paragraph_index = _safe_saved_article_content_organization_paragraph_index(
+                        raw_paragraph_index
+                    )
+                    if paragraph_index is None:
+                        continue
+                    evidence_href = _safe_saved_article_content_organization_evidence_href(
+                        href,
+                        paragraph_index,
+                    )
+                    if evidence_href is None:
+                        continue
+                    evidence.add(paragraph_index)
+            refs = row["refs"]
+            seen_refs = row["seen_refs"]
+            if isinstance(refs, list) and isinstance(seen_refs, set):
+                for ref in card.references:
+                    if len(refs) >= SAVED_ARTICLE_ORGANIZATION_COVERAGE_MAX_REFS:
+                        break
+                    name = normalize_row_one_paragraph(ref.name)
+                    ref_type = normalize_row_one_paragraph(ref.type)
+                    label = normalize_row_one_paragraph(ref.label)
+                    if not name:
+                        continue
+                    key = (name.casefold(), ref_type.casefold(), label.casefold())
+                    if key in seen_refs:
+                        continue
+                    seen_refs.add(key)
+                    refs.append(RowOneReference(name=name, type=ref_type, label=label))
+                    if len(refs) >= SAVED_ARTICLE_ORGANIZATION_COVERAGE_MAX_REFS:
+                        break
+
+    rendered_rows: list[_SavedArticleOrganizationCoverageRow] = []
+    for detail_path in ordered_detail_paths:
+        row = rows[detail_path]
+        group_titles = row["groups"]
+        evidence = row["evidence"]
+        references = row["refs"]
+        if not isinstance(group_titles, dict):
+            group_titles = {}
+        if not isinstance(evidence, set):
+            evidence = set()
+        if not isinstance(references, list):
+            references = []
+        rendered_rows.append(
+            _SavedArticleOrganizationCoverageRow(
+                title=row["title"],
+                source_name=str(row["source_name"]),
+                href=str(row["href"]),
+                group_titles=tuple(group_titles.values()),
+                section_count=int(row["section_count"]),
+                evidence_count=len(evidence),
+                references=tuple(references[:SAVED_ARTICLE_ORGANIZATION_COVERAGE_MAX_REFS]),
+            )
+        )
+    return tuple(rendered_rows)
+
+
+def _render_saved_article_organization_coverage_row(
+    row: _SavedArticleOrganizationCoverageRow,
+    *,
+    href_prefix: str = "",
+) -> str:
+    href = _prefixed_saved_article_content_organization_href(row.href, href_prefix)
+    group_chips = "".join(
+        '<span class="saved-article-organization-coverage-chip">'
+        f'<span data-lang="en">{_esc(group_title.en)}</span>'
+        f'<span data-lang="zh">{_esc(group_title.zh)}</span>'
+        "</span>"
+        for group_title in row.group_titles
+    )
+    ref_chips = "".join(
+        '<span class="saved-article-organization-coverage-ref">'
+        f"<span>{_esc(ref.name)}</span>"
+        f"<span>{_esc(ref.label.strip() or ref.type.strip())}</span>"
+        "</span>"
+        for ref in row.references
+    )
+    section_label = _count_label(
+        row.section_count,
+        "organized section",
+        "organized sections",
+    )
+    evidence_label = _count_label(
+        row.evidence_count,
+        "evidence paragraph",
+        "evidence paragraphs",
+    )
+    return f"""      <article class="saved-article-organization-coverage-row">
+        <div class="saved-article-organization-coverage-title">
+          <h4>
+            <span data-lang="en">{_esc(row.title.en)}</span>
+            <span data-lang="zh">{_esc(row.title.zh)}</span>
+          </h4>
+          <p>{_esc(row.source_name)}</p>
+          <a class="saved-article-organization-coverage-link" href="{_esc(href)}">
+            <span data-lang="en">Open organized section</span>
+            <span data-lang="zh">打开整理栏目</span>
+          </a>
+        </div>
+        <div class="saved-article-organization-coverage-title">
+          <div class="saved-article-organization-coverage-meta">
+            <span data-lang="en">{_esc(section_label)}</span>
+            <span data-lang="zh">{_esc(f"{row.section_count} 个整理栏目")}</span>
+            <span data-lang="en">{_esc(evidence_label)}</span>
+            <span data-lang="zh">{_esc(f"{row.evidence_count} 个证据段落")}</span>
+          </div>
+          <div class="saved-article-organization-coverage-chips">{group_chips}</div>
+          <div class="saved-article-organization-coverage-refs">{ref_chips}</div>
+        </div>
+      </article>"""
 
 
 def _render_saved_article_content_organization_group(
@@ -6436,18 +6719,29 @@ def _safe_saved_article_content_organization_evidence_href(
     safe_section_href = _safe_saved_article_content_organization_href(detail_path)
     if safe_section_href is None:
         return None
-    if not isinstance(paragraph_index, int) or isinstance(paragraph_index, bool):
-        return None
-    if paragraph_index < 0:
+    safe_paragraph_index = _safe_saved_article_content_organization_paragraph_index(paragraph_index)
+    if safe_paragraph_index is None:
         return None
     path, _, _fragment = safe_section_href.partition("#")
     safe_path = validated_row_one_detail_relative_path(path)
     if safe_path is None:
         return None
-    paragraph_fragment = f"local-article-paragraph-{paragraph_index + 1}"
+    paragraph_fragment = f"local-article-paragraph-{safe_paragraph_index + 1}"
     if not _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(paragraph_fragment):
         return None
     return f"{safe_path}#{paragraph_fragment}"
+
+
+def _safe_saved_article_content_organization_paragraph_index(
+    paragraph_index: object,
+) -> int | None:
+    if not isinstance(paragraph_index, int) or isinstance(paragraph_index, bool):
+        return None
+    if paragraph_index < 0:
+        return None
+    if paragraph_index > SAVED_ARTICLE_CONTENT_ORGANIZATION_MAX_PARAGRAPH_INDEX:
+        return None
+    return paragraph_index
 
 
 def _render_editorial_brief(editorial_brief: _EditorialBrief | None) -> str:

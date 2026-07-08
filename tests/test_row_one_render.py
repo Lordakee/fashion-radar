@@ -5396,6 +5396,165 @@ def test_render_saved_article_library_canonicalizes_content_organization_links()
     assert "details/./the-row-signal-1234567890.html" not in section_html
 
 
+def test_render_saved_article_content_organization_includes_coverage_matrix() -> None:
+    first_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="The Row signal", zh="The Row 信号"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        lead=LocalizedText(en="A brand signal.", zh="一个品牌信号。"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0, 1),
+        references=(RowOneReference(name="The Row", type="brand", label="brand"),),
+    )
+    second_card = replace(
+        first_card,
+        section_label=LocalizedText(en="Products", zh="产品"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-2",
+        paragraph_indices=(1, 2),
+        references=(RowOneReference(name="Margaux", type="product", label="bag"),),
+    )
+    third_card = replace(
+        first_card,
+        title=LocalizedText(en="Alaia signal", zh="Alaia 信号"),
+        source_name="Business of Fashion",
+        detail_path="details/alaia-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(RowOneReference(name="Alaia", type="brand", label="brand"),),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[first_card, third_card],
+            ),
+            RowOneSavedArticleContentOrganizationGroup(
+                key="products",
+                title=LocalizedText(en="Products", zh="产品"),
+                dek=LocalizedText(en="Product context", zh="产品背景"),
+                cards=[second_card],
+            ),
+        ]
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    section_html = _saved_article_content_organization_section_html(html)
+    matrix_start = section_html.index('class="saved-article-organization-coverage-matrix"')
+    matrix_end = section_html.index('class="saved-article-content-organization-groups"')
+    matrix_html = section_html[matrix_start:matrix_end]
+
+    assert 'class="saved-article-organization-coverage-matrix"' in section_html
+    assert section_html.index('class="saved-article-organization-coverage-matrix"') < (
+        section_html.index('class="saved-article-content-organization-groups"')
+    )
+    assert "The Row signal" in matrix_html
+    assert "Alaia signal" in matrix_html
+    assert "2 organized sections" in matrix_html
+    assert "3 evidence paragraphs" in matrix_html
+    assert "People &amp; Brands" in matrix_html
+    assert "Products" in matrix_html
+    assert "The Row" in matrix_html
+    assert "Margaux" in matrix_html
+
+
+def test_saved_article_organization_matrix_filters_unsafe_and_strict_counts() -> None:
+    safe_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="Safe article", zh="安全文章"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        lead=LocalizedText(en="Safe lead", zh="安全摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0, 0, 1, True, -1, 99),
+        references=(RowOneReference(name="Safe Ref", type="brand", label="tracked"),),
+    )
+    unsafe_card = replace(
+        safe_card,
+        title=LocalizedText(en="Unsafe article", zh="不安全文章"),
+        source_name="Unsafe Source",
+        detail_path="javascript:alert(1)#local-article-content-section-1",
+        paragraph_indices=(0, 1, 2),
+        references=(RowOneReference(name="Unsafe Ref", type="brand", label="tracked"),),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[safe_card, unsafe_card],
+            )
+        ]
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    section_html = _saved_article_content_organization_section_html(html)
+    matrix_start = section_html.index('class="saved-article-organization-coverage-matrix"')
+    matrix_end = section_html.index('class="saved-article-content-organization-groups"')
+    matrix_html = section_html[matrix_start:matrix_end]
+
+    assert "Safe article" in matrix_html
+    assert "Unsafe article" not in matrix_html
+    assert "Unsafe Ref" not in matrix_html
+    assert "Unsafe Source" not in matrix_html
+    assert "2 evidence paragraphs" in matrix_html
+    assert "3 evidence paragraphs" not in matrix_html
+    assert "local-article-paragraph-100" not in section_html
+    assert "javascript:alert" not in matrix_html
+
+
+def test_saved_article_organization_matrix_caps_and_escapes_references() -> None:
+    references = tuple(
+        RowOneReference(name=f"Ref <{index}>", type="brand", label=f"Label <{index}>")
+        for index in range(1, 8)
+    )
+    card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="Reference article", zh="引用文章"),
+        source_name="Source",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        lead=LocalizedText(en="Lead", zh="摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=references,
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[card],
+            )
+        ]
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    section_html = _saved_article_content_organization_section_html(html)
+    matrix_start = section_html.index('class="saved-article-organization-coverage-matrix"')
+    matrix_end = section_html.index('class="saved-article-content-organization-groups"')
+    matrix_html = section_html[matrix_start:matrix_end]
+
+    assert "Ref &lt;1&gt;" in matrix_html
+    assert "Label &lt;1&gt;" in matrix_html
+    assert "Ref <1>" not in matrix_html
+    assert "Ref &lt;7&gt;" not in matrix_html
+
+
 def test_render_saved_article_content_organization_group_summary() -> None:
     first_card = RowOneSavedArticleContentOrganizationCard(
         title=LocalizedText(en="First summary card", zh="第一张摘要卡"),
