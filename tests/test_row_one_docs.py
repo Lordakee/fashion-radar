@@ -1849,6 +1849,74 @@ def test_row_one_docs_describe_stage_353_saved_article_read_next_clusters_bounda
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_360_daily_local_article_capsules_boundary() -> None:
+    expected = _normalized(
+        "Stage 360 adds generated-site only Daily Local Article Capsules as a "
+        "homepage-only section inside `index.html` after Daily Local Heat "
+        "Signals and before Saved Article Content Organization; it reuses "
+        "current-edition stories, already-saved local article paragraphs, "
+        "existing body-source labels, existing story references, generated "
+        "local article page routes, and existing paragraph anchors to turn "
+        "saved local text into compact readable article cards without changing "
+        "app-facing contracts; it does not create "
+        "`data/daily-local-article-capsules.json`, does not create "
+        "`data/daily-local-capsules.json`, does not create "
+        "`data/article-capsules.json`, does not publish full articles on the "
+        "homepage, does not add outbound article URLs as primary navigation, "
+        "and does not change schemas, JSON artifacts, fetching, extraction, "
+        "scoring, ranking, LLM, connector, scheduling, deployment, analytics, "
+        "personalization, recommendation, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_360_pos = normalized.index(
+            "stage 360 adds generated-site only daily local article capsules"
+        )
+        stage_359_pos = normalized.index(
+            "stage 359 adds generated-site only daily local heat signals"
+        )
+        assert stage_360_pos < stage_359_pos
+        stage = normalized[stage_360_pos:stage_359_pos]
+        for phrase in (
+            "creates data/daily-local-article-capsules.json",
+            "writes data/daily-local-article-capsules.json",
+            "creates data/daily-local-capsules.json",
+            "writes data/daily-local-capsules.json",
+            "creates data/article-capsules.json",
+            "writes data/article-capsules.json",
+            "creates `data/daily-local-article-capsules.json`",
+            "writes `data/daily-local-article-capsules.json`",
+            "creates `data/daily-local-capsules.json`",
+            "writes `data/daily-local-capsules.json`",
+            "creates `data/article-capsules.json`",
+            "writes `data/article-capsules.json`",
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "writes a new json artifact",
+            "publishes full articles on the homepage",
+            "adds outbound article urls as primary navigation",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+        ):
+            assert phrase not in stage
+
+
 def test_row_one_docs_describe_stage_359_daily_local_heat_signals_boundary() -> None:
     expected = _normalized(
         "Stage 359 adds generated-site only Daily Local Heat Signals as a "

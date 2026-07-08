@@ -586,6 +586,16 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "daily-heat-signals" not in generated_contract_payload
     assert "local-heat-signals" not in generated_contract_payload
     assert "heat-signals" not in generated_contract_payload
+    assert '"daily_local_article_capsules"' not in generated_contract_payload
+    assert '"daily_local_capsules"' not in generated_contract_payload
+    assert '"article_capsules"' not in generated_contract_payload
+    assert "Daily Local Article Capsules" not in generated_contract_payload
+    assert "Daily Local Capsules" not in generated_contract_payload
+    assert "Article Capsules" not in generated_contract_payload
+    assert "daily-local-article-capsules" not in generated_contract_payload
+    assert "daily-local-capsules" not in generated_contract_payload
+    assert "article-capsules" not in generated_contract_payload
+    assert "每日本地文章胶囊" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -980,6 +990,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "daily_heat_signals",
         "local_heat_signals",
         "heat_signals",
+        "daily-local-article-capsules",
+        "daily-local-capsules",
+        "article-capsules",
+        "daily_local_article_capsules",
+        "daily_local_capsules",
+        "article_capsules",
     ):
         for artifact_dir in (output_dir, output_dir / "articles", output_dir / "data"):
             for suffix in (".json", ".html"):
@@ -1124,6 +1140,20 @@ def test_stage_359_daily_local_heat_signals_stays_generated_site_only(
         "_render_daily_local_heat_signals",
         lambda *_args, **_kwargs: "",
         raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_360_daily_local_article_capsules_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_daily_local_article_capsules",
+        lambda *_args, **_kwargs: "",
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
 

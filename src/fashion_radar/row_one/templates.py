@@ -175,6 +175,10 @@ SAVED_ARTICLE_ORGANIZATION_COVERAGE_MAX_ROWS = 6
 SAVED_ARTICLE_ORGANIZATION_COVERAGE_MAX_REFS = 5
 DAILY_LOCAL_HEAT_SIGNALS_MAX_TOPICS = 6
 DAILY_LOCAL_HEAT_SIGNALS_MAX_STORIES = 2
+DAILY_LOCAL_ARTICLE_CAPSULES_MAX_ITEMS = 4
+DAILY_LOCAL_ARTICLE_CAPSULES_MAX_PARAGRAPHS = 3
+DAILY_LOCAL_ARTICLE_CAPSULES_MAX_REFS = 6
+DAILY_LOCAL_ARTICLE_CAPSULE_EXCERPT_CHARS = 150
 
 
 @dataclass(frozen=True)
@@ -215,6 +219,25 @@ class _DailyLocalHeatSignalTopic:
     positive_heat_delta_sum: int
     max_heat_delta: int
     stories: tuple[_DailyLocalHeatSignalStory, ...]
+
+
+@dataclass(frozen=True)
+class _DailyLocalArticleCapsuleParagraph:
+    index: int
+    excerpt: LocalizedText
+    href: str
+
+
+@dataclass(frozen=True)
+class _DailyLocalArticleCapsule:
+    title: LocalizedText
+    article_title: str
+    source_name: str
+    body_source: str
+    why_it_matters: LocalizedText
+    href: str
+    paragraphs: tuple[_DailyLocalArticleCapsuleParagraph, ...]
+    references: tuple[RowOneReference, ...]
 
 
 @dataclass(frozen=True)
@@ -262,6 +285,7 @@ def render_index_html(
     daily_local_signal_momentum: RowOneSavedArticleDailySignalLeaderboard | None = None,
     daily_local_signal_momentum_hrefs_by_detail_path: Mapping[str, str] | None = None,
     daily_local_heat_signals_article_hrefs_by_story_id: Mapping[str, str] | None = None,
+    daily_local_article_capsules_article_hrefs_by_story_id: Mapping[str, str] | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     editorial_brief: _EditorialBrief | None = None,
     local_articles_by_story_id: dict[str, RowOneLocalArticle] | None = None,
@@ -295,6 +319,11 @@ def render_index_html(
         app_payload,
         local_articles_by_story_id=local_articles_by_story_id,
         article_hrefs_by_story_id=daily_local_heat_signals_article_hrefs_by_story_id,
+    )
+    daily_local_article_capsules_section = _render_daily_local_article_capsules(
+        edition,
+        local_articles_by_story_id=local_articles_by_story_id,
+        article_hrefs_by_story_id=daily_local_article_capsules_article_hrefs_by_story_id,
     )
     saved_article_content_organization_section = _render_saved_article_content_organization(
         saved_article_content_organization
@@ -390,6 +419,7 @@ def render_index_html(
 {daily_local_key_signals_digest_section}
 {daily_local_signal_momentum_section}
 {daily_local_heat_signals_section}
+{daily_local_article_capsules_section}
 {saved_article_content_organization_section}
 {editorial_brief_section}
 {lead_story_block}
@@ -3701,6 +3731,142 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.daily-local-article-capsules {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-local-article-capsules-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-local-article-capsules-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.1rem, 4.5vw, 5.2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.94;
+  margin: 0;
+}
+.daily-local-article-capsules-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.daily-local-article-capsules-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+.daily-local-article-capsules-metrics span {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-article-capsules-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: 1fr;
+}
+.daily-local-article-capsule {
+  background: var(--panel);
+  display: grid;
+  gap: 14px;
+  min-height: 320px;
+  padding: 16px;
+}
+.daily-local-article-capsule-header {
+  display: grid;
+  gap: 10px;
+}
+.daily-local-article-capsule-title {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.4rem, 2.2vw, 2.35rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.98;
+  margin: 0;
+}
+.daily-local-article-capsule-title a {
+  color: var(--ink);
+  text-decoration-color: var(--line);
+  text-underline-offset: 4px;
+}
+.daily-local-article-capsule-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.daily-local-article-capsule-meta span,
+.daily-local-article-capsule-ref span {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-article-capsule-source-title {
+  color: var(--ink) !important;
+}
+.daily-local-article-capsule-why {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.daily-local-article-capsule-paragraphs {
+  display: grid;
+  gap: 8px;
+}
+.daily-local-article-capsule-paragraph {
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  gap: 5px;
+  line-height: 1.42;
+  padding-top: 8px;
+  text-decoration: none;
+}
+.daily-local-article-capsule-paragraph-label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.daily-local-article-capsule-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.daily-local-article-capsule-ref {
+  display: inline-flex;
+  gap: 4px;
+}
+.daily-local-article-capsule-link {
+  align-self: end;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-decoration-color: var(--line);
+  text-transform: uppercase;
+  text-underline-offset: 4px;
+}
 .saved-article-content-organization {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -5255,6 +5421,11 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 body.lang-zh [data-lang="en"] { display: none; }
 body.lang-zh [data-lang="zh"] { display: inline; }
 body.lang-zh p [data-lang="zh"] { display: inline; }
+@media (min-width: 700px) {
+  .daily-local-article-capsules-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 @media (max-width: 760px) {
   .site-header { min-height: 46vh; padding: 28px 20px; }
   .site-header-inner { grid-template-columns: 1fr; }
@@ -5280,6 +5451,7 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-signal-momentum-grid { grid-template-columns: 1fr; }
   .daily-local-heat-signals-header { grid-template-columns: 1fr; }
   .daily-local-heat-signals-grid { grid-template-columns: 1fr; }
+  .daily-local-article-capsules-header { grid-template-columns: 1fr; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
   .saved-article-library-entry-header { grid-template-columns: 1fr; }
@@ -9493,6 +9665,299 @@ def _safe_daily_local_heat_signals_page_href(href: object) -> str | None:
     if not safe_local_article_story_id(story_id):
         return None
     return f"{story_id}.html"
+
+
+def _render_daily_local_article_capsules(
+    edition: RowOneEdition,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> str:
+    capsules = _daily_local_article_capsules(
+        edition,
+        local_articles_by_story_id=local_articles_by_story_id,
+        article_hrefs_by_story_id=article_hrefs_by_story_id,
+    )
+    if not capsules:
+        return ""
+    article_count_en = _count_label(len(capsules), "local article", "local articles")
+    paragraph_count = sum(len(capsule.paragraphs) for capsule in capsules)
+    paragraph_count_en = _count_label(paragraph_count, "paragraph cue", "paragraph cues")
+    rendered_capsules = "\n".join(
+        _render_daily_local_article_capsule(capsule) for capsule in capsules
+    )
+    return f"""<section class="daily-local-article-capsules"
+  aria-label="Daily local article capsules">
+  <div class="daily-local-article-capsules-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Daily Local Article Capsules</span>
+        <span data-lang="zh">每日本地文章胶囊</span>
+      </p>
+      <h2>
+        <span data-lang="en">Saved articles, edited into readable cards</span>
+        <span data-lang="zh">把已保存文章整理成可读卡片</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">
+        Compact same-site capsules built only from today's saved local article text.
+      </span>
+      <span data-lang="zh">
+        仅基于今日已保存本地正文生成的站内速读卡片。
+      </span>
+    </p>
+  </div>
+  <div class="daily-local-article-capsules-metrics">
+    <span>{_esc(article_count_en)}</span>
+    <span>{_esc(paragraph_count_en)}</span>
+    <span data-lang="en">Homepage only</span>
+    <span data-lang="zh">仅首页展示</span>
+  </div>
+  <div class="daily-local-article-capsules-grid">
+{rendered_capsules}
+  </div>
+</section>"""
+
+
+def _daily_local_article_capsules(
+    edition: RowOneEdition,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> list[_DailyLocalArticleCapsule]:
+    capsules: list[_DailyLocalArticleCapsule] = []
+    for story in edition.stories:
+        capsule = _daily_local_article_capsule_from_story(
+            story,
+            local_articles_by_story_id=local_articles_by_story_id,
+            article_hrefs_by_story_id=article_hrefs_by_story_id,
+        )
+        if capsule is None:
+            continue
+        capsules.append(capsule)
+        if len(capsules) >= DAILY_LOCAL_ARTICLE_CAPSULES_MAX_ITEMS:
+            break
+    return capsules
+
+
+def _daily_local_article_capsule_from_story(
+    story: RowOneStory,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> _DailyLocalArticleCapsule | None:
+    if not safe_local_article_story_id(story.id):
+        return None
+    article = local_articles_by_story_id.get(story.id)
+    if article is None or _usable_local_article_paragraph_count(article) <= 0:
+        return None
+    href = _daily_local_article_capsule_href(
+        story.id,
+        article_hrefs_by_story_id,
+        fragment="local-article-digest",
+    )
+    if href is None:
+        return None
+    paragraphs = _daily_local_article_capsule_paragraphs(
+        article,
+        story_id=story.id,
+        article_hrefs_by_story_id=article_hrefs_by_story_id,
+    )
+    if not paragraphs:
+        return None
+    title = normalize_row_one_paragraph(story.headline) or normalize_row_one_paragraph(
+        article.title
+    )
+    if not title:
+        return None
+    why_it_matters = LocalizedText(
+        en=normalize_row_one_paragraph(story.why_it_matters.en),
+        zh=normalize_row_one_paragraph(story.why_it_matters.zh),
+    )
+    return _DailyLocalArticleCapsule(
+        title=LocalizedText(en=title, zh=title),
+        article_title=normalize_row_one_paragraph(article.title or ""),
+        source_name=normalize_row_one_paragraph(article.source_name or story.source_name),
+        body_source=_local_article_body_source_label(article),
+        why_it_matters=why_it_matters,
+        href=href,
+        paragraphs=paragraphs,
+        references=_daily_local_article_capsule_references(story),
+    )
+
+
+def _daily_local_article_capsule_href(
+    story_id: str,
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+    *,
+    fragment: str,
+) -> str | None:
+    if article_hrefs_by_story_id is None:
+        return None
+    page_href = _safe_daily_local_article_capsule_page_href(
+        story_id,
+        article_hrefs_by_story_id.get(story_id),
+    )
+    if page_href is None:
+        return None
+    return f"articles/{page_href}#{fragment}"
+
+
+def _safe_daily_local_article_capsule_page_href(story_id: str, href: object) -> str | None:
+    if not safe_local_article_story_id(story_id) or not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if href.startswith((".", "/", "//")):
+        return None
+    path = PurePosixPath(href)
+    if (
+        path.is_absolute()
+        or len(path.parts) != 1
+        or path.name in ("", ".", "..")
+        or ".." in path.parts
+        or not path.name.endswith(".html")
+    ):
+        return None
+    mapped_story_id = path.name.removesuffix(".html")
+    if mapped_story_id != story_id or not safe_local_article_story_id(mapped_story_id):
+        return None
+    return f"{mapped_story_id}.html"
+
+
+def _daily_local_article_capsule_paragraphs(
+    article: RowOneLocalArticle,
+    *,
+    story_id: str,
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> tuple[_DailyLocalArticleCapsuleParagraph, ...]:
+    paragraphs: list[_DailyLocalArticleCapsuleParagraph] = []
+    for paragraph_index, paragraph in enumerate(article.paragraphs):
+        excerpt_en = _daily_local_article_capsule_excerpt(paragraph)
+        if not excerpt_en:
+            continue
+        href = _daily_local_article_capsule_href(
+            story_id,
+            article_hrefs_by_story_id,
+            fragment=_local_article_paragraph_anchor(paragraph_index),
+        )
+        if href is None:
+            continue
+        excerpt_zh = ""
+        if paragraph_index < len(article.paragraphs_zh):
+            excerpt_zh = _daily_local_article_capsule_excerpt(
+                article.paragraphs_zh[paragraph_index]
+            )
+        paragraphs.append(
+            _DailyLocalArticleCapsuleParagraph(
+                index=paragraph_index,
+                excerpt=LocalizedText(en=excerpt_en, zh=excerpt_zh),
+                href=href,
+            )
+        )
+        if len(paragraphs) >= DAILY_LOCAL_ARTICLE_CAPSULES_MAX_PARAGRAPHS:
+            break
+    return tuple(paragraphs)
+
+
+def _daily_local_article_capsule_excerpt(text: str) -> str:
+    normalized = normalize_row_one_paragraph(text)
+    if len(normalized) <= DAILY_LOCAL_ARTICLE_CAPSULE_EXCERPT_CHARS:
+        return normalized
+    return normalized[:DAILY_LOCAL_ARTICLE_CAPSULE_EXCERPT_CHARS].rstrip() + "…"
+
+
+def _daily_local_article_capsule_references(
+    story: RowOneStory,
+) -> tuple[RowOneReference, ...]:
+    refs: list[RowOneReference] = []
+    seen: set[tuple[str, str, str]] = set()
+    for ref in [*story.entity_refs, *story.product_refs]:
+        if len(refs) >= DAILY_LOCAL_ARTICLE_CAPSULES_MAX_REFS:
+            break
+        name = normalize_row_one_paragraph(ref.name)
+        ref_type = normalize_row_one_paragraph(ref.type)
+        label = normalize_row_one_paragraph(ref.label)
+        if not name:
+            continue
+        key = (name.casefold(), ref_type.casefold(), label.casefold())
+        if key in seen:
+            continue
+        seen.add(key)
+        refs.append(RowOneReference(name=name, type=ref_type, label=label))
+    return tuple(refs)
+
+
+def _render_daily_local_article_capsule(capsule: _DailyLocalArticleCapsule) -> str:
+    paragraphs = "\n".join(
+        _render_daily_local_article_capsule_paragraph(paragraph) for paragraph in capsule.paragraphs
+    )
+    refs = "".join(_render_daily_local_article_capsule_ref(ref) for ref in capsule.references)
+    refs_html = f'<div class="daily-local-article-capsule-refs">{refs}</div>' if refs else ""
+    source_title = (
+        f'<span class="daily-local-article-capsule-source-title">{_esc(capsule.source_name)}</span>'
+        if capsule.source_name
+        else ""
+    )
+    article_title = (
+        '<span class="daily-local-article-capsule-article-title">'
+        f"{_esc(capsule.article_title)}</span>"
+        if capsule.article_title
+        else ""
+    )
+    return f"""    <article class="daily-local-article-capsule">
+      <div class="daily-local-article-capsule-header">
+        <h3 class="daily-local-article-capsule-title">
+          <a href="{_esc(capsule.href)}">
+            <span data-lang="en">{_esc(capsule.title.en)}</span>
+            <span data-lang="zh">{_esc(capsule.title.zh)}</span>
+          </a>
+        </h3>
+        <div class="daily-local-article-capsule-meta">
+          {article_title}
+          {source_title}
+          <span>{_esc(capsule.body_source)}</span>
+        </div>
+      </div>
+      <p class="daily-local-article-capsule-why">
+        <span data-lang="en">{_esc(capsule.why_it_matters.en)}</span>
+        <span data-lang="zh">{_esc(capsule.why_it_matters.zh)}</span>
+      </p>
+      <div class="daily-local-article-capsule-paragraphs">
+{paragraphs}
+      </div>
+      {refs_html}
+      <a class="daily-local-article-capsule-link" href="{_esc(capsule.href)}">
+        <span data-lang="en">Open local article</span>
+        <span data-lang="zh">打开本地文章</span>
+      </a>
+    </article>"""
+
+
+def _render_daily_local_article_capsule_paragraph(
+    paragraph: _DailyLocalArticleCapsuleParagraph,
+) -> str:
+    label_en = f"Paragraph {paragraph.index + 1}"
+    label_zh = f"段落 {paragraph.index + 1}"
+    zh_excerpt = (
+        f'<span data-lang="zh">{_esc(paragraph.excerpt.zh)}</span>' if paragraph.excerpt.zh else ""
+    )
+    return f"""        <a class="daily-local-article-capsule-paragraph"
+          href="{_esc(paragraph.href)}">
+          <span class="daily-local-article-capsule-paragraph-label">
+            <span data-lang="en">{_esc(label_en)}</span>
+            <span data-lang="zh">{_esc(label_zh)}</span>
+          </span>
+          <span data-lang="en">{_esc(paragraph.excerpt.en)}</span>
+          {zh_excerpt}
+        </a>"""
+
+
+def _render_daily_local_article_capsule_ref(ref: RowOneReference) -> str:
+    label = normalize_row_one_paragraph(ref.label) or normalize_row_one_paragraph(ref.type)
+    label_html = f"<span>{_esc(label)}</span>" if label else ""
+    return f'<span class="daily-local-article-capsule-ref">{_esc(ref.name)}{label_html}</span>'
 
 
 def _localized_payload_text(value: object) -> LocalizedText:

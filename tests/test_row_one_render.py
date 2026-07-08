@@ -4086,6 +4086,69 @@ def test_render_row_one_site_writes_daily_local_heat_signals_homepage_only(
             assert not (directory / f"{stem}.html").exists()
 
 
+def test_render_row_one_site_writes_daily_local_article_capsules_homepage_only(
+    tmp_path,
+) -> None:
+    story = (
+        _edition()
+        .stories[0]
+        .model_copy(
+            deep=True,
+            update={
+                "entity_refs": [RowOneReference(name="The Row", type="brand", label="tracked")],
+                "product_refs": [RowOneReference(name="Margaux bag", type="bag", label="product")],
+            },
+        )
+    )
+    edition = _edition()
+    edition.stories = [story]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+
+    section_html = _daily_local_article_capsules_section_html(homepage_html)
+    assert "Daily Local Article Capsules" in section_html
+    assert "每日本地文章胶囊" in section_html
+    assert "Signal source article" in section_html
+    assert "The Row" in section_html
+    assert "Margaux bag" in section_html
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-digest"' in section_html
+    assert 'class="daily-local-article-capsules"' not in library_html
+    assert 'class="daily-local-article-capsules"' not in article_html
+    assert 'class="daily-local-article-capsules"' not in detail_html
+    assert "daily_local_article_capsules" not in generated_contract_payload
+    assert "daily-local-article-capsules" not in generated_contract_payload
+    assert "Daily Local Article Capsules" not in generated_contract_payload
+    for stem in (
+        "daily-local-article-capsules",
+        "daily-local-capsules",
+        "article-capsules",
+        "daily_local_article_capsules",
+        "daily_local_capsules",
+        "article_capsules",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
 def test_write_local_article_pages_rejects_orphaned_href_mapping(tmp_path) -> None:
     story = _edition().stories[0]
 
@@ -6981,6 +7044,18 @@ def _daily_local_signal_momentum_section_html(index_html: str) -> str:
 
 def _daily_local_heat_signals_section_html(index_html: str) -> str:
     marker = '<section class="daily-local-heat-signals"'
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is None:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + next_section.start()
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _daily_local_article_capsules_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-article-capsules"'
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
     next_section = re.search(r"\n\s*<section class=", tail)
@@ -11406,6 +11481,332 @@ def test_render_index_html_rejects_mismatched_daily_local_heat_signal_article_hr
     assert "other-story-1234567890.html" not in index_html
 
 
+def test_render_index_html_includes_daily_local_article_capsules() -> None:
+    base_story = _edition().stories[0]
+    stories = [
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "article-capsule-1111111111",
+                "headline": "The Row capsule <script>",
+                "detail_path": "details/article-capsule-1111111111.html",
+                "source_name": "Vogue <Business>",
+                "why_it_matters": LocalizedText(
+                    en="This explains the local article signal <b>.",
+                    zh="这解释了本地正文信号 <b>。",
+                ),
+                "entity_refs": [RowOneReference(name="The Row", type="brand", label="brand")],
+                "product_refs": [RowOneReference(name="Margaux bag", type="bag", label="product")],
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "capsule-second-2222222222",
+                "headline": "Second capsule",
+                "detail_path": "details/capsule-second-2222222222.html",
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "capsule-third-3333333333",
+                "headline": "Third capsule",
+                "detail_path": "details/capsule-third-3333333333.html",
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "capsule-fourth-4444444444",
+                "headline": "Fourth capsule",
+                "detail_path": "details/capsule-fourth-4444444444.html",
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "capsule-fifth-5555555555",
+                "headline": "Fifth capsule",
+                "detail_path": "details/capsule-fifth-5555555555.html",
+            },
+        ),
+    ]
+    article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "story_id": "article-capsule-1111111111",
+            "title": "Capsule source <script>",
+            "source_name": "Vogue <Business>",
+            "body_source": "extracted",
+            "paragraphs": [
+                "Opening paragraph <b> frames The Row.",
+                "Second paragraph mentions Margaux bag.",
+                "Third paragraph shows the merchandising angle.",
+                "Fourth paragraph should be capped out.",
+            ],
+            "paragraphs_zh": [
+                "第一段 <b> 呈现 The Row。",
+                "第二段提到 Margaux 手袋。",
+                "第三段呈现商品角度。",
+                "第四段不应显示。",
+            ],
+        },
+    )
+    local_articles_by_story_id = {
+        article.story_id: article,
+        **{
+            story.id: _signal_briefing_local_article().model_copy(
+                deep=True,
+                update={
+                    "story_id": story.id,
+                    "title": f"{story.headline} local source",
+                },
+            )
+            for story in stories[1:]
+        },
+    }
+    edition = _edition_with_stories(*stories)
+
+    html = render_index_html(
+        edition,
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_article_capsules_article_hrefs_by_story_id={
+            story.id: f"{story.id}.html" for story in stories
+        },
+    )
+    section_html = _daily_local_article_capsules_section_html(html)
+
+    assert 'class="daily-local-article-capsules"' in section_html
+    assert "Daily Local Article Capsules" in section_html
+    assert "每日本地文章胶囊" in section_html
+    assert section_html.index("The Row capsule") < section_html.index("Second capsule")
+    assert section_html.index("Second capsule") < section_html.index("Third capsule")
+    assert section_html.index("Third capsule") < section_html.index("Fourth capsule")
+    assert "Fifth capsule" not in section_html
+    assert "Capsule source &lt;script&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "Extracted article text" in section_html
+    assert "This explains the local article signal &lt;b&gt;." in section_html
+    assert "这解释了本地正文信号 &lt;b&gt;。" in section_html
+    assert "Opening paragraph &lt;b&gt; frames The Row." in section_html
+    assert "Second paragraph mentions Margaux bag." in section_html
+    assert "Third paragraph shows the merchandising angle." in section_html
+    assert "Fourth paragraph should be capped out." not in section_html
+    assert "The Row" in section_html
+    assert "Margaux bag" in section_html
+    assert 'href="articles/article-capsule-1111111111.html#local-article-digest"' in section_html
+    assert (
+        'href="articles/article-capsule-1111111111.html#local-article-paragraph-1"' in section_html
+    )
+    assert "<script>" not in section_html
+    assert "<b>" not in section_html
+    assert "<Business>" not in section_html
+
+
+def test_render_index_html_filters_unsafe_daily_local_article_capsules() -> None:
+    base_story = _edition().stories[0]
+    safe_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "safe-capsule-1111111111",
+            "headline": "Safe capsule",
+            "detail_path": "details/safe-capsule-1111111111.html",
+        },
+    )
+    unsafe_id_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "unsafe/capsule-2222222222",
+            "headline": "Unsafe id capsule",
+            "detail_path": "details/unsafe-capsule-2222222222.html",
+        },
+    )
+    missing_article_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "missing-capsule-2222222222",
+            "headline": "Missing article capsule",
+            "detail_path": "details/missing-capsule-2222222222.html",
+        },
+    )
+    empty_article_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "empty-capsule-2222222222",
+            "headline": "Empty article capsule",
+            "detail_path": "details/empty-capsule-2222222222.html",
+        },
+    )
+    traversal_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "secret-capsule-3333333333",
+            "headline": "Secret capsule",
+            "detail_path": "details/secret-capsule-3333333333.html",
+        },
+    )
+    mismatched_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "mismatch-capsule-3333333333",
+            "headline": "Mismatched capsule",
+            "detail_path": "details/mismatch-capsule-3333333333.html",
+        },
+    )
+    local_articles_by_story_id = {
+        story.id: _signal_briefing_local_article().model_copy(
+            deep=True,
+            update={"story_id": story.id, "title": f"{story.headline} article"},
+        )
+        for story in (safe_story, unsafe_id_story, traversal_story, mismatched_story)
+    }
+    local_articles_by_story_id[empty_article_story.id] = (
+        _signal_briefing_local_article().model_copy(
+            deep=True,
+            update={
+                "story_id": empty_article_story.id,
+                "title": "Empty article capsule article",
+                "paragraphs": [],
+            },
+        )
+    )
+
+    html = render_index_html(
+        _edition_with_stories(
+            safe_story,
+            unsafe_id_story,
+            missing_article_story,
+            empty_article_story,
+            traversal_story,
+            mismatched_story,
+        ),
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_article_capsules_article_hrefs_by_story_id={
+            safe_story.id: "safe-capsule-1111111111.html",
+            unsafe_id_story.id: "unsafe-capsule-2222222222.html",
+            empty_article_story.id: "empty-capsule-2222222222.html",
+            traversal_story.id: "../secret.html",
+            mismatched_story.id: "other-capsule-3333333333.html",
+        },
+    )
+    section_html = _daily_local_article_capsules_section_html(html)
+
+    assert "Safe capsule" in section_html
+    assert "Unsafe id capsule" not in section_html
+    assert "Missing article capsule" not in section_html
+    assert "Empty article capsule" not in section_html
+    assert "Secret capsule" not in section_html
+    assert "Mismatched capsule" not in section_html
+    assert "../secret" not in section_html
+    assert "other-capsule-3333333333.html" not in section_html
+
+
+def test_render_index_html_daily_local_article_capsules_aligns_zh_paragraphs() -> None:
+    story = _edition().stories[0]
+    article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "story_id": story.id,
+            "paragraphs": [
+                "First English paragraph.",
+                "Second English paragraph.",
+                "Third English paragraph.",
+            ],
+            "paragraphs_zh": ["第一段中文。"],
+        },
+    )
+
+    html = render_index_html(
+        _edition(),
+        local_articles_by_story_id={story.id: article},
+        daily_local_article_capsules_article_hrefs_by_story_id={
+            story.id: f"{story.id}.html",
+        },
+    )
+    section_html = _daily_local_article_capsules_section_html(html)
+
+    assert "First English paragraph." in section_html
+    assert "第一段中文。" in section_html
+    assert "Second English paragraph." in section_html
+    assert "Third English paragraph." in section_html
+    assert section_html.count("第一段中文。") == 1
+
+
+def test_render_index_html_places_daily_local_article_capsules_between_sections() -> None:
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[
+                    RowOneSavedArticleContentOrganizationCard(
+                        title=LocalizedText(en="Organization card", zh="组织卡片"),
+                        source_name="Vogue Business",
+                        section_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                        section_label=LocalizedText(en="Entity", zh="实体"),
+                        lead=LocalizedText(en="Safe lead", zh="安全摘要"),
+                        detail_path=(
+                            "details/the-row-signal-1234567890.html#local-article-content-section-1"
+                        ),
+                        paragraph_indices=(0,),
+                        references=(),
+                    )
+                ],
+            )
+        ]
+    )
+    app_payload = {
+        "daily_digest": {
+            "briefing_topics": [
+                {
+                    "topic_type": "brand",
+                    "title": {"en": "The Row", "zh": "The Row"},
+                    "label": {"en": "Brand", "zh": "品牌"},
+                    "story_count": 1,
+                    "evidence_count": 1,
+                    "positive_heat_delta_sum": 4,
+                    "max_heat_delta": 4,
+                    "story_ids": ["the-row-signal-1234567890"],
+                    "cards": [
+                        {
+                            "id": "the-row-signal-1234567890",
+                            "headline": {"en": "The Row source", "zh": "The Row 来源"},
+                            "source_name": "Vogue Business",
+                        }
+                    ],
+                    "source_refs": [
+                        {"name": "The Row", "type": "brand", "label": "rising"},
+                    ],
+                }
+            ]
+        }
+    }
+
+    html = render_index_html(
+        _edition(),
+        app_payload=app_payload,
+        saved_article_content_organization=organization,
+        local_articles_by_story_id={
+            "the-row-signal-1234567890": _signal_briefing_local_article(),
+        },
+        daily_local_heat_signals_article_hrefs_by_story_id={
+            "the-row-signal-1234567890": "the-row-signal-1234567890.html",
+        },
+        daily_local_article_capsules_article_hrefs_by_story_id={
+            "the-row-signal-1234567890": "the-row-signal-1234567890.html",
+        },
+    )
+
+    assert html.index('class="daily-local-heat-signals"') < html.index(
+        'class="daily-local-article-capsules"'
+    )
+    assert html.index('class="daily-local-article-capsules"') < html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
 def test_render_index_html_places_daily_local_key_signals_digest_between_saved_sections() -> None:
     briefs = RowOneSavedArticleBriefs(
         article_count=1,
@@ -12190,6 +12591,26 @@ def test_row_one_css_includes_daily_local_heat_signals_styles() -> None:
         ".daily-local-heat-signals-topic-stories",
         ".daily-local-heat-signals-story",
         ".daily-local-heat-signals-story-meta",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_daily_local_article_capsules_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-article-capsules",
+        ".daily-local-article-capsules-header",
+        ".daily-local-article-capsules-metrics",
+        ".daily-local-article-capsules-grid",
+        ".daily-local-article-capsule",
+        ".daily-local-article-capsule-header",
+        ".daily-local-article-capsule-title",
+        ".daily-local-article-capsule-meta",
+        ".daily-local-article-capsule-paragraphs",
+        ".daily-local-article-capsule-paragraph",
+        ".daily-local-article-capsule-refs",
+        ".daily-local-article-capsule-link",
     ):
         assert selector in css
 
