@@ -65,6 +65,11 @@ from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibraryParagraphLink,
     RowOneSavedArticleLibrarySourceGroup,
 )
+from fashion_radar.row_one.saved_article_organization_jump_index import (
+    RowOneSavedArticleOrganizationJumpIndex,
+    RowOneSavedArticleOrganizationJumpIndexGroup,
+    RowOneSavedArticleOrganizationJumpIndexItem,
+)
 from fashion_radar.row_one.saved_article_reading_paths import (
     RowOneSavedArticleReadingPath,
     RowOneSavedArticleReadingPaths,
@@ -3931,6 +3936,49 @@ def test_render_row_one_site_includes_saved_article_daily_signal_leaderboard_in_
     assert 'class="saved-article-daily-signal-leaderboard"' not in homepage_html
 
 
+def test_render_row_one_site_includes_saved_article_organization_jump_index_in_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _reference_atlas_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    section_html = _saved_article_organization_jump_index_section_html(library_html)
+
+    assert 'class="saved-article-organization-jump-index"' in section_html
+    assert "Saved Article Organization Jump Index" in section_html
+    assert "保存文章组织索引" in section_html
+    assert 'href="#saved-article-content-organization"' in section_html
+    assert 'href="#saved-article-source-vogue-business"' in section_html
+    assert 'href="#saved-article-signal-facets"' in section_html
+    assert 'href="#saved-article-daily-signal-leaderboard"' in section_html
+    jump_hrefs = re.findall(
+        r'class="saved-article-organization-jump-index-link" href="#([^"]+)"',
+        section_html,
+    )
+    assert jump_hrefs
+    for target_id in jump_hrefs:
+        assert f'id="{target_id}"' in library_html
+    assert library_html.index('class="saved-article-daily-summary"') < library_html.index(
+        'class="saved-article-organization-jump-index"'
+    )
+    assert library_html.index('class="saved-article-organization-jump-index"') < (
+        library_html.index('class="saved-article-content-organization"')
+    )
+    assert 'class="saved-article-organization-jump-index"' not in homepage_html
+    assert 'class="saved-article-organization-jump-index"' not in detail_html
+
+
 def test_render_saved_article_library_html_escapes_daily_signal_leaderboard() -> None:
     leaderboard = RowOneSavedArticleDailySignalLeaderboard(
         bucket_count=1,
@@ -4000,6 +4048,122 @@ def test_render_saved_article_library_html_omits_empty_daily_signal_leaderboard_
         assert 'class="saved-article-daily-signal-leaderboard"' not in html
         assert "Daily Signal Leaderboard" not in html
         assert 'href="#saved-article-daily-signal-leaderboard"' not in html
+
+
+def test_render_saved_article_library_html_escapes_organization_jump_index() -> None:
+    jump_index = RowOneSavedArticleOrganizationJumpIndex(
+        group_count=1,
+        item_count=2,
+        groups=(
+            RowOneSavedArticleOrganizationJumpIndexGroup(
+                key="signals",
+                title=LocalizedText(en="Signals <script>", zh="信号 <script>"),
+                items=(
+                    RowOneSavedArticleOrganizationJumpIndexItem(
+                        label=LocalizedText(en="Signal <script>", zh="信号 <script>"),
+                        href="#saved-article-signal-facets",
+                        count_label=LocalizedText(en="1 <row>", zh="1 <行>"),
+                    ),
+                    RowOneSavedArticleOrganizationJumpIndexItem(
+                        label=LocalizedText(en="Unsafe link", zh="不安全链接"),
+                        href="javascript:alert(1)",
+                        count_label=LocalizedText(en="1 link", zh="1 个链接"),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_organization_jump_index=jump_index,
+        saved_article_signal_facets=RowOneSavedArticleSignalFacets(
+            row_count=1,
+            brand_count=1,
+            product_count=0,
+            theme_count=0,
+            rows=(
+                RowOneSavedArticleSignalFacetRow(
+                    title=LocalizedText(en="Anchor Article", zh="锚点文章"),
+                    source_name="Vogue Business",
+                    href="details/the-row-signal-1234567890.html#local-article-digest",
+                    detail_path="details/the-row-signal-1234567890.html",
+                    safe_card_count=1,
+                    brands=(
+                        RowOneSavedArticleSignalFacetChip(
+                            label=LocalizedText(en="The Row", zh="The Row")
+                        ),
+                    ),
+                    products=(),
+                    themes=(),
+                ),
+            ),
+        ),
+    )
+    section_html = _saved_article_organization_jump_index_section_html(html)
+
+    assert "Signals &lt;script&gt;" in section_html
+    assert "信号 &lt;script&gt;" in section_html
+    assert "Signal &lt;script&gt;" in section_html
+    assert "1 &lt;row&gt;" in section_html
+    assert "Signals <script>" not in section_html
+    assert "Signal <script>" not in section_html
+    assert "javascript:" not in section_html
+
+
+def test_render_saved_article_library_html_omits_empty_organization_jump_index_shell() -> None:
+    empty_index = RowOneSavedArticleOrganizationJumpIndex(
+        group_count=0,
+        item_count=0,
+        groups=(),
+    )
+
+    for html in (
+        render_saved_article_library_html(
+            _edition(),
+            _saved_article_library_fixture(),
+            saved_article_organization_jump_index=empty_index,
+        ),
+    ):
+        assert 'class="saved-article-organization-jump-index"' not in html
+        assert "Saved Article Organization Jump Index" not in html
+
+
+def test_render_saved_article_library_html_omits_filtered_organization_jump_index_shell() -> None:
+    filtered_index = RowOneSavedArticleOrganizationJumpIndex(
+        group_count=1,
+        item_count=2,
+        groups=(
+            RowOneSavedArticleOrganizationJumpIndexGroup(
+                key="signals",
+                title=LocalizedText(en="Signals", zh="信号"),
+                items=(
+                    RowOneSavedArticleOrganizationJumpIndexItem(
+                        label=LocalizedText(en="Missing target", zh="缺失目标"),
+                        href="#saved-article-missing-target",
+                        count_label=LocalizedText(en="1 jump", zh="1 个跳转"),
+                    ),
+                    RowOneSavedArticleOrganizationJumpIndexItem(
+                        label=LocalizedText(en="Unsafe target", zh="不安全目标"),
+                        href="javascript:alert(1)",
+                        count_label=LocalizedText(en="1 jump", zh="1 个跳转"),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_organization_jump_index=filtered_index,
+    )
+
+    assert 'class="saved-article-organization-jump-index"' not in html
+    assert "Missing target" not in html
+    assert "Unsafe target" not in html
+    assert "javascript:" not in html
 
 
 def test_render_saved_article_library_html_escapes_signal_facets_and_revalidates_links() -> None:
@@ -5662,6 +5826,25 @@ def _saved_article_signal_facets_section_html(index_html: str) -> str:
 
 def _saved_article_daily_signal_leaderboard_section_html(index_html: str) -> str:
     marker = '<section class="saved-article-daily-signal-leaderboard"'
+    assert marker in index_html
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    boundary_offsets: list[int] = []
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is not None:
+        boundary_offsets.append(next_section.start())
+    library_grid = tail.find('<div class="saved-article-library-grid"')
+    if library_grid >= 0:
+        boundary_offsets.append(library_grid)
+    if not boundary_offsets:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + min(boundary_offsets)
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _saved_article_organization_jump_index_section_html(index_html: str) -> str:
+    marker = '<section class="saved-article-organization-jump-index"'
     assert marker in index_html
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]

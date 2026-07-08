@@ -576,6 +576,15 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "saved-article-daily-signal-leaderboard" not in generated_contract_payload
     assert "article-chip-leaderboard" not in generated_contract_payload
     assert "每日信号榜" not in generated_contract_payload
+    assert "saved_article_organization_jump_index" not in generated_contract_payload
+    assert "organization_jump_index" not in generated_contract_payload
+    assert "local_article_organization" not in generated_contract_payload
+    assert "article_organization" not in generated_contract_payload
+    assert "Saved Article Organization Jump Index" not in generated_contract_payload
+    assert "saved-article-organization-jump-index" not in generated_contract_payload
+    assert "organization-jump-index" not in generated_contract_payload
+    assert "local-article-organization" not in generated_contract_payload
+    assert "article-organization" not in generated_contract_payload
     assert "Saved Paragraph Context Cues" not in generated_contract_payload
     assert "saved-paragraph-context-cues" not in generated_contract_payload
     assert "local-article-paragraph-contexts" not in generated_contract_payload
@@ -592,8 +601,10 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         assert 'class="saved-article-source-routes"' in articles_html
         assert 'class="saved-article-signal-facets"' in articles_html
         assert 'class="saved-article-daily-signal-leaderboard"' in articles_html
+        assert 'class="saved-article-organization-jump-index"' in articles_html
         assert "Saved Article Signal Facets" in articles_html
         assert "Daily Signal Leaderboard" in articles_html
+        assert "Saved Article Organization Jump Index" in articles_html
         assert "Saved Article Source Routes" in articles_html
         assert "来源导览" in articles_html
         assert 'href="#saved-article-source-vogue-business"' in articles_html
@@ -748,6 +759,30 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "article-chip-leaderboard.html",
         output_dir / "articles" / "article-chip-leaderboard.html",
         output_dir / "data" / "article-chip-leaderboard.html",
+        output_dir / "saved-article-organization-jump-index.json",
+        output_dir / "articles" / "saved-article-organization-jump-index.json",
+        output_dir / "data" / "saved-article-organization-jump-index.json",
+        output_dir / "saved-article-organization-jump-index.html",
+        output_dir / "articles" / "saved-article-organization-jump-index.html",
+        output_dir / "data" / "saved-article-organization-jump-index.html",
+        output_dir / "organization-jump-index.json",
+        output_dir / "articles" / "organization-jump-index.json",
+        output_dir / "data" / "organization-jump-index.json",
+        output_dir / "organization-jump-index.html",
+        output_dir / "articles" / "organization-jump-index.html",
+        output_dir / "data" / "organization-jump-index.html",
+        output_dir / "local-article-organization.json",
+        output_dir / "articles" / "local-article-organization.json",
+        output_dir / "data" / "local-article-organization.json",
+        output_dir / "local-article-organization.html",
+        output_dir / "articles" / "local-article-organization.html",
+        output_dir / "data" / "local-article-organization.html",
+        output_dir / "article-organization.json",
+        output_dir / "articles" / "article-organization.json",
+        output_dir / "data" / "article-organization.json",
+        output_dir / "article-organization.html",
+        output_dir / "articles" / "article-organization.html",
+        output_dir / "data" / "article-organization.html",
     ):
         assert not artifact_path.exists()
     assert stored == stored_before
@@ -766,6 +801,12 @@ def test_stage_349_saved_article_signal_facets_stays_generated_site_only(
 
 
 def test_stage_350_saved_article_daily_signal_leaderboard_stays_generated_site_only(
+    tmp_path: Path,
+) -> None:
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_351_saved_article_organization_jump_index_stays_generated_site_only(
     tmp_path: Path,
 ) -> None:
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)

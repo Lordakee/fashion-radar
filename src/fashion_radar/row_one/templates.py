@@ -60,6 +60,13 @@ from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibraryParagraphLink,
     RowOneSavedArticleLibrarySourceGroup,
 )
+from fashion_radar.row_one.saved_article_organization_jump_index import (
+    RowOneSavedArticleOrganizationJumpIndex,
+    RowOneSavedArticleOrganizationJumpIndexGroup,
+    RowOneSavedArticleOrganizationJumpIndexItem,
+    RowOneSavedArticleOrganizationJumpIndexSourceRoute,
+    build_row_one_saved_article_organization_jump_index,
+)
 from fashion_radar.row_one.saved_article_reading_paths import (
     RowOneSavedArticleReadingPath,
     RowOneSavedArticleReadingPaths,
@@ -335,6 +342,7 @@ def render_saved_article_library_html(
     saved_article_reference_atlas: RowOneSavedArticleReferenceAtlas | None = None,
     saved_article_signal_facets: RowOneSavedArticleSignalFacets | None = None,
     saved_article_daily_signal_leaderboard: RowOneSavedArticleDailySignalLeaderboard | None = None,
+    saved_article_organization_jump_index: RowOneSavedArticleOrganizationJumpIndex | None = None,
     saved_article_evidence_board: RowOneSavedArticleEvidenceBoard | None = None,
     local_article_page_hrefs_by_detail_path: Mapping[str, str] | None = None,
 ) -> str:
@@ -384,6 +392,26 @@ def render_saved_article_library_html(
         saved_article_content_organization,
         href_prefix="../",
         section_id="saved-article-content-organization",
+    )
+    target_ids = _saved_article_library_page_target_ids(
+        source_routes=source_routes,
+        content_organization_html=content_organization,
+        signal_facets_html=signal_facets,
+        daily_signal_leaderboard_html=daily_signal_leaderboard,
+    )
+    organization_jump_index_model = (
+        saved_article_organization_jump_index
+        if saved_article_organization_jump_index is not None
+        else build_row_one_saved_article_organization_jump_index(
+            content_organization=saved_article_content_organization,
+            source_routes=_saved_article_organization_jump_index_source_routes(source_routes),
+            signal_facets=saved_article_signal_facets,
+            daily_signal_leaderboard=saved_article_daily_signal_leaderboard,
+        )
+    )
+    organization_jump_index = _render_saved_article_organization_jump_index(
+        organization_jump_index_model,
+        target_ids=target_ids,
     )
     daily_summary = _render_saved_article_daily_summary(
         library,
@@ -438,6 +466,7 @@ def render_saved_article_library_html(
     {_render_saved_article_library_metrics(library, css_class="saved-article-library-metrics")}
   </section>
   {daily_summary}
+  {organization_jump_index}
   {signal_facets}
   {daily_signal_leaderboard}
   {theme_digest}
@@ -1873,6 +1902,78 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   flex-wrap: wrap;
   gap: 6px 10px;
   padding: 8px 10px;
+}
+.saved-article-organization-jump-index {
+  border-bottom: 1px solid var(--ink);
+  display: grid;
+  gap: 18px;
+  padding-bottom: 28px;
+}
+.saved-article-organization-jump-index-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.36fr) minmax(0, 1fr);
+}
+.saved-article-organization-jump-index-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 5vw, 5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.95;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-organization-jump-index-header p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-organization-jump-index-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.saved-article-organization-jump-index-group {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 14px;
+}
+.saved-article-organization-jump-index-group h3 {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+.saved-article-organization-jump-index-items {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-organization-jump-index-link {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  text-decoration: none;
+}
+.saved-article-organization-jump-index-label {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+.saved-article-organization-jump-index-count {
+  color: var(--muted);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .saved-article-signal-facets {
   border-bottom: 1px solid var(--ink);
@@ -5598,6 +5699,153 @@ def _render_saved_article_daily_summary_link(
     <span data-lang="en">{_esc(label_en)}</span>
     <span data-lang="zh">{_esc(label_zh)}</span>
   </a>"""
+
+
+def _saved_article_organization_jump_index_source_routes(
+    source_routes: Sequence[_SavedArticleSourceRoute],
+) -> tuple[RowOneSavedArticleOrganizationJumpIndexSourceRoute, ...]:
+    return tuple(
+        RowOneSavedArticleOrganizationJumpIndexSourceRoute(
+            label=LocalizedText(en=route.source_name, zh=route.source_name),
+            href=f"#{route.anchor_id}",
+            article_count=route.article_count,
+        )
+        for route in source_routes
+    )
+
+
+def _saved_article_library_page_target_ids(
+    *,
+    source_routes: Sequence[_SavedArticleSourceRoute],
+    content_organization_html: str,
+    signal_facets_html: str,
+    daily_signal_leaderboard_html: str,
+) -> set[str]:
+    target_ids = {route.anchor_id for route in source_routes}
+    if content_organization_html:
+        target_ids.add("saved-article-content-organization")
+    if signal_facets_html:
+        target_ids.add("saved-article-signal-facets")
+    if daily_signal_leaderboard_html:
+        target_ids.add("saved-article-daily-signal-leaderboard")
+    return target_ids
+
+
+def _render_saved_article_organization_jump_index(
+    jump_index: RowOneSavedArticleOrganizationJumpIndex | None,
+    *,
+    target_ids: set[str],
+) -> str:
+    if jump_index is None or not jump_index.groups:
+        return ""
+    rendered_groups: list[str] = []
+    rendered_item_count = 0
+    for group in jump_index.groups:
+        group_html, group_item_count = _render_saved_article_organization_jump_index_group(
+            group,
+            target_ids=target_ids,
+        )
+        if not group_html:
+            continue
+        rendered_groups.append(group_html)
+        rendered_item_count += group_item_count
+    groups = "\n".join(rendered_groups)
+    if not groups:
+        return ""
+    rendered_group_count = len(rendered_groups)
+    item_count_en = _count_label(rendered_item_count, "jump", "jumps")
+    group_count_en = _count_label(rendered_group_count, "group", "groups")
+    summary_en = f"{_esc(item_count_en)} across {_esc(group_count_en)} of local article surfaces."
+    summary_zh = (
+        f"{_esc(str(rendered_item_count))} 个跳转入口，覆盖 "
+        f"{_esc(str(rendered_group_count))} 个本地文章分组。"
+    )
+    return f"""<section class="saved-article-organization-jump-index"
+  id="saved-article-organization-jump-index"
+  aria-label="Saved article organization jump index">
+  <div class="saved-article-organization-jump-index-header">
+    <p class="eyebrow">Organization Jump Index</p>
+    <h2>
+      <span data-lang="en">Saved Article Organization Jump Index</span>
+      <span data-lang="zh">保存文章组织索引</span>
+    </h2>
+    <p>
+      <span data-lang="en">{summary_en}</span>
+      <span data-lang="zh">{summary_zh}</span>
+    </p>
+  </div>
+  <div class="saved-article-organization-jump-index-grid">
+{groups}
+  </div>
+</section>"""
+
+
+def _render_saved_article_organization_jump_index_group(
+    group: RowOneSavedArticleOrganizationJumpIndexGroup,
+    *,
+    target_ids: set[str],
+) -> tuple[str, int]:
+    rendered_items = tuple(
+        item_html
+        for item in group.items
+        if (
+            item_html := _render_saved_article_organization_jump_index_item(
+                item,
+                target_ids=target_ids,
+            )
+        )
+    )
+    items = "\n".join(rendered_items)
+    if not items:
+        return "", 0
+    return (
+        f"""    <div class="saved-article-organization-jump-index-group"
+      aria-label="{_esc(group.title.en)}">
+      <h3>
+        <span data-lang="en">{_esc(group.title.en)}</span>
+        <span data-lang="zh">{_esc(group.title.zh)}</span>
+      </h3>
+      <ul class="saved-article-organization-jump-index-items">
+{items}
+      </ul>
+    </div>""",
+        len(rendered_items),
+    )
+
+
+def _render_saved_article_organization_jump_index_item(
+    item: RowOneSavedArticleOrganizationJumpIndexItem,
+    *,
+    target_ids: set[str],
+) -> str:
+    href = _saved_article_organization_jump_index_href(item.href, target_ids=target_ids)
+    if href is None:
+        return ""
+    return f"""        <li class="saved-article-organization-jump-index-item">
+          <a class="saved-article-organization-jump-index-link" href="{_esc(href)}">
+            <span class="saved-article-organization-jump-index-label">
+              <span data-lang="en">{_esc(item.label.en)}</span>
+              <span data-lang="zh">{_esc(item.label.zh)}</span>
+            </span>
+            <span class="saved-article-organization-jump-index-count">
+              <span data-lang="en">{_esc(item.count_label.en)}</span>
+              <span data-lang="zh">{_esc(item.count_label.zh)}</span>
+            </span>
+          </a>
+        </li>"""
+
+
+def _saved_article_organization_jump_index_href(
+    href: str,
+    *,
+    target_ids: set[str],
+) -> str | None:
+    if not href.startswith("#") or "://" in href or any(character.isspace() for character in href):
+        return None
+    target_id = href.removeprefix("#")
+    if target_id not in target_ids:
+        return None
+    return href
 
 
 def _first_saved_article_daily_summary_reading_href(
