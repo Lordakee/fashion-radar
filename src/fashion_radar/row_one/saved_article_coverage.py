@@ -45,6 +45,8 @@ def build_row_one_saved_article_coverage(
         article = local_articles_by_story_id.get(story.id)
         if article is None:
             continue
+        if article.story_id != story.id:
+            continue
         if not safe_local_article_story_id(story.id):
             continue
         if not is_safe_row_one_detail_path(story.detail_path):

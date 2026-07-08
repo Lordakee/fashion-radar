@@ -548,6 +548,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "Saved Article Body Guide" not in generated_contract_payload
     assert "saved-article-body-guide" not in generated_contract_payload
     assert "article-body-guide" not in generated_contract_payload
+    assert "saved_article_source_brief" not in generated_contract_payload
+    assert "article_source_brief" not in generated_contract_payload
+    assert "Source Brief" not in generated_contract_payload
+    assert "source-brief" not in generated_contract_payload
+    assert "saved-article-source-brief" not in generated_contract_payload
+    assert "article-source-brief" not in generated_contract_payload
     assert "Saved Paragraph Context Cues" not in generated_contract_payload
     assert "saved-paragraph-context-cues" not in generated_contract_payload
     assert "local-article-paragraph-contexts" not in generated_contract_payload
@@ -560,6 +566,7 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         assert 'class="saved-article-content-organization-group"' in articles_html
         assert 'class="saved-article-content-organization-summary"' in articles_html
         assert 'class="saved-article-body-guide"' in articles_html
+        assert 'class="saved-article-source-brief"' in articles_html
         if "saved-signal-index-support-row" in articles_html:
             assert "saved-signal-index-support-excerpt" in articles_html
     top_level_data_files = {path.name for path in (output_dir / "data").glob("*.json")}
@@ -662,6 +669,18 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "article-body-guide.html",
         output_dir / "articles" / "article-body-guide.html",
         output_dir / "data" / "article-body-guide.html",
+        output_dir / "saved-article-source-brief.json",
+        output_dir / "articles" / "saved-article-source-brief.json",
+        output_dir / "data" / "saved-article-source-brief.json",
+        output_dir / "saved-article-source-brief.html",
+        output_dir / "articles" / "saved-article-source-brief.html",
+        output_dir / "data" / "saved-article-source-brief.html",
+        output_dir / "article-source-brief.json",
+        output_dir / "articles" / "article-source-brief.json",
+        output_dir / "data" / "article-source-brief.json",
+        output_dir / "article-source-brief.html",
+        output_dir / "articles" / "article-source-brief.html",
+        output_dir / "data" / "article-source-brief.html",
     ):
         assert not artifact_path.exists()
     assert stored == stored_before

@@ -5184,6 +5184,42 @@ def _saved_article_library_first_card_html(index_html: str) -> str:
     return index_html[card_start:card_end]
 
 
+def _saved_article_library_first_source_html(index_html: str) -> str:
+    marker = '<section class="saved-article-library-source">'
+    assert marker in index_html
+    source_start = index_html.index(marker)
+    next_source = index_html.find(marker, source_start + len(marker))
+    source_grid_end = index_html.find("</main>", source_start)
+    section_end = (
+        source_grid_end if source_grid_end >= 0 else index_html.find("</section>", source_start)
+    )
+    source_end = next_source if next_source >= 0 else section_end
+    assert source_end > source_start
+    return index_html[source_start:source_end]
+
+
+def _saved_article_source_brief_html(index_html: str) -> str:
+    marker = '<div class="saved-article-source-brief"'
+    assert marker in index_html
+    start = index_html.index(marker)
+    depth = 0
+    position = start
+    while position < len(index_html):
+        open_position = index_html.find("<div", position)
+        close_position = index_html.find("</div>", position)
+        if close_position < 0:
+            break
+        if open_position >= 0 and open_position < close_position:
+            depth += 1
+            position = open_position + len("<div")
+            continue
+        depth -= 1
+        position = close_position + len("</div>")
+        if depth == 0:
+            return index_html[start:position]
+    raise AssertionError("Unbalanced div in saved article source brief HTML")
+
+
 def _saved_article_body_guide_html(index_html: str) -> str:
     marker = '<div class="saved-article-body-guide"'
     assert marker in index_html
@@ -6469,6 +6505,7 @@ def test_render_saved_article_library_canonicalizes_caps_and_truncates_organized
         saved_article_content_organization=organization,
     )
     grid_html = html[html.index('class="saved-article-library-grid"') :]
+    guide_html = _saved_article_body_guide_html(grid_html)
 
     assert (
         'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
@@ -6476,8 +6513,8 @@ def test_render_saved_article_library_canonicalizes_caps_and_truncates_organized
     )
     assert "details/./the-row-signal-1234567890.html" not in grid_html
     assert grid_html.count('class="saved-article-body-guide-item"') == 2
-    assert grid_html.count("Canonical lead starts with The Row") == 1
-    assert "…" in grid_html
+    assert guide_html.count("Canonical lead starts with The Row") == 1
+    assert "…" in guide_html
     assert "unique tail marker" not in grid_html
 
 
@@ -6525,6 +6562,59 @@ def test_render_row_one_site_includes_saved_article_body_guide_in_article_cards(
         assert "What this article says" not in contract_json
         assert "正文导读" not in contract_json
     assert not (tmp_path / "data" / "saved-article-body-guide.json").exists()
+
+
+def test_render_row_one_site_includes_saved_article_source_brief_in_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _theme_digest_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    source_html = _saved_article_library_first_source_html(library_html)
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+
+    assert 'class="saved-article-source-brief"' in source_html
+    assert "Source Brief" in source_html
+    assert "来源简报" in source_html
+    assert "Vogue Business" in source_html
+    assert "1 saved article" in source_html
+    assert "3 saved paragraphs" in source_html
+    assert "3 organized sections" in source_html
+    assert "Start with The Row retail signal." in source_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in source_html
+    )
+    assert source_html.index('class="saved-article-library-source-header"') < source_html.index(
+        'class="saved-article-source-brief"'
+    )
+    assert source_html.index('class="saved-article-source-brief"') < source_html.index(
+        'class="saved-article-library-source-grid"'
+    )
+    assert 'class="saved-article-source-brief"' not in (tmp_path / "index.html").read_text(
+        encoding="utf-8"
+    )
+
+    for contract_json in (
+        json.dumps(edition_payload, ensure_ascii=False),
+        json.dumps(manifest_payload, ensure_ascii=False),
+        json.dumps(runtime_payload, ensure_ascii=False),
+    ):
+        assert "saved_article_source_brief" not in contract_json
+        assert "source_brief" not in contract_json
+        assert "source-brief" not in contract_json
+        assert "saved-article-source-brief" not in contract_json
+        assert "Source Brief" not in contract_json
+    assert not (tmp_path / "data" / "saved-article-source-brief.json").exists()
 
 
 def test_render_saved_article_library_body_guide_escapes_dedupes_and_caps() -> None:
@@ -6667,6 +6757,375 @@ def test_render_saved_article_library_html_omits_empty_body_guide_shell() -> Non
 
     assert 'class="saved-article-body-guide"' not in html
     assert "What this article says" not in html
+
+
+def test_render_saved_article_library_source_brief_escapes_dedupes_and_caps() -> None:
+    base_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="The Row source", zh="The Row 来源"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People <Brands>", zh="品牌 <人物>"),
+        lead=LocalizedText(
+            en="Long <script>source</script> " + ("detail " * 80),
+            zh="很长 <script>来源</script> " + ("细节 " * 80),
+        ),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体上下文"),
+                cards=[
+                    base_card,
+                    replace(base_card),
+                    replace(
+                        base_card,
+                        section_label=LocalizedText(en="Products", zh="单品"),
+                        lead=LocalizedText(en="Second source brief.", zh="第二条来源简报。"),
+                        paragraph_indices=(1,),
+                    ),
+                    replace(
+                        base_card,
+                        section_label=LocalizedText(en="Overflow", zh="溢出"),
+                        lead=LocalizedText(en="Third source brief.", zh="第三条来源简报。"),
+                        paragraph_indices=(2,),
+                    ),
+                ],
+            )
+        ],
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    source_html = _saved_article_library_first_source_html(html)
+    brief_html = _saved_article_source_brief_html(source_html)
+
+    assert 'class="saved-article-source-brief"' in source_html
+    assert brief_html.count('class="saved-article-source-brief-item"') == 2
+    assert "People &lt;Brands&gt;" in brief_html
+    assert "Long &lt;script&gt;source&lt;/script&gt;" in brief_html
+    assert "<script>" not in brief_html
+    assert brief_html.count("Long &lt;script&gt;source&lt;/script&gt;") == 1
+    assert "Second source brief." in brief_html
+    assert "Third source brief." not in brief_html
+    assert brief_html.count("detail") < 80
+    assert "…" in brief_html
+
+
+def test_render_saved_article_library_source_brief_filters_unsafe_content_links() -> None:
+    safe_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="The Row source", zh="The Row 来源"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="Safe source", zh="安全来源"),
+        lead=LocalizedText(en="Safe source brief.", zh="安全来源简报。"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(),
+    )
+    unsafe_organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体上下文"),
+                cards=[
+                    replace(
+                        safe_card,
+                        lead=LocalizedText(en="Script source brief.", zh="脚本来源简报。"),
+                        detail_path="javascript:alert(1)#local-article-content-section-1",
+                    ),
+                    replace(
+                        safe_card,
+                        lead=LocalizedText(en="Traversal source brief.", zh="越界来源简报。"),
+                        detail_path="../secret.html#local-article-content-section-1",
+                    ),
+                ],
+            )
+        ],
+    )
+    safe_organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体上下文"),
+                cards=[safe_card],
+            )
+        ],
+    )
+
+    unsafe_html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=unsafe_organization,
+    )
+    safe_html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=safe_organization,
+    )
+
+    unsafe_brief_html = _saved_article_source_brief_html(unsafe_html)
+    safe_brief_html = _saved_article_source_brief_html(safe_html)
+
+    assert "Script source brief." not in unsafe_brief_html
+    assert "Traversal source brief." not in unsafe_brief_html
+    assert "The Row source" in unsafe_brief_html
+    assert "javascript:" not in unsafe_html
+    assert "../secret.html" not in unsafe_html
+    assert 'class="saved-article-source-brief"' in safe_brief_html
+    assert "Safe source brief." in safe_brief_html
+
+
+def test_render_saved_article_library_source_brief_falls_back_to_entry_summary() -> None:
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=None,
+    )
+
+    source_html = _saved_article_library_first_source_html(html)
+    brief_html = _saved_article_source_brief_html(source_html)
+
+    assert 'class="saved-article-source-brief"' in brief_html
+    assert "The Row source" in brief_html
+    assert "Top Stories" in brief_html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-digest"' in brief_html
+
+
+def test_render_saved_article_library_source_brief_fallback_local_page_targets_digest() -> None:
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=None,
+        local_article_page_hrefs_by_detail_path={
+            "details/the-row-signal-1234567890.html": "the-row-signal-1234567890.html",
+        },
+    )
+    brief_html = _saved_article_source_brief_html(html)
+
+    assert 'href="the-row-signal-1234567890.html#local-article-digest"' in brief_html
+    assert 'href="the-row-signal-1234567890.html">' not in brief_html
+
+
+def test_render_saved_article_library_source_brief_omits_empty_shell_without_safe_items() -> None:
+    unsafe_entry = RowOneSavedArticleLibraryEntry(
+        title=LocalizedText(zh="Unsafe source", en="Unsafe source"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(zh="今日重点", en="Top Stories"),
+        saved_paragraph_count=1,
+        organized_section_count=1,
+        body_source="summary_fallback",
+        digest_path="../secret.html#local-article-digest",
+        reader_path="../secret.html#local-article-reader",
+        evidence_path="../secret.html#local-article-paragraph-evidence",
+    )
+    library = RowOneSavedArticleLibrary(
+        article_count=1,
+        source_count=1,
+        saved_paragraph_count=1,
+        organized_section_count=1,
+        extracted_article_count=0,
+        summary_fallback_article_count=1,
+        skipped_article_count=0,
+        groups=[
+            RowOneSavedArticleLibrarySourceGroup(
+                source_name="Vogue Business",
+                article_count=1,
+                saved_paragraph_count=1,
+                organized_section_count=1,
+                entries=[unsafe_entry],
+            )
+        ],
+    )
+    unsafe_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="Unsafe card", zh="不安全卡片"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="Unsafe source", zh="不安全来源"),
+        lead=LocalizedText(en="Unsafe source brief.", zh="不安全来源简报。"),
+        detail_path="javascript:alert(1)#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体上下文"),
+                cards=[unsafe_card],
+            )
+        ],
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        library,
+        saved_article_content_organization=organization,
+    )
+
+    assert 'class="saved-article-source-brief"' not in html
+    assert "Unsafe source brief." not in html
+    assert "javascript:" not in html
+
+
+def test_render_saved_article_library_source_brief_spreads_items_across_entries() -> None:
+    base_entry = _saved_article_library_fixture().groups[0].entries[0]
+    second_entry = replace(
+        base_entry,
+        title=LocalizedText(zh="Coach source", en="Coach source"),
+        digest_path="details/coach-signal-1234567890.html#local-article-digest",
+        reader_path="details/coach-signal-1234567890.html#local-article-reader",
+        evidence_path="details/coach-signal-1234567890.html#local-article-paragraph-evidence",
+    )
+    library = RowOneSavedArticleLibrary(
+        article_count=2,
+        source_count=1,
+        saved_paragraph_count=2,
+        organized_section_count=2,
+        extracted_article_count=0,
+        summary_fallback_article_count=2,
+        skipped_article_count=0,
+        groups=[
+            RowOneSavedArticleLibrarySourceGroup(
+                source_name="Vogue Business",
+                article_count=2,
+                saved_paragraph_count=2,
+                organized_section_count=2,
+                entries=[base_entry, second_entry],
+            )
+        ],
+    )
+
+    def source_card(
+        story_id: str,
+        label: str,
+        lead: str,
+    ) -> RowOneSavedArticleContentOrganizationCard:
+        return RowOneSavedArticleContentOrganizationCard(
+            title=LocalizedText(en=label, zh=label),
+            source_name="Vogue Business",
+            section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+            section_label=LocalizedText(en=label, zh=label),
+            lead=LocalizedText(en=lead, zh=lead),
+            detail_path=f"details/{story_id}.html#local-article-content-section-1",
+            paragraph_indices=(0,),
+            references=(),
+        )
+
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体上下文"),
+                cards=[
+                    source_card("the-row-signal-1234567890", "The Row", "First The Row brief."),
+                    source_card(
+                        "the-row-signal-1234567890",
+                        "The Row Overflow",
+                        "Second The Row brief.",
+                    ),
+                    source_card("coach-signal-1234567890", "Coach", "First Coach brief."),
+                ],
+            )
+        ],
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        library,
+        saved_article_content_organization=organization,
+    )
+    brief_html = _saved_article_source_brief_html(html)
+
+    assert "First The Row brief." in brief_html
+    assert "First Coach brief." in brief_html
+    assert "Second The Row brief." not in brief_html
+
+
+def test_render_saved_article_library_source_brief_dedupes_with_bilingual_text() -> None:
+    base_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="The Row source", zh="The Row 来源"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People", zh="人物"),
+        lead=LocalizedText(en="Same English lead.", zh="第一条中文。"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体上下文"),
+                cards=[
+                    base_card,
+                    replace(
+                        base_card,
+                        section_label=LocalizedText(en="People", zh="品牌"),
+                        lead=LocalizedText(en="Same English lead.", zh="第二条中文。"),
+                        paragraph_indices=(1,),
+                    ),
+                ],
+            )
+        ],
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    brief_html = _saved_article_source_brief_html(html)
+
+    assert brief_html.count('class="saved-article-source-brief-item"') == 2
+    assert "第一条中文。" in brief_html
+    assert "第二条中文。" in brief_html
+
+
+def test_render_saved_article_library_source_brief_omits_label_only_items() -> None:
+    blank_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="The Row source", zh="The Row 来源"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="Label only", zh="只有标签"),
+        lead=LocalizedText(en="   ", zh="   "),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(),
+        references=(),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体上下文"),
+                cards=[blank_card],
+            )
+        ],
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    brief_html = _saved_article_source_brief_html(html)
+
+    assert "Label only" not in brief_html
+    assert "The Row source" in brief_html
 
 
 def test_render_saved_article_library_filters_unsafe_reading_path_view_model_steps() -> None:
@@ -8711,6 +9170,14 @@ def test_row_one_css_includes_saved_article_library_styles(tmp_path) -> None:
         ".saved-article-body-guide-body",
         ".saved-article-body-guide-link",
         ".saved-article-body-guide-evidence",
+        ".saved-article-source-brief",
+        ".saved-article-source-brief-header",
+        ".saved-article-source-brief-metrics",
+        ".saved-article-source-brief-list",
+        ".saved-article-source-brief-item",
+        ".saved-article-source-brief-label",
+        ".saved-article-source-brief-body",
+        ".saved-article-source-brief-link",
         ".saved-article-daily-summary",
         ".saved-article-daily-summary-header",
         ".saved-article-daily-summary-metrics",

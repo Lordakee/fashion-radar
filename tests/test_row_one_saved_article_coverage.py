@@ -143,6 +143,18 @@ def test_saved_article_coverage_omits_when_no_publishable_articles() -> None:
     )
 
 
+def test_saved_article_coverage_rejects_mismatched_local_article_story_id() -> None:
+    story = _story("the-row-a-1234567890", "The Row coverage")
+
+    assert (
+        build_row_one_saved_article_coverage(
+            _edition(story),
+            {story.id: _article("different-story-1234567890")},
+        )
+        is None
+    )
+
+
 def test_saved_article_coverage_excludes_invalid_detail_paths() -> None:
     valid_story = _story("the-row-a-1234567890", "The Row coverage")
     invalid_story = _story("coach-b-1234567890", "Coach coverage").model_copy(

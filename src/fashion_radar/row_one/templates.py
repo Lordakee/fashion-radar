@@ -116,6 +116,7 @@ EDITORIAL_BRIEF_MAX_ITEMS = 3
 EDITORIAL_BRIEF_BODY_EXCERPT_CHARS = 220
 EDITORIAL_BRIEF_MAX_TRAIL_ITEMS = 3
 SAVED_ARTICLE_BODY_GUIDE_ITEMS_PER_CARD = 2
+SAVED_ARTICLE_SOURCE_BRIEF_ITEMS_PER_SOURCE = 2
 SAVED_ARTICLE_CONTENT_ORGANIZATION_EVIDENCE_LINK_LIMIT = 3
 SAVED_ARTICLE_CONTENT_ORGANIZATION_SUMMARY_MAX_REFS = 5
 SAVED_ARTICLE_CONTENT_ORGANIZATION_MAX_PARAGRAPH_INDEX = 50
@@ -1515,6 +1516,60 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   display: inline-flex;
   font-size: 0.78rem;
   margin-right: 8px;
+  text-decoration: none;
+}
+.saved-article-source-brief {
+  border: 1px solid rgba(18, 18, 18, 0.14);
+  background: rgba(244, 241, 235, 0.66);
+  display: grid;
+  gap: 12px;
+  margin: 1rem 0 1.2rem;
+  padding: 1rem;
+}
+.saved-article-source-brief-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  justify-content: space-between;
+}
+.saved-article-source-brief-header strong {
+  color: var(--ink);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-source-brief-metrics {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+.saved-article-source-brief-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-source-brief-item {
+  border-left: 2px solid var(--ink);
+  display: grid;
+  gap: 6px;
+  padding-left: 12px;
+}
+.saved-article-source-brief-label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  margin: 0;
+  text-transform: uppercase;
+}
+.saved-article-source-brief-body {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin: 0;
+}
+.saved-article-source-brief-link {
+  color: var(--accent);
+  display: inline-flex;
+  font-size: 0.78rem;
   text-decoration: none;
 }
 .saved-article-library-actions a {
@@ -5248,6 +5303,11 @@ def _render_saved_article_library_source(
         "saved paragraphs",
     )
     paragraph_count_zh = f"{group.saved_paragraph_count} 个保存段落"
+    source_brief = _render_saved_article_source_brief(
+        group,
+        snippets_by_detail_path=snippets_by_detail_path,
+        local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+    )
     return f"""    <section class="saved-article-library-source">
       <div class="saved-article-library-source-header">
         <h2>{_esc(group.source_name)}</h2>
@@ -5256,6 +5316,7 @@ def _render_saved_article_library_source(
           <span data-lang="zh">{_esc(article_count_zh)}，{_esc(paragraph_count_zh)}</span>
         </p>
       </div>
+      {source_brief}
       <div class="saved-article-library-source-grid">{cards}</div>
     </section>"""
 
@@ -5394,6 +5455,196 @@ def _saved_article_library_entry_snippets(
     if detail_path is None:
         return ()
     return snippets_by_detail_path.get(detail_path, ())
+
+
+def _render_saved_article_source_brief(
+    group: RowOneSavedArticleLibrarySourceGroup,
+    *,
+    snippets_by_detail_path: Mapping[
+        str,
+        Sequence[RowOneSavedArticleContentOrganizationCard],
+    ]
+    | None,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    items = _saved_article_source_brief_items(
+        group,
+        snippets_by_detail_path=snippets_by_detail_path,
+        local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+    )
+    if not items:
+        return ""
+    article_count_en = _count_label(group.article_count, "saved article", "saved articles")
+    paragraph_count_en = _count_label(
+        group.saved_paragraph_count,
+        "saved paragraph",
+        "saved paragraphs",
+    )
+    section_count_en = _count_label(
+        group.organized_section_count,
+        "organized section",
+        "organized sections",
+    )
+    metrics_en = f"{article_count_en} / {paragraph_count_en} / {section_count_en}"
+    metrics_zh = (
+        f"{group.article_count} 篇保存文章 / "
+        f"{group.saved_paragraph_count} 个保存段落 / "
+        f"{group.organized_section_count} 个整理栏目"
+    )
+    return (
+        '<div class="saved-article-source-brief" aria-label="Saved article source brief">'
+        '<div class="saved-article-source-brief-header">'
+        "<strong>"
+        '<span data-lang="en">Source Brief</span>'
+        '<span data-lang="zh">来源简报</span>'
+        "</strong>"
+        '<span class="saved-article-source-brief-metrics">'
+        f'<span data-lang="en">{_esc(metrics_en)}</span>'
+        f'<span data-lang="zh">{_esc(metrics_zh)}</span>'
+        "</span>"
+        "</div>"
+        '<ul class="saved-article-source-brief-list">' + "".join(items) + "</ul></div>"
+    )
+
+
+def _saved_article_source_brief_items(
+    group: RowOneSavedArticleLibrarySourceGroup,
+    *,
+    snippets_by_detail_path: Mapping[
+        str,
+        Sequence[RowOneSavedArticleContentOrganizationCard],
+    ]
+    | None,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> list[str]:
+    items: list[str] = []
+    seen: set[tuple[str, str, str, str, str]] = set()
+    pending_by_entry = [
+        _saved_article_source_brief_entry_items(
+            entry,
+            snippets_by_detail_path=snippets_by_detail_path,
+            local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+        )
+        for entry in group.entries
+    ]
+    max_items_per_entry = max((len(entry_items) for entry_items in pending_by_entry), default=0)
+    for item_index in range(max_items_per_entry):
+        for entry_items in pending_by_entry:
+            if item_index >= len(entry_items):
+                continue
+            item = entry_items[item_index]
+            dedupe_key = _saved_article_source_brief_item_key(item)
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            items.append(_render_saved_article_source_brief_item(*item))
+            if len(items) >= SAVED_ARTICLE_SOURCE_BRIEF_ITEMS_PER_SOURCE:
+                return items
+    return items
+
+
+def _saved_article_source_brief_entry_items(
+    entry: RowOneSavedArticleLibraryEntry,
+    *,
+    snippets_by_detail_path: Mapping[
+        str,
+        Sequence[RowOneSavedArticleContentOrganizationCard],
+    ]
+    | None,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> list[tuple[LocalizedText, LocalizedText, str]]:
+    items: list[tuple[LocalizedText, LocalizedText, str]] = []
+    for card in _saved_article_library_entry_snippets(entry, snippets_by_detail_path):
+        href = _safe_saved_article_content_organization_href(card.detail_path)
+        if href is None:
+            continue
+        href = _prefixed_saved_article_content_organization_href(href, "../")
+        label = card.section_label
+        body = LocalizedText(
+            en=_local_article_digest_excerpt(card.lead.en),
+            zh=_local_article_digest_excerpt(card.lead.zh),
+        )
+        if _saved_article_source_brief_text_is_empty(label, body):
+            continue
+        items.append((label, body, href))
+    if items:
+        return items
+
+    fallback_href = _saved_article_source_brief_entry_href(
+        entry,
+        local_article_page_hrefs_by_detail_path,
+    )
+    if fallback_href is None:
+        return []
+    label = entry.section_title
+    body = LocalizedText(
+        en=_local_article_digest_excerpt(entry.title.en),
+        zh=_local_article_digest_excerpt(entry.title.zh),
+    )
+    if _saved_article_source_brief_text_is_empty(label, body):
+        return []
+    return [(label, body, fallback_href)]
+
+
+def _saved_article_source_brief_entry_href(
+    entry: RowOneSavedArticleLibraryEntry,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str | None:
+    article_page_href = _saved_article_library_entry_article_page_href(
+        entry,
+        local_article_page_hrefs_by_detail_path,
+    )
+    if article_page_href is not None:
+        return f"{article_page_href}#local-article-digest"
+    safe_href = safe_row_one_detail_fragment_href(
+        entry.digest_path,
+        "local-article-digest",
+    )
+    if safe_href is None:
+        return None
+    return _saved_article_library_page_href(safe_href)
+
+
+def _saved_article_source_brief_text_is_empty(
+    label: LocalizedText,
+    body: LocalizedText,
+) -> bool:
+    del label
+    return not (" ".join(str(body.en).split()) or " ".join(str(body.zh).split()))
+
+
+def _saved_article_source_brief_item_key(
+    item: tuple[LocalizedText, LocalizedText, str],
+) -> tuple[str, str, str, str, str]:
+    label, body, href = item
+    return (
+        href,
+        " ".join(str(label.en).split()).casefold(),
+        " ".join(str(label.zh).split()).casefold(),
+        " ".join(str(body.en).split()).casefold(),
+        " ".join(str(body.zh).split()).casefold(),
+    )
+
+
+def _render_saved_article_source_brief_item(
+    label: LocalizedText,
+    body: LocalizedText,
+    href: str,
+) -> str:
+    return f"""<li class="saved-article-source-brief-item">
+          <p class="saved-article-source-brief-label">
+            <span data-lang="en">{_esc(label.en)}</span>
+            <span data-lang="zh">{_esc(label.zh)}</span>
+          </p>
+          <p class="saved-article-source-brief-body">
+            <span data-lang="en">{_esc(body.en)}</span>
+            <span data-lang="zh">{_esc(body.zh)}</span>
+          </p>
+          <a class="saved-article-source-brief-link" href="{_esc(href)}">
+            <span data-lang="en">Open contribution</span>
+            <span data-lang="zh">打开来源贡献</span>
+          </a>
+        </li>"""
 
 
 def _saved_article_body_guide_has_safe_evidence(
