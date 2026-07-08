@@ -8,6 +8,11 @@ from html import escape
 from pathlib import PurePosixPath
 
 from fashion_radar.row_one.articles import safe_local_article_story_id
+from fashion_radar.row_one.daily_local_key_signals_digest import (
+    RowOneDailyLocalKeySignalsDigest,
+    RowOneDailyLocalKeySignalsDigestEntry,
+    RowOneDailyLocalKeySignalsDigestGroup,
+)
 from fashion_radar.row_one.detail_routes import (
     safe_row_one_detail_fragment_href,
     validated_row_one_detail_relative_path,
@@ -231,6 +236,7 @@ def render_index_html(
     saved_article_library: RowOneSavedArticleLibrary | None = None,
     saved_signal_index: RowOneSavedSignalIndex | None = None,
     saved_article_briefs: RowOneSavedArticleBriefs | None = None,
+    daily_local_key_signals_digest: RowOneDailyLocalKeySignalsDigest | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     editorial_brief: _EditorialBrief | None = None,
     local_articles_by_story_id: dict[str, RowOneLocalArticle] | None = None,
@@ -253,6 +259,9 @@ def render_index_html(
         saved_signal_index=saved_signal_index,
     )
     saved_article_briefs_section = _render_saved_article_briefs(saved_article_briefs)
+    daily_local_key_signals_digest_section = _render_daily_local_key_signals_digest(
+        daily_local_key_signals_digest
+    )
     saved_article_content_organization_section = _render_saved_article_content_organization(
         saved_article_content_organization
     )
@@ -344,6 +353,7 @@ def render_index_html(
 {saved_article_coverage_section}
 {saved_article_library_entry}
 {saved_article_briefs_section}
+{daily_local_key_signals_digest_section}
 {saved_article_content_organization_section}
 {editorial_brief_section}
 {lead_story_block}
@@ -3318,6 +3328,117 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .saved-article-brief-chip span:last-child {
   color: var(--muted);
 }
+.daily-local-key-signals-digest {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-local-key-signals-digest-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-local-key-signals-digest-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.2rem, 5vw, 5.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.92;
+  margin: 0;
+}
+.daily-local-key-signals-digest-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.daily-local-key-signals-digest-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+.daily-local-key-signals-digest-metrics span {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-key-signals-digest-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.daily-local-key-signals-digest-group {
+  background: var(--panel);
+  display: grid;
+  gap: 12px;
+  min-height: 260px;
+  padding: 14px;
+}
+.daily-local-key-signals-digest-group h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.25rem, 2vw, 2.05rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.daily-local-key-signals-digest-total {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+.daily-local-key-signals-digest-entry {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 7px;
+  padding-top: 10px;
+}
+.daily-local-key-signals-digest-entry h4 {
+  font-size: 0.95rem;
+  line-height: 1.15;
+  margin: 0;
+}
+.daily-local-key-signals-digest-entry p {
+  color: var(--ink);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin: 0;
+}
+.daily-local-key-signals-digest-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.68rem;
+  font-weight: 700;
+  gap: 6px 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.daily-local-key-signals-digest-action {
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  justify-content: center;
+  letter-spacing: 0.08em;
+  padding: 7px 9px;
+  text-decoration: none;
+  text-transform: uppercase;
+}
 .saved-article-content-organization {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -4891,6 +5012,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-edit-grid { grid-template-columns: 1fr; }
   .daily-local-intelligence-header { grid-template-columns: 1fr; }
   .daily-local-intelligence-grid { grid-template-columns: 1fr; }
+  .daily-local-key-signals-digest-header { grid-template-columns: 1fr; }
+  .daily-local-key-signals-digest-grid { grid-template-columns: 1fr; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
   .saved-article-library-entry-header { grid-template-columns: 1fr; }
@@ -8955,6 +9078,150 @@ def _render_saved_article_brief_chip(ref: RowOneReference) -> str:
         f"<span>{_esc(label)}</span>"
         "</span>"
     )
+
+
+def _render_daily_local_key_signals_digest(
+    digest: RowOneDailyLocalKeySignalsDigest | None,
+) -> str:
+    if digest is None:
+        return ""
+    groups = [
+        group_html
+        for group in digest.groups
+        if (group_html := _render_daily_local_key_signals_digest_group(group))
+    ]
+    if not groups:
+        return ""
+    metrics = _render_daily_local_key_signals_digest_metrics(digest, len(groups))
+    return f"""<section class="daily-local-key-signals-digest"
+  aria-label="Daily local key signals digest">
+  <div class="daily-local-key-signals-digest-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Daily Local Key Signals Digest</span>
+        <span data-lang="zh">每日本地关键信号摘要</span>
+      </p>
+      <h2>
+        <span data-lang="en">{_esc(digest.title.en)}</span>
+        <span data-lang="zh">{_esc(digest.title.zh)}</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">{_esc(digest.dek.en)}</span>
+      <span data-lang="zh">{_esc(digest.dek.zh)}</span>
+    </p>
+  </div>
+  {metrics}
+  <div class="daily-local-key-signals-digest-grid">{"".join(groups)}</div>
+</section>"""
+
+
+def _render_daily_local_key_signals_digest_metrics(
+    digest: RowOneDailyLocalKeySignalsDigest,
+    rendered_group_count: int,
+) -> str:
+    total_signals = sum(group.total_count for group in digest.groups)
+    metrics = (
+        _count_label(digest.article_count, "article", "articles"),
+        _count_label(rendered_group_count, "signal group", "signal groups"),
+        _count_label(total_signals, "total signal", "total signals"),
+    )
+    return (
+        '<div class="daily-local-key-signals-digest-metrics">'
+        + "".join(f"<span>{_esc(metric)}</span>" for metric in metrics)
+        + "</div>"
+    )
+
+
+def _render_daily_local_key_signals_digest_group(
+    group: RowOneDailyLocalKeySignalsDigestGroup,
+) -> str:
+    entries = [
+        entry_html
+        for entry in group.entries
+        if (entry_html := _render_daily_local_key_signals_digest_entry(entry))
+    ]
+    if not entries:
+        return ""
+    total = _count_label(group.total_count, "total signal", "total signals")
+    return f"""    <article class="daily-local-key-signals-digest-group">
+      <h3>
+        <span data-lang="en">{_esc(group.title.en)}</span>
+        <span data-lang="zh">{_esc(group.title.zh)}</span>
+      </h3>
+      <p class="daily-local-key-signals-digest-total">{_esc(total)}</p>
+      {"".join(entries)}
+    </article>"""
+
+
+def _render_daily_local_key_signals_digest_entry(
+    entry: RowOneDailyLocalKeySignalsDigestEntry,
+) -> str:
+    href = _safe_daily_local_key_signals_digest_href(entry.href)
+    if href is None:
+        return ""
+    body = ""
+    if entry.body is not None and (entry.body.en.strip() or entry.body.zh.strip()):
+        body = f"""
+        <p>
+          <span data-lang="en">{_esc(entry.body.en)}</span>
+          <span data-lang="zh">{_esc(entry.body.zh)}</span>
+        </p>"""
+    support_count = max(entry.support_count, 1)
+    support_label = _count_label(
+        support_count,
+        "supporting article",
+        "supporting articles",
+    )
+    source = entry.source_name.strip()
+    source_meta = f"<span>{_esc(source)}</span>" if source else ""
+    return f"""      <div class="daily-local-key-signals-digest-entry">
+        <h4>
+          <span data-lang="en">{_esc(entry.title.en)}</span>
+          <span data-lang="zh">{_esc(entry.title.zh)}</span>
+        </h4>{body}
+        <div class="daily-local-key-signals-digest-meta">
+          {source_meta}
+          <span>{_esc(support_label)}</span>
+        </div>
+        <a class="daily-local-key-signals-digest-action" href="{_esc(href)}">
+          <span data-lang="en">Open local signal</span>
+          <span data-lang="zh">打开本地信号</span>
+        </a>
+      </div>"""
+
+
+def _safe_daily_local_key_signals_digest_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if href.startswith(("/", ".", "//")):
+        return None
+    if href.lower().startswith(("http:", "https:", "javascript:", "data:")):
+        return None
+    path, separator, fragment = href.partition("#")
+    if not separator:
+        return None
+    safe_path = PurePosixPath(path)
+    if (
+        safe_path.is_absolute()
+        or len(safe_path.parts) != 2
+        or safe_path.parts[0] != "articles"
+        or safe_path.parts[1] in ("", ".", "..")
+        or ".." in safe_path.parts
+        or not safe_path.name.endswith(".html")
+    ):
+        return None
+    story_id = safe_path.name.removesuffix(".html")
+    if not safe_local_article_story_id(story_id):
+        return None
+    if fragment != "saved-article-key-signals-title" and not (
+        _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment)
+        or _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment)
+    ):
+        return None
+    return f"articles/{story_id}.html#{fragment}"
 
 
 def _render_saved_article_content_organization(

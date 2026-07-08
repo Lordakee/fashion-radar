@@ -546,6 +546,18 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "local-article-key-signals" not in generated_contract_payload
     assert "key-signals" not in generated_contract_payload
     assert "local-key-signals" not in generated_contract_payload
+    assert '"daily_local_key_signals_digest"' not in generated_contract_payload
+    assert '"daily_local_key_signals"' not in generated_contract_payload
+    assert '"daily_key_signals"' not in generated_contract_payload
+    assert '"local_key_signals_digest"' not in generated_contract_payload
+    assert "Daily Local Key Signals Digest" not in generated_contract_payload
+    assert "Daily Local Key Signals" not in generated_contract_payload
+    assert "Daily Key Signals" not in generated_contract_payload
+    assert "Local Key Signals Digest" not in generated_contract_payload
+    assert "daily-local-key-signals-digest" not in generated_contract_payload
+    assert "daily-local-key-signals" not in generated_contract_payload
+    assert "daily-key-signals" not in generated_contract_payload
+    assert "local-key-signals-digest" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -911,6 +923,19 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "data" / "local-key-signals.html",
     ):
         assert not artifact_path.exists()
+    for artifact_stem in (
+        "daily-local-key-signals-digest",
+        "daily-local-key-signals",
+        "daily-key-signals",
+        "local-key-signals-digest",
+        "daily_local_key_signals_digest",
+        "daily_local_key_signals",
+        "daily_key_signals",
+        "local_key_signals_digest",
+    ):
+        for artifact_dir in (output_dir, output_dir / "articles", output_dir / "data"):
+            for suffix in (".json", ".html"):
+                assert not (artifact_dir / f"{artifact_stem}{suffix}").exists()
     assert stored == stored_before
     assert matches_after == matches_before
     assert second_stored == second_stored_before
@@ -1001,6 +1026,25 @@ def test_stage_356_saved_article_key_signals_stays_generated_site_only(
         row_one_templates,
         "_render_saved_article_key_signals",
         lambda _key_signals: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_357_daily_local_key_signals_digest_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+    from fashion_radar.row_one.daily_local_key_signals_digest import (
+        build_row_one_daily_local_key_signals_digest,
+    )
+
+    assert build_row_one_daily_local_key_signals_digest is not None
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_daily_local_key_signals_digest",
+        lambda _digest: "",
         raising=False,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)

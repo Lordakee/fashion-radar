@@ -10,6 +10,11 @@ import pytest
 from pydantic import ValidationError
 
 import fashion_radar.row_one.render as row_one_render
+from fashion_radar.row_one.daily_local_key_signals_digest import (
+    RowOneDailyLocalKeySignalsDigest,
+    RowOneDailyLocalKeySignalsDigestEntry,
+    RowOneDailyLocalKeySignalsDigestGroup,
+)
 from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneDailyLocalIntelligenceItem,
@@ -3905,6 +3910,65 @@ def test_write_row_one_site_files_writes_key_signals_only_on_local_article_pages
             assert not (directory / f"{stem}.html").exists()
 
 
+def test_render_row_one_site_writes_daily_local_key_signals_digest_homepage_only(
+    tmp_path,
+) -> None:
+    story = _edition().stories[0]
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+
+    section_html = _daily_local_key_signals_digest_section_html(homepage_html)
+    assert "Daily Local Key Signals Digest" in section_html
+    assert "每日本地关键信号摘要" in section_html
+    assert 'href="articles/the-row-signal-1234567890.html#saved-article-key-signals-title"' in (
+        section_html
+    )
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-paragraph-1"' in (
+        section_html
+    )
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert 'class="daily-local-key-signals-digest"' not in library_html
+    assert 'class="daily-local-key-signals-digest"' not in article_html
+    assert 'class="daily-local-key-signals-digest"' not in detail_html
+    assert "daily_local_key_signals_digest" not in generated_contract_payload
+    assert "daily-local-key-signals-digest" not in generated_contract_payload
+    assert "Daily Local Key Signals Digest" not in generated_contract_payload
+    for stem in (
+        "daily-local-key-signals-digest",
+        "daily-local-key-signals",
+        "daily-key-signals",
+        "local-key-signals-digest",
+        "daily_local_key_signals_digest",
+        "daily_local_key_signals",
+        "daily_key_signals",
+        "local_key_signals_digest",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
 def test_render_row_one_site_local_article_page_paragraph_context_cues_are_html_only(
     tmp_path,
 ) -> None:
@@ -6756,6 +6820,18 @@ def _saved_article_content_organization_section_html(index_html: str) -> str:
     if not boundary_offsets:
         return index_html[section_start:]
     section_end = section_start + len(marker) + min(boundary_offsets)
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _daily_local_key_signals_digest_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-key-signals-digest"'
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is None:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + next_section.start()
     assert section_end > section_start
     return index_html[section_start:section_end]
 
@@ -10381,6 +10457,202 @@ def test_render_row_one_site_places_daily_edit_before_daily_local_intelligence()
     )
 
 
+def test_render_index_html_includes_daily_local_key_signals_digest() -> None:
+    digest = RowOneDailyLocalKeySignalsDigest(
+        article_count=2,
+        groups=(
+            RowOneDailyLocalKeySignalsDigestGroup(
+                key="why_it_matters",
+                title=LocalizedText(en="Why It Matters", zh="为什么重要"),
+                total_count=2,
+                entries=(
+                    RowOneDailyLocalKeySignalsDigestEntry(
+                        title=LocalizedText(en="Article <script>", zh="文章 <script>"),
+                        body=LocalizedText(
+                            en="Quiet <brand> demand is accelerating.",
+                            zh="静奢 <brand> 需求加速。",
+                        ),
+                        href=(
+                            "articles/the-row-signal-1234567890.html"
+                            "#saved-article-key-signals-title"
+                        ),
+                        source_name="Vogue <Business>",
+                        support_count=2,
+                    ),
+                ),
+            ),
+            RowOneDailyLocalKeySignalsDigestGroup(
+                key="brands",
+                title=LocalizedText(en="Brands", zh="品牌"),
+                total_count=3,
+                entries=(
+                    RowOneDailyLocalKeySignalsDigestEntry(
+                        title=LocalizedText(en="The <Row>", zh="The <Row>"),
+                        body=LocalizedText(en="Brand statement.", zh="品牌陈述。"),
+                        href="articles/the-row-signal-1234567890.html#local-article-paragraph-1",
+                        source_name="Vogue Business",
+                        support_count=3,
+                    ),
+                    RowOneDailyLocalKeySignalsDigestEntry(
+                        title=LocalizedText(en="Bad JS", zh="坏 JS"),
+                        body=LocalizedText(en="Bad link.", zh="坏链接。"),
+                        href="javascript:alert(1)",
+                        source_name="Bad",
+                    ),
+                    RowOneDailyLocalKeySignalsDigestEntry(
+                        title=LocalizedText(en="Bad traversal", zh="坏路径"),
+                        body=LocalizedText(en="Bad link.", zh="坏链接。"),
+                        href="../details/the-row-signal-1234567890.html#local-article-paragraph-1",
+                        source_name="Bad",
+                    ),
+                    RowOneDailyLocalKeySignalsDigestEntry(
+                        title=LocalizedText(en="Bad nested", zh="坏嵌套"),
+                        body=LocalizedText(en="Bad link.", zh="坏链接。"),
+                        href="articles/unsafe/story.html#local-article-paragraph-1",
+                        source_name="Bad",
+                    ),
+                    RowOneDailyLocalKeySignalsDigestEntry(
+                        title=LocalizedText(en="Bad fragment", zh="坏片段"),
+                        body=LocalizedText(en="Bad link.", zh="坏链接。"),
+                        href="articles/the-row-signal-1234567890.html#summary",
+                        source_name="Bad",
+                    ),
+                    RowOneDailyLocalKeySignalsDigestEntry(
+                        title=LocalizedText(en="Bad paragraph", zh="坏段落"),
+                        body=LocalizedText(en="Bad link.", zh="坏链接。"),
+                        href=("articles/the-row-signal-1234567890.html#local-article-paragraph-0"),
+                        source_name="Bad",
+                    ),
+                ),
+            ),
+            RowOneDailyLocalKeySignalsDigestGroup(
+                key="themes",
+                title=LocalizedText(en="Themes", zh="主题"),
+                total_count=1,
+                entries=(
+                    RowOneDailyLocalKeySignalsDigestEntry(
+                        title=LocalizedText(en="Product Signals", zh="单品信号"),
+                        body=None,
+                        href=(
+                            "articles/the-row-signal-1234567890.html"
+                            "#local-article-content-section-1"
+                        ),
+                        source_name="Vogue Business",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    index_html = render_index_html(_edition(), daily_local_key_signals_digest=digest)
+    section_html = _daily_local_key_signals_digest_section_html(index_html)
+    omitted_html = render_index_html(_edition(), daily_local_key_signals_digest=None)
+
+    assert 'class="daily-local-key-signals-digest"' in section_html
+    assert "Daily Local Key Signals Digest" in section_html
+    assert "每日本地关键信号摘要" in section_html
+    assert "2 articles" in section_html
+    assert "3 total signals" in section_html
+    assert "2 supporting articles" in section_html
+    assert "Product Signals" in section_html
+    assert (
+        'href="articles/the-row-signal-1234567890.html#saved-article-key-signals-title"'
+        in section_html
+    )
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-paragraph-1"' in (
+        section_html
+    )
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert "Article &lt;script&gt;" in section_html
+    assert "Quiet &lt;brand&gt; demand is accelerating." in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "The &lt;Row&gt;" in section_html
+    assert "<script>" not in section_html
+    assert "<brand>" not in section_html
+    assert "<Business>" not in section_html
+    assert "<Row>" not in section_html
+    assert "javascript:alert" not in section_html
+    assert "../details" not in section_html
+    assert "articles/unsafe/story.html" not in section_html
+    assert "#summary" not in section_html
+    assert "#local-article-paragraph-0" not in section_html
+    assert 'class="daily-local-key-signals-digest"' not in omitted_html
+    assert "Daily Local Key Signals Digest" not in omitted_html
+
+
+def test_render_index_html_places_daily_local_key_signals_digest_between_saved_sections() -> None:
+    briefs = RowOneSavedArticleBriefs(
+        article_count=1,
+        items=[
+            _saved_article_brief_item(
+                detail_path="details/the-row-signal-1234567890.html#local-article-digest",
+                title="Saved article brief",
+            )
+        ],
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[
+                    RowOneSavedArticleContentOrganizationCard(
+                        title=LocalizedText(en="Organization card", zh="组织卡片"),
+                        source_name="Vogue Business",
+                        section_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                        section_label=LocalizedText(en="Entity", zh="实体"),
+                        lead=LocalizedText(en="Safe lead", zh="安全摘要"),
+                        detail_path=(
+                            "details/the-row-signal-1234567890.html#local-article-content-section-1"
+                        ),
+                        paragraph_indices=(0,),
+                        references=(),
+                    )
+                ],
+            )
+        ]
+    )
+    digest = RowOneDailyLocalKeySignalsDigest(
+        article_count=1,
+        groups=(
+            RowOneDailyLocalKeySignalsDigestGroup(
+                key="why_it_matters",
+                title=LocalizedText(en="Why It Matters", zh="为什么重要"),
+                total_count=1,
+                entries=(
+                    RowOneDailyLocalKeySignalsDigestEntry(
+                        title=LocalizedText(en="Digest entry", zh="摘要条目"),
+                        body=LocalizedText(en="Digest body.", zh="摘要正文。"),
+                        href=(
+                            "articles/the-row-signal-1234567890.html"
+                            "#saved-article-key-signals-title"
+                        ),
+                        source_name="Vogue Business",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    index_html = render_index_html(
+        _edition(),
+        saved_article_briefs=briefs,
+        daily_local_key_signals_digest=digest,
+        saved_article_content_organization=organization,
+    )
+
+    assert index_html.index('class="saved-article-briefs"') < index_html.index(
+        'class="daily-local-key-signals-digest"'
+    )
+    assert index_html.index('class="daily-local-key-signals-digest"') < index_html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
 def test_render_row_one_site_omits_daily_edit_without_usable_payload() -> None:
     index_html = render_index_html(_edition(), app_payload={})
     index_html_none = render_index_html(_edition(), app_payload=None)
@@ -10850,6 +11122,22 @@ def test_row_one_css_includes_saved_article_key_signals_styles() -> None:
         ".saved-article-key-signal-ref",
         ".saved-article-key-signal-themes",
         ".saved-article-key-signal-evidence",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_daily_local_key_signals_digest_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-key-signals-digest",
+        ".daily-local-key-signals-digest-header",
+        ".daily-local-key-signals-digest-metrics",
+        ".daily-local-key-signals-digest-grid",
+        ".daily-local-key-signals-digest-group",
+        ".daily-local-key-signals-digest-entry",
+        ".daily-local-key-signals-digest-meta",
+        ".daily-local-key-signals-digest-action",
     ):
         assert selector in css
 

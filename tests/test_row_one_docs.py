@@ -1849,6 +1849,78 @@ def test_row_one_docs_describe_stage_353_saved_article_read_next_clusters_bounda
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_357_daily_local_key_signals_digest_boundary() -> None:
+    expected = _normalized(
+        "Stage 357 adds generated-site only Daily Local Key Signals Digest as a "
+        "homepage-only section inside `index.html` after Saved Article Briefs "
+        "and before Saved Article Content Organization; it reuses Stage 356 "
+        "Saved Article Key Signals from already-saved current-edition local "
+        "articles and links only to local article pages and anchors to "
+        "summarize daily Why It Matters, Brands, Products, People, and Themes "
+        "signals without changing app-facing contracts; it does not create "
+        "`data/daily-local-key-signals-digest.json`, does not create "
+        "`data/local-key-signals-digest.json`, does not create "
+        "`data/daily-key-signals.json`, does not create or modify "
+        "article-source sidecars, does not create new route families, does not "
+        "add outbound article URLs as primary navigation, does not alter "
+        "article detail pages, `articles/index.html`, saved article payloads, "
+        "app payloads, row-one-app/v7, row-one-manifest/v1, "
+        "row-one-runtime/v1, schemas, runtime, manifest, sidecar artifacts, "
+        "JSON artifacts, source collection, fetching, matching, extraction, "
+        "scoring, ranking, LLM, connector, scheduling, deployment, market "
+        "grouping, domestic/international classification, analytics, "
+        "personalization, recommendation, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_357_pos = normalized.index(
+            "stage 357 adds generated-site only daily local key signals digest"
+        )
+        stage_356_pos = normalized.index(
+            "stage 356 adds generated-site only saved article key signals"
+        )
+        assert stage_357_pos < stage_356_pos
+        stage = normalized[stage_357_pos:stage_356_pos]
+        for stale_phrase in (
+            "after daily edit",
+            "before daily local intelligence",
+            "daily edit / before daily local intelligence",
+            "inside `articles/index.html`",
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "creates `data/daily-local-key-signals-digest.json`",
+            "writes `data/daily-local-key-signals-digest.json`",
+            "creates `data/local-key-signals-digest.json`",
+            "writes `data/local-key-signals-digest.json`",
+            "creates `data/daily-key-signals.json`",
+            "writes `data/daily-key-signals.json`",
+            "writes a new json artifact",
+            "creates new article-source sidecars",
+            "creates new route families",
+            "publishes full articles on the library index",
+            "adds outbound article urls",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_356_saved_article_key_signals_boundary() -> None:
     expected = _normalized(
         "Stage 356 adds generated-site only Saved Article Key Signals inside "
