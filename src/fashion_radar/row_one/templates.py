@@ -99,6 +99,11 @@ LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_ITEMS = 4
 LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_REFS = 4
 LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_ROWS = 8
 LOCAL_ARTICLE_READER_EXCERPT_CHARS = 120
+LOCAL_ARTICLE_INFORMATION_BODY_MAX_CHARS = 120
+LOCAL_ARTICLE_INFORMATION_MAX_ITEMS_PER_SECTION = 2
+LOCAL_ARTICLE_INFORMATION_MAX_PARAGRAPH_LINKS = 5
+LOCAL_ARTICLE_INFORMATION_MAX_REFS = 6
+LOCAL_ARTICLE_INFORMATION_MAX_SECTIONS = 4
 DETAIL_CONTINUE_READING_EXCERPT_CHARS = 120
 DETAIL_CONTINUE_READING_MAX_ITEMS = 3
 DETAIL_SIGNAL_BRIEFING_MAX_REFS = 8
@@ -385,6 +390,12 @@ def render_local_article_page_html(
     if detail_path is None:
         return ""
     detail_href = f"../{detail_path}"
+    information_panel = _render_local_article_information_panel(
+        edition,
+        story,
+        local_article,
+        section_title,
+    )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -433,6 +444,7 @@ def render_local_article_page_html(
     </p>
     <h1>{_esc(local_article.title or story.headline)}</h1>
     <p class="story-source">{_esc(local_article.source_name)}</p>
+{information_panel}
     {local_article_section}
     </div>
   </article>
@@ -1435,6 +1447,97 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .local-article-page-article {
   display: grid;
   gap: 18px;
+}
+.local-article-information {
+  border: 1px solid var(--ink);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+.local-article-information-header {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr);
+}
+.local-article-information-header h2,
+.local-article-information-header p {
+  margin: 0;
+}
+.local-article-information-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.7rem, 4vw, 3.6rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.96;
+}
+.local-article-information-header p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.local-article-information-metrics,
+.local-article-information-jumps,
+.local-article-information-refs,
+.local-article-information-paragraphs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.local-article-information-metric,
+.local-article-information-jumps a,
+.local-article-information-ref,
+.local-article-information-paragraphs a {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.75rem;
+  padding: 7px 9px;
+  text-decoration: none;
+}
+.local-article-information-metric {
+  display: grid;
+  gap: 3px;
+  min-width: 120px;
+}
+.local-article-information-metric strong {
+  font-size: 0.88rem;
+}
+.local-article-information-jumps a,
+.local-article-information-paragraphs a {
+  color: var(--accent);
+  font-weight: 800;
+}
+.local-article-information-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.local-article-information-card {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 9px;
+  padding-top: 12px;
+}
+.local-article-information-card h3,
+.local-article-information-card h4,
+.local-article-information-card p {
+  margin: 0;
+}
+.local-article-information-card h3 {
+  font-size: 0.95rem;
+}
+.local-article-information-card h4 {
+  font-size: 0.84rem;
+}
+.local-article-information-card p {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.local-article-information-items {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 .saved-signal-index {
   border-bottom: 1px solid var(--ink);
@@ -7138,6 +7241,367 @@ def _local_article_provenance_item(label_en: str, label_zh: str, value: str) -> 
 
 def _local_article_saved_paragraph_count(article: RowOneLocalArticle) -> int:
     return sum(1 for paragraph in article.paragraphs if paragraph.strip())
+
+
+def _render_local_article_information_panel(
+    edition: RowOneEdition,
+    story: RowOneStory,
+    article: RowOneLocalArticle,
+    section_title: LocalizedText,
+) -> str:
+    rendered_indices = _local_article_rendered_paragraph_indices(article)
+    if not rendered_indices:
+        return ""
+    body_source = _local_article_body_source_label_localized(article)
+    paragraph_count = len(rendered_indices)
+    section_count = len(article.content_sections)
+    metrics = "".join(
+        (
+            _render_local_article_information_metric(
+                label_en="Source",
+                label_zh="来源",
+                value_en=article.source_name.strip() or "Unknown source",
+                value_zh=article.source_name.strip() or "未知来源",
+            ),
+            _render_local_article_information_metric(
+                label_en="Text source",
+                label_zh="正文来源",
+                value_en=body_source.en,
+                value_zh=body_source.zh,
+            ),
+            _render_local_article_information_metric(
+                label_en="Saved text",
+                label_zh="保存正文",
+                value_en=_local_article_information_count(
+                    paragraph_count,
+                    singular="paragraph",
+                    plural="paragraphs",
+                ),
+                value_zh=f"{paragraph_count} 个保存段落",
+            ),
+            _render_local_article_information_metric(
+                label_en="Article structure",
+                label_zh="文章结构",
+                value_en=_local_article_information_count(
+                    section_count,
+                    singular="organized section",
+                    plural="organized sections",
+                ),
+                value_zh=f"{section_count} 个整理栏目",
+            ),
+        )
+    )
+    jumps = _render_local_article_information_jumps(
+        article,
+        rendered_indices=rendered_indices,
+    )
+    sections = _render_local_article_information_sections(
+        article,
+        rendered_indices=rendered_indices,
+    )
+    story_context = _meta_description(
+        _display_summary_text(story.summary.en),
+        limit=LOCAL_ARTICLE_INFORMATION_BODY_MAX_CHARS,
+    )
+    dek_en = (
+        f"A scan-first organizer for the saved {edition.brand} article in "
+        f"{section_title.en}: {story_context}"
+    )
+    dek_zh = f"面向保存正文的速览整理，来源栏目：{section_title.zh}。"
+    return f"""    <section class="local-article-information"
+      aria-labelledby="local-article-information-title">
+      <div class="local-article-information-header">
+        <h2 id="local-article-information-title">
+          <span data-lang="en">Local Article Information</span>
+          <span data-lang="zh">本地文章信息</span>
+        </h2>
+        <p>
+          <span data-lang="en">{_esc(dek_en)}</span>
+          <span data-lang="zh">{_esc(dek_zh)}</span>
+        </p>
+      </div>
+      <div class="local-article-information-metrics">{metrics}</div>
+{jumps}
+{sections}
+    </section>"""
+
+
+def _render_local_article_information_metric(
+    *,
+    label_en: str,
+    label_zh: str,
+    value_en: str,
+    value_zh: str,
+) -> str:
+    return f"""        <span class="local-article-information-metric">
+          <span data-lang="en">{_esc(label_en)}</span>
+          <span data-lang="zh">{_esc(label_zh)}</span>
+          <strong>
+            <span data-lang="en">{_esc(value_en)}</span>
+            <span data-lang="zh">{_esc(value_zh)}</span>
+          </strong>
+        </span>"""
+
+
+def _local_article_information_count(count: int, *, singular: str, plural: str) -> str:
+    label = singular if count == 1 else plural
+    return f"{count} {label}"
+
+
+def _local_article_body_source_label_localized(article: RowOneLocalArticle) -> LocalizedText:
+    if article.body_source == "summary_fallback":
+        return LocalizedText(en="ROW ONE summary fallback", zh="ROW ONE 摘要补全文")
+    if article.body_source == "skipped" or article.skipped:
+        return LocalizedText(en="Skipped", zh="已跳过")
+    return LocalizedText(en="Extracted article", zh="抽取正文")
+
+
+def _render_local_article_information_jumps(
+    article: RowOneLocalArticle,
+    *,
+    rendered_indices: set[int],
+) -> str:
+    links: list[tuple[str, str, str]] = [
+        ("#local-article", "Full local article", "完整本地正文"),
+        ("#local-article-reader", "Saved text reader", "保存正文阅读"),
+        ("#local-article-digest", "Saved text digest", "保存正文整理"),
+    ]
+    evidence_entries = _local_article_paragraph_evidence_entries(
+        article,
+        rendered_indices=rendered_indices,
+    )
+    if evidence_entries:
+        links.append(("#local-article-paragraph-evidence", "Paragraph evidence", "段落证据"))
+    for position, section in enumerate(
+        article.content_sections[:LOCAL_ARTICLE_INFORMATION_MAX_SECTIONS],
+        start=1,
+    ):
+        links.append(
+            (
+                f"#{_local_article_content_section_anchor(position)}",
+                section.title.en,
+                section.title.zh,
+            )
+        )
+    for index in _local_article_information_referenced_paragraph_indices(
+        article,
+        rendered_indices=rendered_indices,
+    )[:LOCAL_ARTICLE_INFORMATION_MAX_PARAGRAPH_LINKS]:
+        links.append(
+            (
+                f"#{_local_article_paragraph_anchor(index)}",
+                f"Paragraph {index + 1}",
+                f"段落 {index + 1}",
+            )
+        )
+    rendered = "\n".join(
+        f'        <a href="{_esc(href)}"><span data-lang="en">{_esc(label_en)}</span>'
+        f'<span data-lang="zh">{_esc(label_zh)}</span></a>'
+        for href, label_en, label_zh in links
+    )
+    return f"""      <nav class="local-article-information-jumps"
+        aria-label="Local article information jumps">
+{rendered}
+      </nav>"""
+
+
+def _render_local_article_information_sections(
+    article: RowOneLocalArticle,
+    *,
+    rendered_indices: set[int],
+) -> str:
+    cards: list[str] = []
+    for position, section in enumerate(
+        article.content_sections[:LOCAL_ARTICLE_INFORMATION_MAX_SECTIONS],
+        start=1,
+    ):
+        cards.append(
+            _render_local_article_information_section(
+                section,
+                position=position,
+                rendered_indices=rendered_indices,
+            )
+        )
+    if not cards:
+        return ""
+    return (
+        '      <div class="local-article-information-grid">\n' + "\n".join(cards) + "\n      </div>"
+    )
+
+
+def _render_local_article_information_section(
+    section: RowOneLocalArticleContentSection,
+    *,
+    position: int,
+    rendered_indices: set[int],
+) -> str:
+    href = f"#{_local_article_content_section_anchor(position)}"
+    body = ""
+    if section.body is not None and section.body.en.strip():
+        body_en = _local_article_information_excerpt(section.body.en)
+        body_zh = _local_article_information_excerpt(section.body.zh)
+        body = (
+            "          <p>"
+            f'<span data-lang="en">{_esc(body_en)}</span>'
+            f'<span data-lang="zh">{_esc(body_zh)}</span>'
+            "</p>\n"
+        )
+    items = "\n".join(
+        _render_local_article_information_item(
+            item,
+            rendered_indices=rendered_indices,
+        )
+        for item in section.items[:LOCAL_ARTICLE_INFORMATION_MAX_ITEMS_PER_SECTION]
+    )
+    item_list = (
+        f'          <ul class="local-article-information-items">\n{items}\n          </ul>\n'
+        if items
+        else ""
+    )
+    references = _render_local_article_information_refs(section.items)
+    paragraphs = _render_local_article_information_paragraph_links(
+        _local_article_information_section_indices(section),
+        rendered_indices=rendered_indices,
+    )
+    return f"""        <article class="local-article-information-card">
+          <h3>
+            <a href="{_esc(href)}">
+              <span data-lang="en">{_esc(section.title.en)}</span>
+              <span data-lang="zh">{_esc(section.title.zh)}</span>
+            </a>
+          </h3>
+{body}{item_list}{references}{paragraphs}
+        </article>"""
+
+
+def _render_local_article_information_item(
+    item: RowOneLocalArticleContentItem,
+    *,
+    rendered_indices: set[int],
+) -> str:
+    body = ""
+    if item.body is not None and item.body.en.strip():
+        body = (
+            "              <p>"
+            f'<span data-lang="en">{_esc(_local_article_information_excerpt(item.body.en))}</span>'
+            f'<span data-lang="zh">{_esc(_local_article_information_excerpt(item.body.zh))}</span>'
+            "</p>\n"
+        )
+    paragraphs = _render_local_article_information_paragraph_links(
+        item.paragraph_indices,
+        rendered_indices=rendered_indices,
+    )
+    return f"""            <li>
+              <h4>
+                <span data-lang="en">{_esc(item.label.en)}</span>
+                <span data-lang="zh">{_esc(item.label.zh)}</span>
+              </h4>
+{body}{paragraphs}
+            </li>"""
+
+
+def _render_local_article_information_refs(
+    items: Sequence[RowOneLocalArticleContentItem],
+) -> str:
+    refs = _local_article_information_refs(items)
+    if not refs:
+        return ""
+    rendered = "\n".join(
+        f'            <span class="local-article-information-ref">{_esc(ref.name)}'
+        f" <span>{_esc(ref.type)} / {_esc(ref.label)}</span></span>"
+        for ref in refs
+    )
+    return f"""          <div class="local-article-information-refs"
+            aria-label="Local article references">
+{rendered}
+          </div>
+"""
+
+
+def _local_article_information_refs(
+    items: Sequence[RowOneLocalArticleContentItem],
+) -> list[RowOneReference]:
+    refs: list[RowOneReference] = []
+    seen: set[tuple[str, str, str]] = set()
+    for item in items:
+        for ref in item.references:
+            normalized_name = normalize_row_one_paragraph(ref.name)
+            normalized_type = normalize_row_one_paragraph(ref.type)
+            normalized_label = normalize_row_one_paragraph(ref.label)
+            if not normalized_name:
+                continue
+            key = (
+                normalized_name.casefold(),
+                normalized_type.casefold(),
+                normalized_label.casefold(),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            refs.append(
+                RowOneReference(
+                    name=normalized_name,
+                    type=normalized_type,
+                    label=normalized_label,
+                )
+            )
+            if len(refs) >= LOCAL_ARTICLE_INFORMATION_MAX_REFS:
+                return refs
+    return refs
+
+
+def _render_local_article_information_paragraph_links(
+    indices: Sequence[object],
+    *,
+    rendered_indices: set[int],
+) -> str:
+    valid_indices = _strict_valid_local_article_paragraph_indices(
+        indices,
+        rendered_indices,
+    )[:LOCAL_ARTICLE_INFORMATION_MAX_PARAGRAPH_LINKS]
+    if not valid_indices:
+        return ""
+    links = "\n".join(
+        f'            <a href="#{_esc(_local_article_paragraph_anchor(index))}">'
+        f'<span data-lang="en">Paragraph {index + 1}</span>'
+        f'<span data-lang="zh">段落 {index + 1}</span></a>'
+        for index in valid_indices
+    )
+    return f"""          <div class="local-article-information-paragraphs"
+            aria-label="Local article paragraph links">
+{links}
+          </div>
+"""
+
+
+def _local_article_information_referenced_paragraph_indices(
+    article: RowOneLocalArticle,
+    *,
+    rendered_indices: set[int],
+) -> list[int]:
+    indices: list[object] = []
+    for section in article.content_sections:
+        indices.extend(_local_article_information_section_indices(section))
+    valid = _strict_valid_local_article_paragraph_indices(indices, rendered_indices)
+    if valid:
+        return valid
+    return sorted(rendered_indices)
+
+
+def _local_article_information_section_indices(
+    section: RowOneLocalArticleContentSection,
+) -> list[object]:
+    indices: list[object] = []
+    for item in section.items:
+        indices.extend(item.paragraph_indices)
+    return indices
+
+
+def _local_article_information_excerpt(text: str) -> str:
+    return _meta_description(
+        normalize_row_one_paragraph(text),
+        limit=LOCAL_ARTICLE_INFORMATION_BODY_MAX_CHARS,
+    )
 
 
 def _format_datetime(value: datetime) -> str:

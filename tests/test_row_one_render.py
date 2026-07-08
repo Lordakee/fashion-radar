@@ -91,6 +91,7 @@ from fashion_radar.row_one.templates import (
     _strict_valid_local_article_paragraph_indices,
     render_detail_html,
     render_index_html,
+    render_local_article_page_html,
     render_saved_article_library_html,
     row_one_css,
 )
@@ -3043,6 +3044,125 @@ def test_render_row_one_site_writes_saved_article_library_page(tmp_path) -> None
     assert not (tmp_path / "data" / "saved-article-library.json").exists()
 
 
+def _html_between(html: str, start: str, end: str) -> str:
+    start_index = html.index(start)
+    end_index = html.index(end, start_index)
+    return html[start_index:end_index]
+
+
+def test_render_local_article_information_panel_is_included() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    html = render_local_article_page_html(
+        edition,
+        story,
+        local_article=_signal_briefing_local_article(),
+    )
+
+    assert 'class="local-article-information"' in html
+    assert 'id="local-article-information-title"' in html
+    assert "Local Article Information" in html
+    assert "本地文章信息" in html
+    assert "Vogue Business" in html
+    assert "Extracted article" in html
+    assert "3 paragraphs" in html
+    assert "2 organized sections" in html
+    assert html.index('class="local-article-information"') < html.index('id="local-article"')
+
+
+def test_render_local_article_information_panel_uses_local_anchors() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    html = render_local_article_page_html(
+        edition,
+        story,
+        local_article=_signal_briefing_local_article(),
+    )
+    panel = _html_between(html, '<section class="local-article-information"', 'id="local-article"')
+
+    assert 'href="#local-article-reader"' in panel
+    assert 'href="#local-article-digest"' in panel
+    assert 'href="#local-article-paragraph-evidence"' in panel
+    assert 'href="#local-article-content-section-1"' in panel
+    assert 'href="#local-article-paragraph-1"' in panel
+    assert 'href="http' not in panel
+    assert 'href="../details/' not in panel
+
+
+def test_render_local_article_information_panel_dedupes_caps_and_escapes_refs() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    refs = [
+        RowOneReference(name="The Row", type="brand", label="tracked"),
+        RowOneReference(name="The Row", type="brand", label="tracked"),
+        RowOneReference(name="<script>", type="brand", label="<script>"),
+        RowOneReference(name="Alaia flats", type="shoe", label="product"),
+        RowOneReference(name="Margaux", type="bag", label="product"),
+        RowOneReference(name="Mary-Kate Olsen", type="person", label="designer"),
+        RowOneReference(name="Ashley Olsen", type="person", label="designer"),
+        RowOneReference(name="Extra ref", type="brand", label="overflow"),
+    ]
+    local_article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "source_name": "Source <script>",
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="entities",
+                    title=LocalizedText(en="<script>", zh="<script>"),
+                    body=LocalizedText(en="<script>", zh="<script>"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="<script>", zh="<script>"),
+                            body=LocalizedText(en="<script>", zh="<script>"),
+                            references=refs,
+                            paragraph_indices=[0, 1],
+                        )
+                    ],
+                )
+            ],
+        },
+    )
+
+    html = render_local_article_page_html(edition, story, local_article=local_article)
+    panel = _html_between(html, '<section class="local-article-information"', 'id="local-article"')
+
+    assert "<script>" not in panel
+    assert "&lt;script&gt;" in panel
+    assert panel.count('class="local-article-information-ref"') <= 6
+    assert panel.count('class="local-article-information-ref">The Row') == 1
+
+
+def test_render_local_article_information_panel_filters_invalid_paragraph_indices() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="entities",
+                    title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="The Row", zh="The Row"),
+                            paragraph_indices=[0, 0, 99],
+                        )
+                    ],
+                )
+            ],
+        },
+    )
+
+    html = render_local_article_page_html(edition, story, local_article=local_article)
+    panel = _html_between(html, '<section class="local-article-information"', 'id="local-article"')
+
+    assert 'href="#local-article-paragraph-1"' in panel
+    assert 'href="#local-article-paragraph-2"' not in panel
+    assert 'href="#local-article-paragraph-100"' not in panel
+
+
 def test_render_row_one_site_writes_first_class_local_article_page(tmp_path) -> None:
     edition = _edition()
     story = edition.stories[0]
@@ -3070,6 +3190,7 @@ def test_render_row_one_site_writes_first_class_local_article_page(tmp_path) -> 
     assert 'href="assets/row-one.css"' not in article_html
     assert 'src="assets/row-one.js"' not in article_html
     assert 'id="local-article"' in article_html
+    assert 'class="local-article-information"' in article_html
     assert 'id="local-article-reader"' in article_html
     assert 'id="local-article-paragraph-1"' in article_html
     assert "Signal source article" in article_html
@@ -3092,7 +3213,11 @@ def test_render_row_one_site_writes_first_class_local_article_page(tmp_path) -> 
         assert "local_article_pages" not in contract_json
         assert "first_class_local_article" not in contract_json
         assert "local-article-page" not in contract_json
+        assert "local_article_information" not in contract_json
+        assert "local-article-information" not in contract_json
+        assert "local_article_reading_improvements" not in contract_json
     assert not (tmp_path / "data" / "local-article-pages.json").exists()
+    assert not (tmp_path / "data" / "local-article-reading-improvements.json").exists()
 
 
 def test_render_row_one_site_omits_local_article_page_for_mismatched_article_id(
@@ -7536,6 +7661,21 @@ def test_row_one_css_includes_stage_323_local_first_and_evidence_selectors() -> 
         ".saved-article-content-organization-card-link",
         ".saved-article-content-organization-evidence",
         ".saved-article-content-organization-evidence-link",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_local_article_information_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".local-article-information",
+        ".local-article-information-header",
+        ".local-article-information-metrics",
+        ".local-article-information-grid",
+        ".local-article-information-card",
+        ".local-article-information-refs",
+        ".local-article-information-paragraphs",
     ):
         assert selector in css
 
