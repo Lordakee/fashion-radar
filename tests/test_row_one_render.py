@@ -3941,6 +3941,13 @@ def test_render_row_one_site_includes_saved_article_daily_summary_in_article_lib
     assert "1 saved local article" in section_html
     assert "1 source" in section_html
     assert "available surfaces" in section_html
+    assert 'class="saved-article-source-routes"' in section_html
+    assert "Saved Article Source Routes" in section_html
+    assert "来源导览" in section_html
+    assert 'href="#saved-article-source-vogue-business"' in section_html
+    assert "Vogue Business" in section_html
+    assert "1 article" in section_html
+    assert "3 saved paragraphs" in section_html
     assert 'href="#saved-article-theme-digest"' in section_html
     assert 'href="#saved-article-reference-atlas"' in section_html
     assert 'href="#saved-signal-index"' in section_html
@@ -3956,8 +3963,15 @@ def test_render_row_one_site_includes_saved_article_daily_summary_in_article_lib
         < library_html.index('class="saved-article-theme-digest"')
         < library_html.index('class="saved-article-library-grid"')
     )
+    assert section_html.index('class="saved-article-daily-summary-metrics"') < section_html.index(
+        'class="saved-article-source-routes"'
+    )
+    assert section_html.index('class="saved-article-source-routes"') < section_html.index(
+        'class="saved-article-daily-summary-links"'
+    )
     assert 'id="saved-article-content-organization"' not in homepage_html
     assert 'class="saved-article-daily-summary"' not in homepage_html
+    assert 'class="saved-article-source-routes"' not in homepage_html
 
     for contract_json in (
         json.dumps(edition_payload, ensure_ascii=False),
@@ -3969,7 +3983,16 @@ def test_render_row_one_site_includes_saved_article_daily_summary_in_article_lib
         assert "saved-article-daily-summary" not in contract_json
         assert "Saved Article Daily Summary" not in contract_json
         assert "保存文章每日导览" not in contract_json
+        assert "saved_article_source_routes" not in contract_json
+        assert "article_source_routes" not in contract_json
+        assert "source_routes" not in contract_json
+        assert "saved-article-source-routes" not in contract_json
+        assert "article-source-routes" not in contract_json
+        assert "source-routes" not in contract_json
+        assert "Saved Article Source Routes" not in contract_json
+        assert "来源导览" not in contract_json
     assert not (tmp_path / "data" / "saved-article-daily-summary.json").exists()
+    assert not (tmp_path / "data" / "saved-article-source-routes.json").exists()
 
 
 def test_saved_article_daily_summary_does_not_duplicate_downstream_content(
@@ -4031,6 +4054,176 @@ def test_render_saved_article_library_html_filters_daily_summary_reading_hrefs()
     assert "javascript:alert" not in section_html
     assert 'href="the-row-signal-1234567890.html#local-article-digest"' not in section_html
     assert 'href="../details/the-row-signal-1234567890.html#local-article-digest"' in section_html
+
+
+def test_render_saved_article_library_daily_summary_source_routes_are_safe() -> None:
+    base_entry = _saved_article_library_fixture().groups[0].entries[0]
+    groups = [
+        RowOneSavedArticleLibrarySourceGroup(
+            source_name="Empty Source",
+            article_count=0,
+            saved_paragraph_count=0,
+            organized_section_count=0,
+            entries=[],
+        ),
+        RowOneSavedArticleLibrarySourceGroup(
+            source_name="A B",
+            article_count=1,
+            saved_paragraph_count=2,
+            organized_section_count=1,
+            entries=[
+                replace(
+                    base_entry,
+                    title=LocalizedText(en="A B article", zh="A B article"),
+                    source_name="A B",
+                )
+            ],
+        ),
+        RowOneSavedArticleLibrarySourceGroup(
+            source_name="中文来源",
+            article_count=1,
+            saved_paragraph_count=1,
+            organized_section_count=1,
+            entries=[
+                replace(
+                    base_entry,
+                    title=LocalizedText(en="Chinese source", zh="中文来源"),
+                    source_name="中文来源",
+                )
+            ],
+        ),
+        RowOneSavedArticleLibrarySourceGroup(
+            source_name="A+B",
+            article_count=1,
+            saved_paragraph_count=3,
+            organized_section_count=1,
+            entries=[
+                replace(
+                    base_entry,
+                    title=LocalizedText(en="A plus B article", zh="A plus B article"),
+                    source_name="A+B",
+                )
+            ],
+        ),
+        RowOneSavedArticleLibrarySourceGroup(
+            source_name="WWD <script>",
+            article_count=1,
+            saved_paragraph_count=4,
+            organized_section_count=1,
+            entries=[
+                replace(
+                    base_entry,
+                    title=LocalizedText(en="WWD article", zh="WWD article"),
+                    source_name="WWD <script>",
+                )
+            ],
+        ),
+        RowOneSavedArticleLibrarySourceGroup(
+            source_name="The Row / Signals",
+            article_count=1,
+            saved_paragraph_count=5,
+            organized_section_count=1,
+            entries=[
+                replace(
+                    base_entry,
+                    title=LocalizedText(en="The Row Signals article", zh="The Row Signals article"),
+                    source_name="The Row / Signals",
+                )
+            ],
+        ),
+        RowOneSavedArticleLibrarySourceGroup(
+            source_name="Overflow Source",
+            article_count=1,
+            saved_paragraph_count=6,
+            organized_section_count=1,
+            entries=[
+                replace(
+                    base_entry,
+                    title=LocalizedText(en="Overflow article", zh="Overflow article"),
+                    source_name="Overflow Source",
+                )
+            ],
+        ),
+    ]
+    library = RowOneSavedArticleLibrary(
+        article_count=6,
+        source_count=7,
+        saved_paragraph_count=21,
+        organized_section_count=6,
+        extracted_article_count=0,
+        summary_fallback_article_count=6,
+        skipped_article_count=0,
+        groups=groups,
+    )
+
+    html = render_saved_article_library_html(_edition(), library)
+    summary_html = _saved_article_daily_summary_section_html(html)
+
+    route_link_class = 'class="saved-article-source-route saved-article-source-routes-link"'
+    assert summary_html.count(route_link_class) == 4
+    assert 'href="#saved-article-source-a-b"' in summary_html
+    assert 'href="#saved-article-source-a-b-2"' in summary_html
+    assert 'href="#saved-article-source-wwd-script"' in summary_html
+    assert 'href="#saved-article-source-the-row-signals"' in summary_html
+    assert 'href="#saved-article-source-overflow-source"' not in summary_html
+    assert 'id="saved-article-source-overflow-source"' in html
+    assert 'id="saved-article-source-empty-source"' not in html
+    assert 'id="saved-article-source-a-b"' in _saved_article_library_source_html(
+        html, "saved-article-source-a-b"
+    )
+    assert "A B" in _saved_article_library_source_html(html, "saved-article-source-a-b")
+    assert "A+B" in _saved_article_library_source_html(html, "saved-article-source-a-b-2")
+    assert "WWD &lt;script&gt;" in summary_html
+    assert "WWD <script>" not in summary_html
+
+    for href in re.findall(r'class="saved-article-source-route[^"]*" href="([^"]+)"', summary_html):
+        assert re.fullmatch(r"#[A-Za-z0-9-]+", href)
+        assert "/" not in href
+        assert ":" not in href
+        assert ".." not in href
+        assert "javascript" not in href.casefold()
+
+
+def test_render_saved_article_library_source_routes_omit_empty_shell_without_safe_routes() -> None:
+    base_entry = _saved_article_library_fixture().groups[0].entries[0]
+    html = render_saved_article_library_html(
+        _edition(),
+        RowOneSavedArticleLibrary(
+            article_count=1,
+            source_count=2,
+            saved_paragraph_count=1,
+            organized_section_count=1,
+            extracted_article_count=0,
+            summary_fallback_article_count=1,
+            skipped_article_count=0,
+            groups=[
+                RowOneSavedArticleLibrarySourceGroup(
+                    source_name="",
+                    article_count=0,
+                    saved_paragraph_count=0,
+                    organized_section_count=0,
+                    entries=[],
+                ),
+                RowOneSavedArticleLibrarySourceGroup(
+                    source_name="中文来源",
+                    article_count=1,
+                    saved_paragraph_count=1,
+                    organized_section_count=1,
+                    entries=[
+                        replace(
+                            base_entry,
+                            source_name="中文来源",
+                            title=LocalizedText(en="Chinese source", zh="中文来源"),
+                        )
+                    ],
+                ),
+            ],
+        ),
+    )
+
+    assert 'class="saved-article-source-routes"' not in html
+    assert 'id="saved-article-source-' not in html
+    assert 'class="saved-article-library-source-grid"' in html
 
 
 def test_render_row_one_site_omits_saved_article_evidence_board_when_no_valid_paragraphs(
@@ -5185,10 +5378,27 @@ def _saved_article_library_first_card_html(index_html: str) -> str:
 
 
 def _saved_article_library_first_source_html(index_html: str) -> str:
-    marker = '<section class="saved-article-library-source">'
+    marker = '<section class="saved-article-library-source"'
     assert marker in index_html
     source_start = index_html.index(marker)
     next_source = index_html.find(marker, source_start + len(marker))
+    source_grid_end = index_html.find("</main>", source_start)
+    section_end = (
+        source_grid_end if source_grid_end >= 0 else index_html.find("</section>", source_start)
+    )
+    source_end = next_source if next_source >= 0 else section_end
+    assert source_end > source_start
+    return index_html[source_start:source_end]
+
+
+def _saved_article_library_source_html(index_html: str, anchor_id: str) -> str:
+    marker = f'<section class="saved-article-library-source" id="{anchor_id}"'
+    assert marker in index_html
+    source_start = index_html.index(marker)
+    next_source = index_html.find(
+        '<section class="saved-article-library-source"',
+        source_start + len(marker),
+    )
     source_grid_end = index_html.find("</main>", source_start)
     section_end = (
         source_grid_end if source_grid_end >= 0 else index_html.find("</section>", source_start)
@@ -9178,6 +9388,15 @@ def test_row_one_css_includes_saved_article_library_styles(tmp_path) -> None:
         ".saved-article-source-brief-label",
         ".saved-article-source-brief-body",
         ".saved-article-source-brief-link",
+        ".saved-article-source-routes",
+        ".saved-article-source-routes-header",
+        ".saved-article-source-routes-metrics",
+        ".saved-article-source-routes-list",
+        ".saved-article-source-routes-item",
+        ".saved-article-source-route",
+        ".saved-article-source-routes-label",
+        ".saved-article-source-routes-meta",
+        ".saved-article-source-routes-link",
         ".saved-article-daily-summary",
         ".saved-article-daily-summary-header",
         ".saved-article-daily-summary-metrics",

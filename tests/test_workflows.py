@@ -554,6 +554,13 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "source-brief" not in generated_contract_payload
     assert "saved-article-source-brief" not in generated_contract_payload
     assert "article-source-brief" not in generated_contract_payload
+    assert "saved_article_source_routes" not in generated_contract_payload
+    assert "article_source_routes" not in generated_contract_payload
+    assert "source_routes" not in generated_contract_payload
+    assert "Source Routes" not in generated_contract_payload
+    assert "source-routes" not in generated_contract_payload
+    assert "saved-article-source-routes" not in generated_contract_payload
+    assert "article-source-routes" not in generated_contract_payload
     assert "Saved Paragraph Context Cues" not in generated_contract_payload
     assert "saved-paragraph-context-cues" not in generated_contract_payload
     assert "local-article-paragraph-contexts" not in generated_contract_payload
@@ -567,6 +574,11 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         assert 'class="saved-article-content-organization-summary"' in articles_html
         assert 'class="saved-article-body-guide"' in articles_html
         assert 'class="saved-article-source-brief"' in articles_html
+        assert 'class="saved-article-source-routes"' in articles_html
+        assert "Saved Article Source Routes" in articles_html
+        assert "来源导览" in articles_html
+        assert 'href="#saved-article-source-vogue-business"' in articles_html
+        assert 'id="saved-article-source-vogue-business"' in articles_html
         if "saved-signal-index-support-row" in articles_html:
             assert "saved-signal-index-support-excerpt" in articles_html
     top_level_data_files = {path.name for path in (output_dir / "data").glob("*.json")}
@@ -681,6 +693,18 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "article-source-brief.html",
         output_dir / "articles" / "article-source-brief.html",
         output_dir / "data" / "article-source-brief.html",
+        output_dir / "saved-article-source-routes.json",
+        output_dir / "articles" / "saved-article-source-routes.json",
+        output_dir / "data" / "saved-article-source-routes.json",
+        output_dir / "saved-article-source-routes.html",
+        output_dir / "articles" / "saved-article-source-routes.html",
+        output_dir / "data" / "saved-article-source-routes.html",
+        output_dir / "article-source-routes.json",
+        output_dir / "articles" / "article-source-routes.json",
+        output_dir / "data" / "article-source-routes.json",
+        output_dir / "article-source-routes.html",
+        output_dir / "articles" / "article-source-routes.html",
+        output_dir / "data" / "article-source-routes.html",
     ):
         assert not artifact_path.exists()
     assert stored == stored_before

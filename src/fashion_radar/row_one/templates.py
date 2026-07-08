@@ -117,6 +117,7 @@ EDITORIAL_BRIEF_BODY_EXCERPT_CHARS = 220
 EDITORIAL_BRIEF_MAX_TRAIL_ITEMS = 3
 SAVED_ARTICLE_BODY_GUIDE_ITEMS_PER_CARD = 2
 SAVED_ARTICLE_SOURCE_BRIEF_ITEMS_PER_SOURCE = 2
+SAVED_ARTICLE_SOURCE_ROUTE_LIMIT = 4
 SAVED_ARTICLE_CONTENT_ORGANIZATION_EVIDENCE_LINK_LIMIT = 3
 SAVED_ARTICLE_CONTENT_ORGANIZATION_SUMMARY_MAX_REFS = 5
 SAVED_ARTICLE_CONTENT_ORGANIZATION_MAX_PARAGRAPH_INDEX = 50
@@ -142,6 +143,15 @@ class _EditorialBriefItem:
 @dataclass(frozen=True)
 class _EditorialBrief:
     items: tuple[_EditorialBriefItem, ...]
+
+
+@dataclass(frozen=True)
+class _SavedArticleSourceRoute:
+    group_index: int
+    source_name: str
+    anchor_id: str
+    article_count: int
+    saved_paragraph_count: int
 
 
 @dataclass(frozen=True)
@@ -318,13 +328,16 @@ def render_saved_article_library_html(
     snippets_by_detail_path = _saved_article_library_snippets_by_detail_path(
         saved_article_content_organization
     )
+    source_routes = _saved_article_source_routes(library.groups)
+    source_route_ids_by_index = {route.group_index: route.anchor_id for route in source_routes}
     groups = "\n".join(
         _render_saved_article_library_source(
             group,
             snippets_by_detail_path=snippets_by_detail_path,
             local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+            source_anchor_id=source_route_ids_by_index.get(index),
         )
-        for group in library.groups
+        for index, group in enumerate(library.groups)
     )
     signal_index = _render_saved_signal_index(
         saved_signal_index,
@@ -353,6 +366,7 @@ def render_saved_article_library_html(
     )
     daily_summary = _render_saved_article_daily_summary(
         library,
+        source_routes=source_routes,
         signal_index_html=signal_index,
         content_organization_html=content_organization,
         reading_paths_html=reading_paths,
@@ -1343,6 +1357,7 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   overflow-wrap: anywhere;
 }
 .saved-article-daily-summary-metrics,
+.saved-article-source-routes-list,
 .saved-article-daily-summary-links {
   display: flex;
   flex-wrap: wrap;
@@ -1357,6 +1372,51 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   flex-wrap: wrap;
   gap: 6px 10px;
   padding: 8px 10px;
+}
+.saved-article-source-routes {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+.saved-article-source-routes-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  justify-content: space-between;
+}
+.saved-article-source-routes-header strong {
+  color: var(--ink);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-source-routes-metrics {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+.saved-article-source-routes-item {
+  display: inline-flex;
+}
+.saved-article-source-route,
+.saved-article-source-routes-link {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  gap: 4px;
+  min-width: min(100%, 170px);
+  padding: 9px 10px;
+  text-decoration: none;
+}
+.saved-article-source-routes-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-source-routes-meta {
+  color: var(--muted);
+  font-size: 0.74rem;
 }
 .saved-article-daily-summary-link {
   border: 1px solid var(--accent);
@@ -5125,6 +5185,7 @@ def _render_saved_article_library_metric(label_en: str, label_zh: str) -> str:
 def _render_saved_article_daily_summary(
     library: RowOneSavedArticleLibrary,
     *,
+    source_routes: Sequence[_SavedArticleSourceRoute],
     signal_index_html: str,
     content_organization_html: str,
     reading_paths_html: str,
@@ -5203,6 +5264,7 @@ def _render_saved_article_daily_summary(
     if not links:
         return ""
     surface_count = len(links) - (1 if reading_href is not None else 0)
+    source_routes_html = _render_saved_article_source_routes(source_routes)
     metrics = (
         _render_saved_article_library_metric(
             _count_label(library.article_count, "saved local article", "saved local articles"),
@@ -5240,8 +5302,91 @@ def _render_saved_article_daily_summary(
   <ul class="saved-article-daily-summary-metrics">
 {metrics}
   </ul>
+  {source_routes_html}
   <div class="saved-article-daily-summary-links">{"".join(links)}</div>
 </section>"""
+
+
+def _saved_article_source_routes(
+    groups: Sequence[RowOneSavedArticleLibrarySourceGroup],
+) -> list[_SavedArticleSourceRoute]:
+    routes: list[_SavedArticleSourceRoute] = []
+    seen_slugs: dict[str, int] = {}
+    for group_index, group in enumerate(groups):
+        if not group.entries:
+            continue
+        slug = _saved_article_source_route_slug(group.source_name)
+        if slug is None:
+            continue
+        count = seen_slugs.get(slug, 0) + 1
+        seen_slugs[slug] = count
+        anchor_id = (
+            f"saved-article-source-{slug}" if count == 1 else f"saved-article-source-{slug}-{count}"
+        )
+        routes.append(
+            _SavedArticleSourceRoute(
+                group_index=group_index,
+                source_name=group.source_name.strip() or "Unknown source",
+                anchor_id=anchor_id,
+                article_count=group.article_count,
+                saved_paragraph_count=group.saved_paragraph_count,
+            )
+        )
+    return routes
+
+
+def _saved_article_source_route_slug(source_name: str) -> str | None:
+    slug = re.sub(r"[^a-z0-9]+", "-", source_name.strip().casefold()).strip("-")
+    slug = slug[:64].strip("-")
+    return slug or None
+
+
+def _render_saved_article_source_routes(
+    source_routes: Sequence[_SavedArticleSourceRoute],
+) -> str:
+    items = [
+        _render_saved_article_source_route(route)
+        for route in source_routes[:SAVED_ARTICLE_SOURCE_ROUTE_LIMIT]
+    ]
+    if not items:
+        return ""
+    route_count = len(items)
+    route_count_en = _count_label(route_count, "source route", "source routes")
+    route_count_zh = f"{route_count} 个来源入口"
+    return f"""<div class="saved-article-source-routes" aria-label="Saved article source routes">
+    <div class="saved-article-source-routes-header">
+      <strong>
+        <span data-lang="en">Saved Article Source Routes</span>
+        <span data-lang="zh">来源导览</span>
+      </strong>
+      <span class="saved-article-source-routes-metrics">
+        <span data-lang="en">{_esc(route_count_en)}</span>
+        <span data-lang="zh">{_esc(route_count_zh)}</span>
+      </span>
+    </div>
+    <ul class="saved-article-source-routes-list">{"".join(items)}</ul>
+  </div>"""
+
+
+def _render_saved_article_source_route(route: _SavedArticleSourceRoute) -> str:
+    article_count_en = _count_label(route.article_count, "article", "articles")
+    article_count_zh = f"{route.article_count} 篇文章"
+    paragraph_count_en = _count_label(
+        route.saved_paragraph_count,
+        "saved paragraph",
+        "saved paragraphs",
+    )
+    paragraph_count_zh = f"{route.saved_paragraph_count} 个保存段落"
+    href = f"#{_esc(route.anchor_id)}"
+    return f"""<li class="saved-article-source-routes-item">
+        <a class="saved-article-source-route saved-article-source-routes-link" href="{href}">
+          <span class="saved-article-source-routes-label">{_esc(route.source_name)}</span>
+          <span class="saved-article-source-routes-meta">
+            <span data-lang="en">{_esc(article_count_en)}, {_esc(paragraph_count_en)}</span>
+            <span data-lang="zh">{_esc(article_count_zh)}，{_esc(paragraph_count_zh)}</span>
+          </span>
+        </a>
+      </li>"""
 
 
 def _render_saved_article_daily_summary_link(
@@ -5286,6 +5431,7 @@ def _render_saved_article_library_source(
     ]
     | None = None,
     local_article_page_hrefs_by_detail_path: Mapping[str, str] | None = None,
+    source_anchor_id: str | None = None,
 ) -> str:
     cards = "\n".join(
         _render_saved_article_library_card(
@@ -5308,7 +5454,8 @@ def _render_saved_article_library_source(
         snippets_by_detail_path=snippets_by_detail_path,
         local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
     )
-    return f"""    <section class="saved-article-library-source">
+    source_id_attr = f' id="{_esc(source_anchor_id)}"' if source_anchor_id else ""
+    return f"""    <section class="saved-article-library-source"{source_id_attr}>
       <div class="saved-article-library-source-header">
         <h2>{_esc(group.source_name)}</h2>
         <p>
