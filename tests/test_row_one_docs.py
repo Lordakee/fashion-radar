@@ -1849,6 +1849,78 @@ def test_row_one_docs_describe_stage_353_saved_article_read_next_clusters_bounda
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_361_daily_local_article_reading_brief_boundary() -> None:
+    expected = _normalized(
+        "Stage 361 adds generated-site only Daily Local Article Reading Brief "
+        "as a homepage-only section inside `index.html` after Daily Local "
+        "Article Capsules and before Saved Article Content Organization; it "
+        "reuses current-edition stories, already-saved local article "
+        "paragraphs, existing local article brief sections, existing local "
+        "article content sections, existing body-source labels, existing story "
+        "references, generated local article page routes, and existing "
+        "paragraph anchors to organize saved local text into compact "
+        "read-first, brand-watch, and product-watch lanes without changing "
+        "app-facing contracts; it does not create "
+        "`data/daily-local-article-reading-brief.json`, does not create "
+        "`data/daily-local-reading-brief.json`, does not create "
+        "`data/article-reading-brief.json`, does not create new route "
+        "families, does not publish full articles on the homepage, does not "
+        "add outbound article URLs as primary navigation, and does not change "
+        "schemas, JSON artifacts, fetching, extraction, scoring, ranking, "
+        "LLM, connector, scheduling, deployment, analytics, personalization, "
+        "recommendation, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_361_pos = normalized.index(
+            "stage 361 adds generated-site only daily local article reading brief"
+        )
+        stage_360_pos = normalized.index(
+            "stage 360 adds generated-site only daily local article capsules"
+        )
+        assert stage_361_pos < stage_360_pos
+        stage = normalized[stage_361_pos:stage_360_pos]
+        for stale_phrase in (
+            "creates data/daily-local-article-reading-brief.json",
+            "writes data/daily-local-article-reading-brief.json",
+            "creates data/daily-local-reading-brief.json",
+            "writes data/daily-local-reading-brief.json",
+            "creates data/article-reading-brief.json",
+            "writes data/article-reading-brief.json",
+            "creates `data/daily-local-article-reading-brief.json`",
+            "writes `data/daily-local-article-reading-brief.json`",
+            "creates `data/daily-local-reading-brief.json`",
+            "writes `data/daily-local-reading-brief.json`",
+            "creates `data/article-reading-brief.json`",
+            "writes `data/article-reading-brief.json`",
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "writes a new json artifact",
+            "creates new route families",
+            "publishes full articles on the homepage",
+            "adds outbound article urls as primary navigation",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_360_daily_local_article_capsules_boundary() -> None:
     expected = _normalized(
         "Stage 360 adds generated-site only Daily Local Article Capsules as a "

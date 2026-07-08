@@ -217,6 +217,9 @@ def render_row_one_site(
             daily_local_article_capsules_article_hrefs_by_story_id=(
                 local_article_page_hrefs_by_story_id
             ),
+            daily_local_article_reading_brief_article_hrefs_by_story_id=(
+                local_article_page_hrefs_by_story_id
+            ),
             saved_article_content_organization=saved_article_content_organization,
             editorial_brief=editorial_brief,
             local_articles_by_story_id=local_articles_by_story_id,

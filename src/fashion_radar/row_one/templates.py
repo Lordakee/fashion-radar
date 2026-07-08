@@ -179,6 +179,11 @@ DAILY_LOCAL_ARTICLE_CAPSULES_MAX_ITEMS = 4
 DAILY_LOCAL_ARTICLE_CAPSULES_MAX_PARAGRAPHS = 3
 DAILY_LOCAL_ARTICLE_CAPSULES_MAX_REFS = 6
 DAILY_LOCAL_ARTICLE_CAPSULE_EXCERPT_CHARS = 150
+DAILY_LOCAL_ARTICLE_READING_BRIEF_MAX_GROUPS = 3
+DAILY_LOCAL_ARTICLE_READING_BRIEF_MAX_ITEMS_PER_GROUP = 3
+DAILY_LOCAL_ARTICLE_READING_BRIEF_MAX_TOTAL_ITEMS = 4
+DAILY_LOCAL_ARTICLE_READING_BRIEF_EXCERPT_CHARS = 150
+DAILY_LOCAL_ARTICLE_READING_BRIEF_MAX_REFS = 4
 
 
 @dataclass(frozen=True)
@@ -241,6 +246,34 @@ class _DailyLocalArticleCapsule:
 
 
 @dataclass(frozen=True)
+class _DailyLocalArticleReadingBriefReference:
+    name: str
+    label: str
+
+
+@dataclass(frozen=True)
+class _DailyLocalArticleReadingBriefItem:
+    title: LocalizedText
+    article_title: str
+    source_name: str
+    body_source: str
+    reason: LocalizedText
+    paragraph_excerpt: LocalizedText
+    paragraph_number: int
+    href: str
+    paragraph_href: str
+    references: tuple[_DailyLocalArticleReadingBriefReference, ...]
+
+
+@dataclass(frozen=True)
+class _DailyLocalArticleReadingBriefGroup:
+    key: str
+    title: LocalizedText
+    dek: LocalizedText
+    items: tuple[_DailyLocalArticleReadingBriefItem, ...]
+
+
+@dataclass(frozen=True)
 class _SavedArticleSourceRoute:
     group_index: int
     source_name: str
@@ -286,6 +319,7 @@ def render_index_html(
     daily_local_signal_momentum_hrefs_by_detail_path: Mapping[str, str] | None = None,
     daily_local_heat_signals_article_hrefs_by_story_id: Mapping[str, str] | None = None,
     daily_local_article_capsules_article_hrefs_by_story_id: Mapping[str, str] | None = None,
+    daily_local_article_reading_brief_article_hrefs_by_story_id: Mapping[str, str] | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     editorial_brief: _EditorialBrief | None = None,
     local_articles_by_story_id: dict[str, RowOneLocalArticle] | None = None,
@@ -324,6 +358,11 @@ def render_index_html(
         edition,
         local_articles_by_story_id=local_articles_by_story_id,
         article_hrefs_by_story_id=daily_local_article_capsules_article_hrefs_by_story_id,
+    )
+    daily_local_article_reading_brief_section = _render_daily_local_article_reading_brief(
+        edition,
+        local_articles_by_story_id=local_articles_by_story_id,
+        article_hrefs_by_story_id=daily_local_article_reading_brief_article_hrefs_by_story_id,
     )
     saved_article_content_organization_section = _render_saved_article_content_organization(
         saved_article_content_organization
@@ -420,6 +459,7 @@ def render_index_html(
 {daily_local_signal_momentum_section}
 {daily_local_heat_signals_section}
 {daily_local_article_capsules_section}
+{daily_local_article_reading_brief_section}
 {saved_article_content_organization_section}
 {editorial_brief_section}
 {lead_story_block}
@@ -3867,6 +3907,156 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   text-transform: uppercase;
   text-underline-offset: 4px;
 }
+.daily-local-article-reading-brief {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-local-article-reading-brief-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-local-article-reading-brief-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.1rem, 4.5vw, 5.2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.94;
+  margin: 0;
+}
+.daily-local-article-reading-brief-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.daily-local-article-reading-brief-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+.daily-local-article-reading-brief-metrics span {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-article-reading-brief-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: 1fr;
+}
+.daily-local-article-reading-brief-group {
+  background: var(--panel);
+  display: grid;
+  gap: 14px;
+  min-height: 320px;
+  padding: 16px;
+}
+.daily-local-article-reading-brief-group-header {
+  display: grid;
+  gap: 8px;
+}
+.daily-local-article-reading-brief-group-header h3,
+.daily-local-article-reading-brief-group-header p {
+  margin: 0;
+}
+.daily-local-article-reading-brief-group-header h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.45rem, 2.4vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.98;
+}
+.daily-local-article-reading-brief-group-header p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.daily-local-article-reading-brief-items {
+  display: grid;
+  gap: 12px;
+}
+.daily-local-article-reading-brief-item {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+.daily-local-article-reading-brief-title {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.2rem, 2vw, 1.9rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.daily-local-article-reading-brief-title a {
+  color: var(--ink);
+  text-decoration-color: var(--line);
+  text-underline-offset: 4px;
+}
+.daily-local-article-reading-brief-meta,
+.daily-local-article-reading-brief-refs,
+.daily-local-article-reading-brief-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.daily-local-article-reading-brief-meta span,
+.daily-local-article-reading-brief-ref,
+.daily-local-article-reading-brief-ref span {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-article-reading-brief-source {
+  color: var(--ink) !important;
+}
+.daily-local-article-reading-brief-article-title {
+  color: var(--ink) !important;
+}
+.daily-local-article-reading-brief-ref {
+  gap: 4px;
+}
+.daily-local-article-reading-brief-reason {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.daily-local-article-reading-brief-excerpt {
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  gap: 5px;
+  line-height: 1.42;
+  padding-top: 8px;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+}
+.daily-local-article-reading-brief-action {
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-decoration-color: var(--line);
+  text-transform: uppercase;
+  text-underline-offset: 4px;
+}
 .saved-article-content-organization {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -5425,6 +5615,9 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-article-capsules-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .daily-local-article-reading-brief-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @media (max-width: 760px) {
   .site-header { min-height: 46vh; padding: 28px 20px; }
@@ -5452,6 +5645,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-heat-signals-header { grid-template-columns: 1fr; }
   .daily-local-heat-signals-grid { grid-template-columns: 1fr; }
   .daily-local-article-capsules-header { grid-template-columns: 1fr; }
+  .daily-local-article-reading-brief-header { grid-template-columns: 1fr; }
+  .daily-local-article-reading-brief-grid { grid-template-columns: 1fr; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
   .saved-article-library-entry-header { grid-template-columns: 1fr; }
@@ -9958,6 +10153,427 @@ def _render_daily_local_article_capsule_ref(ref: RowOneReference) -> str:
     label = normalize_row_one_paragraph(ref.label) or normalize_row_one_paragraph(ref.type)
     label_html = f"<span>{_esc(label)}</span>" if label else ""
     return f'<span class="daily-local-article-capsule-ref">{_esc(ref.name)}{label_html}</span>'
+
+
+def _render_daily_local_article_reading_brief(
+    edition: RowOneEdition,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> str:
+    groups = _daily_local_article_reading_brief_groups(
+        edition,
+        local_articles_by_story_id=local_articles_by_story_id,
+        article_hrefs_by_story_id=article_hrefs_by_story_id,
+    )
+    if not groups:
+        return ""
+    assert len(groups) <= DAILY_LOCAL_ARTICLE_READING_BRIEF_MAX_GROUPS
+    item_count = sum(len(group.items) for group in groups)
+    article_count_en = _count_label(item_count, "local article", "local articles")
+    group_count_en = _count_label(len(groups), "reading lane", "reading lanes")
+    rendered_groups = "\n".join(
+        _render_daily_local_article_reading_brief_group(group) for group in groups
+    )
+    return f"""<section class="daily-local-article-reading-brief"
+  aria-label="Daily local article reading brief">
+  <div class="daily-local-article-reading-brief-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Daily Local Article Reading Brief</span>
+        <span data-lang="zh">每日本地文章阅读简报</span>
+      </p>
+      <h2>
+        <span data-lang="en">Start with the saved local articles worth reading first</span>
+        <span data-lang="zh">从最值得先读的本地保存文章开始</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">
+        A same-site reading order built only from today&apos;s downloaded article text.
+      </span>
+      <span data-lang="zh">
+        仅基于今日已下载正文生成的站内阅读顺序。
+      </span>
+    </p>
+  </div>
+  <div class="daily-local-article-reading-brief-metrics">
+    <span>{_esc(article_count_en)}</span>
+    <span>{_esc(group_count_en)}</span>
+    <span data-lang="en">Local text only</span>
+    <span data-lang="zh">仅本地正文</span>
+  </div>
+  <div class="daily-local-article-reading-brief-grid">
+{rendered_groups}
+  </div>
+</section>"""
+
+
+def _daily_local_article_reading_brief_groups(
+    edition: RowOneEdition,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> tuple[_DailyLocalArticleReadingBriefGroup, ...]:
+    group_specs = (
+        (
+            "read_first",
+            LocalizedText(en="Read First", zh="先读这个"),
+            LocalizedText(
+                en="Start with the saved local articles that set the day's editorial context.",
+                zh="先读建立当日编辑语境的已保存本地文章。",
+            ),
+        ),
+        (
+            "brand_watch",
+            LocalizedText(en="Brand Watch", zh="品牌观察"),
+            LocalizedText(
+                en="Track the saved articles with brand, designer, or entity context.",
+                zh="追踪含品牌、设计师或实体语境的已保存文章。",
+            ),
+        ),
+        (
+            "product_watch",
+            LocalizedText(en="Product Watch", zh="单品观察"),
+            LocalizedText(
+                en="Scan the saved articles with bags, shoes, or other product signals.",
+                zh="浏览含包袋、鞋履或其他单品信号的已保存文章。",
+            ),
+        ),
+    )
+    eligible_by_group: dict[str, list[_DailyLocalArticleReadingBriefItem]] = {
+        key: [] for key, _, _ in group_specs
+    }
+    for story in edition.stories:
+        article = local_articles_by_story_id.get(story.id)
+        if article is None:
+            continue
+        item = _daily_local_article_reading_brief_item_from_story(
+            story,
+            article,
+            article_hrefs_by_story_id=article_hrefs_by_story_id,
+        )
+        if item is None:
+            continue
+        for key in _daily_local_article_reading_brief_group_candidates(story, article):
+            if key in eligible_by_group:
+                eligible_by_group[key].append(item)
+
+    groups: list[_DailyLocalArticleReadingBriefGroup] = []
+    used_item_hrefs: set[str] = set()
+    rendered_total = 0
+    for group_index, (key, title, dek) in enumerate(group_specs):
+        items: list[_DailyLocalArticleReadingBriefItem] = []
+        for item in eligible_by_group[key]:
+            if rendered_total >= DAILY_LOCAL_ARTICLE_READING_BRIEF_MAX_TOTAL_ITEMS:
+                break
+            if item.href in used_item_hrefs:
+                continue
+            later_group_count = sum(
+                1
+                for later_key, _, _ in group_specs[group_index + 1 :]
+                if any(
+                    later_item.href not in used_item_hrefs
+                    for later_item in eligible_by_group[later_key]
+                )
+            )
+            if (
+                len(items) > 0
+                and rendered_total + later_group_count
+                >= DAILY_LOCAL_ARTICLE_READING_BRIEF_MAX_TOTAL_ITEMS
+            ):
+                continue
+            items.append(item)
+            used_item_hrefs.add(item.href)
+            rendered_total += 1
+            if len(items) >= DAILY_LOCAL_ARTICLE_READING_BRIEF_MAX_ITEMS_PER_GROUP:
+                break
+        if items:
+            groups.append(
+                _DailyLocalArticleReadingBriefGroup(
+                    key=key,
+                    title=title,
+                    dek=dek,
+                    items=tuple(items),
+                )
+            )
+    return tuple(groups)
+
+
+def _daily_local_article_reading_brief_group_candidates(
+    story: RowOneStory,
+    article: RowOneLocalArticle,
+) -> tuple[str, ...]:
+    candidates = ["read_first"]
+    content_section_keys = {
+        normalize_row_one_paragraph(section.key).casefold() for section in article.content_sections
+    }
+    if (
+        story.entity_refs
+        or story.designer_refs
+        or "entities" in content_section_keys
+        or "brand_signals" in content_section_keys
+    ):
+        candidates.append("brand_watch")
+    if story.product_refs or "product_signals" in content_section_keys:
+        candidates.append("product_watch")
+    return tuple(candidates)
+
+
+def _daily_local_article_reading_brief_item_from_story(
+    story: RowOneStory,
+    article: RowOneLocalArticle,
+    *,
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> _DailyLocalArticleReadingBriefItem | None:
+    if (
+        not safe_local_article_story_id(story.id)
+        or _usable_local_article_paragraph_count(article) <= 0
+    ):
+        return None
+    href = _daily_local_article_reading_brief_href(
+        story.id,
+        article_hrefs_by_story_id,
+        fragment="local-article-digest",
+    )
+    paragraph_index = _daily_local_article_reading_brief_first_paragraph_index(article)
+    if paragraph_index is None:
+        return None
+    paragraph_excerpt_en = _daily_local_article_reading_brief_excerpt(
+        article.paragraphs[paragraph_index]
+    )
+    paragraph_excerpt_zh = ""
+    if paragraph_index < len(article.paragraphs_zh):
+        paragraph_excerpt_zh = _daily_local_article_reading_brief_excerpt(
+            article.paragraphs_zh[paragraph_index]
+        )
+    paragraph_href = _daily_local_article_reading_brief_href(
+        story.id,
+        article_hrefs_by_story_id,
+        fragment=_local_article_paragraph_anchor(paragraph_index),
+    )
+    if href is None or paragraph_href is None:
+        return None
+    title_en = normalize_row_one_paragraph(story.headline)
+    article_title = normalize_row_one_paragraph(article.title or "")
+    title_zh = article_title or title_en
+    if not title_en:
+        return None
+    reason = _daily_local_article_reading_brief_reason(story, article)
+    if not reason.en and not reason.zh:
+        return None
+    return _DailyLocalArticleReadingBriefItem(
+        title=LocalizedText(en=title_en, zh=title_zh),
+        article_title=article_title,
+        source_name=normalize_row_one_paragraph(article.source_name or story.source_name),
+        body_source=_local_article_body_source_label(article),
+        reason=reason,
+        paragraph_excerpt=LocalizedText(
+            en=paragraph_excerpt_en,
+            zh=paragraph_excerpt_zh or paragraph_excerpt_en,
+        ),
+        paragraph_number=paragraph_index + 1,
+        href=href,
+        paragraph_href=paragraph_href,
+        references=_daily_local_article_reading_brief_references(story),
+    )
+
+
+def _daily_local_article_reading_brief_href(
+    story_id: str,
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+    *,
+    fragment: str,
+) -> str | None:
+    if article_hrefs_by_story_id is None:
+        return None
+    page_href = _safe_daily_local_article_reading_brief_page_href(
+        story_id,
+        article_hrefs_by_story_id.get(story_id),
+    )
+    if page_href is None:
+        return None
+    return f"articles/{page_href}#{fragment}"
+
+
+def _safe_daily_local_article_reading_brief_page_href(
+    story_id: str,
+    href: object,
+) -> str | None:
+    if not safe_local_article_story_id(story_id) or not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if href.startswith((".", "/", "//")):
+        return None
+    path = PurePosixPath(href)
+    if (
+        path.is_absolute()
+        or len(path.parts) != 1
+        or path.name in ("", ".", "..")
+        or ".." in path.parts
+        or not path.name.endswith(".html")
+    ):
+        return None
+    mapped_story_id = path.name.removesuffix(".html")
+    if mapped_story_id != story_id or not safe_local_article_story_id(mapped_story_id):
+        return None
+    return f"{mapped_story_id}.html"
+
+
+def _daily_local_article_reading_brief_reason(
+    story: RowOneStory,
+    article: RowOneLocalArticle,
+) -> LocalizedText:
+    for candidate in (
+        story.why_it_matters,
+        *(section.body for section in article.brief_sections),
+    ):
+        reason = LocalizedText(
+            en=_daily_local_article_reading_brief_excerpt(candidate.en),
+            zh=_daily_local_article_reading_brief_excerpt(candidate.zh),
+        )
+        if reason.en or reason.zh:
+            return LocalizedText(en=reason.en or reason.zh, zh=reason.zh or reason.en)
+    for section in article.content_sections:
+        for item in section.items:
+            if item.body is None:
+                continue
+            reason = LocalizedText(
+                en=_daily_local_article_reading_brief_excerpt(item.body.en),
+                zh=_daily_local_article_reading_brief_excerpt(item.body.zh),
+            )
+            if reason.en or reason.zh:
+                return LocalizedText(en=reason.en or reason.zh, zh=reason.zh or reason.en)
+    paragraph_index = _daily_local_article_reading_brief_first_paragraph_index(article)
+    if paragraph_index is None:
+        return LocalizedText(en="", zh="")
+    excerpt_en = _daily_local_article_reading_brief_excerpt(article.paragraphs[paragraph_index])
+    excerpt_zh = ""
+    if paragraph_index < len(article.paragraphs_zh):
+        excerpt_zh = _daily_local_article_reading_brief_excerpt(
+            article.paragraphs_zh[paragraph_index]
+        )
+    return LocalizedText(en=excerpt_en, zh=excerpt_zh or excerpt_en)
+
+
+def _daily_local_article_reading_brief_first_paragraph_index(
+    article: RowOneLocalArticle,
+) -> int | None:
+    for paragraph_index, paragraph in enumerate(article.paragraphs):
+        if normalize_row_one_paragraph(paragraph):
+            return paragraph_index
+    return None
+
+
+def _daily_local_article_reading_brief_excerpt(text: str) -> str:
+    normalized = normalize_row_one_paragraph(text)
+    if len(normalized) <= DAILY_LOCAL_ARTICLE_READING_BRIEF_EXCERPT_CHARS:
+        return normalized
+    return normalized[:DAILY_LOCAL_ARTICLE_READING_BRIEF_EXCERPT_CHARS].rstrip() + "…"
+
+
+def _daily_local_article_reading_brief_references(
+    story: RowOneStory,
+) -> tuple[_DailyLocalArticleReadingBriefReference, ...]:
+    refs: list[_DailyLocalArticleReadingBriefReference] = []
+    seen: set[tuple[str, str]] = set()
+    for ref in [*story.entity_refs, *story.designer_refs, *story.product_refs]:
+        if len(refs) >= DAILY_LOCAL_ARTICLE_READING_BRIEF_MAX_REFS:
+            break
+        name = normalize_row_one_paragraph(ref.name)
+        label = normalize_row_one_paragraph(ref.label) or normalize_row_one_paragraph(ref.type)
+        if not name:
+            continue
+        key = (name.casefold(), label.casefold())
+        if key in seen:
+            continue
+        seen.add(key)
+        refs.append(_DailyLocalArticleReadingBriefReference(name=name, label=label))
+    return tuple(refs)
+
+
+def _render_daily_local_article_reading_brief_group(
+    group: _DailyLocalArticleReadingBriefGroup,
+) -> str:
+    items = "\n".join(_render_daily_local_article_reading_brief_item(item) for item in group.items)
+    return f"""    <article class="daily-local-article-reading-brief-group">
+      <div class="daily-local-article-reading-brief-group-header">
+        <h3>
+          <span data-lang="en">{_esc(group.title.en)}</span>
+          <span data-lang="zh">{_esc(group.title.zh)}</span>
+        </h3>
+        <p>
+          <span data-lang="en">{_esc(group.dek.en)}</span>
+          <span data-lang="zh">{_esc(group.dek.zh)}</span>
+        </p>
+      </div>
+      <div class="daily-local-article-reading-brief-items">
+{items}
+      </div>
+    </article>"""
+
+
+def _render_daily_local_article_reading_brief_item(
+    item: _DailyLocalArticleReadingBriefItem,
+) -> str:
+    paragraph_label_en = f"Open paragraph {item.paragraph_number}"
+    paragraph_label_zh = f"打开段落 {item.paragraph_number}"
+    article_title = (
+        '<span class="daily-local-article-reading-brief-article-title">'
+        f"{_esc(item.article_title)}</span>"
+        if item.article_title
+        else ""
+    )
+    source_name = (
+        f'<span class="daily-local-article-reading-brief-source">{_esc(item.source_name)}</span>'
+        if item.source_name
+        else ""
+    )
+    refs = "".join(_render_daily_local_article_reading_brief_ref(ref) for ref in item.references)
+    refs_html = f'<div class="daily-local-article-reading-brief-refs">{refs}</div>' if refs else ""
+    return f"""        <article class="daily-local-article-reading-brief-item">
+          <h4 class="daily-local-article-reading-brief-title">
+            <a href="{_esc(item.href)}">
+              <span data-lang="en">{_esc(item.title.en)}</span>
+              <span data-lang="zh">{_esc(item.title.zh)}</span>
+            </a>
+          </h4>
+          <div class="daily-local-article-reading-brief-meta">
+            {article_title}
+            {source_name}
+            <span>{_esc(item.body_source)}</span>
+          </div>
+          <p class="daily-local-article-reading-brief-reason">
+            <span data-lang="en">{_esc(item.reason.en)}</span>
+            <span data-lang="zh">{_esc(item.reason.zh)}</span>
+          </p>
+          <a class="daily-local-article-reading-brief-excerpt"
+            href="{_esc(item.paragraph_href)}">
+            <span data-lang="en">{_esc(item.paragraph_excerpt.en)}</span>
+            <span data-lang="zh">{_esc(item.paragraph_excerpt.zh)}</span>
+          </a>
+          {refs_html}
+          <div class="daily-local-article-reading-brief-actions">
+            <a class="daily-local-article-reading-brief-action" href="{_esc(item.href)}">
+              <span data-lang="en">Open digest</span>
+              <span data-lang="zh">打开摘要</span>
+            </a>
+            <a class="daily-local-article-reading-brief-action" href="{_esc(item.paragraph_href)}">
+              <span data-lang="en">{_esc(paragraph_label_en)}</span>
+              <span data-lang="zh">{_esc(paragraph_label_zh)}</span>
+            </a>
+          </div>
+        </article>"""
+
+
+def _render_daily_local_article_reading_brief_ref(
+    ref: _DailyLocalArticleReadingBriefReference,
+) -> str:
+    label_html = f"<span>{_esc(ref.label)}</span>" if ref.label else ""
+    return (
+        f'<span class="daily-local-article-reading-brief-ref">{_esc(ref.name)}{label_html}</span>'
+    )
 
 
 def _localized_payload_text(value: object) -> LocalizedText:

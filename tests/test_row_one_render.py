@@ -4149,6 +4149,70 @@ def test_render_row_one_site_writes_daily_local_article_capsules_homepage_only(
             assert not (directory / f"{stem}.html").exists()
 
 
+def test_render_row_one_site_writes_daily_local_article_reading_brief_homepage_only(
+    tmp_path,
+) -> None:
+    story = (
+        _edition()
+        .stories[0]
+        .model_copy(
+            deep=True,
+            update={
+                "entity_refs": [RowOneReference(name="The Row", type="brand", label="tracked")],
+                "product_refs": [RowOneReference(name="Margaux bag", type="bag", label="product")],
+            },
+        )
+    )
+    edition = _edition()
+    edition.stories = [story]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+
+    section_html = _daily_local_article_reading_brief_section_html(homepage_html)
+    assert "Daily Local Article Reading Brief" in section_html
+    assert "每日本地文章阅读简报" in section_html
+    assert "Read First" in section_html
+    assert "Signal source article" in section_html
+    assert "The Row" in section_html
+    assert "Margaux bag" in section_html
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-digest"' in section_html
+    assert 'class="daily-local-article-reading-brief"' not in library_html
+    assert 'class="daily-local-article-reading-brief"' not in article_html
+    assert 'class="daily-local-article-reading-brief"' not in detail_html
+    assert "daily_local_article_reading_brief" not in generated_contract_payload
+    assert "daily-local-article-reading-brief" not in generated_contract_payload
+    assert "Daily Local Article Reading Brief" not in generated_contract_payload
+    for stem in (
+        "daily-local-article-reading-brief",
+        "daily-local-reading-brief",
+        "article-reading-brief",
+        "daily_local_article_reading_brief",
+        "daily_local_reading_brief",
+        "article_reading_brief",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
 def test_write_local_article_pages_rejects_orphaned_href_mapping(tmp_path) -> None:
     story = _edition().stories[0]
 
@@ -6659,8 +6723,9 @@ def test_render_row_one_site_includes_daily_local_intelligence(tmp_path) -> None
     ) in html
     assert '<span data-lang="en">Open saved text</span>' in html
     assert '<span data-lang="zh">打开本地正文</span>' in html
-    assert "Open paragraph 1" not in html
-    assert "打开段落 1" not in html
+    section_html = _daily_local_intelligence_section_html(html)
+    assert "Open paragraph 1" not in section_html
+    assert "打开段落 1" not in section_html
     assert "Evidence paragraph 1" in html
     assert "证据段落 1" in html
     assert 'href="details/the-row-signal-1234567890.html#local-article-paragraph-1"' in html
@@ -7054,8 +7119,32 @@ def _daily_local_heat_signals_section_html(index_html: str) -> str:
     return index_html[section_start:section_end]
 
 
+def _daily_local_intelligence_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-intelligence"'
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is None:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + next_section.start()
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
 def _daily_local_article_capsules_section_html(index_html: str) -> str:
     marker = '<section class="daily-local-article-capsules"'
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is None:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + next_section.start()
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _daily_local_article_reading_brief_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-article-reading-brief"'
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
     next_section = re.search(r"\n\s*<section class=", tail)
@@ -11807,6 +11896,481 @@ def test_render_index_html_places_daily_local_article_capsules_between_sections(
     )
 
 
+def test_render_index_html_includes_daily_local_article_reading_brief() -> None:
+    base_story = _edition().stories[0]
+    stories = [
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "reading-brief-first-1111111111",
+                "headline": "Reading brief <script>",
+                "detail_path": "details/reading-brief-first-1111111111.html",
+                "source_name": "Vogue <Business>",
+                "why_it_matters": LocalizedText(
+                    en="Why this article matters <b>.",
+                    zh="为什么这篇文章重要 <b>。",
+                ),
+                "entity_refs": [RowOneReference(name="The Row", type="brand", label="brand")],
+                "product_refs": [RowOneReference(name="Margaux bag", type="bag", label="product")],
+                "designer_refs": [],
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "reading-brief-brand-2222222222",
+                "headline": "Second reading brief",
+                "detail_path": "details/reading-brief-brand-2222222222.html",
+                "why_it_matters": LocalizedText(en="", zh=""),
+                "entity_refs": [],
+                "product_refs": [],
+                "designer_refs": [],
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "reading-brief-product-3333333333",
+                "headline": "Third reading brief",
+                "detail_path": "details/reading-brief-product-3333333333.html",
+                "why_it_matters": LocalizedText(en="", zh=""),
+                "entity_refs": [],
+                "product_refs": [],
+                "designer_refs": [],
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "reading-brief-context-4444444444",
+                "headline": "Fourth reading brief",
+                "detail_path": "details/reading-brief-context-4444444444.html",
+                "entity_refs": [RowOneReference(name="Chanel", type="brand", label="brand")],
+                "product_refs": [],
+                "designer_refs": [],
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "reading-brief-overflow-5555555555",
+                "headline": "Overflow reading brief",
+                "detail_path": "details/reading-brief-overflow-5555555555.html",
+                "entity_refs": [],
+                "product_refs": [],
+                "designer_refs": [],
+            },
+        ),
+    ]
+    article_one = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "story_id": stories[0].id,
+            "title": "Reading brief source <script>",
+            "source_name": "Vogue <Business>",
+            "body_source": "extracted",
+            "paragraphs": [
+                "Opening saved paragraph <b> for the reading brief.",
+                "Second saved paragraph links the story context.",
+            ],
+            "paragraphs_zh": [
+                "第一段保存正文 <b> 用于阅读简报。",
+                "第二段保存正文连接故事背景。",
+            ],
+        },
+    )
+    article_two = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "story_id": stories[1].id,
+            "title": "Brief fallback local title",
+            "brief_sections": [
+                RowOneLocalArticleBriefSection(
+                    key="why_it_matters",
+                    title=LocalizedText(en="Why It Matters", zh="为什么重要"),
+                    body=LocalizedText(
+                        en="Brief fallback reason <i>.",
+                        zh="简报兜底原因 <i>。",
+                    ),
+                )
+            ],
+            "paragraphs": [
+                "Second story paragraph for fallback.",
+            ],
+            "paragraphs_zh": ["第二篇故事兜底段落。"],
+        },
+    )
+    article_three = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "story_id": stories[2].id,
+            "title": "Content fallback local title",
+            "brief_sections": [],
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="product_signals",
+                    title=LocalizedText(en="Products", zh="单品"),
+                    body=LocalizedText(en="Products body.", zh="单品正文。"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="Product cue", zh="单品线索"),
+                            body=LocalizedText(
+                                en="Content item fallback reason <i>.",
+                                zh="内容项兜底原因 <i>。",
+                            ),
+                            paragraph_indices=[0],
+                        )
+                    ],
+                )
+            ],
+            "paragraphs": [
+                "Third story paragraph for fallback.",
+            ],
+            "paragraphs_zh": ["第三篇故事兜底段落。"],
+        },
+    )
+    local_articles_by_story_id = {
+        article_one.story_id: article_one,
+        article_two.story_id: article_two,
+        article_three.story_id: article_three,
+        **{
+            story.id: _signal_briefing_local_article().model_copy(
+                deep=True,
+                update={
+                    "story_id": story.id,
+                    "title": f"{story.headline} source",
+                    "paragraphs": ["Supporting paragraph for reading brief."],
+                    "paragraphs_zh": ["阅读简报支持段落。"],
+                },
+            )
+            for story in stories[3:]
+        },
+    }
+
+    html = render_index_html(
+        _edition_with_stories(*stories),
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_article_reading_brief_article_hrefs_by_story_id={
+            story.id: f"{story.id}.html" for story in stories
+        },
+    )
+    section_html = _daily_local_article_reading_brief_section_html(html)
+
+    assert 'class="daily-local-article-reading-brief"' in section_html
+    assert "Daily Local Article Reading Brief" in section_html
+    assert "每日本地文章阅读简报" in section_html
+    assert "Read First" in section_html
+    assert "Brand Watch" in section_html
+    assert "Product Watch" in section_html
+    assert "Start with the saved local articles" in section_html
+    assert "Reading brief &lt;script&gt;" in section_html
+    assert "Second reading brief" in section_html
+    assert "Third reading brief" in section_html
+    assert "Fourth reading brief" in section_html
+    assert "Overflow reading brief" not in section_html
+    assert "Reading brief source &lt;script&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "Extracted article text" in section_html
+    assert "Why this article matters &lt;b&gt;." in section_html
+    assert "为什么这篇文章重要 &lt;b&gt;。" in section_html
+    assert "Brief fallback reason &lt;i&gt;." in section_html
+    assert "Content item fallback reason &lt;i&gt;." in section_html
+    assert "Opening saved paragraph &lt;b&gt; for the reading brief." in section_html
+    assert "The Row" in section_html
+    assert "Margaux bag" in section_html
+    assert (
+        'href="articles/reading-brief-first-1111111111.html#local-article-digest"' in section_html
+    )
+    assert (
+        'href="articles/reading-brief-first-1111111111.html#local-article-paragraph-1"'
+        in section_html
+    )
+    assert "https://example.com" not in section_html
+    assert "<script>" not in section_html
+    assert "<b>" not in section_html
+    assert "<i>" not in section_html
+    assert "<Business>" not in section_html
+
+
+def test_render_index_html_filters_unsafe_daily_local_article_reading_brief() -> None:
+    base_story = _edition().stories[0]
+    safe_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "safe-reading-brief-1111111111",
+            "headline": "Safe reading brief",
+            "detail_path": "details/safe-reading-brief-1111111111.html",
+        },
+    )
+    unsafe_id_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "unsafe/reading-brief-2222222222",
+            "headline": "Unsafe id reading brief",
+            "detail_path": "details/unsafe-reading-brief-2222222222.html",
+        },
+    )
+    missing_article_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "missing-reading-brief-2222222222",
+            "headline": "Missing article reading brief",
+            "detail_path": "details/missing-reading-brief-2222222222.html",
+        },
+    )
+    empty_article_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "empty-reading-brief-2222222222",
+            "headline": "Empty article reading brief",
+            "detail_path": "details/empty-reading-brief-2222222222.html",
+        },
+    )
+    traversal_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "secret-reading-brief-3333333333",
+            "headline": "Secret reading brief",
+            "detail_path": "details/secret-reading-brief-3333333333.html",
+        },
+    )
+    nested_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "nested-reading-brief-3333333333",
+            "headline": "Nested reading brief",
+            "detail_path": "details/nested-reading-brief-3333333333.html",
+        },
+    )
+    hidden_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "hidden-reading-brief-3333333333",
+            "headline": "Hidden reading brief",
+            "detail_path": "details/hidden-reading-brief-3333333333.html",
+        },
+    )
+    whitespace_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "whitespace-reading-brief-3333333333",
+            "headline": "Whitespace reading brief",
+            "detail_path": "details/whitespace-reading-brief-3333333333.html",
+        },
+    )
+    mismatched_story = base_story.model_copy(
+        deep=True,
+        update={
+            "id": "other-reading-brief-3333333333",
+            "headline": "Mismatched reading brief",
+            "detail_path": "details/other-reading-brief-3333333333.html",
+        },
+    )
+    local_articles_by_story_id = {
+        story.id: _signal_briefing_local_article().model_copy(
+            deep=True,
+            update={"story_id": story.id, "title": f"{story.headline} article"},
+        )
+        for story in (
+            safe_story,
+            unsafe_id_story,
+            traversal_story,
+            nested_story,
+            hidden_story,
+            whitespace_story,
+            mismatched_story,
+        )
+    }
+    local_articles_by_story_id[empty_article_story.id] = (
+        _signal_briefing_local_article().model_copy(
+            deep=True,
+            update={
+                "story_id": empty_article_story.id,
+                "title": "Empty article reading brief article",
+                "paragraphs": [],
+            },
+        )
+    )
+
+    html = render_index_html(
+        _edition_with_stories(
+            safe_story,
+            unsafe_id_story,
+            missing_article_story,
+            empty_article_story,
+            traversal_story,
+            nested_story,
+            hidden_story,
+            whitespace_story,
+            mismatched_story,
+        ),
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_article_reading_brief_article_hrefs_by_story_id={
+            safe_story.id: "safe-reading-brief-1111111111.html",
+            unsafe_id_story.id: "unsafe-reading-brief-2222222222.html",
+            empty_article_story.id: "empty-reading-brief-2222222222.html",
+            traversal_story.id: "../secret.html",
+            nested_story.id: "nested/story.html",
+            hidden_story.id: ".hidden.html",
+            whitespace_story.id: "white space.html",
+            mismatched_story.id: "mismatch-reading-brief-3333333333.html",
+        },
+    )
+    section_html = _daily_local_article_reading_brief_section_html(html)
+
+    assert "Safe reading brief" in section_html
+    assert "Unsafe id reading brief" not in section_html
+    assert "Missing article reading brief" not in section_html
+    assert "Empty article reading brief" not in section_html
+    assert "Secret reading brief" not in section_html
+    assert "Nested reading brief" not in section_html
+    assert "Hidden reading brief" not in section_html
+    assert "Whitespace reading brief" not in section_html
+    assert "Mismatched reading brief" not in section_html
+    assert "../secret" not in section_html
+    assert "nested/story.html" not in section_html
+    assert ".hidden.html" not in section_html
+    assert "white space.html" not in section_html
+    assert "mismatch-reading-brief-3333333333.html" not in section_html
+
+
+def test_render_index_html_labels_daily_local_article_reading_brief_paragraph_action() -> None:
+    story = _edition().stories[0]
+    article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "story_id": story.id,
+            "paragraphs": ["", "Second usable paragraph for the reading brief."],
+            "paragraphs_zh": ["", "第二个可用段落。"],
+        },
+    )
+
+    html = render_index_html(
+        _edition(),
+        local_articles_by_story_id={story.id: article},
+        daily_local_article_reading_brief_article_hrefs_by_story_id={
+            story.id: f"{story.id}.html",
+        },
+    )
+    section_html = _daily_local_article_reading_brief_section_html(html)
+
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-paragraph-2"' in (
+        section_html
+    )
+    assert "Open paragraph 2" in section_html
+    assert "打开段落 2" in section_html
+    assert "Open paragraph 1" not in section_html
+    assert "打开段落 1" not in section_html
+
+
+def test_render_index_html_daily_local_article_reading_brief_handles_bodyless_items() -> None:
+    story = (
+        _edition()
+        .stories[0]
+        .model_copy(
+            deep=True,
+            update={
+                "why_it_matters": LocalizedText(en="", zh=""),
+                "product_refs": [],
+            },
+        )
+    )
+    article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "story_id": story.id,
+            "brief_sections": [],
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="product_signals",
+                    title=LocalizedText(en="Products", zh="单品"),
+                    body=LocalizedText(en="", zh=""),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="Bodyless cue", zh="无正文线索"),
+                            body=None,
+                            paragraph_indices=[0],
+                        )
+                    ],
+                )
+            ],
+            "paragraphs": ["Paragraph fallback after bodyless item."],
+            "paragraphs_zh": ["无正文条目后的段落兜底。"],
+        },
+    )
+
+    html = render_index_html(
+        _edition_with_stories(story),
+        local_articles_by_story_id={story.id: article},
+        daily_local_article_reading_brief_article_hrefs_by_story_id={
+            story.id: f"{story.id}.html",
+        },
+    )
+    section_html = _daily_local_article_reading_brief_section_html(html)
+
+    assert "Paragraph fallback after bodyless item." in section_html
+    assert "无正文条目后的段落兜底。" in section_html
+
+
+def test_render_index_html_omits_daily_local_article_reading_brief_without_eligible_articles() -> (
+    None
+):
+    html = render_index_html(
+        _edition(),
+        local_articles_by_story_id={},
+        daily_local_article_reading_brief_article_hrefs_by_story_id={},
+    )
+
+    assert 'class="daily-local-article-reading-brief"' not in html
+    assert "Daily Local Article Reading Brief" not in html
+
+
+def test_render_index_html_places_daily_local_article_reading_brief_between_sections() -> None:
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[
+                    RowOneSavedArticleContentOrganizationCard(
+                        title=LocalizedText(en="Organization card", zh="组织卡片"),
+                        source_name="Vogue Business",
+                        section_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                        section_label=LocalizedText(en="Entity", zh="实体"),
+                        lead=LocalizedText(en="Safe lead", zh="安全摘要"),
+                        detail_path=(
+                            "details/the-row-signal-1234567890.html#local-article-content-section-1"
+                        ),
+                        paragraph_indices=(0,),
+                        references=(),
+                    )
+                ],
+            )
+        ]
+    )
+    html = render_index_html(
+        _edition(),
+        saved_article_content_organization=organization,
+        local_articles_by_story_id={
+            "the-row-signal-1234567890": _signal_briefing_local_article(),
+        },
+        daily_local_article_capsules_article_hrefs_by_story_id={
+            "the-row-signal-1234567890": "the-row-signal-1234567890.html",
+        },
+        daily_local_article_reading_brief_article_hrefs_by_story_id={
+            "the-row-signal-1234567890": "the-row-signal-1234567890.html",
+        },
+    )
+
+    assert html.index('class="daily-local-article-capsules"') < html.index(
+        'class="daily-local-article-reading-brief"'
+    )
+    assert html.index('class="daily-local-article-reading-brief"') < html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
 def test_render_index_html_places_daily_local_key_signals_digest_between_saved_sections() -> None:
     briefs = RowOneSavedArticleBriefs(
         article_count=1,
@@ -12611,6 +13175,31 @@ def test_row_one_css_includes_daily_local_article_capsules_styles() -> None:
         ".daily-local-article-capsule-paragraph",
         ".daily-local-article-capsule-refs",
         ".daily-local-article-capsule-link",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_daily_local_article_reading_brief_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-article-reading-brief",
+        ".daily-local-article-reading-brief-header",
+        ".daily-local-article-reading-brief-metrics",
+        ".daily-local-article-reading-brief-grid",
+        ".daily-local-article-reading-brief-group",
+        ".daily-local-article-reading-brief-group-header",
+        ".daily-local-article-reading-brief-items",
+        ".daily-local-article-reading-brief-item",
+        ".daily-local-article-reading-brief-title",
+        ".daily-local-article-reading-brief-meta",
+        ".daily-local-article-reading-brief-reason",
+        ".daily-local-article-reading-brief-refs",
+        ".daily-local-article-reading-brief-ref",
+        ".daily-local-article-reading-brief-article-title",
+        ".daily-local-article-reading-brief-source",
+        ".daily-local-article-reading-brief-excerpt",
+        ".daily-local-article-reading-brief-action",
     ):
         assert selector in css
 
