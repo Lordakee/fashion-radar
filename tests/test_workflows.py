@@ -558,6 +558,20 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "daily-local-key-signals" not in generated_contract_payload
     assert "daily-key-signals" not in generated_contract_payload
     assert "local-key-signals-digest" not in generated_contract_payload
+    assert '"daily_local_signal_momentum"' not in generated_contract_payload
+    assert '"daily_local_momentum"' not in generated_contract_payload
+    assert '"daily_signal_momentum"' not in generated_contract_payload
+    assert '"local_signal_momentum"' not in generated_contract_payload
+    assert '"signal_momentum"' not in generated_contract_payload
+    assert "Daily Local Signal Momentum" not in generated_contract_payload
+    assert "Daily Local Momentum" not in generated_contract_payload
+    assert "Daily Signal Momentum" not in generated_contract_payload
+    assert "Local Signal Momentum" not in generated_contract_payload
+    assert "daily-local-signal-momentum" not in generated_contract_payload
+    assert "daily-local-momentum" not in generated_contract_payload
+    assert "daily-signal-momentum" not in generated_contract_payload
+    assert "local-signal-momentum" not in generated_contract_payload
+    assert "signal-momentum" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -932,6 +946,16 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "daily_local_key_signals",
         "daily_key_signals",
         "local_key_signals_digest",
+        "daily-local-signal-momentum",
+        "daily-local-momentum",
+        "daily-signal-momentum",
+        "local-signal-momentum",
+        "signal-momentum",
+        "daily_local_signal_momentum",
+        "daily_local_momentum",
+        "daily_signal_momentum",
+        "local_signal_momentum",
+        "signal_momentum",
     ):
         for artifact_dir in (output_dir, output_dir / "articles", output_dir / "data"):
             for suffix in (".json", ".html"):
@@ -1045,6 +1069,21 @@ def test_stage_357_daily_local_key_signals_digest_stays_generated_site_only(
         row_one_templates,
         "_render_daily_local_key_signals_digest",
         lambda _digest: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_358_daily_local_signal_momentum_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_daily_local_signal_momentum",
+        lambda *_args, **_kwargs: "",
         raising=False,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)

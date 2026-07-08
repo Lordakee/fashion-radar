@@ -3969,6 +3969,71 @@ def test_render_row_one_site_writes_daily_local_key_signals_digest_homepage_only
             assert not (directory / f"{stem}.html").exists()
 
 
+def test_render_row_one_site_writes_daily_local_signal_momentum_homepage_only(
+    tmp_path,
+) -> None:
+    story = _edition().stories[0]
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+
+    section_html = _daily_local_signal_momentum_section_html(homepage_html)
+    assert "Daily Local Signal Momentum" in section_html
+    assert "每日本地信号动量" in section_html
+    assert "The Row" in section_html
+    assert "Alaia flats" in section_html
+    assert "Products" in section_html
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-digest"' in (section_html)
+    assert 'class="daily-local-signal-momentum"' not in library_html
+    assert 'class="daily-local-signal-momentum"' not in article_html
+    assert 'class="daily-local-signal-momentum"' not in detail_html
+    assert "daily_local_signal_momentum" not in generated_contract_payload
+    assert "daily-local-signal-momentum" not in generated_contract_payload
+    assert "Daily Local Signal Momentum" not in generated_contract_payload
+    for stem in (
+        "daily-local-signal-momentum",
+        "daily-local-momentum",
+        "signal-momentum",
+        "daily_local_signal_momentum",
+        "daily_local_momentum",
+        "signal_momentum",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
+def test_write_local_article_pages_rejects_orphaned_href_mapping(tmp_path) -> None:
+    story = _edition().stories[0]
+
+    with pytest.raises(ValueError, match="local_article_page_specs"):
+        row_one_render._write_local_article_pages(
+            _edition(),
+            tmp_path / "articles",
+            local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+            local_article_page_hrefs_by_detail_path={
+                "details/other-1234567890.html": "other-1234567890.html",
+            },
+        )
+
+
 def test_render_row_one_site_local_article_page_paragraph_context_cues_are_html_only(
     tmp_path,
 ) -> None:
@@ -6826,6 +6891,18 @@ def _saved_article_content_organization_section_html(index_html: str) -> str:
 
 def _daily_local_key_signals_digest_section_html(index_html: str) -> str:
     marker = '<section class="daily-local-key-signals-digest"'
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is None:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + next_section.start()
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _daily_local_signal_momentum_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-signal-momentum"'
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
     next_section = re.search(r"\n\s*<section class=", tail)
@@ -10583,6 +10660,173 @@ def test_render_index_html_includes_daily_local_key_signals_digest() -> None:
     assert "Daily Local Key Signals Digest" not in omitted_html
 
 
+def test_render_index_html_includes_daily_local_signal_momentum() -> None:
+    leaderboard = RowOneSavedArticleDailySignalLeaderboard(
+        bucket_count=3,
+        item_count=3,
+        buckets=(
+            RowOneSavedArticleDailySignalLeaderboardBucket(
+                key="brands",
+                title=LocalizedText(en="Brands", zh="品牌"),
+                items=(
+                    RowOneSavedArticleDailySignalLeaderboardItem(
+                        label=LocalizedText(en="The Row <brand>", zh="The Row <品牌>"),
+                        article_count=2,
+                        source_count=1,
+                        supports=(
+                            RowOneSavedArticleDailySignalLeaderboardSupport(
+                                title=LocalizedText(
+                                    en="The Row source <script>",
+                                    zh="The Row 来源 <script>",
+                                ),
+                                source_name="Vogue <Business>",
+                                href=(
+                                    "details/the-row-signal-1234567890.html#local-article-digest"
+                                ),
+                                detail_path="details/the-row-signal-1234567890.html",
+                            ),
+                            RowOneSavedArticleDailySignalLeaderboardSupport(
+                                title=LocalizedText(
+                                    en="Fallback detail source",
+                                    zh="备用详情来源",
+                                ),
+                                source_name="WWD",
+                                href=(
+                                    "details/the-row-signal-fallback-1234567890.html"
+                                    "#local-article-digest"
+                                ),
+                                detail_path="details/the-row-signal-fallback-1234567890.html",
+                            ),
+                            RowOneSavedArticleDailySignalLeaderboardSupport(
+                                title=LocalizedText(en="Unsafe JS", zh="不安全 JS"),
+                                source_name="Bad",
+                                href="javascript:alert(1)",
+                                detail_path="details/unsafe-js.html",
+                            ),
+                            RowOneSavedArticleDailySignalLeaderboardSupport(
+                                title=LocalizedText(en="Unsafe traversal", zh="不安全穿越"),
+                                source_name="Bad",
+                                href=(
+                                    "../details/the-row-signal-1234567890.html#local-article-digest"
+                                ),
+                                detail_path="details/unsafe-traversal.html",
+                            ),
+                            RowOneSavedArticleDailySignalLeaderboardSupport(
+                                title=LocalizedText(en="Unsafe fragment", zh="不安全片段"),
+                                source_name="Bad",
+                                href="details/the-row-signal-1234567890.html#summary",
+                                detail_path="details/unsafe-fragment.html",
+                            ),
+                            RowOneSavedArticleDailySignalLeaderboardSupport(
+                                title=LocalizedText(en="Unsafe mapped secret", zh="不安全映射"),
+                                source_name="Bad",
+                                href="details/unsafe-map-secret.html#summary",
+                                detail_path="details/unsafe-map-secret.html",
+                            ),
+                            RowOneSavedArticleDailySignalLeaderboardSupport(
+                                title=LocalizedText(en="Unsafe mapped nested", zh="不安全嵌套"),
+                                source_name="Bad",
+                                href="details/unsafe-map-nested.html#summary",
+                                detail_path="details/unsafe-map-nested.html",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            RowOneSavedArticleDailySignalLeaderboardBucket(
+                key="products",
+                title=LocalizedText(en="Products", zh="产品"),
+                items=(
+                    RowOneSavedArticleDailySignalLeaderboardItem(
+                        label=LocalizedText(en="Margaux bag", zh="Margaux 手袋"),
+                        article_count=1,
+                        source_count=1,
+                        supports=(
+                            RowOneSavedArticleDailySignalLeaderboardSupport(
+                                title=LocalizedText(en="Product article", zh="产品文章"),
+                                source_name="Vogue Business",
+                                href=(
+                                    "details/the-row-signal-1234567890.html#local-article-digest"
+                                ),
+                                detail_path="details/the-row-signal-1234567890.html",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            RowOneSavedArticleDailySignalLeaderboardBucket(
+                key="themes",
+                title=LocalizedText(en="Themes", zh="主题"),
+                items=(
+                    RowOneSavedArticleDailySignalLeaderboardItem(
+                        label=LocalizedText(en="Quiet luxury", zh="静奢"),
+                        article_count=1,
+                        source_count=1,
+                        supports=(
+                            RowOneSavedArticleDailySignalLeaderboardSupport(
+                                title=LocalizedText(en="Theme article", zh="主题文章"),
+                                source_name="Vogue Business",
+                                href=(
+                                    "details/the-row-signal-1234567890.html#local-article-digest"
+                                ),
+                                detail_path="details/the-row-signal-1234567890.html",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    index_html = render_index_html(
+        _edition(),
+        daily_local_signal_momentum=leaderboard,
+        daily_local_signal_momentum_hrefs_by_detail_path={
+            "details/the-row-signal-1234567890.html": "the-row-signal-1234567890.html",
+            "details/unsafe-map-secret.html": "../secret.html",
+            "details/unsafe-map-nested.html": "unsafe/story.html",
+        },
+    )
+    section_html = _daily_local_signal_momentum_section_html(index_html)
+    omitted_html = render_index_html(_edition(), daily_local_signal_momentum=None)
+
+    assert 'class="daily-local-signal-momentum"' in section_html
+    assert "Daily Local Signal Momentum" in section_html
+    assert "每日本地信号动量" in section_html
+    assert "Brands" in section_html
+    assert "Products" in section_html
+    assert "Themes" in section_html
+    assert "The Row &lt;brand&gt;" in section_html
+    assert "The Row &lt;品牌&gt;" in section_html
+    assert "2 articles" in section_html
+    assert "1 source" in section_html
+    assert "Margaux bag" in section_html
+    assert "Quiet luxury" in section_html
+    assert "The Row source &lt;script&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-digest"' in section_html
+    assert (
+        'href="details/the-row-signal-fallback-1234567890.html#local-article-digest"'
+        in section_html
+    )
+    assert "<script>" not in section_html
+    assert "<brand>" not in section_html
+    assert "<品牌>" not in section_html
+    assert "<Business>" not in section_html
+    assert "javascript:alert" not in section_html
+    assert "../details" not in section_html
+    assert "../secret.html" not in section_html
+    assert "unsafe/story.html" not in section_html
+    assert "#summary" not in section_html
+    assert "Unsafe JS" not in section_html
+    assert "Unsafe traversal" not in section_html
+    assert "Unsafe fragment" not in section_html
+    assert "Unsafe mapped secret" not in section_html
+    assert "Unsafe mapped nested" not in section_html
+    assert 'class="daily-local-signal-momentum"' not in omitted_html
+    assert "Daily Local Signal Momentum" not in omitted_html
+
+
 def test_render_index_html_places_daily_local_key_signals_digest_between_saved_sections() -> None:
     briefs = RowOneSavedArticleBriefs(
         article_count=1,
@@ -10649,6 +10893,97 @@ def test_render_index_html_places_daily_local_key_signals_digest_between_saved_s
         'class="daily-local-key-signals-digest"'
     )
     assert index_html.index('class="daily-local-key-signals-digest"') < index_html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
+def test_render_index_html_places_daily_local_signal_momentum_between_sections() -> None:
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[
+                    RowOneSavedArticleContentOrganizationCard(
+                        title=LocalizedText(en="Organization card", zh="组织卡片"),
+                        source_name="Vogue Business",
+                        section_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                        section_label=LocalizedText(en="Entity", zh="实体"),
+                        lead=LocalizedText(en="Safe lead", zh="安全摘要"),
+                        detail_path=(
+                            "details/the-row-signal-1234567890.html#local-article-content-section-1"
+                        ),
+                        paragraph_indices=(0,),
+                        references=(),
+                    )
+                ],
+            )
+        ]
+    )
+    digest = RowOneDailyLocalKeySignalsDigest(
+        article_count=1,
+        groups=(
+            RowOneDailyLocalKeySignalsDigestGroup(
+                key="why_it_matters",
+                title=LocalizedText(en="Why It Matters", zh="为什么重要"),
+                total_count=1,
+                entries=(
+                    RowOneDailyLocalKeySignalsDigestEntry(
+                        title=LocalizedText(en="Digest entry", zh="摘要条目"),
+                        body=LocalizedText(en="Digest body.", zh="摘要正文。"),
+                        href=(
+                            "articles/the-row-signal-1234567890.html"
+                            "#saved-article-key-signals-title"
+                        ),
+                        source_name="Vogue Business",
+                    ),
+                ),
+            ),
+        ),
+    )
+    leaderboard = RowOneSavedArticleDailySignalLeaderboard(
+        bucket_count=1,
+        item_count=1,
+        buckets=(
+            RowOneSavedArticleDailySignalLeaderboardBucket(
+                key="brands",
+                title=LocalizedText(en="Brands", zh="品牌"),
+                items=(
+                    RowOneSavedArticleDailySignalLeaderboardItem(
+                        label=LocalizedText(en="The Row", zh="The Row"),
+                        article_count=1,
+                        source_count=1,
+                        supports=(
+                            RowOneSavedArticleDailySignalLeaderboardSupport(
+                                title=LocalizedText(en="The Row source", zh="The Row 来源"),
+                                source_name="Vogue Business",
+                                href=(
+                                    "details/the-row-signal-1234567890.html#local-article-digest"
+                                ),
+                                detail_path="details/the-row-signal-1234567890.html",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    index_html = render_index_html(
+        _edition(),
+        daily_local_key_signals_digest=digest,
+        daily_local_signal_momentum=leaderboard,
+        daily_local_signal_momentum_hrefs_by_detail_path={
+            "details/the-row-signal-1234567890.html": "the-row-signal-1234567890.html",
+        },
+        saved_article_content_organization=organization,
+    )
+
+    assert index_html.index('class="daily-local-key-signals-digest"') < index_html.index(
+        'class="daily-local-signal-momentum"'
+    )
+    assert index_html.index('class="daily-local-signal-momentum"') < index_html.index(
         'class="saved-article-content-organization"'
     )
 
@@ -11138,6 +11473,24 @@ def test_row_one_css_includes_daily_local_key_signals_digest_styles() -> None:
         ".daily-local-key-signals-digest-entry",
         ".daily-local-key-signals-digest-meta",
         ".daily-local-key-signals-digest-action",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_daily_local_signal_momentum_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-signal-momentum",
+        ".daily-local-signal-momentum-header",
+        ".daily-local-signal-momentum-metrics",
+        ".daily-local-signal-momentum-grid",
+        ".daily-local-signal-momentum-bucket",
+        ".daily-local-signal-momentum-item",
+        ".daily-local-signal-momentum-label",
+        ".daily-local-signal-momentum-counts",
+        ".daily-local-signal-momentum-supports",
+        ".daily-local-signal-momentum-support",
     ):
         assert selector in css
 

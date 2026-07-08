@@ -1849,6 +1849,68 @@ def test_row_one_docs_describe_stage_353_saved_article_read_next_clusters_bounda
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_358_daily_local_signal_momentum_boundary() -> None:
+    expected = _normalized(
+        "Stage 358 adds generated-site only Daily Local Signal Momentum as a "
+        "homepage-only section inside `index.html` after Daily Local Key "
+        "Signals Digest and before Saved Article Content Organization; it "
+        "reuses Stage 350 Saved Article Daily Signal Leaderboard data to show "
+        "current-edition support counts only, not historical trend deltas, "
+        "without changing app-facing contracts; it does not create "
+        "`data/daily-local-signal-momentum.json`, does not create "
+        "`data/daily-local-momentum.json`, does not create "
+        "`data/signal-momentum.json`, and does not change app contracts, "
+        "schemas, JSON artifacts, fetching, scoring, LLM, connector, "
+        "scheduling, deployment, analytics, personalization, recommendation, "
+        "or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_358_pos = normalized.index(
+            "stage 358 adds generated-site only daily local signal momentum"
+        )
+        stage_357_pos = normalized.index(
+            "stage 357 adds generated-site only daily local key signals digest"
+        )
+        assert stage_358_pos < stage_357_pos
+        stage = normalized[stage_358_pos:stage_357_pos]
+        for stale_phrase in (
+            "adds historical trend",
+            "historical time-series",
+            "time-series",
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "creates `data/daily-local-signal-momentum.json`",
+            "writes `data/daily-local-signal-momentum.json`",
+            "creates `data/daily-local-momentum.json`",
+            "writes `data/daily-local-momentum.json`",
+            "creates `data/signal-momentum.json`",
+            "writes `data/signal-momentum.json`",
+            "creates `data/daily_local_signal_momentum.json`",
+            "writes `data/daily_local_signal_momentum.json`",
+            "creates `data/daily_local_momentum.json`",
+            "writes `data/daily_local_momentum.json`",
+            "creates `data/signal_momentum.json`",
+            "writes `data/signal_momentum.json`",
+            "writes a new json artifact",
+            "adds fetching",
+            "adds scoring",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_357_daily_local_key_signals_digest_boundary() -> None:
     expected = _normalized(
         "Stage 357 adds generated-site only Daily Local Key Signals Digest as a "

@@ -185,6 +185,13 @@ def render_row_one_site(
         saved_article_content_organization,
         local_articles_by_story_id,
     )
+    local_article_page_specs = _local_article_page_specs(
+        edition,
+        local_articles_by_story_id=local_articles_by_story_id,
+    )
+    local_article_page_hrefs_by_detail_path = _local_article_page_hrefs_by_detail_path(
+        local_article_page_specs
+    )
     editorial_brief = _editorial_brief_payload(edition, local_articles_by_story_id)
     index_path = output_dir / "index.html"
     index_path.write_text(
@@ -197,6 +204,10 @@ def render_row_one_site(
             saved_signal_index=saved_signal_index,
             saved_article_briefs=saved_article_briefs,
             daily_local_key_signals_digest=daily_local_key_signals_digest,
+            daily_local_signal_momentum=saved_article_daily_signal_leaderboard,
+            daily_local_signal_momentum_hrefs_by_detail_path=(
+                local_article_page_hrefs_by_detail_path
+            ),
             saved_article_content_organization=saved_article_content_organization,
             editorial_brief=editorial_brief,
             local_articles_by_story_id=local_articles_by_story_id,
@@ -221,6 +232,8 @@ def render_row_one_site(
         saved_article_daily_signal_leaderboard=saved_article_daily_signal_leaderboard,
         saved_article_evidence_board=saved_article_evidence_board,
         local_articles_by_story_id=local_articles_by_story_id,
+        local_article_page_specs=local_article_page_specs,
+        local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
     )
     data_dir = output_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -323,6 +336,9 @@ def _write_saved_article_library_page(
     saved_article_daily_signal_leaderboard: RowOneSavedArticleDailySignalLeaderboard | None,
     saved_article_evidence_board: RowOneSavedArticleEvidenceBoard | None,
     local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    local_article_page_specs: Sequence[tuple[RowOneStory, RowOneLocalArticle, str, str]]
+    | None = None,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None = None,
 ) -> None:
     if saved_article_library is None:
         return
@@ -333,6 +349,8 @@ def _write_saved_article_library_page(
         local_articles_by_story_id=local_articles_by_story_id,
         saved_article_library=saved_article_library,
         saved_article_content_organization=saved_article_content_organization,
+        local_article_page_specs=local_article_page_specs,
+        local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
     )
     (articles_dir / "index.html").write_text(
         render_saved_article_library_html(
@@ -358,6 +376,15 @@ def _local_article_page_href(story_id: str) -> str | None:
     return f"{story_id}.html"
 
 
+def _local_article_page_hrefs_by_detail_path(
+    local_article_page_specs: Sequence[tuple[RowOneStory, RowOneLocalArticle, str, str]],
+) -> dict[str, str]:
+    return {
+        detail_path: article_page_href
+        for _story, _article, article_page_href, detail_path in local_article_page_specs
+    }
+
+
 def _write_local_article_pages(
     edition: RowOneEdition,
     articles_dir: Path,
@@ -365,15 +392,27 @@ def _write_local_article_pages(
     local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
     saved_article_library: RowOneSavedArticleLibrary | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
+    local_article_page_specs: Sequence[tuple[RowOneStory, RowOneLocalArticle, str, str]]
+    | None = None,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
-    page_specs = _local_article_page_specs(
-        edition,
-        local_articles_by_story_id=local_articles_by_story_id,
+    if local_article_page_specs is None and local_article_page_hrefs_by_detail_path is not None:
+        raise ValueError(
+            "local_article_page_hrefs_by_detail_path requires local_article_page_specs"
+        )
+    page_specs = (
+        list(local_article_page_specs)
+        if local_article_page_specs is not None
+        else _local_article_page_specs(
+            edition,
+            local_articles_by_story_id=local_articles_by_story_id,
+        )
     )
-    hrefs_by_detail_path = {
-        detail_path: article_page_href
-        for story, _article, article_page_href, detail_path in page_specs
-    }
+    hrefs_by_detail_path = (
+        dict(local_article_page_hrefs_by_detail_path)
+        if local_article_page_hrefs_by_detail_path is not None
+        else _local_article_page_hrefs_by_detail_path(page_specs)
+    )
     for story, article, article_page_href, _detail_path in page_specs:
         companion = build_row_one_saved_article_local_reading_companion(
             story=story,

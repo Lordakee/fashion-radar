@@ -237,6 +237,8 @@ def render_index_html(
     saved_signal_index: RowOneSavedSignalIndex | None = None,
     saved_article_briefs: RowOneSavedArticleBriefs | None = None,
     daily_local_key_signals_digest: RowOneDailyLocalKeySignalsDigest | None = None,
+    daily_local_signal_momentum: RowOneSavedArticleDailySignalLeaderboard | None = None,
+    daily_local_signal_momentum_hrefs_by_detail_path: Mapping[str, str] | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     editorial_brief: _EditorialBrief | None = None,
     local_articles_by_story_id: dict[str, RowOneLocalArticle] | None = None,
@@ -261,6 +263,10 @@ def render_index_html(
     saved_article_briefs_section = _render_saved_article_briefs(saved_article_briefs)
     daily_local_key_signals_digest_section = _render_daily_local_key_signals_digest(
         daily_local_key_signals_digest
+    )
+    daily_local_signal_momentum_section = _render_daily_local_signal_momentum(
+        daily_local_signal_momentum,
+        local_article_page_hrefs_by_detail_path=daily_local_signal_momentum_hrefs_by_detail_path,
     )
     saved_article_content_organization_section = _render_saved_article_content_organization(
         saved_article_content_organization
@@ -354,6 +360,7 @@ def render_index_html(
 {saved_article_library_entry}
 {saved_article_briefs_section}
 {daily_local_key_signals_digest_section}
+{daily_local_signal_momentum_section}
 {saved_article_content_organization_section}
 {editorial_brief_section}
 {lead_story_block}
@@ -3439,6 +3446,116 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   text-decoration: none;
   text-transform: uppercase;
 }
+.daily-local-signal-momentum {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-local-signal-momentum-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-local-signal-momentum-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.1rem, 4.5vw, 5.2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.94;
+  margin: 0;
+}
+.daily-local-signal-momentum-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.daily-local-signal-momentum-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+.daily-local-signal-momentum-metrics span {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-signal-momentum-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.daily-local-signal-momentum-bucket {
+  background: var(--panel);
+  display: grid;
+  gap: 12px;
+  min-height: 260px;
+  padding: 14px;
+}
+.daily-local-signal-momentum-bucket h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.25rem, 2vw, 2.05rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.daily-local-signal-momentum-item {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+}
+.daily-local-signal-momentum-label {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.daily-local-signal-momentum-counts {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.68rem;
+  font-weight: 700;
+  gap: 6px 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.daily-local-signal-momentum-supports {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.daily-local-signal-momentum-support {
+  display: grid;
+  gap: 3px;
+}
+.daily-local-signal-momentum-support a {
+  color: var(--ink);
+  font-size: 0.84rem;
+  line-height: 1.35;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+}
+.daily-local-signal-momentum-support > span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 .saved-article-content-organization {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -5014,6 +5131,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-intelligence-grid { grid-template-columns: 1fr; }
   .daily-local-key-signals-digest-header { grid-template-columns: 1fr; }
   .daily-local-key-signals-digest-grid { grid-template-columns: 1fr; }
+  .daily-local-signal-momentum-header { grid-template-columns: 1fr; }
+  .daily-local-signal-momentum-grid { grid-template-columns: 1fr; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
   .saved-article-library-entry-header { grid-template-columns: 1fr; }
@@ -8783,6 +8902,180 @@ def _saved_article_daily_signal_leaderboard_support_href(
         ):
             return f"{page_href}#local-article-digest"
     return _saved_article_library_page_href(support.href)
+
+
+def _render_daily_local_signal_momentum(
+    leaderboard: RowOneSavedArticleDailySignalLeaderboard | None,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    if leaderboard is None or not leaderboard.buckets:
+        return ""
+    buckets = [
+        bucket_html
+        for bucket in leaderboard.buckets
+        if (
+            bucket_html := _render_daily_local_signal_momentum_bucket(
+                bucket,
+                local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+            )
+        )
+    ]
+    if not buckets:
+        return ""
+    item_count_en = _count_label(leaderboard.item_count, "signal", "signals")
+    bucket_count_en = _count_label(leaderboard.bucket_count, "bucket", "buckets")
+    return f"""<section class="daily-local-signal-momentum"
+  aria-label="Daily local signal momentum">
+  <div class="daily-local-signal-momentum-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Daily Local Signal Momentum</span>
+        <span data-lang="zh">每日本地信号动量</span>
+      </p>
+      <h2>
+        <span data-lang="en">Today's strongest saved local signals</span>
+        <span data-lang="zh">今日最集中的本地保存信号</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">
+        Current-edition brand, product, and theme concentration from saved local articles.
+      </span>
+      <span data-lang="zh">
+        基于当前版本已保存本地文章，汇总品牌、单品与主题的集中度。
+      </span>
+    </p>
+  </div>
+  <div class="daily-local-signal-momentum-metrics">
+    <span>{_esc(item_count_en)}</span>
+    <span>{_esc(bucket_count_en)}</span>
+    <span data-lang="en">Current-edition support counts</span>
+    <span data-lang="zh">当前版本支持计数</span>
+  </div>
+  <div class="daily-local-signal-momentum-grid">{"".join(buckets)}</div>
+</section>"""
+
+
+def _render_daily_local_signal_momentum_bucket(
+    bucket: RowOneSavedArticleDailySignalLeaderboardBucket,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    items = [
+        item_html
+        for item in bucket.items
+        if (
+            item_html := _render_daily_local_signal_momentum_item(
+                item,
+                local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+            )
+        )
+    ]
+    if not items:
+        return ""
+    return f"""    <article class="daily-local-signal-momentum-bucket"
+      aria-label="{_esc(bucket.title.en)}">
+      <h3>
+        <span data-lang="en">{_esc(bucket.title.en)}</span>
+        <span data-lang="zh">{_esc(bucket.title.zh)}</span>
+      </h3>
+      {"".join(items)}
+    </article>"""
+
+
+def _render_daily_local_signal_momentum_item(
+    item: RowOneSavedArticleDailySignalLeaderboardItem,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    supports = [
+        support_html
+        for support in item.supports
+        if (
+            support_html := _render_daily_local_signal_momentum_support(
+                support,
+                local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+            )
+        )
+    ]
+    if not supports:
+        return ""
+    article_count_en = _count_label(item.article_count, "article", "articles")
+    source_count_en = _count_label(item.source_count, "source", "sources")
+    return f"""      <div class="daily-local-signal-momentum-item">
+        <div class="daily-local-signal-momentum-label">
+          <span data-lang="en">{_esc(item.label.en)}</span>
+          <span data-lang="zh">{_esc(item.label.zh)}</span>
+        </div>
+        <div class="daily-local-signal-momentum-counts">
+          <span data-lang="en">{_esc(article_count_en)}</span>
+          <span data-lang="zh">{_esc(f"{item.article_count} 篇文章")}</span>
+          <span data-lang="en">{_esc(source_count_en)}</span>
+          <span data-lang="zh">{_esc(f"{item.source_count} 个来源")}</span>
+        </div>
+        <ul class="daily-local-signal-momentum-supports">{"".join(supports)}</ul>
+      </div>"""
+
+
+def _render_daily_local_signal_momentum_support(
+    support: RowOneSavedArticleDailySignalLeaderboardSupport,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    href = _daily_local_signal_momentum_support_href(
+        support,
+        local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+    )
+    if href is None:
+        return ""
+    return f"""<li class="daily-local-signal-momentum-support">
+          <a href="{_esc(href)}">
+            <span data-lang="en">{_esc(support.title.en)}</span>
+            <span data-lang="zh">{_esc(support.title.zh)}</span>
+          </a>
+          <span>{_esc(support.source_name)}</span>
+        </li>"""
+
+
+def _daily_local_signal_momentum_support_href(
+    support: RowOneSavedArticleDailySignalLeaderboardSupport,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str | None:
+    if local_article_page_hrefs_by_detail_path:
+        mapped_href = _safe_daily_local_signal_momentum_page_href(
+            local_article_page_hrefs_by_detail_path.get(support.detail_path)
+        )
+        if mapped_href is not None:
+            return f"articles/{mapped_href}#local-article-digest"
+    return _safe_daily_local_signal_momentum_detail_href(support.href)
+
+
+def _safe_daily_local_signal_momentum_page_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if href.startswith((".", "/", "//")):
+        return None
+    path = PurePosixPath(href)
+    if (
+        path.is_absolute()
+        or len(path.parts) != 1
+        or path.name in ("", ".", "..")
+        or ".." in path.parts
+        or not path.name.endswith(".html")
+    ):
+        return None
+    story_id = path.name.removesuffix(".html")
+    if not safe_local_article_story_id(story_id):
+        return None
+    return f"{story_id}.html"
+
+
+def _safe_daily_local_signal_momentum_detail_href(href: object) -> str | None:
+    return safe_row_one_detail_fragment_href(href, "local-article-digest")
 
 
 def _render_saved_signal_index(
