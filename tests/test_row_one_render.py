@@ -5396,6 +5396,255 @@ def test_render_saved_article_library_canonicalizes_content_organization_links()
     assert "details/./the-row-signal-1234567890.html" not in section_html
 
 
+def test_render_saved_article_content_organization_group_summary() -> None:
+    first_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="First summary card", zh="第一张摘要卡"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        lead=LocalizedText(en="First lead", zh="第一条摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0, 1, 1),
+        references=(
+            RowOneReference(name="The Row", type="brand", label="brand"),
+            RowOneReference(name="Margaux", type="product", label="bag"),
+        ),
+    )
+    second_card = replace(
+        first_card,
+        title=LocalizedText(en="Second summary card", zh="第二张摘要卡"),
+        source_name="Business of Fashion",
+        detail_path="details/another-signal-1234567890.html#local-article-content-section-2",
+        paragraph_indices=(0,),
+        references=(RowOneReference(name="The Row", type="brand", label="brand"),),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[first_card, second_card],
+            )
+        ]
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    section_html = _saved_article_content_organization_section_html(html)
+    summary_start = section_html.index('class="saved-article-content-organization-summary"')
+    summary_end = section_html.index(
+        'class="saved-article-content-organization-grid"',
+        summary_start,
+    )
+    summary_html = section_html[summary_start:summary_end]
+
+    assert 'class="saved-article-content-organization-summary"' in section_html
+    assert "2 saved cards" in section_html
+    assert "2 saved articles" in section_html
+    assert "2 sources" in section_html
+    assert "3 evidence paragraphs" in section_html
+    assert summary_html.count('class="saved-article-content-organization-summary-ref"') == 2
+    assert summary_html.count("The Row") == 1
+    assert "Margaux" in summary_html
+    assert section_html.index('class="saved-article-content-organization-summary"') < (
+        section_html.index('class="saved-article-content-organization-grid"')
+    )
+
+
+def test_content_organization_group_summary_dedupes_article_sections() -> None:
+    base_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="First section", zh="第一栏目"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        lead=LocalizedText(en="First lead", zh="第一条摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[
+                    base_card,
+                    replace(
+                        base_card,
+                        title=LocalizedText(en="Second section", zh="第二栏目"),
+                        detail_path=(
+                            "details/the-row-signal-1234567890.html#local-article-content-section-2"
+                        ),
+                        paragraph_indices=(1,),
+                    ),
+                ],
+            )
+        ]
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    section_html = _saved_article_content_organization_section_html(html)
+
+    assert "2 saved cards" in section_html
+    assert "1 saved article" in section_html
+    assert "1 source" in section_html
+    assert "2 evidence paragraphs" in section_html
+
+
+def test_render_saved_article_content_organization_group_summary_dedupes_sources() -> None:
+    base_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="First source", zh="第一来源"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        lead=LocalizedText(en="First lead", zh="第一条摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[
+                    base_card,
+                    replace(
+                        base_card,
+                        title=LocalizedText(en="Second source", zh="第二来源"),
+                        source_name="  vogue   business  ",
+                        detail_path=(
+                            "details/another-signal-1234567890.html#local-article-content-section-2"
+                        ),
+                    ),
+                ],
+            )
+        ]
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    section_html = _saved_article_content_organization_section_html(html)
+
+    assert "2 saved cards" in section_html
+    assert "2 saved articles" in section_html
+    assert "1 source" in section_html
+    assert "2 sources" not in section_html
+
+
+def test_render_saved_article_content_organization_group_summary_filters_unsafe_cards() -> None:
+    safe_card = RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en="Safe summary card", zh="安全摘要卡"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        lead=LocalizedText(en="Safe lead", zh="安全摘要"),
+        detail_path="details/the-row-signal-1234567890.html#local-article-content-section-1",
+        paragraph_indices=(0,),
+        references=(RowOneReference(name="Safe Ref", type="brand", label="tracked"),),
+    )
+    unsafe_card = replace(
+        safe_card,
+        title=LocalizedText(en="Unsafe summary card", zh="不安全摘要卡"),
+        source_name="Unsafe Source",
+        detail_path="javascript:alert(1)#local-article-content-section-1",
+        paragraph_indices=(0, 1, 2),
+        references=(RowOneReference(name="Unsafe Ref", type="brand", label="tracked"),),
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[safe_card, unsafe_card],
+            )
+        ]
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    section_html = _saved_article_content_organization_section_html(html)
+
+    assert "1 saved card" in section_html
+    assert "1 saved article" in section_html
+    assert "1 source" in section_html
+    assert "1 evidence paragraph" in section_html
+    assert "Safe Ref" in section_html
+    assert "Unsafe Ref" not in section_html
+    assert "Unsafe Source" not in section_html
+    assert "javascript:alert" not in section_html
+
+
+def test_render_saved_article_content_organization_group_summary_escapes_and_caps_refs() -> None:
+    cards = []
+    for index in range(1, 7):
+        cards.append(
+            RowOneSavedArticleContentOrganizationCard(
+                title=LocalizedText(en=f"Card {index}", zh=f"卡片 {index}"),
+                source_name="Source",
+                section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+                section_label=LocalizedText(en="Products", zh="产品"),
+                lead=LocalizedText(en="Lead", zh="摘要"),
+                detail_path=(
+                    f"details/the-row-signal-1234567890.html#local-article-content-section-{index}"
+                ),
+                paragraph_indices=(0,),
+                references=(
+                    RowOneReference(
+                        name=f"Ref <{index}>",
+                        type="brand",
+                        label=f"Label <{index}>",
+                    ),
+                ),
+            )
+        )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="products",
+                title=LocalizedText(en="Products", zh="产品"),
+                dek=LocalizedText(en="Product context", zh="产品背景"),
+                cards=cards,
+            )
+        ]
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_content_organization=organization,
+    )
+    section_html = _saved_article_content_organization_section_html(html)
+    summary_start = section_html.index('class="saved-article-content-organization-summary"')
+    summary_end = section_html.index(
+        'class="saved-article-content-organization-grid"',
+        summary_start,
+    )
+    summary_html = section_html[summary_start:summary_end]
+
+    assert "Ref &lt;1&gt;" in summary_html
+    assert "Label &lt;1&gt;" in summary_html
+    assert "Ref <1>" not in summary_html
+    assert "Ref &lt;6&gt;" not in summary_html
+
+
 def test_render_saved_article_library_html_escapes_and_truncates_theme_digest() -> None:
     digest = RowOneSavedArticleThemeDigest(
         theme_count=1,
@@ -7798,6 +8047,18 @@ def test_row_one_css_includes_stage_323_local_first_and_evidence_selectors() -> 
         ".saved-article-content-organization-card-link",
         ".saved-article-content-organization-evidence",
         ".saved-article-content-organization-evidence-link",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_saved_article_content_organization_group_summary_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".saved-article-content-organization-summary",
+        ".saved-article-content-organization-summary-metric",
+        ".saved-article-content-organization-summary-refs",
+        ".saved-article-content-organization-summary-ref",
     ):
         assert selector in css
 

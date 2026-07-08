@@ -117,6 +117,7 @@ EDITORIAL_BRIEF_BODY_EXCERPT_CHARS = 220
 EDITORIAL_BRIEF_MAX_TRAIL_ITEMS = 3
 SAVED_ARTICLE_LIBRARY_SNIPPETS_PER_CARD = 3
 SAVED_ARTICLE_CONTENT_ORGANIZATION_EVIDENCE_LINK_LIMIT = 3
+SAVED_ARTICLE_CONTENT_ORGANIZATION_SUMMARY_MAX_REFS = 5
 
 
 @dataclass(frozen=True)
@@ -2401,6 +2402,31 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .saved-article-content-organization-group-header p {
   color: var(--muted);
   max-width: 520px;
+}
+.saved-article-content-organization-summary {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+.saved-article-content-organization-summary-metrics,
+.saved-article-content-organization-summary-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.saved-article-content-organization-summary-metric,
+.saved-article-content-organization-summary-ref {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  gap: 5px;
+  padding: 6px 8px;
+}
+.saved-article-content-organization-summary-ref span:last-child {
+  color: var(--muted);
 }
 .saved-article-content-organization-grid {
   background: var(--line);
@@ -6127,6 +6153,7 @@ def _render_saved_article_content_organization_group(
     *,
     href_prefix: str = "",
 ) -> str:
+    summary = _render_saved_article_content_organization_group_summary(group)
     cards = [
         _render_saved_article_content_organization_card(card, href_prefix=href_prefix)
         for card in group.cards
@@ -6145,8 +6172,134 @@ def _render_saved_article_content_organization_group(
           <span data-lang="zh">{_esc(group.dek.zh)}</span>
         </p>
       </div>
+{summary}
       <div class="saved-article-content-organization-grid">{"".join(cards)}</div>
     </article>"""
+
+
+def _render_saved_article_content_organization_group_summary(
+    group: RowOneSavedArticleContentOrganizationGroup,
+) -> str:
+    safe_cards: list[tuple[RowOneSavedArticleContentOrganizationCard, str]] = []
+    for card in group.cards:
+        href = _safe_saved_article_content_organization_href(card.detail_path)
+        if href is None:
+            continue
+        safe_cards.append((card, href))
+    if not safe_cards:
+        return ""
+
+    source_names = {
+        normalized_source.casefold()
+        for card, _href in safe_cards
+        if (normalized_source := normalize_row_one_paragraph(card.source_name))
+    }
+    detail_paths = {
+        detail_path
+        for _card, href in safe_cards
+        if (detail_path := _saved_article_content_organization_detail_path_key(href))
+    }
+    evidence_keys: set[tuple[str, int]] = set()
+    for card, href in safe_cards:
+        detail_key = _saved_article_content_organization_detail_path_key(href)
+        if not detail_key:
+            continue
+        for paragraph_index in card.paragraph_indices:
+            if not isinstance(paragraph_index, int) or isinstance(paragraph_index, bool):
+                continue
+            if paragraph_index < 0:
+                continue
+            evidence_keys.add((detail_key, paragraph_index))
+
+    metrics = "".join(
+        (
+            _render_saved_article_content_organization_summary_metric(
+                _count_label(len(safe_cards), "saved card", "saved cards"),
+                f"{len(safe_cards)} 张卡片",
+            ),
+            _render_saved_article_content_organization_summary_metric(
+                _count_label(len(detail_paths), "saved article", "saved articles"),
+                f"{len(detail_paths)} 篇文章",
+            ),
+            _render_saved_article_content_organization_summary_metric(
+                _count_label(len(source_names), "source", "sources"),
+                f"{len(source_names)} 个来源",
+            ),
+            _render_saved_article_content_organization_summary_metric(
+                _count_label(
+                    len(evidence_keys),
+                    "evidence paragraph",
+                    "evidence paragraphs",
+                ),
+                f"{len(evidence_keys)} 个证据段落",
+            ),
+        )
+    )
+    ref_block = _render_saved_article_content_organization_summary_refs(
+        _saved_article_content_organization_summary_refs(safe_cards)
+    )
+    return f"""      <div class="saved-article-content-organization-summary">
+        <div class="saved-article-content-organization-summary-metrics">{metrics}</div>
+{ref_block}
+      </div>"""
+
+
+def _saved_article_content_organization_detail_path_key(href: str) -> str:
+    path, _separator, _fragment = href.partition("#")
+    safe_path = validated_row_one_detail_relative_path(path)
+    return str(safe_path) if safe_path is not None else ""
+
+
+def _render_saved_article_content_organization_summary_metric(
+    value_en: str,
+    value_zh: str,
+) -> str:
+    return (
+        '<span class="saved-article-content-organization-summary-metric">'
+        f'<span data-lang="en">{_esc(value_en)}</span>'
+        f'<span data-lang="zh">{_esc(value_zh)}</span>'
+        "</span>"
+    )
+
+
+def _saved_article_content_organization_summary_refs(
+    safe_cards: Sequence[tuple[RowOneSavedArticleContentOrganizationCard, str]],
+) -> list[RowOneReference]:
+    refs: list[RowOneReference] = []
+    seen: set[tuple[str, str, str]] = set()
+    for card, _href in safe_cards:
+        for ref in card.references:
+            name = normalize_row_one_paragraph(ref.name)
+            ref_type = normalize_row_one_paragraph(ref.type)
+            label = normalize_row_one_paragraph(ref.label)
+            if not name:
+                continue
+            key = (name.casefold(), ref_type.casefold(), label.casefold())
+            if key in seen:
+                continue
+            seen.add(key)
+            refs.append(RowOneReference(name=name, type=ref_type, label=label))
+            if len(refs) >= SAVED_ARTICLE_CONTENT_ORGANIZATION_SUMMARY_MAX_REFS:
+                return refs
+    return refs
+
+
+def _render_saved_article_content_organization_summary_refs(
+    refs: Sequence[RowOneReference],
+) -> str:
+    if not refs:
+        return ""
+    chips = "".join(
+        '<span class="saved-article-content-organization-summary-ref">'
+        f"<span>{_esc(ref.name)}</span>"
+        f"<span>{_esc(ref.label.strip() or ref.type.strip())}</span>"
+        "</span>"
+        for ref in refs
+    )
+    return f"""        <div class="saved-article-content-organization-summary-refs"
+          aria-label="Saved article content organization group references">
+{chips}
+        </div>"""
 
 
 def _render_saved_article_content_organization_card(
