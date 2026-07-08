@@ -72,6 +72,11 @@ from fashion_radar.row_one.saved_article_reading_paths import (
     RowOneSavedArticleReadingPaths,
     RowOneSavedArticleReadingPathStep,
 )
+from fashion_radar.row_one.saved_article_reading_queue import (
+    RowOneSavedArticleReadingQueue,
+    RowOneSavedArticleReadingQueueItem,
+    build_row_one_saved_article_reading_queue,
+)
 from fashion_radar.row_one.saved_article_reference_atlas import (
     RowOneSavedArticleReferenceAtlas,
     RowOneSavedArticleReferenceAtlasBucket,
@@ -343,6 +348,7 @@ def render_saved_article_library_html(
     saved_article_signal_facets: RowOneSavedArticleSignalFacets | None = None,
     saved_article_daily_signal_leaderboard: RowOneSavedArticleDailySignalLeaderboard | None = None,
     saved_article_organization_jump_index: RowOneSavedArticleOrganizationJumpIndex | None = None,
+    saved_article_reading_queue: RowOneSavedArticleReadingQueue | None = None,
     saved_article_evidence_board: RowOneSavedArticleEvidenceBoard | None = None,
     local_article_page_hrefs_by_detail_path: Mapping[str, str] | None = None,
 ) -> str:
@@ -413,6 +419,15 @@ def render_saved_article_library_html(
         organization_jump_index_model,
         target_ids=target_ids,
     )
+    reading_queue_model = (
+        saved_article_reading_queue
+        if saved_article_reading_queue is not None
+        else build_row_one_saved_article_reading_queue(
+            library,
+            local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+        )
+    )
+    reading_queue = _render_saved_article_reading_queue(reading_queue_model)
     daily_summary = _render_saved_article_daily_summary(
         library,
         source_routes=source_routes,
@@ -467,6 +482,7 @@ def render_saved_article_library_html(
   </section>
   {daily_summary}
   {organization_jump_index}
+  {reading_queue}
   {signal_facets}
   {daily_signal_leaderboard}
   {theme_digest}
@@ -1973,6 +1989,74 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   color: var(--muted);
   font-size: 0.76rem;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-reading-queue {
+  border-bottom: 1px solid var(--ink);
+  display: grid;
+  gap: 18px;
+  padding-bottom: 28px;
+}
+.saved-article-reading-queue-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.36fr) minmax(0, 1fr);
+}
+.saved-article-reading-queue-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 5vw, 5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.95;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-reading-queue-header p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-reading-queue-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-reading-queue-item {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-top: 12px;
+}
+.saved-article-reading-queue-title {
+  color: var(--ink);
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 1.16rem;
+  line-height: 1.15;
+  text-decoration: none;
+}
+.saved-article-reading-queue-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  gap: 6px 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-reading-queue-action {
+  align-self: start;
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  padding: 8px 10px;
+  text-decoration: none;
   text-transform: uppercase;
 }
 .saved-article-signal-facets {
@@ -5844,6 +5928,115 @@ def _saved_article_organization_jump_index_href(
         return None
     target_id = href.removeprefix("#")
     if target_id not in target_ids:
+        return None
+    return href
+
+
+def _render_saved_article_reading_queue(
+    queue: RowOneSavedArticleReadingQueue | None,
+) -> str:
+    if queue is None or not queue.items:
+        return ""
+    rendered_items = tuple(
+        item_html
+        for item in queue.items
+        if (item_html := _render_saved_article_reading_queue_item(item))
+    )
+    if not rendered_items:
+        return ""
+    items = "\n".join(rendered_items)
+    item_count = len(rendered_items)
+    item_count_en = _count_label(item_count, "article", "articles")
+    summary_en = f"{_esc(item_count_en)} queued from saved local article bodies."
+    summary_zh = f"{_esc(str(item_count))} 篇本地保存文章进入阅读队列。"
+    return f"""<section class="saved-article-reading-queue"
+  id="saved-article-reading-queue"
+  aria-label="Saved article reading queue">
+  <div class="saved-article-reading-queue-header">
+    <p class="eyebrow">Reading Queue</p>
+    <h2>
+      <span data-lang="en">Saved Article Reading Queue</span>
+      <span data-lang="zh">保存文章阅读队列</span>
+    </h2>
+    <p>
+      <span data-lang="en">{summary_en}</span>
+      <span data-lang="zh">{summary_zh}</span>
+    </p>
+  </div>
+  <ol class="saved-article-reading-queue-list">
+{items}
+  </ol>
+</section>"""
+
+
+def _render_saved_article_reading_queue_item(
+    item: RowOneSavedArticleReadingQueueItem,
+) -> str:
+    href = _saved_article_reading_queue_href(item.href)
+    if href is None:
+        return ""
+    paragraph_count_en = _count_label(
+        item.saved_paragraph_count,
+        "saved paragraph",
+        "saved paragraphs",
+    )
+    section_count_en = _count_label(
+        item.organized_section_count,
+        "organized section",
+        "organized sections",
+    )
+    paragraph_count_zh = f"{item.saved_paragraph_count} 个保存段落"
+    section_count_zh = f"{item.organized_section_count} 个整理分区"
+    return f"""    <li class="saved-article-reading-queue-item">
+      <div>
+        <a class="saved-article-reading-queue-title" href="{_esc(href)}">
+          <span data-lang="en">{_esc(item.title.en)}</span>
+          <span data-lang="zh">{_esc(item.title.zh)}</span>
+        </a>
+        <div class="saved-article-reading-queue-meta">
+          <span>{_esc(item.source_name)}</span>
+          <span>
+            <span data-lang="en">{_esc(item.body_source_label.en)}</span>
+            <span data-lang="zh">{_esc(item.body_source_label.zh)}</span>
+          </span>
+          <span>
+            <span data-lang="en">{_esc(paragraph_count_en)}</span>
+            <span data-lang="zh">{_esc(paragraph_count_zh)}</span>
+          </span>
+          <span>
+            <span data-lang="en">{_esc(section_count_en)}</span>
+            <span data-lang="zh">{_esc(section_count_zh)}</span>
+          </span>
+        </div>
+      </div>
+      <a class="saved-article-reading-queue-action" href="{_esc(href)}">
+        <span data-lang="en">Open</span>
+        <span data-lang="zh">打开</span>
+      </a>
+    </li>"""
+
+
+def _saved_article_reading_queue_href(href: str) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if href.startswith(("http:", "https:", "//", "javascript:")):
+        return None
+    if href.startswith("../details/"):
+        detail_href = href.removeprefix("../")
+        safe_href = safe_row_one_detail_fragment_href(detail_href, "local-article-digest")
+        if safe_href is None or f"../{safe_href}" != href:
+            return None
+        return href
+    if href.startswith(".") or href.startswith("/") or "/" in href:
+        return None
+    page_href, separator, fragment = href.partition("#")
+    if not separator or fragment != "local-article-digest":
+        return None
+    if not page_href.endswith(".html"):
+        return None
+    if not safe_local_article_story_id(page_href.removesuffix(".html")):
         return None
     return href
 

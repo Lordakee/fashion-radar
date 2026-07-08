@@ -76,6 +76,10 @@ from fashion_radar.row_one.saved_article_reading_paths import (
     RowOneSavedArticleReadingPathStep,
     build_row_one_saved_article_reading_paths,
 )
+from fashion_radar.row_one.saved_article_reading_queue import (
+    RowOneSavedArticleReadingQueue,
+    RowOneSavedArticleReadingQueueItem,
+)
 from fashion_radar.row_one.saved_article_reference_atlas import (
     RowOneSavedArticleReferenceAtlas,
     RowOneSavedArticleReferenceAtlasBucket,
@@ -3979,6 +3983,137 @@ def test_render_row_one_site_includes_saved_article_organization_jump_index_in_l
     assert 'class="saved-article-organization-jump-index"' not in detail_html
 
 
+def test_render_row_one_site_includes_saved_article_reading_queue_in_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _reference_atlas_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    section_html = _saved_article_reading_queue_section_html(library_html)
+
+    assert 'class="saved-article-reading-queue"' in section_html
+    assert "Saved Article Reading Queue" in section_html
+    assert "保存文章阅读队列" in section_html
+    assert "Reference atlas source article" in section_html
+    assert "Vogue Business" in section_html
+    assert "Extracted article text" in section_html
+    assert "3 saved paragraphs" in section_html
+    assert "3 organized sections" in section_html
+    assert 'href="the-row-signal-1234567890.html#local-article-digest"' in section_html
+    assert library_html.index('class="saved-article-organization-jump-index"') < (
+        library_html.index('class="saved-article-reading-queue"')
+    )
+    assert library_html.index('class="saved-article-reading-queue"') < library_html.index(
+        'class="saved-article-signal-facets"'
+    )
+    assert 'class="saved-article-reading-queue"' not in homepage_html
+    assert 'class="saved-article-reading-queue"' not in detail_html
+
+
+def test_render_saved_article_library_html_escapes_reading_queue_and_revalidates_links() -> None:
+    queue = RowOneSavedArticleReadingQueue(
+        item_count=3,
+        items=(
+            RowOneSavedArticleReadingQueueItem(
+                title=LocalizedText(en="Unsafe <Article>", zh="不安全 <文章>"),
+                source_name="Vogue <Business>",
+                body_source_label=LocalizedText(en="Extracted <Text>", zh="已提取 <正文>"),
+                saved_paragraph_count=2,
+                organized_section_count=3,
+                href="../details/the-row-signal-1234567890.html#local-article-digest",
+                detail_path="details/the-row-signal-1234567890.html",
+            ),
+            RowOneSavedArticleReadingQueueItem(
+                title=LocalizedText(en="JavaScript link", zh="脚本链接"),
+                source_name="Unsafe Source",
+                body_source_label=LocalizedText(en="Skipped", zh="已跳过"),
+                saved_paragraph_count=1,
+                organized_section_count=1,
+                href="javascript:alert(1)",
+                detail_path="details/the-row-signal-1234567890.html",
+            ),
+            RowOneSavedArticleReadingQueueItem(
+                title=LocalizedText(en="Outbound link", zh="外部链接"),
+                source_name="External Source",
+                body_source_label=LocalizedText(en="Skipped", zh="已跳过"),
+                saved_paragraph_count=1,
+                organized_section_count=1,
+                href="https://example.com/article.html#local-article-digest",
+                detail_path="details/the-row-signal-1234567890.html",
+            ),
+        ),
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_reading_queue=queue,
+    )
+    section_html = _saved_article_reading_queue_section_html(html)
+
+    assert "Unsafe &lt;Article&gt;" in section_html
+    assert "不安全 &lt;文章&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "Extracted &lt;Text&gt;" in section_html
+    assert "已提取 &lt;正文&gt;" in section_html
+    assert "Unsafe <Article>" not in section_html
+    assert "Vogue <Business>" not in section_html
+    assert "javascript:" not in section_html
+    assert "https://example.com" not in section_html
+    assert "JavaScript link" not in section_html
+    assert "Outbound link" not in section_html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-digest"' in section_html
+
+
+def test_render_saved_article_library_html_omits_empty_reading_queue_shell() -> None:
+    empty_queue = RowOneSavedArticleReadingQueue(item_count=0, items=())
+    filtered_queue = RowOneSavedArticleReadingQueue(
+        item_count=2,
+        items=(
+            RowOneSavedArticleReadingQueueItem(
+                title=LocalizedText(en="Unsafe traversal", zh="不安全路径"),
+                source_name="Unsafe Source",
+                body_source_label=LocalizedText(en="Skipped", zh="已跳过"),
+                saved_paragraph_count=1,
+                organized_section_count=1,
+                href="../details/../unsafe-1234567890.html#local-article-digest",
+                detail_path="details/unsafe-1234567890.html",
+            ),
+            RowOneSavedArticleReadingQueueItem(
+                title=LocalizedText(en="Whitespace link", zh="空白链接"),
+                source_name="Unsafe Source",
+                body_source_label=LocalizedText(en="Skipped", zh="已跳过"),
+                saved_paragraph_count=1,
+                organized_section_count=1,
+                href="the-row-signal-1234567890.html #local-article-digest",
+                detail_path="details/the-row-signal-1234567890.html",
+            ),
+        ),
+    )
+
+    for queue in (empty_queue, filtered_queue):
+        html = render_saved_article_library_html(
+            _edition(),
+            _saved_article_library_fixture(),
+            saved_article_reading_queue=queue,
+        )
+        assert 'class="saved-article-reading-queue"' not in html
+        assert "Saved Article Reading Queue" not in html
+        assert "Unsafe traversal" not in html
+        assert "Whitespace link" not in html
+
+
 def test_render_saved_article_library_html_escapes_daily_signal_leaderboard() -> None:
     leaderboard = RowOneSavedArticleDailySignalLeaderboard(
         bucket_count=1,
@@ -5845,6 +5980,25 @@ def _saved_article_daily_signal_leaderboard_section_html(index_html: str) -> str
 
 def _saved_article_organization_jump_index_section_html(index_html: str) -> str:
     marker = '<section class="saved-article-organization-jump-index"'
+    assert marker in index_html
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    boundary_offsets: list[int] = []
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is not None:
+        boundary_offsets.append(next_section.start())
+    library_grid = tail.find('<div class="saved-article-library-grid"')
+    if library_grid >= 0:
+        boundary_offsets.append(library_grid)
+    if not boundary_offsets:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + min(boundary_offsets)
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _saved_article_reading_queue_section_html(index_html: str) -> str:
+    marker = '<section class="saved-article-reading-queue"'
     assert marker in index_html
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
@@ -9913,6 +10067,13 @@ def test_row_one_css_includes_saved_article_library_styles(tmp_path) -> None:
         ".saved-article-source-routes-label",
         ".saved-article-source-routes-meta",
         ".saved-article-source-routes-link",
+        ".saved-article-reading-queue",
+        ".saved-article-reading-queue-header",
+        ".saved-article-reading-queue-list",
+        ".saved-article-reading-queue-item",
+        ".saved-article-reading-queue-title",
+        ".saved-article-reading-queue-meta",
+        ".saved-article-reading-queue-action",
         ".saved-article-signal-facets",
         ".saved-article-signal-facets-header",
         ".saved-article-signal-facets-grid",

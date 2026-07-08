@@ -585,6 +585,11 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "organization-jump-index" not in generated_contract_payload
     assert "local-article-organization" not in generated_contract_payload
     assert "article-organization" not in generated_contract_payload
+    assert "saved_article_reading_queue" not in generated_contract_payload
+    assert "article_reading_queue" not in generated_contract_payload
+    assert "Saved Article Reading Queue" not in generated_contract_payload
+    assert "saved-article-reading-queue" not in generated_contract_payload
+    assert "article-reading-queue" not in generated_contract_payload
     assert "Saved Paragraph Context Cues" not in generated_contract_payload
     assert "saved-paragraph-context-cues" not in generated_contract_payload
     assert "local-article-paragraph-contexts" not in generated_contract_payload
@@ -783,6 +788,18 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "article-organization.html",
         output_dir / "articles" / "article-organization.html",
         output_dir / "data" / "article-organization.html",
+        output_dir / "saved-article-reading-queue.json",
+        output_dir / "articles" / "saved-article-reading-queue.json",
+        output_dir / "data" / "saved-article-reading-queue.json",
+        output_dir / "saved-article-reading-queue.html",
+        output_dir / "articles" / "saved-article-reading-queue.html",
+        output_dir / "data" / "saved-article-reading-queue.html",
+        output_dir / "article-reading-queue.json",
+        output_dir / "articles" / "article-reading-queue.json",
+        output_dir / "data" / "article-reading-queue.json",
+        output_dir / "article-reading-queue.html",
+        output_dir / "articles" / "article-reading-queue.html",
+        output_dir / "data" / "article-reading-queue.html",
     ):
         assert not artifact_path.exists()
     assert stored == stored_before
@@ -809,6 +826,21 @@ def test_stage_350_saved_article_daily_signal_leaderboard_stays_generated_site_o
 def test_stage_351_saved_article_organization_jump_index_stays_generated_site_only(
     tmp_path: Path,
 ) -> None:
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_352_saved_article_reading_queue_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_saved_article_reading_queue",
+        lambda _queue: "",
+        raising=False,
+    )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
 
 
