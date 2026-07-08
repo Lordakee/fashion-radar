@@ -43,6 +43,12 @@ from fashion_radar.row_one.saved_article_coverage import (
     RowOneSavedArticleCoverage,
     RowOneSavedArticleCoverageItem,
 )
+from fashion_radar.row_one.saved_article_daily_signal_leaderboard import (
+    RowOneSavedArticleDailySignalLeaderboard,
+    RowOneSavedArticleDailySignalLeaderboardBucket,
+    RowOneSavedArticleDailySignalLeaderboardItem,
+    RowOneSavedArticleDailySignalLeaderboardSupport,
+)
 from fashion_radar.row_one.saved_article_evidence_board import (
     RowOneSavedArticleEvidenceBoard,
     RowOneSavedArticleEvidenceBoardCard,
@@ -328,6 +334,7 @@ def render_saved_article_library_html(
     saved_article_theme_digest: RowOneSavedArticleThemeDigest | None = None,
     saved_article_reference_atlas: RowOneSavedArticleReferenceAtlas | None = None,
     saved_article_signal_facets: RowOneSavedArticleSignalFacets | None = None,
+    saved_article_daily_signal_leaderboard: RowOneSavedArticleDailySignalLeaderboard | None = None,
     saved_article_evidence_board: RowOneSavedArticleEvidenceBoard | None = None,
     local_article_page_hrefs_by_detail_path: Mapping[str, str] | None = None,
 ) -> str:
@@ -361,6 +368,10 @@ def render_saved_article_library_html(
         saved_article_signal_facets,
         local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
     )
+    daily_signal_leaderboard = _render_saved_article_daily_signal_leaderboard(
+        saved_article_daily_signal_leaderboard,
+        local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+    )
     reading_paths = _render_saved_article_reading_paths(
         saved_article_reading_paths,
         section_id="saved-article-reading-paths",
@@ -383,6 +394,7 @@ def render_saved_article_library_html(
         theme_digest_html=theme_digest,
         reference_atlas_html=reference_atlas,
         signal_facets_html=signal_facets,
+        daily_signal_leaderboard_html=daily_signal_leaderboard,
         evidence_board_html=evidence_board,
         local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
     )
@@ -427,6 +439,7 @@ def render_saved_article_library_html(
   </section>
   {daily_summary}
   {signal_facets}
+  {daily_signal_leaderboard}
   {theme_digest}
   {reference_atlas}
   {signal_index}
@@ -1936,6 +1949,89 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .saved-article-signal-facets-empty {
   color: var(--muted);
   font-size: 0.82rem;
+}
+.saved-article-daily-signal-leaderboard {
+  border-bottom: 1px solid var(--ink);
+  display: grid;
+  gap: 18px;
+  padding-bottom: 28px;
+}
+.saved-article-daily-signal-leaderboard-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.36fr) minmax(0, 1fr);
+}
+.saved-article-daily-signal-leaderboard-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 5vw, 5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.95;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-daily-signal-leaderboard-header p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-daily-signal-leaderboard-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.saved-article-daily-signal-leaderboard-bucket {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 14px;
+}
+.saved-article-daily-signal-leaderboard-bucket h3 {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+.saved-article-daily-signal-leaderboard-item {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+.saved-article-daily-signal-leaderboard-label {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 1.1rem;
+  line-height: 1.15;
+}
+.saved-article-daily-signal-leaderboard-metrics {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  gap: 6px 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-daily-signal-leaderboard-supports {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-daily-signal-leaderboard-support {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.82rem;
+  gap: 4px;
+}
+.saved-article-daily-signal-leaderboard-support a {
+  color: var(--ink);
+  text-decoration-thickness: 1px;
 }
 .saved-signal-index-grid {
   background: var(--line);
@@ -5280,6 +5376,7 @@ def _render_saved_article_daily_summary(
     theme_digest_html: str,
     reference_atlas_html: str,
     signal_facets_html: str,
+    daily_signal_leaderboard_html: str,
     evidence_board_html: str,
     local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
 ) -> str:
@@ -5307,6 +5404,13 @@ def _render_saved_article_daily_summary(
             "信号切面",
         )
         if signal_facets_html
+        else "",
+        _render_saved_article_daily_summary_link(
+            "#saved-article-daily-signal-leaderboard",
+            "Daily Signal Leaderboard",
+            "每日信号榜",
+        )
+        if daily_signal_leaderboard_html
         else "",
         _render_saved_article_daily_summary_link(
             "#saved-signal-index",
@@ -6812,6 +6916,140 @@ def _render_saved_article_signal_facet_chip(
         f'<span data-lang="zh">{_esc(chip.label.zh)}</span>'
         "</span>"
     )
+
+
+def _render_saved_article_daily_signal_leaderboard(
+    leaderboard: RowOneSavedArticleDailySignalLeaderboard | None,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    if leaderboard is None or not leaderboard.buckets:
+        return ""
+    buckets = "\n".join(
+        _render_saved_article_daily_signal_leaderboard_bucket(
+            bucket,
+            local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+        )
+        for bucket in leaderboard.buckets
+        if bucket.items
+    )
+    if not buckets:
+        return ""
+    item_count_en = _count_label(leaderboard.item_count, "signal", "signals")
+    bucket_count_en = _count_label(leaderboard.bucket_count, "bucket", "buckets")
+    summary_en = (
+        f"{_esc(item_count_en)} across {_esc(bucket_count_en)}, "
+        "aggregated from saved article signal facets."
+    )
+    summary_zh = (
+        f"{_esc(str(leaderboard.item_count))} 个信号，按 "
+        f"{_esc(str(leaderboard.bucket_count))} 个分组汇总。"
+    )
+    return f"""<section class="saved-article-daily-signal-leaderboard"
+  id="saved-article-daily-signal-leaderboard"
+  aria-label="Saved article daily signal leaderboard">
+  <div class="saved-article-daily-signal-leaderboard-header">
+    <p class="eyebrow">Daily Signal Leaderboard</p>
+    <h2>
+      <span data-lang="en">Daily Signal Leaderboard</span>
+      <span data-lang="zh">每日信号榜</span>
+    </h2>
+    <p>
+      <span data-lang="en">{summary_en}</span>
+      <span data-lang="zh">{summary_zh}</span>
+    </p>
+  </div>
+  <div class="saved-article-daily-signal-leaderboard-grid">
+{buckets}
+  </div>
+</section>"""
+
+
+def _render_saved_article_daily_signal_leaderboard_bucket(
+    bucket: RowOneSavedArticleDailySignalLeaderboardBucket,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    items = "\n".join(
+        _render_saved_article_daily_signal_leaderboard_item(
+            item,
+            local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+        )
+        for item in bucket.items
+    )
+    return f"""    <div class="saved-article-daily-signal-leaderboard-bucket"
+      aria-label="{_esc(bucket.title.en)}">
+      <h3>
+        <span data-lang="en">{_esc(bucket.title.en)}</span>
+        <span data-lang="zh">{_esc(bucket.title.zh)}</span>
+      </h3>
+{items}
+    </div>"""
+
+
+def _render_saved_article_daily_signal_leaderboard_item(
+    item: RowOneSavedArticleDailySignalLeaderboardItem,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    article_count_en = _count_label(item.article_count, "article", "articles")
+    source_count_en = _count_label(item.source_count, "source", "sources")
+    supports = "".join(
+        _render_saved_article_daily_signal_leaderboard_support(
+            support,
+            local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+        )
+        for support in item.supports
+    )
+    return f"""      <article class="saved-article-daily-signal-leaderboard-item">
+        <div class="saved-article-daily-signal-leaderboard-label">
+          <span data-lang="en">{_esc(item.label.en)}</span>
+          <span data-lang="zh">{_esc(item.label.zh)}</span>
+        </div>
+        <div class="saved-article-daily-signal-leaderboard-metrics">
+          <span data-lang="en">{_esc(article_count_en)}</span>
+          <span data-lang="zh">{_esc(f"{item.article_count} 篇文章")}</span>
+          <span data-lang="en">{_esc(source_count_en)}</span>
+          <span data-lang="zh">{_esc(f"{item.source_count} 个来源")}</span>
+        </div>
+        <ul class="saved-article-daily-signal-leaderboard-supports">{supports}</ul>
+      </article>"""
+
+
+def _render_saved_article_daily_signal_leaderboard_support(
+    support: RowOneSavedArticleDailySignalLeaderboardSupport,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    href = _saved_article_daily_signal_leaderboard_support_href(
+        support,
+        local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+    )
+    return f"""<li class="saved-article-daily-signal-leaderboard-support">
+          <a href="{_esc(href)}">
+            <span data-lang="en">{_esc(support.title.en)}</span>
+            <span data-lang="zh">{_esc(support.title.zh)}</span>
+          </a>
+          <span>{_esc(support.source_name)}</span>
+        </li>"""
+
+
+def _saved_article_daily_signal_leaderboard_support_href(
+    support: RowOneSavedArticleDailySignalLeaderboardSupport,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    if local_article_page_hrefs_by_detail_path:
+        page_href = local_article_page_hrefs_by_detail_path.get(support.detail_path)
+        if (
+            page_href
+            and not page_href.startswith(".")
+            and "/" not in page_href
+            and page_href.endswith(".html")
+            and safe_local_article_story_id(page_href.removesuffix(".html"))
+        ):
+            return f"{page_href}#local-article-digest"
+    return _saved_article_library_page_href(support.href)
 
 
 def _render_saved_signal_index(

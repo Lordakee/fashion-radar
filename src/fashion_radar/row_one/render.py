@@ -35,6 +35,10 @@ from fashion_radar.row_one.saved_article_content_organization import (
 from fashion_radar.row_one.saved_article_coverage import (
     build_row_one_saved_article_coverage,
 )
+from fashion_radar.row_one.saved_article_daily_signal_leaderboard import (
+    RowOneSavedArticleDailySignalLeaderboard,
+    build_row_one_saved_article_daily_signal_leaderboard,
+)
 from fashion_radar.row_one.saved_article_evidence_board import (
     RowOneSavedArticleEvidenceBoard,
     build_row_one_saved_article_evidence_board,
@@ -156,6 +160,9 @@ def render_row_one_site(
         saved_article_library,
         saved_article_content_organization,
     )
+    saved_article_daily_signal_leaderboard = build_row_one_saved_article_daily_signal_leaderboard(
+        saved_article_signal_facets
+    )
     saved_article_evidence_board = build_row_one_saved_article_evidence_board(
         edition,
         saved_article_library,
@@ -194,6 +201,7 @@ def render_row_one_site(
         saved_article_theme_digest=saved_article_theme_digest,
         saved_article_reference_atlas=saved_article_reference_atlas,
         saved_article_signal_facets=saved_article_signal_facets,
+        saved_article_daily_signal_leaderboard=saved_article_daily_signal_leaderboard,
         saved_article_evidence_board=saved_article_evidence_board,
         local_articles_by_story_id=local_articles_by_story_id,
     )
@@ -295,6 +303,7 @@ def _write_saved_article_library_page(
     saved_article_theme_digest: RowOneSavedArticleThemeDigest | None,
     saved_article_reference_atlas: RowOneSavedArticleReferenceAtlas | None,
     saved_article_signal_facets: RowOneSavedArticleSignalFacets | None,
+    saved_article_daily_signal_leaderboard: RowOneSavedArticleDailySignalLeaderboard | None,
     saved_article_evidence_board: RowOneSavedArticleEvidenceBoard | None,
     local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
 ) -> None:
@@ -316,6 +325,7 @@ def _write_saved_article_library_page(
             saved_article_theme_digest=saved_article_theme_digest,
             saved_article_reference_atlas=saved_article_reference_atlas,
             saved_article_signal_facets=saved_article_signal_facets,
+            saved_article_daily_signal_leaderboard=saved_article_daily_signal_leaderboard,
             saved_article_evidence_board=saved_article_evidence_board,
             local_article_page_hrefs_by_detail_path=article_page_hrefs_by_detail_path,
         ),

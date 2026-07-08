@@ -48,6 +48,12 @@ from fashion_radar.row_one.saved_article_coverage import (
     RowOneSavedArticleCoverageItem,
     RowOneSavedArticleCoverageSource,
 )
+from fashion_radar.row_one.saved_article_daily_signal_leaderboard import (
+    RowOneSavedArticleDailySignalLeaderboard,
+    RowOneSavedArticleDailySignalLeaderboardBucket,
+    RowOneSavedArticleDailySignalLeaderboardItem,
+    RowOneSavedArticleDailySignalLeaderboardSupport,
+)
 from fashion_radar.row_one.saved_article_evidence_board import (
     RowOneSavedArticleEvidenceBoard,
     RowOneSavedArticleEvidenceBoardCard,
@@ -3892,6 +3898,110 @@ def test_render_row_one_site_includes_saved_article_signal_facets_in_article_lib
     assert 'class="saved-article-signal-facets"' not in homepage_html
 
 
+def test_render_row_one_site_includes_saved_article_daily_signal_leaderboard_in_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _reference_atlas_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    section_html = _saved_article_daily_signal_leaderboard_section_html(library_html)
+
+    assert 'class="saved-article-daily-signal-leaderboard"' in section_html
+    assert "Daily Signal Leaderboard" in section_html
+    assert "每日信号榜" in section_html
+    assert 'href="#saved-article-daily-signal-leaderboard"' in library_html
+    assert "The Row" in section_html
+    assert "Alaia flats" in section_html
+    assert "article" in section_html
+    assert 'href="the-row-signal-1234567890.html#local-article-digest"' in section_html
+    assert library_html.index('class="saved-article-signal-facets"') < library_html.index(
+        'class="saved-article-daily-signal-leaderboard"'
+    )
+    assert library_html.index('class="saved-article-daily-signal-leaderboard"') < (
+        library_html.index('class="saved-article-theme-digest"')
+    )
+    assert 'class="saved-article-daily-signal-leaderboard"' not in homepage_html
+
+
+def test_render_saved_article_library_html_escapes_daily_signal_leaderboard() -> None:
+    leaderboard = RowOneSavedArticleDailySignalLeaderboard(
+        bucket_count=1,
+        item_count=1,
+        buckets=(
+            RowOneSavedArticleDailySignalLeaderboardBucket(
+                key="brands",
+                title=LocalizedText(en="Brands", zh="品牌"),
+                items=(
+                    RowOneSavedArticleDailySignalLeaderboardItem(
+                        label=LocalizedText(en="Unsafe <Brand>", zh="不安全 <品牌>"),
+                        article_count=2,
+                        source_count=1,
+                        supports=(
+                            RowOneSavedArticleDailySignalLeaderboardSupport(
+                                title=LocalizedText(en="Unsafe <Article>", zh="不安全 <文章>"),
+                                source_name="Vogue <Business>",
+                                href="details/the-row-signal-1234567890.html#local-article-digest",
+                                detail_path="details/the-row-signal-1234567890.html",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_daily_signal_leaderboard=leaderboard,
+        local_article_page_hrefs_by_detail_path={
+            "details/the-row-signal-1234567890.html": "javascript:alert(1).html",
+        },
+    )
+    section_html = _saved_article_daily_signal_leaderboard_section_html(html)
+
+    assert "Unsafe &lt;Brand&gt;" in section_html
+    assert "不安全 &lt;品牌&gt;" in section_html
+    assert "Unsafe &lt;Article&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "Unsafe <Brand>" not in section_html
+    assert "Unsafe <Article>" not in section_html
+    assert "javascript:" not in section_html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-digest"' in section_html
+
+
+def test_render_saved_article_library_html_omits_empty_daily_signal_leaderboard_shell() -> None:
+    empty_leaderboard = RowOneSavedArticleDailySignalLeaderboard(
+        bucket_count=0,
+        item_count=0,
+        buckets=(),
+    )
+
+    for html in (
+        render_saved_article_library_html(
+            _edition(),
+            _saved_article_library_fixture(),
+            saved_article_daily_signal_leaderboard=None,
+        ),
+        render_saved_article_library_html(
+            _edition(),
+            _saved_article_library_fixture(),
+            saved_article_daily_signal_leaderboard=empty_leaderboard,
+        ),
+    ):
+        assert 'class="saved-article-daily-signal-leaderboard"' not in html
+        assert "Daily Signal Leaderboard" not in html
+        assert 'href="#saved-article-daily-signal-leaderboard"' not in html
+
+
 def test_render_saved_article_library_html_escapes_signal_facets_and_revalidates_links() -> None:
     facets = RowOneSavedArticleSignalFacets(
         row_count=1,
@@ -5533,6 +5643,25 @@ def _saved_article_daily_summary_section_html(index_html: str) -> str:
 
 def _saved_article_signal_facets_section_html(index_html: str) -> str:
     marker = '<section class="saved-article-signal-facets"'
+    assert marker in index_html
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    boundary_offsets: list[int] = []
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is not None:
+        boundary_offsets.append(next_section.start())
+    library_grid = tail.find('<div class="saved-article-library-grid"')
+    if library_grid >= 0:
+        boundary_offsets.append(library_grid)
+    if not boundary_offsets:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + min(boundary_offsets)
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _saved_article_daily_signal_leaderboard_section_html(index_html: str) -> str:
+    marker = '<section class="saved-article-daily-signal-leaderboard"'
     assert marker in index_html
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
@@ -9609,6 +9738,15 @@ def test_row_one_css_includes_saved_article_library_styles(tmp_path) -> None:
         ".saved-article-signal-facets-source",
         ".saved-article-signal-facets-column",
         ".saved-article-signal-facets-chip",
+        ".saved-article-daily-signal-leaderboard",
+        ".saved-article-daily-signal-leaderboard-header",
+        ".saved-article-daily-signal-leaderboard-grid",
+        ".saved-article-daily-signal-leaderboard-bucket",
+        ".saved-article-daily-signal-leaderboard-item",
+        ".saved-article-daily-signal-leaderboard-label",
+        ".saved-article-daily-signal-leaderboard-metrics",
+        ".saved-article-daily-signal-leaderboard-supports",
+        ".saved-article-daily-signal-leaderboard-support",
         ".saved-article-daily-summary",
         ".saved-article-daily-summary-header",
         ".saved-article-daily-summary-metrics",

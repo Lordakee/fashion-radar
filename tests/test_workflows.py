@@ -569,6 +569,13 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "article-signal-facets" not in generated_contract_payload
     assert "signal-facets" not in generated_contract_payload
     assert "信号切面" not in generated_contract_payload
+    assert "saved_article_daily_signal_leaderboard" not in generated_contract_payload
+    assert "daily_signal_leaderboard" not in generated_contract_payload
+    assert "article_chip_leaderboard" not in generated_contract_payload
+    assert "Daily Signal Leaderboard" not in generated_contract_payload
+    assert "saved-article-daily-signal-leaderboard" not in generated_contract_payload
+    assert "article-chip-leaderboard" not in generated_contract_payload
+    assert "每日信号榜" not in generated_contract_payload
     assert "Saved Paragraph Context Cues" not in generated_contract_payload
     assert "saved-paragraph-context-cues" not in generated_contract_payload
     assert "local-article-paragraph-contexts" not in generated_contract_payload
@@ -584,7 +591,9 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         assert 'class="saved-article-source-brief"' in articles_html
         assert 'class="saved-article-source-routes"' in articles_html
         assert 'class="saved-article-signal-facets"' in articles_html
+        assert 'class="saved-article-daily-signal-leaderboard"' in articles_html
         assert "Saved Article Signal Facets" in articles_html
+        assert "Daily Signal Leaderboard" in articles_html
         assert "Saved Article Source Routes" in articles_html
         assert "来源导览" in articles_html
         assert 'href="#saved-article-source-vogue-business"' in articles_html
@@ -727,6 +736,18 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "article-signal-facets.html",
         output_dir / "articles" / "article-signal-facets.html",
         output_dir / "data" / "article-signal-facets.html",
+        output_dir / "saved-article-daily-signal-leaderboard.json",
+        output_dir / "articles" / "saved-article-daily-signal-leaderboard.json",
+        output_dir / "data" / "saved-article-daily-signal-leaderboard.json",
+        output_dir / "saved-article-daily-signal-leaderboard.html",
+        output_dir / "articles" / "saved-article-daily-signal-leaderboard.html",
+        output_dir / "data" / "saved-article-daily-signal-leaderboard.html",
+        output_dir / "article-chip-leaderboard.json",
+        output_dir / "articles" / "article-chip-leaderboard.json",
+        output_dir / "data" / "article-chip-leaderboard.json",
+        output_dir / "article-chip-leaderboard.html",
+        output_dir / "articles" / "article-chip-leaderboard.html",
+        output_dir / "data" / "article-chip-leaderboard.html",
     ):
         assert not artifact_path.exists()
     assert stored == stored_before
@@ -739,6 +760,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
 
 
 def test_stage_349_saved_article_signal_facets_stays_generated_site_only(
+    tmp_path: Path,
+) -> None:
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_350_saved_article_daily_signal_leaderboard_stays_generated_site_only(
     tmp_path: Path,
 ) -> None:
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
