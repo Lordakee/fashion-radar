@@ -173,6 +173,8 @@ SAVED_ARTICLE_CONTENT_ORGANIZATION_SUMMARY_MAX_REFS = 5
 SAVED_ARTICLE_CONTENT_ORGANIZATION_MAX_PARAGRAPH_INDEX = 50
 SAVED_ARTICLE_ORGANIZATION_COVERAGE_MAX_ROWS = 6
 SAVED_ARTICLE_ORGANIZATION_COVERAGE_MAX_REFS = 5
+DAILY_LOCAL_HEAT_SIGNALS_MAX_TOPICS = 6
+DAILY_LOCAL_HEAT_SIGNALS_MAX_STORIES = 2
 
 
 @dataclass(frozen=True)
@@ -193,6 +195,26 @@ class _EditorialBriefItem:
 @dataclass(frozen=True)
 class _EditorialBrief:
     items: tuple[_EditorialBriefItem, ...]
+
+
+@dataclass(frozen=True)
+class _DailyLocalHeatSignalStory:
+    title: LocalizedText
+    source_name: str
+    href: str
+
+
+@dataclass(frozen=True)
+class _DailyLocalHeatSignalTopic:
+    title: LocalizedText
+    label: LocalizedText
+    subtype_label: str | None
+    story_count: int
+    evidence_count: int
+    local_article_count: int
+    positive_heat_delta_sum: int
+    max_heat_delta: int
+    stories: tuple[_DailyLocalHeatSignalStory, ...]
 
 
 @dataclass(frozen=True)
@@ -239,6 +261,7 @@ def render_index_html(
     daily_local_key_signals_digest: RowOneDailyLocalKeySignalsDigest | None = None,
     daily_local_signal_momentum: RowOneSavedArticleDailySignalLeaderboard | None = None,
     daily_local_signal_momentum_hrefs_by_detail_path: Mapping[str, str] | None = None,
+    daily_local_heat_signals_article_hrefs_by_story_id: Mapping[str, str] | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     editorial_brief: _EditorialBrief | None = None,
     local_articles_by_story_id: dict[str, RowOneLocalArticle] | None = None,
@@ -267,6 +290,11 @@ def render_index_html(
     daily_local_signal_momentum_section = _render_daily_local_signal_momentum(
         daily_local_signal_momentum,
         local_article_page_hrefs_by_detail_path=daily_local_signal_momentum_hrefs_by_detail_path,
+    )
+    daily_local_heat_signals_section = _render_daily_local_heat_signals(
+        app_payload,
+        local_articles_by_story_id=local_articles_by_story_id,
+        article_hrefs_by_story_id=daily_local_heat_signals_article_hrefs_by_story_id,
     )
     saved_article_content_organization_section = _render_saved_article_content_organization(
         saved_article_content_organization
@@ -361,6 +389,7 @@ def render_index_html(
 {saved_article_briefs_section}
 {daily_local_key_signals_digest_section}
 {daily_local_signal_momentum_section}
+{daily_local_heat_signals_section}
 {saved_article_content_organization_section}
 {editorial_brief_section}
 {lead_story_block}
@@ -3556,6 +3585,122 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.daily-local-heat-signals {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-local-heat-signals-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-local-heat-signals-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.1rem, 4.5vw, 5.2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.94;
+  margin: 0;
+}
+.daily-local-heat-signals-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.daily-local-heat-signals-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+.daily-local-heat-signals-metrics span {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-heat-signals-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.daily-local-heat-signals-topic {
+  background: var(--panel);
+  display: grid;
+  gap: 14px;
+  min-height: 280px;
+  padding: 14px;
+}
+.daily-local-heat-signals-topic-header {
+  display: grid;
+  gap: 12px;
+}
+.daily-local-heat-signals-topic-title {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.35rem, 2.2vw, 2.25rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.98;
+  margin: 0 0 10px;
+}
+.daily-local-heat-signals-topic-badges,
+.daily-local-heat-signals-topic-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.daily-local-heat-signals-topic-badges span,
+.daily-local-heat-signals-topic-metrics span {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-heat-signals-topic-metrics span:first-child {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.daily-local-heat-signals-topic-stories {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 12px 0 0;
+}
+.daily-local-heat-signals-story {
+  display: grid;
+  gap: 4px;
+}
+.daily-local-heat-signals-story a {
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+}
+.daily-local-heat-signals-story-meta {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 .saved-article-content-organization {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -5133,6 +5278,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-key-signals-digest-grid { grid-template-columns: 1fr; }
   .daily-local-signal-momentum-header { grid-template-columns: 1fr; }
   .daily-local-signal-momentum-grid { grid-template-columns: 1fr; }
+  .daily-local-heat-signals-header { grid-template-columns: 1fr; }
+  .daily-local-heat-signals-grid { grid-template-columns: 1fr; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
   .saved-article-library-entry-header { grid-template-columns: 1fr; }
@@ -9076,6 +9223,413 @@ def _safe_daily_local_signal_momentum_page_href(href: object) -> str | None:
 
 def _safe_daily_local_signal_momentum_detail_href(href: object) -> str | None:
     return safe_row_one_detail_fragment_href(href, "local-article-digest")
+
+
+def _render_daily_local_heat_signals(
+    app_payload: dict[str, object] | None,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> str:
+    topics = _daily_local_heat_signal_topics(
+        app_payload,
+        local_articles_by_story_id=local_articles_by_story_id,
+        article_hrefs_by_story_id=article_hrefs_by_story_id,
+    )
+    if not topics:
+        return ""
+    distinct_article_count = len({story.href for topic in topics for story in topic.stories})
+    story_row_count = sum(len(topic.stories) for topic in topics)
+    topic_count_en = _count_label(len(topics), "heated topic", "heated topics")
+    article_count_en = _count_label(distinct_article_count, "local article", "local articles")
+    story_row_count_en = _count_label(story_row_count, "story cue", "story cues")
+    rendered_topics = "\n".join(_render_daily_local_heat_signal_topic(topic) for topic in topics)
+    return f"""<section class="daily-local-heat-signals"
+  aria-label="Daily local heat signals">
+  <div class="daily-local-heat-signals-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Daily Local Heat Signals</span>
+        <span data-lang="zh">每日本地热度信号</span>
+      </p>
+      <h2>
+        <span data-lang="en">Brands and products heating up locally</span>
+        <span data-lang="zh">本地正文里正在升温的品牌与单品</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">
+        Current-edition heat sorted from saved local article text, limited to brands and products.
+      </span>
+      <span data-lang="zh">
+        基于当前版本已保存本地正文排序，只展示品牌与单品热度。
+      </span>
+    </p>
+  </div>
+  <div class="daily-local-heat-signals-metrics">
+    <span>{_esc(topic_count_en)}</span>
+    <span>{_esc(article_count_en)}</span>
+    <span>{_esc(story_row_count_en)}</span>
+    <span data-lang="en">Saved local text only</span>
+    <span data-lang="zh">仅限本地保存正文</span>
+  </div>
+  <div class="daily-local-heat-signals-grid">
+{rendered_topics}
+  </div>
+</section>"""
+
+
+def _daily_local_heat_signal_topics(
+    app_payload: dict[str, object] | None,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> list[_DailyLocalHeatSignalTopic]:
+    payload = app_payload or {}
+    if not isinstance(payload, dict):
+        return []
+    daily_digest = payload.get("daily_digest", {})
+    if not isinstance(daily_digest, dict):
+        return []
+    raw_topics = daily_digest.get("briefing_topics", [])
+    if not isinstance(raw_topics, list):
+        return []
+    rendered_topics = [
+        topic
+        for raw_topic in raw_topics
+        if isinstance(raw_topic, dict)
+        and (
+            topic := _daily_local_heat_signal_topic_from_payload(
+                raw_topic,
+                local_articles_by_story_id=local_articles_by_story_id,
+                article_hrefs_by_story_id=article_hrefs_by_story_id,
+            )
+        )
+    ]
+    rendered_topics.sort(key=_daily_local_heat_signal_topic_sort_key)
+    return rendered_topics[:DAILY_LOCAL_HEAT_SIGNALS_MAX_TOPICS]
+
+
+def _daily_local_heat_signal_topic_from_payload(
+    topic: dict[str, object],
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> _DailyLocalHeatSignalTopic | None:
+    topic_type = str(topic.get("topic_type", "")).strip().casefold()
+    if topic_type not in {"brand", "product"}:
+        return None
+    positive_heat_delta_sum = _positive_int_value(topic.get("positive_heat_delta_sum"))
+    max_heat_delta = _positive_int_value(topic.get("max_heat_delta"))
+    if positive_heat_delta_sum <= 0 and max_heat_delta <= 0:
+        return None
+    title = _localized_topic_field(topic, "title")
+    title = LocalizedText(
+        en=normalize_row_one_paragraph(title.en),
+        zh=normalize_row_one_paragraph(title.zh),
+    )
+    if not title.en and not title.zh:
+        return None
+    if not title.en:
+        title = LocalizedText(en=title.zh, zh=title.zh)
+    if not title.zh:
+        title = LocalizedText(en=title.en, zh=title.en)
+    label = _daily_local_heat_signal_topic_label(topic, topic_type)
+    stories, local_article_count = _daily_local_heat_signal_story_rows(
+        topic,
+        fallback_title=title,
+        local_articles_by_story_id=local_articles_by_story_id,
+        article_hrefs_by_story_id=article_hrefs_by_story_id,
+    )
+    if not stories:
+        return None
+    return _DailyLocalHeatSignalTopic(
+        title=title,
+        label=label,
+        subtype_label=_daily_local_heat_signal_subtype_label(topic.get("source_refs")),
+        story_count=_nonnegative_int_value(topic.get("story_count")),
+        evidence_count=_nonnegative_int_value(topic.get("evidence_count")),
+        local_article_count=local_article_count,
+        positive_heat_delta_sum=positive_heat_delta_sum,
+        max_heat_delta=max_heat_delta,
+        stories=tuple(stories),
+    )
+
+
+def _daily_local_heat_signal_topic_label(
+    topic: dict[str, object],
+    topic_type: str,
+) -> LocalizedText:
+    label = _localized_topic_field(topic, "label")
+    label = LocalizedText(
+        en=normalize_row_one_paragraph(label.en),
+        zh=normalize_row_one_paragraph(label.zh),
+    )
+    if label.en or label.zh:
+        return LocalizedText(en=label.en or label.zh, zh=label.zh or label.en)
+    if topic_type == "brand":
+        return LocalizedText(en="Brand", zh="品牌")
+    return LocalizedText(en="Product", zh="单品")
+
+
+def _daily_local_heat_signal_story_rows(
+    topic: dict[str, object],
+    *,
+    fallback_title: LocalizedText,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> tuple[list[_DailyLocalHeatSignalStory], int]:
+    story_ids = topic.get("story_ids", [])
+    if not isinstance(story_ids, list):
+        return ([], 0)
+    card_by_story_id = _daily_local_heat_signal_cards_by_story_id(topic.get("cards"))
+    rows: list[_DailyLocalHeatSignalStory] = []
+    local_article_count = 0
+    seen_story_ids: set[str] = set()
+    for story_id in story_ids:
+        if not isinstance(story_id, str):
+            continue
+        if story_id in seen_story_ids or not safe_local_article_story_id(story_id):
+            continue
+        seen_story_ids.add(story_id)
+        article = local_articles_by_story_id.get(story_id)
+        if _usable_local_article_paragraph_count(article) <= 0:
+            continue
+        href = _daily_local_heat_signal_story_href(
+            story_id,
+            article_hrefs_by_story_id=article_hrefs_by_story_id,
+        )
+        if href is None:
+            continue
+        local_article_count += 1
+        if len(rows) >= DAILY_LOCAL_HEAT_SIGNALS_MAX_STORIES:
+            continue
+        card = card_by_story_id.get(story_id)
+        rows.append(
+            _DailyLocalHeatSignalStory(
+                title=_daily_local_heat_signal_story_title(card, fallback_title),
+                source_name=_daily_local_heat_signal_story_source(card, article),
+                href=href,
+            )
+        )
+    return (rows, local_article_count)
+
+
+def _daily_local_heat_signal_cards_by_story_id(value: object) -> dict[str, dict[str, object]]:
+    if not isinstance(value, list):
+        return {}
+    cards: dict[str, dict[str, object]] = {}
+    for card in value:
+        if not isinstance(card, dict):
+            continue
+        story_id = card.get("id")
+        if isinstance(story_id, str) and safe_local_article_story_id(story_id):
+            cards.setdefault(story_id, card)
+    return cards
+
+
+def _daily_local_heat_signal_story_title(
+    card: dict[str, object] | None,
+    fallback_title: LocalizedText,
+) -> LocalizedText:
+    if card is None:
+        return fallback_title
+    headline = _localized_payload_text(card.get("headline"))
+    headline = LocalizedText(
+        en=normalize_row_one_paragraph(headline.en),
+        zh=normalize_row_one_paragraph(headline.zh),
+    )
+    if headline.en or headline.zh:
+        return LocalizedText(en=headline.en or headline.zh, zh=headline.zh or headline.en)
+    return fallback_title
+
+
+def _daily_local_heat_signal_story_source(
+    card: dict[str, object] | None,
+    article: RowOneLocalArticle | None,
+) -> str:
+    source_name = ""
+    if card is not None:
+        source_name = normalize_row_one_paragraph(str(card.get("source_name") or ""))
+    if source_name:
+        return source_name
+    if article is not None:
+        return normalize_row_one_paragraph(article.source_name)
+    return ""
+
+
+def _daily_local_heat_signal_story_href(
+    story_id: str,
+    *,
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> str | None:
+    if article_hrefs_by_story_id is None:
+        return None
+    page_href = _safe_daily_local_heat_signals_page_href(article_hrefs_by_story_id.get(story_id))
+    if page_href is None:
+        return None
+    if page_href.removesuffix(".html") != story_id:
+        return None
+    return f"articles/{page_href}#local-article-digest"
+
+
+def _safe_daily_local_heat_signals_page_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if href.startswith((".", "/", "//")):
+        return None
+    path = PurePosixPath(href)
+    if (
+        path.is_absolute()
+        or len(path.parts) != 1
+        or path.name in ("", ".", "..")
+        or ".." in path.parts
+        or not path.name.endswith(".html")
+    ):
+        return None
+    story_id = path.name.removesuffix(".html")
+    if not safe_local_article_story_id(story_id):
+        return None
+    return f"{story_id}.html"
+
+
+def _localized_payload_text(value: object) -> LocalizedText:
+    if isinstance(value, dict):
+        zh = value.get("zh")
+        en = value.get("en")
+        zh_text = str(zh) if zh is not None else ""
+        en_text = str(en) if en is not None else ""
+        return LocalizedText(zh=zh_text, en=en_text)
+    if value is None:
+        return LocalizedText(zh="", en="")
+    text = str(value)
+    return LocalizedText(zh=text, en=text)
+
+
+def _daily_local_heat_signal_subtype_label(source_refs: object) -> str | None:
+    if not isinstance(source_refs, list):
+        return None
+    for source_ref in source_refs:
+        if not isinstance(source_ref, dict):
+            continue
+        normalized_tokens: set[str] = set()
+        for field in ("type", "label"):
+            normalized = normalize_row_one_paragraph(str(source_ref.get(field) or "")).casefold()
+            normalized_tokens.update(
+                token for token in re.split(r"[^a-z0-9]+", normalized) if token
+            )
+        for token, label in (
+            ("bag", "Bag"),
+            ("handbag", "Bag"),
+            ("sneaker", "Sneaker"),
+            ("boot", "Boot"),
+            ("flat", "Flat"),
+            ("heel", "Heel"),
+            ("sandal", "Sandal"),
+            ("footwear", "Shoe"),
+            ("shoe", "Shoe"),
+        ):
+            if token in normalized_tokens:
+                return label
+    return None
+
+
+def _positive_int_value(value: object) -> int:
+    if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+        return value
+    return 0
+
+
+def _nonnegative_int_value(value: object) -> int:
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    return 0
+
+
+def _daily_local_heat_signal_topic_sort_key(
+    topic: _DailyLocalHeatSignalTopic,
+) -> tuple[object, ...]:
+    return (
+        -topic.positive_heat_delta_sum,
+        -topic.max_heat_delta,
+        -topic.local_article_count,
+        -topic.evidence_count,
+        topic.title.en.casefold(),
+        topic.title.en,
+    )
+
+
+def _render_daily_local_heat_signal_topic(topic: _DailyLocalHeatSignalTopic) -> str:
+    badges = _render_daily_local_heat_signal_topic_badges(topic)
+    metrics = _render_daily_local_heat_signal_topic_metrics(topic)
+    stories = "\n".join(_render_daily_local_heat_signal_story(story) for story in topic.stories)
+    return f"""    <article class="daily-local-heat-signals-topic">
+      <div class="daily-local-heat-signals-topic-header">
+        <div>
+          <p class="daily-local-heat-signals-topic-title">
+            <span data-lang="en">{_esc(topic.title.en)}</span>
+            <span data-lang="zh">{_esc(topic.title.zh)}</span>
+          </p>
+          {badges}
+        </div>
+        {metrics}
+      </div>
+      <ul class="daily-local-heat-signals-topic-stories">
+{stories}
+      </ul>
+    </article>"""
+
+
+def _render_daily_local_heat_signal_topic_badges(
+    topic: _DailyLocalHeatSignalTopic,
+) -> str:
+    badges = [
+        (
+            "<span>"
+            f'<span data-lang="en">{_esc(topic.label.en)}</span>'
+            f'<span data-lang="zh">{_esc(topic.label.zh)}</span>'
+            "</span>"
+        )
+    ]
+    if topic.subtype_label is not None:
+        badges.append(f"<span>{_esc(topic.subtype_label)}</span>")
+    return '<div class="daily-local-heat-signals-topic-badges">' + "".join(badges) + "</div>"
+
+
+def _render_daily_local_heat_signal_topic_metrics(
+    topic: _DailyLocalHeatSignalTopic,
+) -> str:
+    story_count_en = _count_label(topic.story_count, "story", "stories")
+    evidence_count_en = _count_label(topic.evidence_count, "evidence link", "evidence links")
+    return f"""<div class="daily-local-heat-signals-topic-metrics">
+          <span>+{topic.positive_heat_delta_sum}</span>
+          <span data-lang="en">{_esc(story_count_en)}</span>
+          <span data-lang="zh">{_esc(f"{topic.story_count} 条故事")}</span>
+          <span data-lang="en">{_esc(evidence_count_en)}</span>
+          <span data-lang="zh">{_esc(f"{topic.evidence_count} 条线索")}</span>
+        </div>"""
+
+
+def _render_daily_local_heat_signal_story(story: _DailyLocalHeatSignalStory) -> str:
+    source = (
+        f"<span>{_esc(story.source_name)}</span>"
+        if story.source_name
+        else (
+            '<span data-lang="en">Saved local article</span>'
+            '<span data-lang="zh">本地保存正文</span>'
+        )
+    )
+    return f"""        <li class="daily-local-heat-signals-story">
+          <a href="{_esc(story.href)}">
+            <span data-lang="en">{_esc(story.title.en)}</span>
+            <span data-lang="zh">{_esc(story.title.zh)}</span>
+          </a>
+          <span class="daily-local-heat-signals-story-meta">
+            {source}
+          </span>
+        </li>"""
 
 
 def _render_saved_signal_index(

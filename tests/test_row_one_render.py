@@ -4020,6 +4020,72 @@ def test_render_row_one_site_writes_daily_local_signal_momentum_homepage_only(
             assert not (directory / f"{stem}.html").exists()
 
 
+def test_render_row_one_site_writes_daily_local_heat_signals_homepage_only(
+    tmp_path,
+) -> None:
+    story = (
+        _edition()
+        .stories[0]
+        .model_copy(
+            deep=True,
+            update={
+                "heat_delta": 5,
+                "entity_refs": [RowOneReference(name="The Row", type="brand", label="tracked")],
+                "product_refs": [RowOneReference(name="Margaux bag", type="bag", label="product")],
+            },
+        )
+    )
+    edition = _edition()
+    edition.stories = [story]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+
+    section_html = _daily_local_heat_signals_section_html(homepage_html)
+    assert "Daily Local Heat Signals" in section_html
+    assert "每日本地热度信号" in section_html
+    assert "The Row" in section_html
+    assert "Margaux bag" in section_html
+    assert "Bag" in section_html
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-digest"' in (section_html)
+    assert 'class="daily-local-heat-signals"' not in library_html
+    assert 'class="daily-local-heat-signals"' not in article_html
+    assert 'class="daily-local-heat-signals"' not in detail_html
+    assert "daily_local_heat_signals" not in generated_contract_payload
+    assert "daily-local-heat-signals" not in generated_contract_payload
+    assert "Daily Local Heat Signals" not in generated_contract_payload
+    for stem in (
+        "daily-local-heat-signals",
+        "daily-local-heat",
+        "local-heat-signals",
+        "heat-signals",
+        "daily_local_heat_signals",
+        "daily_local_heat",
+        "local_heat_signals",
+        "heat_signals",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
 def test_write_local_article_pages_rejects_orphaned_href_mapping(tmp_path) -> None:
     story = _edition().stories[0]
 
@@ -6903,6 +6969,18 @@ def _daily_local_key_signals_digest_section_html(index_html: str) -> str:
 
 def _daily_local_signal_momentum_section_html(index_html: str) -> str:
     marker = '<section class="daily-local-signal-momentum"'
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is None:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + next_section.start()
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _daily_local_heat_signals_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-heat-signals"'
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
     next_section = re.search(r"\n\s*<section class=", tail)
@@ -10827,6 +10905,507 @@ def test_render_index_html_includes_daily_local_signal_momentum() -> None:
     assert "Daily Local Signal Momentum" not in omitted_html
 
 
+def test_render_index_html_includes_daily_local_heat_signals() -> None:
+    local_articles_by_story_id = {
+        "the-row-signal-1234567890": _signal_briefing_local_article(),
+        "margaux-topic-2222222222": _signal_briefing_local_article().model_copy(
+            update={"story_id": "margaux-topic-2222222222", "title": "Margaux bag source"}
+        ),
+        "designer-topic-3333333333": _signal_briefing_local_article().model_copy(
+            update={"story_id": "designer-topic-3333333333", "title": "Designer source"}
+        ),
+        "zero-heat-topic-4444444444": _signal_briefing_local_article().model_copy(
+            update={"story_id": "zero-heat-topic-4444444444", "title": "Zero heat source"}
+        ),
+        "empty-local-topic-5555555555": _signal_briefing_local_article().model_copy(
+            update={
+                "story_id": "empty-local-topic-5555555555",
+                "title": "Empty local source",
+                "paragraphs": [],
+            }
+        ),
+        "unsafe/topic-6666666666": _signal_briefing_local_article().model_copy(
+            update={"story_id": "unsafe/topic-6666666666", "title": "Unsafe local source"}
+        ),
+        "bool-heat-topic-8888888888": _signal_briefing_local_article().model_copy(
+            update={"story_id": "bool-heat-topic-8888888888", "title": "Bool heat source"}
+        ),
+        "string-heat-topic-9999999999": _signal_briefing_local_article().model_copy(
+            update={"story_id": "string-heat-topic-9999999999", "title": "String heat source"}
+        ),
+        "float-heat-topic-1212121212": _signal_briefing_local_article().model_copy(
+            update={"story_id": "float-heat-topic-1212121212", "title": "Float heat source"}
+        ),
+        "none-heat-topic-1313131313": _signal_briefing_local_article().model_copy(
+            update={"story_id": "none-heat-topic-1313131313", "title": "None heat source"}
+        ),
+    }
+    article_hrefs_by_story_id = {
+        "the-row-signal-1234567890": "the-row-signal-1234567890.html",
+        "margaux-topic-2222222222": "margaux-topic-2222222222.html",
+        "designer-topic-3333333333": "designer-topic-3333333333.html",
+        "zero-heat-topic-4444444444": "zero-heat-topic-4444444444.html",
+        "empty-local-topic-5555555555": "empty-local-topic-5555555555.html",
+        "unsafe/topic-6666666666": "unsafe-topic-6666666666.html",
+        "nested-mapped-topic-7777777777": "nested/story.html",
+        "bool-heat-topic-8888888888": "bool-heat-topic-8888888888.html",
+        "string-heat-topic-9999999999": "string-heat-topic-9999999999.html",
+        "float-heat-topic-1212121212": "float-heat-topic-1212121212.html",
+        "none-heat-topic-1313131313": "none-heat-topic-1313131313.html",
+    }
+
+    index_html = render_index_html(
+        _edition(),
+        app_payload={
+            "daily_digest": {
+                "briefing_topics": [
+                    {
+                        "topic_type": "brand",
+                        "title": {"en": "The Row <script>", "zh": "The Row <脚本>"},
+                        "label": {"en": "Brand", "zh": "品牌"},
+                        "story_count": 4,
+                        "evidence_count": 6,
+                        "positive_heat_delta_sum": 5,
+                        "max_heat_delta": 3,
+                        "story_ids": [
+                            "the-row-signal-1234567890",
+                            "missing-local-topic-9999999999",
+                            "unsafe/topic-6666666666",
+                            "nested-mapped-topic-7777777777",
+                        ],
+                        "cards": [
+                            {
+                                "id": "the-row-signal-1234567890",
+                                "headline": {
+                                    "en": "The Row source <script>",
+                                    "zh": "The Row 来源 <script>",
+                                },
+                                "source_name": "Vogue <Business>",
+                            },
+                            {
+                                "id": "missing-local-topic-9999999999",
+                                "headline": {"en": "Missing local", "zh": "缺少本地正文"},
+                                "source_name": "Bad",
+                            },
+                            {
+                                "id": "unsafe/topic-6666666666",
+                                "headline": {"en": "Unsafe story", "zh": "不安全故事"},
+                                "source_name": "Bad",
+                            },
+                            {
+                                "id": "nested-mapped-topic-7777777777",
+                                "headline": {"en": "Nested mapped", "zh": "嵌套映射"},
+                                "source_name": "Bad",
+                            },
+                        ],
+                        "source_refs": [
+                            {"name": "The Row", "type": "brand", "label": "rising"},
+                        ],
+                    },
+                    {
+                        "topic_type": "product",
+                        "title": {"en": "Margaux bag", "zh": "Margaux 手袋"},
+                        "label": {"en": "Product", "zh": "单品"},
+                        "story_count": 1,
+                        "evidence_count": 2,
+                        "positive_heat_delta_sum": 8,
+                        "max_heat_delta": 8,
+                        "story_ids": ["margaux-topic-2222222222"],
+                        "cards": [
+                            {
+                                "id": "margaux-topic-2222222222",
+                                "headline": {"en": "Margaux story", "zh": "Margaux 故事"},
+                                "source_name": "Vogue Business",
+                            }
+                        ],
+                        "source_refs": [
+                            {"name": "Margaux bag", "type": "bag", "label": "It bag"},
+                        ],
+                    },
+                    {
+                        "topic_type": "designer",
+                        "title": {"en": "Mary-Kate Olsen", "zh": "Mary-Kate Olsen"},
+                        "label": {"en": "Designer", "zh": "设计师"},
+                        "story_count": 1,
+                        "evidence_count": 1,
+                        "positive_heat_delta_sum": 9,
+                        "max_heat_delta": 9,
+                        "story_ids": ["designer-topic-3333333333"],
+                        "cards": [
+                            {
+                                "id": "designer-topic-3333333333",
+                                "headline": {"en": "Designer story", "zh": "设计师故事"},
+                                "source_name": "WWD",
+                            }
+                        ],
+                        "source_refs": [
+                            {
+                                "name": "Mary-Kate Olsen",
+                                "type": "designer",
+                                "label": "designer",
+                            },
+                        ],
+                    },
+                    {
+                        "topic_type": "product",
+                        "title": {"en": "Zero Heat Shoe", "zh": "零热度鞋"},
+                        "label": {"en": "Product", "zh": "单品"},
+                        "story_count": 1,
+                        "evidence_count": 1,
+                        "positive_heat_delta_sum": 0,
+                        "max_heat_delta": 0,
+                        "story_ids": ["zero-heat-topic-4444444444"],
+                        "cards": [
+                            {
+                                "id": "zero-heat-topic-4444444444",
+                                "headline": {"en": "Zero heat", "zh": "零热度"},
+                                "source_name": "Bad",
+                            }
+                        ],
+                        "source_refs": [
+                            {"name": "Zero Heat Shoe", "type": "shoe", "label": "shoe"},
+                        ],
+                    },
+                    {
+                        "topic_type": "product",
+                        "title": {"en": "Empty Local Sneaker", "zh": "空正文运动鞋"},
+                        "label": {"en": "Product", "zh": "单品"},
+                        "story_count": 1,
+                        "evidence_count": 1,
+                        "positive_heat_delta_sum": 7,
+                        "max_heat_delta": 7,
+                        "story_ids": ["empty-local-topic-5555555555"],
+                        "cards": [
+                            {
+                                "id": "empty-local-topic-5555555555",
+                                "headline": {"en": "Empty local", "zh": "空正文"},
+                                "source_name": "Bad",
+                            }
+                        ],
+                        "source_refs": [
+                            {
+                                "name": "Empty Local Sneaker",
+                                "type": "sneaker",
+                                "label": "sneaker",
+                            },
+                        ],
+                    },
+                    {
+                        "topic_type": "product",
+                        "title": {"en": "Bool Heat Platform", "zh": "布尔热度厚底鞋"},
+                        "label": {"en": "Product", "zh": "单品"},
+                        "story_count": 1,
+                        "evidence_count": 1,
+                        "positive_heat_delta_sum": True,
+                        "max_heat_delta": 0,
+                        "story_ids": ["bool-heat-topic-8888888888"],
+                        "cards": [
+                            {
+                                "id": "bool-heat-topic-8888888888",
+                                "headline": {"en": "Bool heat", "zh": "布尔热度"},
+                                "source_name": "Bad",
+                            }
+                        ],
+                        "source_refs": [
+                            {"name": "Bool Heat Platform", "type": "platform", "label": "platform"},
+                        ],
+                    },
+                    {
+                        "topic_type": "product",
+                        "title": {"en": "String Heat Shoe", "zh": "字符串热度鞋"},
+                        "label": {"en": "Product", "zh": "单品"},
+                        "story_count": 1,
+                        "evidence_count": 1,
+                        "positive_heat_delta_sum": "5",
+                        "max_heat_delta": 0,
+                        "story_ids": ["string-heat-topic-9999999999"],
+                        "cards": [
+                            {
+                                "id": "string-heat-topic-9999999999",
+                                "headline": {"en": "String heat", "zh": "字符串热度"},
+                                "source_name": "Bad",
+                            }
+                        ],
+                        "source_refs": [
+                            {"name": "String Heat Shoe", "type": "shoe", "label": "shoe"},
+                        ],
+                    },
+                    {
+                        "topic_type": "product",
+                        "title": {"en": "Float Heat Shoe", "zh": "浮点热度鞋"},
+                        "label": {"en": "Product", "zh": "单品"},
+                        "story_count": 1,
+                        "evidence_count": 1,
+                        "positive_heat_delta_sum": 5.0,
+                        "max_heat_delta": 0,
+                        "story_ids": ["float-heat-topic-1212121212"],
+                        "cards": [
+                            {
+                                "id": "float-heat-topic-1212121212",
+                                "headline": {"en": "Float heat", "zh": "浮点热度"},
+                                "source_name": "Bad",
+                            }
+                        ],
+                        "source_refs": [
+                            {"name": "Float Heat Shoe", "type": "shoe", "label": "shoe"},
+                        ],
+                    },
+                    {
+                        "topic_type": "product",
+                        "title": {"en": "None Heat Shoe", "zh": "空热度鞋"},
+                        "label": {"en": "Product", "zh": "单品"},
+                        "story_count": 1,
+                        "evidence_count": 1,
+                        "positive_heat_delta_sum": None,
+                        "max_heat_delta": 0,
+                        "story_ids": ["none-heat-topic-1313131313"],
+                        "cards": [
+                            {
+                                "id": "none-heat-topic-1313131313",
+                                "headline": {"en": "None heat", "zh": "空热度"},
+                                "source_name": "Bad",
+                            }
+                        ],
+                        "source_refs": [
+                            {"name": "None Heat Shoe", "type": "shoe", "label": "shoe"},
+                        ],
+                    },
+                ]
+            }
+        },
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_heat_signals_article_hrefs_by_story_id=article_hrefs_by_story_id,
+    )
+    section_html = _daily_local_heat_signals_section_html(index_html)
+    omitted_html = render_index_html(
+        _edition(),
+        app_payload={"daily_digest": {"briefing_topics": []}},
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_heat_signals_article_hrefs_by_story_id=article_hrefs_by_story_id,
+    )
+
+    assert 'class="daily-local-heat-signals"' in section_html
+    assert "Daily Local Heat Signals" in section_html
+    assert "每日本地热度信号" in section_html
+    assert "2 heated topics" in section_html
+    assert "2 local articles" in section_html
+    assert "Brand" in section_html
+    assert "Product" in section_html
+    assert "Bag" in section_html
+    assert "The Row &lt;script&gt;" in section_html
+    assert "The Row &lt;脚本&gt;" in section_html
+    assert "The Row source &lt;script&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "Margaux bag" in section_html
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-digest"' in (section_html)
+    assert 'href="articles/margaux-topic-2222222222.html#local-article-digest"' in section_html
+    assert section_html.index("Margaux bag") < section_html.index("The Row &lt;script&gt;")
+    assert "<script>" not in section_html
+    assert "<Business>" not in section_html
+    assert "Mary-Kate Olsen" not in section_html
+    assert "Zero Heat Shoe" not in section_html
+    assert "Empty Local Sneaker" not in section_html
+    assert "Bool Heat Platform" not in section_html
+    assert "String Heat Shoe" not in section_html
+    assert "Float Heat Shoe" not in section_html
+    assert "None Heat Shoe" not in section_html
+    assert "Missing local" not in section_html
+    assert "Unsafe story" not in section_html
+    assert "Nested mapped" not in section_html
+    assert "unsafe/topic" not in section_html
+    assert "nested/story.html" not in section_html
+    assert 'class="daily-local-heat-signals"' not in omitted_html
+    assert "Daily Local Heat Signals" not in omitted_html
+
+
+def test_render_index_html_avoids_substring_daily_local_heat_signal_subtype_badges() -> None:
+    story_id = "platform-topic-1111111111"
+    index_html = render_index_html(
+        _edition(),
+        app_payload={
+            "daily_digest": {
+                "briefing_topics": [
+                    {
+                        "topic_type": "product",
+                        "title": {"en": "Platform Sole", "zh": "厚底鞋底"},
+                        "label": {"en": "Product", "zh": "单品"},
+                        "story_count": 1,
+                        "evidence_count": 1,
+                        "positive_heat_delta_sum": 5,
+                        "max_heat_delta": 5,
+                        "story_ids": [story_id],
+                        "cards": [
+                            {
+                                "id": story_id,
+                                "headline": {"en": "Platform story", "zh": "厚底故事"},
+                                "source_name": "Vogue Business",
+                            }
+                        ],
+                        "source_refs": [
+                            {"name": "Platform Sole", "type": "platform", "label": "platform"},
+                        ],
+                    }
+                ]
+            }
+        },
+        local_articles_by_story_id={
+            story_id: _signal_briefing_local_article().model_copy(
+                update={"story_id": story_id, "title": "Platform source"}
+            ),
+        },
+        daily_local_heat_signals_article_hrefs_by_story_id={story_id: f"{story_id}.html"},
+    )
+    section_html = _daily_local_heat_signals_section_html(index_html)
+
+    assert "Platform Sole" in section_html
+    assert ">Flat<" not in section_html
+    assert ">Shoe<" not in section_html
+
+
+def test_render_index_html_sorts_daily_local_heat_signals_by_total_local_article_count() -> None:
+    story_ids = (
+        "two-local-topic-1111111111",
+        "two-local-topic-2222222222",
+        "three-local-topic-3333333333",
+        "three-local-topic-4444444444",
+        "three-local-topic-5555555555",
+    )
+    local_articles_by_story_id = {
+        story_id: _signal_briefing_local_article().model_copy(
+            update={"story_id": story_id, "title": f"{story_id} source"}
+        )
+        for story_id in story_ids
+    }
+    article_hrefs_by_story_id = {story_id: f"{story_id}.html" for story_id in story_ids}
+
+    index_html = render_index_html(
+        _edition(),
+        app_payload={
+            "daily_digest": {
+                "briefing_topics": [
+                    {
+                        "topic_type": "brand",
+                        "title": {"en": "Two Local Evidence Heavy", "zh": "两篇高证据"},
+                        "label": {"en": "Brand", "zh": "品牌"},
+                        "story_count": 2,
+                        "evidence_count": 10,
+                        "positive_heat_delta_sum": 5,
+                        "max_heat_delta": 5,
+                        "story_ids": [
+                            "two-local-topic-1111111111",
+                            "two-local-topic-2222222222",
+                        ],
+                        "cards": [
+                            {
+                                "id": "two-local-topic-1111111111",
+                                "headline": {"en": "Two local one", "zh": "两篇之一"},
+                                "source_name": "Vogue Business",
+                            },
+                            {
+                                "id": "two-local-topic-2222222222",
+                                "headline": {"en": "Two local two", "zh": "两篇之二"},
+                                "source_name": "WWD",
+                            },
+                        ],
+                        "source_refs": [
+                            {"name": "Two Local Evidence Heavy", "type": "brand", "label": "brand"},
+                        ],
+                    },
+                    {
+                        "topic_type": "brand",
+                        "title": {"en": "Three Local Evidence Light", "zh": "三篇低证据"},
+                        "label": {"en": "Brand", "zh": "品牌"},
+                        "story_count": 3,
+                        "evidence_count": 1,
+                        "positive_heat_delta_sum": 5,
+                        "max_heat_delta": 5,
+                        "story_ids": [
+                            "three-local-topic-3333333333",
+                            "three-local-topic-4444444444",
+                            "three-local-topic-5555555555",
+                        ],
+                        "cards": [
+                            {
+                                "id": "three-local-topic-3333333333",
+                                "headline": {"en": "Three local one", "zh": "三篇之一"},
+                                "source_name": "Vogue Business",
+                            },
+                            {
+                                "id": "three-local-topic-4444444444",
+                                "headline": {"en": "Three local two", "zh": "三篇之二"},
+                                "source_name": "WWD",
+                            },
+                            {
+                                "id": "three-local-topic-5555555555",
+                                "headline": {"en": "Three local three", "zh": "三篇之三"},
+                                "source_name": "Business of Fashion",
+                            },
+                        ],
+                        "source_refs": [
+                            {
+                                "name": "Three Local Evidence Light",
+                                "type": "brand",
+                                "label": "brand",
+                            },
+                        ],
+                    },
+                ]
+            }
+        },
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_heat_signals_article_hrefs_by_story_id=article_hrefs_by_story_id,
+    )
+    section_html = _daily_local_heat_signals_section_html(index_html)
+
+    assert section_html.index("Three Local Evidence Light") < section_html.index(
+        "Two Local Evidence Heavy"
+    )
+    assert "Three local one" in section_html
+    assert "Three local two" in section_html
+    assert "Three local three" not in section_html
+
+
+def test_render_index_html_rejects_mismatched_daily_local_heat_signal_article_href() -> None:
+    index_html = render_index_html(
+        _edition(),
+        app_payload={
+            "daily_digest": {
+                "briefing_topics": [
+                    {
+                        "topic_type": "brand",
+                        "title": {"en": "The Row", "zh": "The Row"},
+                        "label": {"en": "Brand", "zh": "品牌"},
+                        "story_count": 1,
+                        "evidence_count": 1,
+                        "positive_heat_delta_sum": 5,
+                        "max_heat_delta": 5,
+                        "story_ids": ["the-row-signal-1234567890"],
+                        "cards": [
+                            {
+                                "id": "the-row-signal-1234567890",
+                                "headline": {"en": "The Row source", "zh": "The Row 来源"},
+                                "source_name": "Vogue Business",
+                            }
+                        ],
+                        "source_refs": [
+                            {"name": "The Row", "type": "brand", "label": "rising"},
+                        ],
+                    }
+                ]
+            }
+        },
+        local_articles_by_story_id={
+            "the-row-signal-1234567890": _signal_briefing_local_article(),
+        },
+        daily_local_heat_signals_article_hrefs_by_story_id={
+            "the-row-signal-1234567890": "other-story-1234567890.html",
+        },
+    )
+
+    assert 'class="daily-local-heat-signals"' not in index_html
+    assert "other-story-1234567890.html" not in index_html
+
+
 def test_render_index_html_places_daily_local_key_signals_digest_between_saved_sections() -> None:
     briefs = RowOneSavedArticleBriefs(
         article_count=1,
@@ -10984,6 +11563,108 @@ def test_render_index_html_places_daily_local_signal_momentum_between_sections()
         'class="daily-local-signal-momentum"'
     )
     assert index_html.index('class="daily-local-signal-momentum"') < index_html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
+def test_render_index_html_places_daily_local_heat_signals_between_sections() -> None:
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                dek=LocalizedText(en="Entity context", zh="实体背景"),
+                cards=[
+                    RowOneSavedArticleContentOrganizationCard(
+                        title=LocalizedText(en="Organization card", zh="组织卡片"),
+                        source_name="Vogue Business",
+                        section_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                        section_label=LocalizedText(en="Entity", zh="实体"),
+                        lead=LocalizedText(en="Safe lead", zh="安全摘要"),
+                        detail_path=(
+                            "details/the-row-signal-1234567890.html#local-article-content-section-1"
+                        ),
+                        paragraph_indices=(0,),
+                        references=(),
+                    )
+                ],
+            )
+        ]
+    )
+    leaderboard = RowOneSavedArticleDailySignalLeaderboard(
+        bucket_count=1,
+        item_count=1,
+        buckets=(
+            RowOneSavedArticleDailySignalLeaderboardBucket(
+                key="brands",
+                title=LocalizedText(en="Brands", zh="品牌"),
+                items=(
+                    RowOneSavedArticleDailySignalLeaderboardItem(
+                        label=LocalizedText(en="The Row", zh="The Row"),
+                        article_count=1,
+                        source_count=1,
+                        supports=(
+                            RowOneSavedArticleDailySignalLeaderboardSupport(
+                                title=LocalizedText(en="The Row source", zh="The Row 来源"),
+                                source_name="Vogue Business",
+                                href=(
+                                    "details/the-row-signal-1234567890.html#local-article-digest"
+                                ),
+                                detail_path="details/the-row-signal-1234567890.html",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    app_payload = {
+        "daily_digest": {
+            "briefing_topics": [
+                {
+                    "topic_type": "brand",
+                    "title": {"en": "The Row", "zh": "The Row"},
+                    "label": {"en": "Brand", "zh": "品牌"},
+                    "story_count": 1,
+                    "evidence_count": 1,
+                    "positive_heat_delta_sum": 4,
+                    "max_heat_delta": 4,
+                    "story_ids": ["the-row-signal-1234567890"],
+                    "cards": [
+                        {
+                            "id": "the-row-signal-1234567890",
+                            "headline": {"en": "The Row source", "zh": "The Row 来源"},
+                            "source_name": "Vogue Business",
+                        }
+                    ],
+                    "source_refs": [
+                        {"name": "The Row", "type": "brand", "label": "rising"},
+                    ],
+                }
+            ]
+        }
+    }
+
+    index_html = render_index_html(
+        _edition(),
+        app_payload=app_payload,
+        daily_local_signal_momentum=leaderboard,
+        daily_local_signal_momentum_hrefs_by_detail_path={
+            "details/the-row-signal-1234567890.html": "the-row-signal-1234567890.html",
+        },
+        saved_article_content_organization=organization,
+        local_articles_by_story_id={
+            "the-row-signal-1234567890": _signal_briefing_local_article(),
+        },
+        daily_local_heat_signals_article_hrefs_by_story_id={
+            "the-row-signal-1234567890": "the-row-signal-1234567890.html",
+        },
+    )
+
+    assert index_html.index('class="daily-local-signal-momentum"') < index_html.index(
+        'class="daily-local-heat-signals"'
+    )
+    assert index_html.index('class="daily-local-heat-signals"') < index_html.index(
         'class="saved-article-content-organization"'
     )
 
@@ -11491,6 +12172,24 @@ def test_row_one_css_includes_daily_local_signal_momentum_styles() -> None:
         ".daily-local-signal-momentum-counts",
         ".daily-local-signal-momentum-supports",
         ".daily-local-signal-momentum-support",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_daily_local_heat_signals_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-heat-signals",
+        ".daily-local-heat-signals-header",
+        ".daily-local-heat-signals-metrics",
+        ".daily-local-heat-signals-grid",
+        ".daily-local-heat-signals-topic",
+        ".daily-local-heat-signals-topic-header",
+        ".daily-local-heat-signals-topic-title",
+        ".daily-local-heat-signals-topic-stories",
+        ".daily-local-heat-signals-story",
+        ".daily-local-heat-signals-story-meta",
     ):
         assert selector in css
 

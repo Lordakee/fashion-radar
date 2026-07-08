@@ -192,6 +192,9 @@ def render_row_one_site(
     local_article_page_hrefs_by_detail_path = _local_article_page_hrefs_by_detail_path(
         local_article_page_specs
     )
+    local_article_page_hrefs_by_story_id = _local_article_page_hrefs_by_story_id(
+        local_article_page_specs
+    )
     editorial_brief = _editorial_brief_payload(edition, local_articles_by_story_id)
     index_path = output_dir / "index.html"
     index_path.write_text(
@@ -207,6 +210,9 @@ def render_row_one_site(
             daily_local_signal_momentum=saved_article_daily_signal_leaderboard,
             daily_local_signal_momentum_hrefs_by_detail_path=(
                 local_article_page_hrefs_by_detail_path
+            ),
+            daily_local_heat_signals_article_hrefs_by_story_id=(
+                local_article_page_hrefs_by_story_id
             ),
             saved_article_content_organization=saved_article_content_organization,
             editorial_brief=editorial_brief,
@@ -382,6 +388,15 @@ def _local_article_page_hrefs_by_detail_path(
     return {
         detail_path: article_page_href
         for _story, _article, article_page_href, detail_path in local_article_page_specs
+    }
+
+
+def _local_article_page_hrefs_by_story_id(
+    local_article_page_specs: Sequence[tuple[RowOneStory, RowOneLocalArticle, str, str]],
+) -> dict[str, str]:
+    return {
+        story.id: article_page_href
+        for story, _article, article_page_href, _detail_path in local_article_page_specs
     }
 
 

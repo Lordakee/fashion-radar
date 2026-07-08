@@ -572,6 +572,20 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "daily-signal-momentum" not in generated_contract_payload
     assert "local-signal-momentum" not in generated_contract_payload
     assert "signal-momentum" not in generated_contract_payload
+    assert '"daily_local_heat_signals"' not in generated_contract_payload
+    assert '"daily_local_heat"' not in generated_contract_payload
+    assert '"daily_heat_signals"' not in generated_contract_payload
+    assert '"local_heat_signals"' not in generated_contract_payload
+    assert '"heat_signals"' not in generated_contract_payload
+    assert "Daily Local Heat Signals" not in generated_contract_payload
+    assert "Daily Local Heat" not in generated_contract_payload
+    assert "Daily Heat Signals" not in generated_contract_payload
+    assert "Local Heat Signals" not in generated_contract_payload
+    assert "daily-local-heat-signals" not in generated_contract_payload
+    assert "daily-local-heat" not in generated_contract_payload
+    assert "daily-heat-signals" not in generated_contract_payload
+    assert "local-heat-signals" not in generated_contract_payload
+    assert "heat-signals" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -956,6 +970,16 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "daily_signal_momentum",
         "local_signal_momentum",
         "signal_momentum",
+        "daily-local-heat-signals",
+        "daily-local-heat",
+        "daily-heat-signals",
+        "local-heat-signals",
+        "heat-signals",
+        "daily_local_heat_signals",
+        "daily_local_heat",
+        "daily_heat_signals",
+        "local_heat_signals",
+        "heat_signals",
     ):
         for artifact_dir in (output_dir, output_dir / "articles", output_dir / "data"):
             for suffix in (".json", ".html"):
@@ -1083,6 +1107,21 @@ def test_stage_358_daily_local_signal_momentum_stays_generated_site_only(
     monkeypatch.setattr(
         row_one_templates,
         "_render_daily_local_signal_momentum",
+        lambda *_args, **_kwargs: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_359_daily_local_heat_signals_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_daily_local_heat_signals",
         lambda *_args, **_kwargs: "",
         raising=False,
     )

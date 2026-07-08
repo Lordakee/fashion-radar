@@ -1849,6 +1849,85 @@ def test_row_one_docs_describe_stage_353_saved_article_read_next_clusters_bounda
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_359_daily_local_heat_signals_boundary() -> None:
+    expected = _normalized(
+        "Stage 359 adds generated-site only Daily Local Heat Signals as a "
+        "homepage-only section inside `index.html` after Daily Local Signal "
+        "Momentum and before Saved Article Content Organization; it reuses "
+        "existing `daily_digest.briefing_topics` heat fields, `source_refs`, "
+        "saved local article availability, and generated local article page "
+        "routes to focus this MVP on brands and products, including bag/shoe "
+        "subtype badges from existing source references; it shows "
+        "current-edition positive heat only, not historical trend deltas, and "
+        "does not change app contracts, schemas, JSON artifacts, fetching, "
+        "scoring, LLM, connector, scheduling, deployment, analytics, "
+        "personalization, recommendation, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_359_pos = normalized.index(
+            "stage 359 adds generated-site only daily local heat signals"
+        )
+        stage_358_pos = normalized.index(
+            "stage 358 adds generated-site only daily local signal momentum"
+        )
+        assert stage_359_pos < stage_358_pos
+        stage = normalized[stage_359_pos:stage_358_pos]
+        stage_for_stale_phrase_check = stage.replace("not historical trend deltas", "")
+        for stale_phrase in (
+            "adds historical trend",
+            "historical trend",
+            "historical time-series",
+            "time-series",
+            "creates data/daily-local-heat-signals.json",
+            "writes data/daily-local-heat-signals.json",
+            "creates data/daily-local-heat.json",
+            "writes data/daily-local-heat.json",
+            "creates data/heat-signals.json",
+            "writes data/heat-signals.json",
+            "creates data/daily_local_heat_signals.json",
+            "writes data/daily_local_heat_signals.json",
+            "creates data/heat_signals.json",
+            "writes data/heat_signals.json",
+            "creates `data/daily-local-heat-signals.json`",
+            "writes `data/daily-local-heat-signals.json`",
+            "creates `data/daily-local-heat.json`",
+            "writes `data/daily-local-heat.json`",
+            "creates `data/heat-signals.json`",
+            "writes `data/heat-signals.json`",
+            "creates `data/daily_local_heat_signals.json`",
+            "writes `data/daily_local_heat_signals.json`",
+            "creates `data/heat_signals.json`",
+            "writes `data/heat_signals.json`",
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "writes a new json artifact",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+            "adds heat scoring",
+            "adds heat ranking",
+            "platform heat",
+            "demand proof",
+        ):
+            assert stale_phrase not in stage_for_stale_phrase_check
+
+
 def test_row_one_docs_describe_stage_358_daily_local_signal_momentum_boundary() -> None:
     expected = _normalized(
         "Stage 358 adds generated-site only Daily Local Signal Momentum as a "
