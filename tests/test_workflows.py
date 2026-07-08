@@ -524,6 +524,13 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "article-reading-improvements" not in generated_contract_payload
     assert "Local Article Reading Improvements" not in generated_contract_payload
     assert "local-article-reading-improvements.json" not in generated_contract_payload
+    assert '"saved_article_local_section_binder"' not in generated_contract_payload
+    assert '"article_local_section_binder"' not in generated_contract_payload
+    assert '"local_section_binder"' not in generated_contract_payload
+    assert "Saved Article Local Section Binder" not in generated_contract_payload
+    assert "saved-article-local-section-binder" not in generated_contract_payload
+    assert "article-local-section-binder" not in generated_contract_payload
+    assert "local-section-binder" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -837,6 +844,24 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "article-local-reading-companion.html",
         output_dir / "articles" / "article-local-reading-companion.html",
         output_dir / "data" / "article-local-reading-companion.html",
+        output_dir / "saved-article-local-section-binder.json",
+        output_dir / "articles" / "saved-article-local-section-binder.json",
+        output_dir / "data" / "saved-article-local-section-binder.json",
+        output_dir / "saved-article-local-section-binder.html",
+        output_dir / "articles" / "saved-article-local-section-binder.html",
+        output_dir / "data" / "saved-article-local-section-binder.html",
+        output_dir / "article-local-section-binder.json",
+        output_dir / "articles" / "article-local-section-binder.json",
+        output_dir / "data" / "article-local-section-binder.json",
+        output_dir / "article-local-section-binder.html",
+        output_dir / "articles" / "article-local-section-binder.html",
+        output_dir / "data" / "article-local-section-binder.html",
+        output_dir / "local-section-binder.json",
+        output_dir / "articles" / "local-section-binder.json",
+        output_dir / "data" / "local-section-binder.json",
+        output_dir / "local-section-binder.html",
+        output_dir / "articles" / "local-section-binder.html",
+        output_dir / "data" / "local-section-binder.html",
     ):
         assert not artifact_path.exists()
     assert stored == stored_before
@@ -910,6 +935,25 @@ def test_stage_354_saved_article_local_reading_companion_stays_generated_site_on
         row_one_templates,
         "_render_saved_article_local_reading_companion",
         lambda _companion: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_355_saved_article_local_section_binder_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+    from fashion_radar.row_one.saved_article_local_section_binder import (
+        build_row_one_saved_article_local_section_binder,
+    )
+
+    assert build_row_one_saved_article_local_section_binder is not None
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_saved_article_local_section_binder",
+        lambda _binder: "",
         raising=False,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)

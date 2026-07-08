@@ -50,6 +50,9 @@ from fashion_radar.row_one.saved_article_library import (
 from fashion_radar.row_one.saved_article_local_reading_companion import (
     build_row_one_saved_article_local_reading_companion,
 )
+from fashion_radar.row_one.saved_article_local_section_binder import (
+    build_row_one_saved_article_local_section_binder,
+)
 from fashion_radar.row_one.saved_article_reading_paths import (
     RowOneSavedArticleReadingPaths,
     build_row_one_saved_article_reading_paths,
@@ -368,11 +371,16 @@ def _write_local_article_pages(
             organization=saved_article_content_organization,
             local_article_page_hrefs_by_detail_path=hrefs_by_detail_path,
         )
+        binder = build_row_one_saved_article_local_section_binder(
+            story=story,
+            local_article=article,
+        )
         html = render_local_article_page_html(
             edition,
             story,
             local_article=article,
             saved_article_local_reading_companion=companion,
+            saved_article_local_section_binder=binder,
         )
         if not html:
             continue

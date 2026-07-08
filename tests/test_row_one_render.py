@@ -70,6 +70,11 @@ from fashion_radar.row_one.saved_article_local_reading_companion import (
     RowOneSavedArticleLocalReadingCompanionItem,
     RowOneSavedArticleLocalReadingCompanionLink,
 )
+from fashion_radar.row_one.saved_article_local_section_binder import (
+    RowOneSavedArticleLocalSectionBinder,
+    RowOneSavedArticleLocalSectionBinderParagraph,
+    RowOneSavedArticleLocalSectionBinderRow,
+)
 from fashion_radar.row_one.saved_article_organization_jump_index import (
     RowOneSavedArticleOrganizationJumpIndex,
     RowOneSavedArticleOrganizationJumpIndexGroup,
@@ -3349,6 +3354,92 @@ def test_render_local_article_page_includes_saved_article_local_reading_companio
     )
 
 
+def test_render_local_article_page_includes_saved_article_local_section_binder() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    companion = RowOneSavedArticleLocalReadingCompanion(
+        current_title=LocalizedText(en="Current", zh="当前"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        group_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        group_dek=LocalizedText(en="Brand context", zh="品牌上下文"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        body_source_label=LocalizedText(en="Extracted article text", zh="已提取文章正文"),
+        lead=LocalizedText(en="Current lead", zh="当前导语"),
+        saved_paragraph_count=3,
+        organized_section_count=2,
+        evidence_count=2,
+        detail_path="details/the-row-signal-1234567890.html",
+        local_links=(),
+        related_items=(),
+    )
+    binder = RowOneSavedArticleLocalSectionBinder(
+        title=LocalizedText(en="Binder <Title>", zh="Binder <标题>"),
+        source_name="Vogue <Business>",
+        rows=(
+            RowOneSavedArticleLocalSectionBinderRow(
+                title=LocalizedText(en="People & <Brands>", zh="品牌与 <人物>"),
+                section_position=1,
+                section_href="#local-article-content-section-1",
+                item_labels=(LocalizedText(en="The Row <chip>", zh="The Row <标签>"),),
+                references=(
+                    RowOneReference(name="Margaux <bag>", type="product", label="tracked"),
+                ),
+                paragraphs=(
+                    RowOneSavedArticleLocalSectionBinderParagraph(
+                        index=0,
+                        href="#local-article-paragraph-1",
+                        excerpt=LocalizedText(
+                            en="Paragraph <excerpt>",
+                            zh="段落 <摘录>",
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        unfiled_paragraphs=(
+            RowOneSavedArticleLocalSectionBinderParagraph(
+                index=2,
+                href="#local-article-paragraph-3",
+                excerpt=LocalizedText(en="Unfiled <paragraph>", zh="未归档 <段落>"),
+            ),
+        ),
+    )
+
+    html = render_local_article_page_html(
+        edition,
+        story,
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_reading_companion=companion,
+        saved_article_local_section_binder=binder,
+    )
+    section_html = _html_between(
+        html,
+        '<section class="saved-article-local-section-binder"',
+        'id="local-article"',
+    )
+
+    assert "Saved Article Local Section Binder" in section_html
+    assert "保存文章栏目索引" in section_html
+    assert "Binder &lt;Title&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "People &amp; &lt;Brands&gt;" in section_html
+    assert "The Row &lt;chip&gt;" in section_html
+    assert "Margaux &lt;bag&gt; / product / tracked" in section_html
+    assert "Paragraph &lt;excerpt&gt;" in section_html
+    assert "Unfiled &lt;paragraph&gt;" in section_html
+    assert 'href="#local-article-content-section-1"' in section_html
+    assert 'href="#local-article-paragraph-1"' in section_html
+    assert 'href="#local-article-paragraph-3"' in section_html
+    assert "Paragraph <excerpt>" not in section_html
+    assert html.index('class="saved-article-local-reading-companion"') < html.index(
+        'class="saved-article-local-section-binder"'
+    )
+    assert html.index('class="saved-article-local-section-binder"') < html.index(
+        'id="local-article"'
+    )
+
+
 def test_render_row_one_detail_labels_saved_paragraphs_with_paragraph_context_cues() -> None:
     story = _edition().stories[0]
     html = render_detail_html(
@@ -3545,6 +3636,50 @@ def test_render_row_one_site_writes_local_article_reading_companion_with_peer_li
     assert "saved-article-local-reading-companion" not in generated_contract_payload
     assert not (tmp_path / "data" / "saved-article-local-reading-companion.json").exists()
     assert not (tmp_path / "data" / "article-local-reading-companion.json").exists()
+
+
+def test_render_row_one_site_writes_local_article_section_binder_only_on_article_pages(
+    tmp_path,
+) -> None:
+    story = _edition().stories[0]
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+
+    section_html = _html_between(
+        article_html,
+        '<section class="saved-article-local-section-binder"',
+        'id="local-article"',
+    )
+    assert "Saved Article Local Section Binder" in section_html
+    assert 'href="#local-article-content-section-1"' in section_html
+    assert 'href="#local-article-paragraph-1"' in section_html
+    assert "The Row Margaux bag appears in saved source text." in section_html
+    assert 'class="saved-article-local-section-binder"' not in library_html
+    assert 'class="saved-article-local-section-binder"' not in homepage_html
+    assert 'class="saved-article-local-section-binder"' not in detail_html
+    assert "saved_article_local_section_binder" not in generated_contract_payload
+    assert "saved-article-local-section-binder" not in generated_contract_payload
+    assert not (tmp_path / "data" / "saved-article-local-section-binder.json").exists()
+    assert not (tmp_path / "data" / "article-local-section-binder.json").exists()
+    assert not (tmp_path / "data" / "local-section-binder.json").exists()
 
 
 def test_render_row_one_site_local_article_page_paragraph_context_cues_are_html_only(
@@ -10457,6 +10592,23 @@ def test_row_one_css_includes_saved_article_local_reading_companion_styles() -> 
         ".saved-article-local-reading-companion-meta",
         ".saved-article-local-reading-companion-refs",
         ".saved-article-local-reading-companion-action",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_saved_article_local_section_binder_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".saved-article-local-section-binder",
+        ".saved-article-local-section-binder-header",
+        ".saved-article-local-section-binder-meta",
+        ".saved-article-local-section-binder-grid",
+        ".saved-article-local-section-binder-row",
+        ".saved-article-local-section-binder-chips",
+        ".saved-article-local-section-binder-refs",
+        ".saved-article-local-section-binder-paragraphs",
+        ".saved-article-local-section-binder-unfiled",
     ):
         assert selector in css
 

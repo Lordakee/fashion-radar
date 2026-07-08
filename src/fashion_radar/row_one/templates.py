@@ -64,6 +64,11 @@ from fashion_radar.row_one.saved_article_local_reading_companion import (
     RowOneSavedArticleLocalReadingCompanion,
     RowOneSavedArticleLocalReadingCompanionItem,
 )
+from fashion_radar.row_one.saved_article_local_section_binder import (
+    RowOneSavedArticleLocalSectionBinder,
+    RowOneSavedArticleLocalSectionBinderParagraph,
+    RowOneSavedArticleLocalSectionBinderRow,
+)
 from fashion_radar.row_one.saved_article_organization_jump_index import (
     RowOneSavedArticleOrganizationJumpIndex,
     RowOneSavedArticleOrganizationJumpIndexGroup,
@@ -528,6 +533,7 @@ def render_local_article_page_html(
     *,
     local_article: RowOneLocalArticle,
     saved_article_local_reading_companion: (RowOneSavedArticleLocalReadingCompanion | None) = None,
+    saved_article_local_section_binder: (RowOneSavedArticleLocalSectionBinder | None) = None,
 ) -> str:
     local_article_section = _render_local_article(local_article)
     if not local_article_section:
@@ -546,6 +552,9 @@ def render_local_article_page_html(
     )
     local_reading_companion = _render_saved_article_local_reading_companion(
         saved_article_local_reading_companion
+    )
+    local_section_binder = _render_saved_article_local_section_binder(
+        saved_article_local_section_binder
     )
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -597,6 +606,7 @@ def render_local_article_page_html(
     <p class="story-source">{_esc(local_article.source_name)}</p>
 {information_panel}
 {local_reading_companion}
+{local_section_binder}
     {local_article_section}
     </div>
   </article>
@@ -1983,6 +1993,78 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   letter-spacing: 0.08em;
   text-decoration: none;
   text-transform: uppercase;
+}
+.saved-article-local-section-binder {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+.saved-article-local-section-binder-header {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(170px, 0.32fr) minmax(0, 1fr);
+}
+.saved-article-local-section-binder-header h2,
+.saved-article-local-section-binder-header p,
+.saved-article-local-section-binder-row h3,
+.saved-article-local-section-binder-row p {
+  margin: 0;
+}
+.saved-article-local-section-binder-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.5rem, 3.5vw, 3rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.98;
+}
+.saved-article-local-section-binder-header p,
+.saved-article-local-section-binder-row p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.saved-article-local-section-binder-meta,
+.saved-article-local-section-binder-chips,
+.saved-article-local-section-binder-refs,
+.saved-article-local-section-binder-paragraphs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.saved-article-local-section-binder-meta span,
+.saved-article-local-section-binder-chips span,
+.saved-article-local-section-binder-refs span,
+.saved-article-local-section-binder-paragraphs a {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.74rem;
+  padding: 7px 9px;
+  text-decoration: none;
+}
+.saved-article-local-section-binder-paragraphs a,
+.saved-article-local-section-binder-row > a {
+  color: var(--accent);
+  font-weight: 800;
+}
+.saved-article-local-section-binder-grid {
+  display: grid;
+  gap: 10px;
+}
+.saved-article-local-section-binder-row {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 9px;
+  padding-top: 12px;
+}
+.saved-article-local-section-binder-row h3 {
+  font-size: 0.95rem;
+}
+.saved-article-local-section-binder-unfiled {
+  background: rgba(16, 18, 22, 0.035);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 9px;
+  padding: 12px;
 }
 .saved-signal-index {
   border-bottom: 1px solid var(--ink);
@@ -6689,6 +6771,176 @@ def _saved_article_local_reading_companion_href(href: str) -> str | None:
             return href
         return None
     return _saved_article_read_next_cluster_href(href)
+
+
+def _render_saved_article_local_section_binder(
+    binder: RowOneSavedArticleLocalSectionBinder | None,
+) -> str:
+    if binder is None:
+        return ""
+    rows = [
+        row_html
+        for row in binder.rows
+        if (row_html := _render_saved_article_local_section_binder_row(row))
+    ]
+    unfiled = _render_saved_article_local_section_binder_unfiled(binder.unfiled_paragraphs)
+    if not rows and not unfiled:
+        return ""
+    row_count = _count_label(len(rows), "organized section", "organized sections")
+    unfiled_count = _count_label(
+        len(binder.unfiled_paragraphs),
+        "unfiled paragraph",
+        "unfiled paragraphs",
+    )
+    rows_html = "\n".join(rows)
+    return f"""    <section class="saved-article-local-section-binder"
+      aria-labelledby="saved-article-local-section-binder-title">
+      <div class="saved-article-local-section-binder-header">
+        <h2 id="saved-article-local-section-binder-title">
+          <span data-lang="en">Saved Article Local Section Binder</span>
+          <span data-lang="zh">保存文章栏目索引</span>
+        </h2>
+        <p>
+          <span data-lang="en">A compact index of the organized local sections, cited
+          references, and saved paragraphs inside this article.</span>
+          <span data-lang="zh">这篇文章内部整理栏目、引用对象与保存段落的紧凑索引。</span>
+        </p>
+      </div>
+      <div class="saved-article-local-section-binder-meta">
+        <span>{_esc(binder.source_name)}</span>
+        <span>
+          <span data-lang="en">{_esc(binder.title.en)}</span>
+          <span data-lang="zh">{_esc(binder.title.zh)}</span>
+        </span>
+        <span>{_esc(row_count)}</span>
+        <span>{_esc(unfiled_count)}</span>
+      </div>
+      <div class="saved-article-local-section-binder-grid">
+{rows_html}
+{unfiled}
+      </div>
+    </section>"""
+
+
+def _render_saved_article_local_section_binder_row(
+    row: RowOneSavedArticleLocalSectionBinderRow,
+) -> str:
+    if _saved_article_local_section_binder_href(row.section_href) is None:
+        return ""
+    chips = _render_saved_article_local_section_binder_chips(row.item_labels)
+    refs = _render_saved_article_local_section_binder_refs(row.references)
+    paragraphs = _render_saved_article_local_section_binder_paragraphs(row.paragraphs)
+    paragraph_count = _count_label(
+        len(row.paragraphs),
+        "cited paragraph",
+        "cited paragraphs",
+    )
+    return f"""        <article class="saved-article-local-section-binder-row">
+          <div class="saved-article-local-section-binder-meta">
+            <span>{_esc(paragraph_count)}</span>
+            <span>Section {_esc(str(row.section_position))}</span>
+          </div>
+          <h3>
+            <span data-lang="en">{_esc(row.title.en)}</span>
+            <span data-lang="zh">{_esc(row.title.zh)}</span>
+          </h3>
+          <a href="{_esc(row.section_href)}">
+            <span data-lang="en">Jump to organized section</span>
+            <span data-lang="zh">跳转到整理栏目</span>
+          </a>
+{chips}{refs}{paragraphs}
+        </article>"""
+
+
+def _render_saved_article_local_section_binder_chips(
+    labels: Sequence[LocalizedText],
+) -> str:
+    chips = "".join(
+        f"""<span>
+              <span data-lang="en">{_esc(label.en)}</span>
+              <span data-lang="zh">{_esc(label.zh)}</span>
+            </span>"""
+        for label in labels
+        if label.en.strip() or label.zh.strip()
+    )
+    if not chips:
+        return ""
+    return f'          <div class="saved-article-local-section-binder-chips">{chips}</div>\n'
+
+
+def _render_saved_article_local_section_binder_refs(
+    references: Sequence[RowOneReference],
+) -> str:
+    chips = "".join(
+        f"<span>{_esc(_saved_article_local_section_binder_ref_label(ref))}</span>"
+        for ref in references
+        if _saved_article_local_section_binder_ref_label(ref)
+    )
+    if not chips:
+        return ""
+    return f'          <div class="saved-article-local-section-binder-refs">{chips}</div>\n'
+
+
+def _render_saved_article_local_section_binder_paragraphs(
+    paragraphs: Sequence[RowOneSavedArticleLocalSectionBinderParagraph],
+) -> str:
+    links = [
+        paragraph_html
+        for paragraph in paragraphs
+        if (paragraph_html := _render_saved_article_local_section_binder_paragraph(paragraph))
+    ]
+    if not links:
+        return ""
+    return (
+        '          <div class="saved-article-local-section-binder-paragraphs">\n'
+        + "\n".join(links)
+        + "\n          </div>\n"
+    )
+
+
+def _render_saved_article_local_section_binder_unfiled(
+    paragraphs: Sequence[RowOneSavedArticleLocalSectionBinderParagraph],
+) -> str:
+    rendered = _render_saved_article_local_section_binder_paragraphs(paragraphs)
+    if not rendered:
+        return ""
+    return f"""        <aside class="saved-article-local-section-binder-unfiled">
+          <p>
+            <span data-lang="en">Unfiled saved paragraphs</span>
+            <span data-lang="zh">未归档保存段落</span>
+          </p>
+{rendered}
+        </aside>"""
+
+
+def _render_saved_article_local_section_binder_paragraph(
+    paragraph: RowOneSavedArticleLocalSectionBinderParagraph,
+) -> str:
+    href = _saved_article_local_section_binder_href(paragraph.href)
+    if href is None:
+        return ""
+    return f"""            <a href="{_esc(href)}">
+              <span data-lang="en">{_esc(paragraph.excerpt.en)}</span>
+              <span data-lang="zh">{_esc(paragraph.excerpt.zh)}</span>
+            </a>"""
+
+
+def _saved_article_local_section_binder_ref_label(ref: RowOneReference) -> str:
+    parts = [part.strip() for part in (ref.name, ref.type, ref.label) if part.strip()]
+    return " / ".join(parts)
+
+
+def _saved_article_local_section_binder_href(href: str) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href.startswith("#"):
+        return None
+    fragment = href.removeprefix("#")
+    if _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is not None:
+        return href
+    if _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is not None:
+        return href
+    return None
 
 
 @dataclass(frozen=True)

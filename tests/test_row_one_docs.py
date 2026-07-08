@@ -1849,6 +1849,71 @@ def test_row_one_docs_describe_stage_353_saved_article_read_next_clusters_bounda
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_355_saved_article_local_section_binder_boundary() -> None:
+    expected = _normalized(
+        "Stage 355 adds generated-site only Saved Article Local Section Binder "
+        "inside `articles/<story-id>.html` pages; it reuses current-edition "
+        "saved local article sidecars, existing local article page routes, "
+        "existing safe detail digest and content-section anchors, existing "
+        "paragraph anchors, existing body-source labels, saved paragraph "
+        "counts, organized section counts, references, and evidence counts to "
+        "bind organized local sections back to already-saved local text without "
+        "changing app-facing contracts; it does not create "
+        "`data/saved-article-local-section-binder.json`, does not create "
+        "`data/article-local-section-binder.json`, does not create new "
+        "article-source sidecars, does not create new route families, does not "
+        "publish full articles on the library index, does not add outbound "
+        "article URLs as primary navigation, does not change row-one-app/v7, "
+        "row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, "
+        "source collection, fetching, matching, extraction, scoring, ranking, "
+        "LLM, connector, scheduling, deployment, market grouping, "
+        "domestic/international classification, analytics, personalization, "
+        "recommendation, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_355_pos = normalized.index(
+            "stage 355 adds generated-site only saved article local section binder"
+        )
+        stage_354_pos = normalized.index(
+            "stage 354 adds generated-site only saved article local reading companion"
+        )
+        assert stage_355_pos < stage_354_pos
+        stage = normalized[stage_355_pos:stage_354_pos]
+        for stale_phrase in (
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "creates `data/saved-article-local-section-binder.json`",
+            "writes `data/saved-article-local-section-binder.json`",
+            "creates `data/article-local-section-binder.json`",
+            "writes `data/article-local-section-binder.json`",
+            "writes a new json artifact",
+            "creates new article-source sidecars",
+            "creates new route families",
+            "publishes full articles on the library index",
+            "adds outbound article urls",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm calls",
+            "adds connectors",
+            "adds scheduling",
+            "adds deployment behavior",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_354_saved_article_local_reading_companion_boundary() -> None:
     expected = _normalized(
         "Stage 354 adds generated-site only Saved Article Local Reading "
