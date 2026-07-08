@@ -70,6 +70,11 @@ from fashion_radar.row_one.saved_article_organization_jump_index import (
     RowOneSavedArticleOrganizationJumpIndexGroup,
     RowOneSavedArticleOrganizationJumpIndexItem,
 )
+from fashion_radar.row_one.saved_article_read_next_clusters import (
+    RowOneSavedArticleReadNextCluster,
+    RowOneSavedArticleReadNextClusterItem,
+    RowOneSavedArticleReadNextClusters,
+)
 from fashion_radar.row_one.saved_article_reading_paths import (
     RowOneSavedArticleReadingPath,
     RowOneSavedArticleReadingPaths,
@@ -4021,6 +4026,45 @@ def test_render_row_one_site_includes_saved_article_reading_queue_in_library(
     assert 'class="saved-article-reading-queue"' not in detail_html
 
 
+def test_render_row_one_site_includes_saved_article_read_next_clusters_in_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _reference_atlas_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    section_html = _saved_article_read_next_clusters_section_html(library_html)
+
+    assert 'class="saved-article-read-next-clusters"' in section_html
+    assert "Saved Article Read Next Clusters" in section_html
+    assert "保存文章继续阅读集群" in section_html
+    assert "Reference atlas source article" in section_html
+    assert "Vogue Business" in section_html
+    assert "People &amp; Brands" in section_html
+    assert "Products" in section_html
+    assert "The Row" in section_html
+    assert "Alaia flats" in section_html
+    assert 'href="the-row-signal-1234567890.html#local-article-digest"' in section_html
+    assert library_html.index('class="saved-article-reading-queue"') < library_html.index(
+        'class="saved-article-read-next-clusters"'
+    )
+    assert library_html.index('class="saved-article-read-next-clusters"') < library_html.index(
+        'class="saved-article-signal-facets"'
+    )
+    assert 'class="saved-article-read-next-clusters"' not in homepage_html
+    assert 'class="saved-article-read-next-clusters"' not in detail_html
+
+
 def test_render_saved_article_library_html_escapes_reading_queue_and_revalidates_links() -> None:
     queue = RowOneSavedArticleReadingQueue(
         item_count=3,
@@ -4112,6 +4156,257 @@ def test_render_saved_article_library_html_omits_empty_reading_queue_shell() -> 
         assert "Saved Article Reading Queue" not in html
         assert "Unsafe traversal" not in html
         assert "Whitespace link" not in html
+
+
+def test_render_saved_article_library_html_escapes_read_next_clusters_and_revalidates_links() -> (
+    None
+):
+    clusters = RowOneSavedArticleReadNextClusters(
+        cluster_count=1,
+        item_count=4,
+        source_count=1,
+        evidence_count=1,
+        clusters=(
+            RowOneSavedArticleReadNextCluster(
+                key="takeaways",
+                title=LocalizedText(en="Read <First>", zh="优先 <阅读>"),
+                dek=LocalizedText(en="Cluster <dek>", zh="集群 <说明>"),
+                item_count=4,
+                source_count=1,
+                evidence_count=1,
+                items=(
+                    RowOneSavedArticleReadNextClusterItem(
+                        title=LocalizedText(en="Unsafe <Article>", zh="不安全 <文章>"),
+                        source_name="Vogue <Business>",
+                        section_label=LocalizedText(en="People <Brands>", zh="品牌 <人物>"),
+                        body_source_label=LocalizedText(
+                            en="Extracted <Text>",
+                            zh="已提取 <正文>",
+                        ),
+                        lead=LocalizedText(en="Lead <script>", zh="导语 <script>"),
+                        saved_paragraph_count=2,
+                        organized_section_count=3,
+                        evidence_count=1,
+                        href=(
+                            "../details/the-row-signal-1234567890.html"
+                            "#local-article-content-section-1"
+                        ),
+                        detail_path="details/the-row-signal-1234567890.html",
+                        references=(
+                            RowOneReference(
+                                name="The Row <brand>",
+                                type="brand",
+                                label="tracked <label>",
+                            ),
+                        ),
+                    ),
+                    RowOneSavedArticleReadNextClusterItem(
+                        title=LocalizedText(en="JavaScript link", zh="脚本链接"),
+                        source_name="Unsafe Source",
+                        section_label=LocalizedText(en="Bad", zh="坏"),
+                        body_source_label=LocalizedText(en="Skipped", zh="已跳过"),
+                        lead=LocalizedText(en="Unsafe", zh="不安全"),
+                        saved_paragraph_count=1,
+                        organized_section_count=1,
+                        evidence_count=1,
+                        href="javascript:alert(1)",
+                        detail_path="details/the-row-signal-1234567890.html",
+                    ),
+                    RowOneSavedArticleReadNextClusterItem(
+                        title=LocalizedText(en="Outbound link", zh="外部链接"),
+                        source_name="Unsafe Source",
+                        section_label=LocalizedText(en="Bad", zh="坏"),
+                        body_source_label=LocalizedText(en="Skipped", zh="已跳过"),
+                        lead=LocalizedText(en="Unsafe", zh="不安全"),
+                        saved_paragraph_count=1,
+                        organized_section_count=1,
+                        evidence_count=1,
+                        href="https://example.com/article.html#local-article-digest",
+                        detail_path="details/the-row-signal-1234567890.html",
+                    ),
+                    RowOneSavedArticleReadNextClusterItem(
+                        title=LocalizedText(en="Wrong fragment", zh="错误锚点"),
+                        source_name="Unsafe Source",
+                        section_label=LocalizedText(en="Bad", zh="坏"),
+                        body_source_label=LocalizedText(en="Skipped", zh="已跳过"),
+                        lead=LocalizedText(en="Unsafe", zh="不安全"),
+                        saved_paragraph_count=1,
+                        organized_section_count=1,
+                        evidence_count=1,
+                        href="../details/the-row-signal-1234567890.html#bad-fragment",
+                        detail_path="details/the-row-signal-1234567890.html",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_read_next_clusters=clusters,
+    )
+    section_html = _saved_article_read_next_clusters_section_html(html)
+
+    assert "Unsafe &lt;Article&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "Lead &lt;script&gt;" in section_html
+    assert "The Row &lt;brand&gt;" in section_html
+    assert "tracked &lt;label&gt;" in section_html
+    assert "Unsafe <Article>" not in section_html
+    assert "Vogue <Business>" not in section_html
+    assert "Lead <script>" not in section_html
+    assert "javascript:" not in section_html
+    assert "https://example.com" not in section_html
+    assert "#bad-fragment" not in section_html
+    assert "JavaScript link" not in section_html
+    assert "Outbound link" not in section_html
+    assert "Wrong fragment" not in section_html
+    assert (
+        'href="../details/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+
+
+def test_render_saved_article_library_html_omits_empty_read_next_clusters_shell() -> None:
+    empty_clusters = RowOneSavedArticleReadNextClusters(
+        cluster_count=0,
+        item_count=0,
+        source_count=0,
+        evidence_count=0,
+        clusters=(),
+    )
+    filtered_clusters = RowOneSavedArticleReadNextClusters(
+        cluster_count=1,
+        item_count=1,
+        source_count=1,
+        evidence_count=1,
+        clusters=(
+            RowOneSavedArticleReadNextCluster(
+                key="takeaways",
+                title=LocalizedText(en="Read First", zh="优先阅读"),
+                dek=LocalizedText(en="Unsafe only", zh="只有不安全链接"),
+                item_count=1,
+                source_count=1,
+                evidence_count=1,
+                items=(
+                    RowOneSavedArticleReadNextClusterItem(
+                        title=LocalizedText(en="Unsafe traversal", zh="不安全路径"),
+                        source_name="Unsafe Source",
+                        section_label=LocalizedText(en="Bad", zh="坏"),
+                        body_source_label=LocalizedText(en="Skipped", zh="已跳过"),
+                        lead=LocalizedText(en="Unsafe", zh="不安全"),
+                        saved_paragraph_count=1,
+                        organized_section_count=1,
+                        evidence_count=1,
+                        href="../details/../unsafe-1234567890.html#local-article-digest",
+                        detail_path="details/unsafe-1234567890.html",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    for clusters in (None, empty_clusters, filtered_clusters):
+        html = render_saved_article_library_html(
+            _edition(),
+            _saved_article_library_fixture(),
+            saved_article_read_next_clusters=clusters,
+        )
+        assert 'class="saved-article-read-next-clusters"' not in html
+        assert "Saved Article Read Next Clusters" not in html
+        assert "Unsafe traversal" not in html
+
+
+def test_render_saved_article_library_html_counts_only_rendered_read_next_items() -> None:
+    clusters = RowOneSavedArticleReadNextClusters(
+        cluster_count=2,
+        item_count=3,
+        source_count=2,
+        evidence_count=8,
+        clusters=(
+            RowOneSavedArticleReadNextCluster(
+                key="unsafe",
+                title=LocalizedText(en="Unsafe Cluster", zh="不安全集群"),
+                dek=LocalizedText(en="Should be filtered", zh="应该过滤"),
+                item_count=1,
+                source_count=1,
+                evidence_count=5,
+                items=(
+                    RowOneSavedArticleReadNextClusterItem(
+                        title=LocalizedText(en="Unsafe first", zh="不安全优先"),
+                        source_name="Unsafe Source",
+                        section_label=LocalizedText(en="Bad", zh="坏"),
+                        body_source_label=LocalizedText(en="Skipped", zh="已跳过"),
+                        lead=LocalizedText(en="Unsafe", zh="不安全"),
+                        saved_paragraph_count=1,
+                        organized_section_count=1,
+                        evidence_count=5,
+                        href="javascript:alert(1)",
+                        detail_path="details/the-row-signal-1234567890.html",
+                    ),
+                ),
+            ),
+            RowOneSavedArticleReadNextCluster(
+                key="safe",
+                title=LocalizedText(en="Safe Cluster", zh="安全集群"),
+                dek=LocalizedText(en="Only rendered items count", zh="只统计已渲染项"),
+                item_count=2,
+                source_count=1,
+                evidence_count=3,
+                items=(
+                    RowOneSavedArticleReadNextClusterItem(
+                        title=LocalizedText(en="Unsafe before valid", zh="有效前的不安全项"),
+                        source_name="Unsafe Source",
+                        section_label=LocalizedText(en="Bad", zh="坏"),
+                        body_source_label=LocalizedText(en="Skipped", zh="已跳过"),
+                        lead=LocalizedText(en="Unsafe", zh="不安全"),
+                        saved_paragraph_count=1,
+                        organized_section_count=1,
+                        evidence_count=2,
+                        href="../details/the-row-signal-1234567890.html#bad-fragment",
+                        detail_path="details/the-row-signal-1234567890.html",
+                    ),
+                    RowOneSavedArticleReadNextClusterItem(
+                        title=LocalizedText(en="Rendered valid", zh="已渲染有效项"),
+                        source_name="Vogue Business",
+                        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                        body_source_label=LocalizedText(
+                            en="Extracted article text",
+                            zh="已提取文章正文",
+                        ),
+                        lead=LocalizedText(en="Valid lead", zh="有效导语"),
+                        saved_paragraph_count=3,
+                        organized_section_count=2,
+                        evidence_count=1,
+                        href=(
+                            "../details/the-row-signal-1234567890.html"
+                            "#local-article-content-section-1"
+                        ),
+                        detail_path="details/the-row-signal-1234567890.html",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_read_next_clusters=clusters,
+    )
+    section_html = _saved_article_read_next_clusters_section_html(html)
+
+    assert "Unsafe Cluster" not in section_html
+    assert "Unsafe first" not in section_html
+    assert "Unsafe before valid" not in section_html
+    assert "Rendered valid" in section_html
+    assert "1 cluster" in section_html
+    assert "1 saved article" in section_html
+    assert "1 source" in section_html
+    assert "1 evidence point" in section_html
+    assert "2 saved articles" not in section_html
+    assert "8 evidence points" not in section_html
 
 
 def test_render_saved_article_library_html_escapes_daily_signal_leaderboard() -> None:
@@ -5999,6 +6294,25 @@ def _saved_article_organization_jump_index_section_html(index_html: str) -> str:
 
 def _saved_article_reading_queue_section_html(index_html: str) -> str:
     marker = '<section class="saved-article-reading-queue"'
+    assert marker in index_html
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    boundary_offsets: list[int] = []
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is not None:
+        boundary_offsets.append(next_section.start())
+    library_grid = tail.find('<div class="saved-article-library-grid"')
+    if library_grid >= 0:
+        boundary_offsets.append(library_grid)
+    if not boundary_offsets:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + min(boundary_offsets)
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _saved_article_read_next_clusters_section_html(index_html: str) -> str:
+    marker = '<section class="saved-article-read-next-clusters"'
     assert marker in index_html
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
@@ -10074,6 +10388,16 @@ def test_row_one_css_includes_saved_article_library_styles(tmp_path) -> None:
         ".saved-article-reading-queue-title",
         ".saved-article-reading-queue-meta",
         ".saved-article-reading-queue-action",
+        ".saved-article-read-next-clusters",
+        ".saved-article-read-next-clusters-header",
+        ".saved-article-read-next-clusters-metrics",
+        ".saved-article-read-next-clusters-grid",
+        ".saved-article-read-next-clusters-cluster",
+        ".saved-article-read-next-clusters-item",
+        ".saved-article-read-next-clusters-meta",
+        ".saved-article-read-next-clusters-lead",
+        ".saved-article-read-next-clusters-refs",
+        ".saved-article-read-next-clusters-action",
         ".saved-article-signal-facets",
         ".saved-article-signal-facets-header",
         ".saved-article-signal-facets-grid",

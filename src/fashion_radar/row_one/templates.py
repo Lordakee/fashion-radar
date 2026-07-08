@@ -67,6 +67,12 @@ from fashion_radar.row_one.saved_article_organization_jump_index import (
     RowOneSavedArticleOrganizationJumpIndexSourceRoute,
     build_row_one_saved_article_organization_jump_index,
 )
+from fashion_radar.row_one.saved_article_read_next_clusters import (
+    RowOneSavedArticleReadNextCluster,
+    RowOneSavedArticleReadNextClusterItem,
+    RowOneSavedArticleReadNextClusters,
+    build_row_one_saved_article_read_next_clusters,
+)
 from fashion_radar.row_one.saved_article_reading_paths import (
     RowOneSavedArticleReadingPath,
     RowOneSavedArticleReadingPaths,
@@ -349,6 +355,7 @@ def render_saved_article_library_html(
     saved_article_daily_signal_leaderboard: RowOneSavedArticleDailySignalLeaderboard | None = None,
     saved_article_organization_jump_index: RowOneSavedArticleOrganizationJumpIndex | None = None,
     saved_article_reading_queue: RowOneSavedArticleReadingQueue | None = None,
+    saved_article_read_next_clusters: RowOneSavedArticleReadNextClusters | None = None,
     saved_article_evidence_board: RowOneSavedArticleEvidenceBoard | None = None,
     local_article_page_hrefs_by_detail_path: Mapping[str, str] | None = None,
 ) -> str:
@@ -428,6 +435,16 @@ def render_saved_article_library_html(
         )
     )
     reading_queue = _render_saved_article_reading_queue(reading_queue_model)
+    read_next_clusters_model = (
+        saved_article_read_next_clusters
+        if saved_article_read_next_clusters is not None
+        else build_row_one_saved_article_read_next_clusters(
+            library,
+            saved_article_content_organization,
+            local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+        )
+    )
+    read_next_clusters = _render_saved_article_read_next_clusters(read_next_clusters_model)
     daily_summary = _render_saved_article_daily_summary(
         library,
         source_routes=source_routes,
@@ -483,6 +500,7 @@ def render_saved_article_library_html(
   {daily_summary}
   {organization_jump_index}
   {reading_queue}
+  {read_next_clusters}
   {signal_facets}
   {daily_signal_leaderboard}
   {theme_digest}
@@ -2057,6 +2075,119 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   letter-spacing: 0.08em;
   padding: 8px 10px;
   text-decoration: none;
+  text-transform: uppercase;
+}
+.saved-article-read-next-clusters {
+  border-bottom: 1px solid var(--ink);
+  display: grid;
+  gap: 18px;
+  padding-bottom: 28px;
+}
+.saved-article-read-next-clusters-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.36fr) minmax(0, 1fr);
+}
+.saved-article-read-next-clusters-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 5vw, 5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.95;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-read-next-clusters-header p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-read-next-clusters-metrics {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  gap: 6px 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-read-next-clusters-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.saved-article-read-next-clusters-cluster {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 14px;
+}
+.saved-article-read-next-clusters-cluster h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 1.24rem;
+  line-height: 1.12;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-read-next-clusters-cluster p {
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-read-next-clusters-item {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+.saved-article-read-next-clusters-item h4 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 1.08rem;
+  line-height: 1.15;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-read-next-clusters-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  gap: 6px 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-read-next-clusters-lead {
+  line-height: 1.45;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-read-next-clusters-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.saved-article-read-next-clusters-refs span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  padding: 5px 8px;
+}
+.saved-article-read-next-clusters-action {
+  color: var(--ink);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-decoration: underline;
   text-transform: uppercase;
 }
 .saved-article-signal-facets {
@@ -6039,6 +6170,238 @@ def _saved_article_reading_queue_href(href: str) -> str | None:
     if not safe_local_article_story_id(page_href.removesuffix(".html")):
         return None
     return href
+
+
+def _render_saved_article_read_next_clusters(
+    clusters: RowOneSavedArticleReadNextClusters | None,
+) -> str:
+    if clusters is None or not clusters.clusters:
+        return ""
+    rendered_clusters = tuple(
+        rendered
+        for cluster in clusters.clusters
+        if (rendered := _render_saved_article_read_next_cluster(cluster)) is not None
+    )
+    if not rendered_clusters:
+        return ""
+    cluster_count = len(rendered_clusters)
+    item_count = sum(rendered.item_count for rendered in rendered_clusters)
+    source_count = len(
+        {
+            " ".join(source_name.split()).casefold()
+            for rendered in rendered_clusters
+            for source_name in rendered.source_names
+        }
+    )
+    evidence_count = sum(rendered.evidence_count for rendered in rendered_clusters)
+    cluster_count_en = _count_label(cluster_count, "cluster", "clusters")
+    item_count_en = _count_label(item_count, "saved article", "saved articles")
+    summary_en = f"{_esc(cluster_count_en)} organizing {_esc(item_count_en)} for the next read."
+    summary_zh = f"{_esc(str(cluster_count))} 个阅读集群整理 {_esc(str(item_count))} 篇保存文章。"
+    metrics = _render_saved_article_read_next_cluster_metrics(
+        item_count=item_count,
+        source_count=source_count,
+        evidence_count=evidence_count,
+    )
+    return f"""<section class="saved-article-read-next-clusters"
+  id="saved-article-read-next-clusters"
+  aria-label="Saved article read next clusters">
+  <div class="saved-article-read-next-clusters-header">
+    <p class="eyebrow">Read Next</p>
+    <h2>
+      <span data-lang="en">Saved Article Read Next Clusters</span>
+      <span data-lang="zh">保存文章继续阅读集群</span>
+    </h2>
+    <p>
+      <span data-lang="en">{summary_en}</span>
+      <span data-lang="zh">{summary_zh}</span>
+    </p>
+  </div>
+  {metrics}
+  <div class="saved-article-read-next-clusters-grid">
+{chr(10).join(rendered.html for rendered in rendered_clusters)}
+  </div>
+</section>"""
+
+
+def _render_saved_article_read_next_cluster_metrics(
+    *,
+    item_count: int,
+    source_count: int,
+    evidence_count: int,
+) -> str:
+    article_count_en = _count_label(item_count, "saved article", "saved articles")
+    source_count_en = _count_label(source_count, "source", "sources")
+    evidence_count_en = _count_label(evidence_count, "evidence point", "evidence points")
+    return f"""<div class="saved-article-read-next-clusters-metrics">
+    <span>
+      <span data-lang="en">{_esc(article_count_en)}</span>
+      <span data-lang="zh">{_esc(str(item_count))} 篇保存文章</span>
+    </span>
+    <span>
+      <span data-lang="en">{_esc(source_count_en)}</span>
+      <span data-lang="zh">{_esc(str(source_count))} 个来源</span>
+    </span>
+    <span>
+      <span data-lang="en">{_esc(evidence_count_en)}</span>
+      <span data-lang="zh">{_esc(str(evidence_count))} 个证据点</span>
+    </span>
+  </div>"""
+
+
+def _render_saved_article_read_next_cluster(
+    cluster: RowOneSavedArticleReadNextCluster,
+) -> _RenderedSavedArticleReadNextCluster | None:
+    rendered_items: list[str] = []
+    rendered_source_names: list[str] = []
+    rendered_evidence_count = 0
+    for item in cluster.items:
+        item_html = _render_saved_article_read_next_cluster_item(item)
+        if not item_html:
+            continue
+        rendered_items.append(item_html)
+        rendered_source_names.append(item.source_name)
+        rendered_evidence_count += item.evidence_count
+    if not rendered_items:
+        return None
+    item_count_en = _count_label(len(rendered_items), "article", "articles")
+    evidence_count_en = _count_label(
+        rendered_evidence_count,
+        "evidence point",
+        "evidence points",
+    )
+    html = f"""    <article class="saved-article-read-next-clusters-cluster">
+      <div>
+        <h3>
+          <span data-lang="en">{_esc(cluster.title.en)}</span>
+          <span data-lang="zh">{_esc(cluster.title.zh)}</span>
+        </h3>
+        <p>
+          <span data-lang="en">{_esc(cluster.dek.en)}</span>
+          <span data-lang="zh">{_esc(cluster.dek.zh)}</span>
+        </p>
+        <div class="saved-article-read-next-clusters-meta">
+          <span>{_esc(item_count_en)}</span>
+          <span>{_esc(evidence_count_en)}</span>
+        </div>
+      </div>
+{chr(10).join(rendered_items)}
+    </article>"""
+    return _RenderedSavedArticleReadNextCluster(
+        html=html,
+        item_count=len(rendered_items),
+        source_names=tuple(rendered_source_names),
+        evidence_count=rendered_evidence_count,
+    )
+
+
+def _render_saved_article_read_next_cluster_item(
+    item: RowOneSavedArticleReadNextClusterItem,
+) -> str:
+    href = _saved_article_read_next_cluster_href(item.href)
+    if href is None:
+        return ""
+    paragraph_count_en = _count_label(
+        item.saved_paragraph_count,
+        "saved paragraph",
+        "saved paragraphs",
+    )
+    section_count_en = _count_label(
+        item.organized_section_count,
+        "organized section",
+        "organized sections",
+    )
+    refs = _render_saved_article_read_next_cluster_refs(item.references)
+    evidence_count_en = _count_label(
+        item.evidence_count,
+        "evidence point",
+        "evidence points",
+    )
+    return f"""      <article class="saved-article-read-next-clusters-item">
+        <div class="saved-article-read-next-clusters-meta">
+          <span>{_esc(item.source_name)}</span>
+          <span>
+            <span data-lang="en">{_esc(item.section_label.en)}</span>
+            <span data-lang="zh">{_esc(item.section_label.zh)}</span>
+          </span>
+          <span>
+            <span data-lang="en">{_esc(item.body_source_label.en)}</span>
+            <span data-lang="zh">{_esc(item.body_source_label.zh)}</span>
+          </span>
+        </div>
+        <h4>
+          <span data-lang="en">{_esc(item.title.en)}</span>
+          <span data-lang="zh">{_esc(item.title.zh)}</span>
+        </h4>
+        <p class="saved-article-read-next-clusters-lead">
+          <span data-lang="en">{_esc(item.lead.en)}</span>
+          <span data-lang="zh">{_esc(item.lead.zh)}</span>
+        </p>
+        <div class="saved-article-read-next-clusters-meta">
+          <span>{_esc(paragraph_count_en)}</span>
+          <span>{_esc(section_count_en)}</span>
+          <span>{_esc(evidence_count_en)}</span>
+        </div>{refs}
+        <a class="saved-article-read-next-clusters-action" href="{_esc(href)}">
+          <span data-lang="en">Read locally</span>
+          <span data-lang="zh">本地阅读</span>
+        </a>
+      </article>"""
+
+
+def _render_saved_article_read_next_cluster_refs(
+    references: Sequence[RowOneReference],
+) -> str:
+    def _chip_label(ref: RowOneReference) -> str:
+        suffix = ref.label.strip() or ref.type.strip()
+        return f"{ref.name.strip()} · {suffix}" if suffix else ref.name.strip()
+
+    chips = "".join(
+        f"<span>{_esc(_chip_label(ref))}</span>" for ref in references if ref.name.strip()
+    )
+    if not chips:
+        return ""
+    return f'\n        <div class="saved-article-read-next-clusters-refs">{chips}</div>'
+
+
+def _saved_article_read_next_cluster_href(href: str) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if href.startswith(("http:", "https:", "//", "javascript:")):
+        return None
+    if href.startswith("../details/"):
+        detail_href = href.removeprefix("../")
+        digest_href = safe_row_one_detail_fragment_href(detail_href, "local-article-digest")
+        if digest_href is not None and f"../{digest_href}" == href:
+            return href
+        path, separator, fragment = detail_href.partition("#")
+        if not separator:
+            return None
+        if validated_row_one_detail_relative_path(path) is None:
+            return None
+        if _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is None:
+            return None
+        return href
+    if href.startswith(".") or href.startswith("/") or "/" in href:
+        return None
+    page_href, separator, fragment = href.partition("#")
+    if not separator or fragment != "local-article-digest":
+        return None
+    if not page_href.endswith(".html"):
+        return None
+    if not safe_local_article_story_id(page_href.removesuffix(".html")):
+        return None
+    return href
+
+
+@dataclass(frozen=True)
+class _RenderedSavedArticleReadNextCluster:
+    html: str
+    item_count: int
+    source_names: tuple[str, ...]
+    evidence_count: int
 
 
 def _first_saved_article_daily_summary_reading_href(

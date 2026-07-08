@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from fashion_radar.row_one.articles import safe_local_article_story_id
+from fashion_radar.row_one.body_source_labels import row_one_body_source_label
 from fashion_radar.row_one.detail_routes import safe_row_one_detail_fragment_href
 from fashion_radar.row_one.models import LocalizedText, RowOneLocalArticleBodySource
 from fashion_radar.row_one.saved_article_library import (
@@ -122,8 +123,4 @@ def _detail_path_key(href: str) -> str | None:
 
 
 def _body_source_label(body_source: RowOneLocalArticleBodySource) -> LocalizedText:
-    if body_source == "summary_fallback":
-        return LocalizedText(en="ROW ONE summary fallback", zh="ROW ONE 摘要回退")
-    if body_source == "skipped":
-        return LocalizedText(en="Skipped", zh="已跳过")
-    return LocalizedText(en="Extracted article text", zh="已提取文章正文")
+    return row_one_body_source_label(body_source)

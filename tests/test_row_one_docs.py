@@ -1784,6 +1784,71 @@ def test_row_one_docs_describe_stage_352_saved_article_reading_queue_boundary() 
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_353_saved_article_read_next_clusters_boundary() -> None:
+    expected = _normalized(
+        "Stage 353 adds generated-site only Saved Article Read Next Clusters "
+        "inside `articles/index.html`; it reuses existing saved article "
+        "library entries, existing saved article content organization groups, "
+        "existing local article page hrefs, existing safe detail digest and "
+        "content-section anchors, existing body-source labels, local leads, "
+        "references, saved paragraph counts, organized section counts, and "
+        "evidence counts to organize what to read next without changing "
+        "app-facing contracts; it does not create "
+        "`data/saved-article-read-next-clusters.json`, does not create "
+        "`data/article-read-next-clusters.json`, does not create new "
+        "article-source sidecars, does not create new route families, does not "
+        "publish full articles on the library index, does not add outbound "
+        "article URLs as primary navigation, does not change row-one-app/v7, "
+        "row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, "
+        "source collection, fetching, matching, extraction, scoring, ranking, "
+        "LLM, connector, scheduling, deployment, market grouping, "
+        "domestic/international classification, analytics, personalization, "
+        "recommendation, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_353_pos = normalized.index(
+            "stage 353 adds generated-site only saved article read next clusters"
+        )
+        stage_352_pos = normalized.index(
+            "stage 352 adds generated-site only saved article reading queue"
+        )
+        assert stage_353_pos < stage_352_pos
+        stage = normalized[stage_353_pos:stage_352_pos]
+        for stale_phrase in (
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "creates `data/saved-article-read-next-clusters.json`",
+            "writes `data/saved-article-read-next-clusters.json`",
+            "creates `data/article-read-next-clusters.json`",
+            "writes `data/article-read-next-clusters.json`",
+            "writes a new json artifact",
+            "creates new article-source sidecars",
+            "creates new route families",
+            "publishes full articles on the library index",
+            "adds outbound article urls",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_349_saved_article_signal_facets_boundary() -> None:
     expected = _normalized(
         "Stage 349 adds generated-site only Saved Article Signal Facets inside "
