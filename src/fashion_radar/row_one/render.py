@@ -43,6 +43,9 @@ from fashion_radar.row_one.saved_article_evidence_board import (
     RowOneSavedArticleEvidenceBoard,
     build_row_one_saved_article_evidence_board,
 )
+from fashion_radar.row_one.saved_article_key_signals import (
+    build_row_one_saved_article_key_signals,
+)
 from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibrary,
     build_row_one_saved_article_library,
@@ -375,12 +378,17 @@ def _write_local_article_pages(
             story=story,
             local_article=article,
         )
+        key_signals = build_row_one_saved_article_key_signals(
+            story=story,
+            local_article=article,
+        )
         html = render_local_article_page_html(
             edition,
             story,
             local_article=article,
             saved_article_local_reading_companion=companion,
             saved_article_local_section_binder=binder,
+            saved_article_key_signals=key_signals,
         )
         if not html:
             continue

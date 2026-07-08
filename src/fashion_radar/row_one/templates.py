@@ -54,6 +54,13 @@ from fashion_radar.row_one.saved_article_evidence_board import (
     RowOneSavedArticleEvidenceBoardCard,
     RowOneSavedArticleEvidenceBoardGroup,
 )
+from fashion_radar.row_one.saved_article_key_signals import (
+    RowOneSavedArticleKeySignalEvidence,
+    RowOneSavedArticleKeySignalGroup,
+    RowOneSavedArticleKeySignalReference,
+    RowOneSavedArticleKeySignals,
+    RowOneSavedArticleKeySignalTheme,
+)
 from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibrary,
     RowOneSavedArticleLibraryEntry,
@@ -534,6 +541,7 @@ def render_local_article_page_html(
     local_article: RowOneLocalArticle,
     saved_article_local_reading_companion: (RowOneSavedArticleLocalReadingCompanion | None) = None,
     saved_article_local_section_binder: (RowOneSavedArticleLocalSectionBinder | None) = None,
+    saved_article_key_signals: RowOneSavedArticleKeySignals | None = None,
 ) -> str:
     local_article_section = _render_local_article(local_article)
     if not local_article_section:
@@ -556,6 +564,7 @@ def render_local_article_page_html(
     local_section_binder = _render_saved_article_local_section_binder(
         saved_article_local_section_binder
     )
+    key_signals = _render_saved_article_key_signals(saved_article_key_signals)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -607,6 +616,7 @@ def render_local_article_page_html(
 {information_panel}
 {local_reading_companion}
 {local_section_binder}
+{key_signals}
     {local_article_section}
     </div>
   </article>
@@ -2065,6 +2075,75 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   display: grid;
   gap: 9px;
   padding: 12px;
+}
+.saved-article-key-signals {
+  border: 1px solid var(--ink);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+.saved-article-key-signals-header {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(170px, 0.32fr) minmax(0, 1fr);
+}
+.saved-article-key-signals-header h2,
+.saved-article-key-signals-header p,
+.saved-article-key-signal h3,
+.saved-article-key-signal p {
+  margin: 0;
+}
+.saved-article-key-signals-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.6rem, 3.8vw, 3.2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.96;
+}
+.saved-article-key-signals-header p,
+.saved-article-key-signal p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.saved-article-key-signals-meta,
+.saved-article-key-signal-refs,
+.saved-article-key-signal-themes,
+.saved-article-key-signal-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.saved-article-key-signals-meta span,
+.saved-article-key-signal-ref,
+.saved-article-key-signal-themes a,
+.saved-article-key-signal-evidence a {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.74rem;
+  padding: 7px 9px;
+  text-decoration: none;
+}
+.saved-article-key-signal-themes a,
+.saved-article-key-signal-evidence a {
+  color: var(--accent);
+  font-weight: 800;
+}
+.saved-article-key-signals-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.saved-article-key-signal {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 9px;
+  padding-top: 12px;
+}
+.saved-article-key-signal h3 {
+  font-size: 0.95rem;
+}
+.saved-article-key-signal-statement {
+  color: var(--ink);
 }
 .saved-signal-index {
   border-bottom: 1px solid var(--ink);
@@ -6931,6 +7010,186 @@ def _saved_article_local_section_binder_ref_label(ref: RowOneReference) -> str:
 
 
 def _saved_article_local_section_binder_href(href: str) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href.startswith("#"):
+        return None
+    fragment = href.removeprefix("#")
+    if _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is not None:
+        return href
+    if _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is not None:
+        return href
+    return None
+
+
+def _render_saved_article_key_signals(
+    key_signals: RowOneSavedArticleKeySignals | None,
+) -> str:
+    if key_signals is None:
+        return ""
+    groups = [
+        group_html
+        for group in key_signals.groups
+        if (group_html := _render_saved_article_key_signal_group(group))
+    ]
+    if not groups:
+        return ""
+    group_count = _count_label(len(groups), "signal group", "signal groups")
+    groups_html = "\n".join(groups)
+    return f"""    <section class="saved-article-key-signals"
+      aria-labelledby="saved-article-key-signals-title">
+      <div class="saved-article-key-signals-header">
+        <h2 id="saved-article-key-signals-title">
+          <span data-lang="en">{_esc(key_signals.title.en)}</span>
+          <span data-lang="zh">{_esc(key_signals.title.zh)}</span>
+        </h2>
+        <p>
+          <span data-lang="en">The article's saved text organized into Why It Matters,
+          Brands, Products, People, and Themes before the full read.</span>
+          <span data-lang="zh">在阅读全文前，将已保存正文整理为为什么重要、品牌、产品、
+          人物与主题信号。</span>
+        </p>
+      </div>
+      <div class="saved-article-key-signals-meta">
+        <span>{_esc(key_signals.source_name)}</span>
+        <span>{_esc(group_count)}</span>
+      </div>
+      <div class="saved-article-key-signals-grid">
+{groups_html}
+      </div>
+    </section>"""
+
+
+def _render_saved_article_key_signal_group(
+    group: RowOneSavedArticleKeySignalGroup,
+) -> str:
+    statement = _render_saved_article_key_signal_statement(group.statement)
+    refs = _render_saved_article_key_signal_refs(group.references)
+    themes = _render_saved_article_key_signal_themes(group.themes)
+    evidence = _render_saved_article_key_signal_evidence(group.evidence)
+    if not any((statement, refs, themes, evidence)):
+        return ""
+    meta = _render_saved_article_key_signal_meta(group)
+    return f"""        <article class="saved-article-key-signal">
+          <h3>
+            <span data-lang="en">{_esc(group.title.en)}</span>
+            <span data-lang="zh">{_esc(group.title.zh)}</span>
+          </h3>
+{meta}{statement}{refs}{themes}{evidence}
+        </article>"""
+
+
+def _render_saved_article_key_signal_meta(
+    group: RowOneSavedArticleKeySignalGroup,
+) -> str:
+    labels = []
+    if group.support_count:
+        labels.append(_count_label(group.support_count, "support row", "support rows"))
+    if group.reference_count:
+        labels.append(_count_label(group.reference_count, "reference", "references"))
+    if group.theme_count:
+        labels.append(_count_label(group.theme_count, "theme", "themes"))
+    if group.evidence_count:
+        labels.append(_count_label(group.evidence_count, "evidence cue", "evidence cues"))
+    if not labels:
+        return ""
+    chips = "".join(f"<span>{_esc(label)}</span>" for label in labels)
+    return f'          <div class="saved-article-key-signals-meta">{chips}</div>\n'
+
+
+def _render_saved_article_key_signal_statement(statement: LocalizedText | None) -> str:
+    if statement is None or not (statement.en.strip() or statement.zh.strip()):
+        return ""
+    return f"""          <p class="saved-article-key-signal-statement">
+            <span data-lang="en">{_esc(statement.en)}</span>
+            <span data-lang="zh">{_esc(statement.zh)}</span>
+          </p>
+"""
+
+
+def _render_saved_article_key_signal_refs(
+    references: Sequence[RowOneSavedArticleKeySignalReference],
+) -> str:
+    chips = "".join(
+        f'<span class="saved-article-key-signal-ref">{_esc(label)}</span>'
+        for reference in references
+        if (label := _saved_article_key_signal_ref_label(reference))
+    )
+    if not chips:
+        return ""
+    return f'          <div class="saved-article-key-signal-refs">{chips}</div>\n'
+
+
+def _render_saved_article_key_signal_themes(
+    themes: Sequence[RowOneSavedArticleKeySignalTheme],
+) -> str:
+    links = [
+        theme_html
+        for theme in themes
+        if (theme_html := _render_saved_article_key_signal_theme(theme))
+    ]
+    if not links:
+        return ""
+    return (
+        '          <div class="saved-article-key-signal-themes">\n'
+        + "\n".join(links)
+        + "\n          </div>\n"
+    )
+
+
+def _render_saved_article_key_signal_theme(
+    theme: RowOneSavedArticleKeySignalTheme,
+) -> str:
+    href = _saved_article_key_signals_href(theme.href)
+    if href is None:
+        return ""
+    return f"""            <a href="{_esc(href)}">
+              <span data-lang="en">{_esc(theme.label.en)}</span>
+              <span data-lang="zh">{_esc(theme.label.zh)}</span>
+            </a>"""
+
+
+def _render_saved_article_key_signal_evidence(
+    evidence: Sequence[RowOneSavedArticleKeySignalEvidence],
+) -> str:
+    links = [
+        evidence_html
+        for item in evidence
+        if (evidence_html := _render_saved_article_key_signal_evidence_item(item))
+    ]
+    if not links:
+        return ""
+    return (
+        '          <div class="saved-article-key-signal-evidence">\n'
+        + "\n".join(links)
+        + "\n          </div>\n"
+    )
+
+
+def _render_saved_article_key_signal_evidence_item(
+    evidence: RowOneSavedArticleKeySignalEvidence,
+) -> str:
+    href = _saved_article_key_signals_href(evidence.href)
+    if href is None:
+        return ""
+    return f"""            <a href="{_esc(href)}">
+              <span data-lang="en">{_esc(evidence.excerpt.en)}</span>
+              <span data-lang="zh">{_esc(evidence.excerpt.zh)}</span>
+            </a>"""
+
+
+def _saved_article_key_signal_ref_label(
+    reference: RowOneSavedArticleKeySignalReference,
+) -> str:
+    parts = [
+        part.strip()
+        for part in (reference.name, reference.reference_type, reference.label)
+        if part.strip()
+    ]
+    return " / ".join(parts)
+
+
+def _saved_article_key_signals_href(href: str) -> str | None:
     if not isinstance(href, str):
         return None
     if href != href.strip() or not href.startswith("#"):

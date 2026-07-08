@@ -423,6 +423,10 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert 'class="detail-signal-briefing"' in detail_html
     assert "Signal Briefing" in detail_html
     assert "信号简报" in detail_html
+    assert 'class="saved-article-key-signals"' not in index_html
+    assert "Saved Article Key Signals" not in index_html
+    assert all('class="saved-article-key-signals"' not in html for html in detail_pages.values())
+    assert all("Saved Article Key Signals" not in html for html in detail_pages.values())
     assert any('id="continue-reading"' in html for html in detail_pages.values())
     assert any(
         "The Row ballet flat gains editorial traction" in html for html in detail_pages.values()
@@ -531,6 +535,17 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "saved-article-local-section-binder" not in generated_contract_payload
     assert "article-local-section-binder" not in generated_contract_payload
     assert "local-section-binder" not in generated_contract_payload
+    assert '"saved_article_key_signals"' not in generated_contract_payload
+    assert '"article_key_signals"' not in generated_contract_payload
+    assert '"local_article_key_signals"' not in generated_contract_payload
+    assert '"key_signals"' not in generated_contract_payload
+    assert '"local_key_signals"' not in generated_contract_payload
+    assert "Saved Article Key Signals" not in generated_contract_payload
+    assert "saved-article-key-signals" not in generated_contract_payload
+    assert "article-key-signals" not in generated_contract_payload
+    assert "local-article-key-signals" not in generated_contract_payload
+    assert "key-signals" not in generated_contract_payload
+    assert "local-key-signals" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -628,6 +643,8 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         assert "来源导览" in articles_html
         assert 'href="#saved-article-source-vogue-business"' in articles_html
         assert 'id="saved-article-source-vogue-business"' in articles_html
+        assert 'class="saved-article-key-signals"' not in articles_html
+        assert "Saved Article Key Signals" not in articles_html
         if "saved-signal-index-support-row" in articles_html:
             assert "saved-signal-index-support-excerpt" in articles_html
     top_level_data_files = {path.name for path in (output_dir / "data").glob("*.json")}
@@ -862,6 +879,36 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "local-section-binder.html",
         output_dir / "articles" / "local-section-binder.html",
         output_dir / "data" / "local-section-binder.html",
+        output_dir / "saved-article-key-signals.json",
+        output_dir / "articles" / "saved-article-key-signals.json",
+        output_dir / "data" / "saved-article-key-signals.json",
+        output_dir / "saved-article-key-signals.html",
+        output_dir / "articles" / "saved-article-key-signals.html",
+        output_dir / "data" / "saved-article-key-signals.html",
+        output_dir / "article-key-signals.json",
+        output_dir / "articles" / "article-key-signals.json",
+        output_dir / "data" / "article-key-signals.json",
+        output_dir / "article-key-signals.html",
+        output_dir / "articles" / "article-key-signals.html",
+        output_dir / "data" / "article-key-signals.html",
+        output_dir / "local-article-key-signals.json",
+        output_dir / "articles" / "local-article-key-signals.json",
+        output_dir / "data" / "local-article-key-signals.json",
+        output_dir / "local-article-key-signals.html",
+        output_dir / "articles" / "local-article-key-signals.html",
+        output_dir / "data" / "local-article-key-signals.html",
+        output_dir / "key-signals.json",
+        output_dir / "articles" / "key-signals.json",
+        output_dir / "data" / "key-signals.json",
+        output_dir / "key-signals.html",
+        output_dir / "articles" / "key-signals.html",
+        output_dir / "data" / "key-signals.html",
+        output_dir / "local-key-signals.json",
+        output_dir / "articles" / "local-key-signals.json",
+        output_dir / "data" / "local-key-signals.json",
+        output_dir / "local-key-signals.html",
+        output_dir / "articles" / "local-key-signals.html",
+        output_dir / "data" / "local-key-signals.html",
     ):
         assert not artifact_path.exists()
     assert stored == stored_before
@@ -935,6 +982,25 @@ def test_stage_354_saved_article_local_reading_companion_stays_generated_site_on
         row_one_templates,
         "_render_saved_article_local_reading_companion",
         lambda _companion: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_356_saved_article_key_signals_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+    from fashion_radar.row_one.saved_article_key_signals import (
+        build_row_one_saved_article_key_signals,
+    )
+
+    assert build_row_one_saved_article_key_signals is not None
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_saved_article_key_signals",
+        lambda _key_signals: "",
         raising=False,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)

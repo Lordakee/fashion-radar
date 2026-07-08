@@ -1849,6 +1849,83 @@ def test_row_one_docs_describe_stage_353_saved_article_read_next_clusters_bounda
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_356_saved_article_key_signals_boundary() -> None:
+    expected = _normalized(
+        "Stage 356 adds generated-site only Saved Article Key Signals inside "
+        "`articles/<story-id>.html` pages after the Stage 355 local section "
+        "binder and before the saved local article body; it reuses "
+        "current-edition saved local article sidecars, existing local article "
+        "brief sections, `RowOneStory.why_it_matters` only as a Why It Matters "
+        "fallback, existing reference buckets, existing content section titles "
+        "and item labels, existing paragraph anchors, and existing "
+        "content-section anchors to turn already-saved local text into compact "
+        "Why It Matters, Brands, Products, People, and Themes signals without "
+        "changing app-facing contracts; it does not create "
+        "`data/saved-article-key-signals.json`, does not create "
+        "`data/article-key-signals.json`, does not create "
+        "`data/local-article-key-signals.json`, does not create new "
+        "article-source sidecars, does not create new route families, does not "
+        "publish full articles on the library index, does not add outbound "
+        "article URLs as primary navigation, does not alter Stage 319 detail "
+        "Signal Briefing, Stage 349 Saved Article Signal Facets, Stage 350 "
+        "Saved Article Daily Signal Leaderboard, `articles/index.html`, the "
+        "homepage, or generated data payloads, and does not change "
+        "row-one-app/v7, row-one-manifest/v1, row-one-runtime/v1, schemas, "
+        "JSON artifacts, source collection, fetching, matching, extraction, "
+        "scoring, ranking, LLM, connector, scheduling, deployment, market "
+        "grouping, domestic/international classification, analytics, "
+        "personalization, recommendation, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_356_pos = normalized.index(
+            "stage 356 adds generated-site only saved article key signals"
+        )
+        stage_355_pos = normalized.index(
+            "stage 355 adds generated-site only saved article local section binder"
+        )
+        assert stage_356_pos < stage_355_pos
+        stage = normalized[stage_356_pos:stage_355_pos]
+        for stale_phrase in (
+            "saved article local signal brief",
+            "saved_article_local_signal_brief",
+            "saved-article-local-signal-brief",
+            "local-signal-brief",
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "creates `data/saved-article-key-signals.json`",
+            "writes `data/saved-article-key-signals.json`",
+            "creates `data/article-key-signals.json`",
+            "writes `data/article-key-signals.json`",
+            "creates `data/local-article-key-signals.json`",
+            "writes `data/local-article-key-signals.json`",
+            "writes a new json artifact",
+            "creates new article-source sidecars",
+            "creates new route families",
+            "publishes full articles on the library index",
+            "adds outbound article urls",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_355_saved_article_local_section_binder_boundary() -> None:
     expected = _normalized(
         "Stage 355 adds generated-site only Saved Article Local Section Binder "

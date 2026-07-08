@@ -59,6 +59,13 @@ from fashion_radar.row_one.saved_article_evidence_board import (
     RowOneSavedArticleEvidenceBoardCard,
     RowOneSavedArticleEvidenceBoardGroup,
 )
+from fashion_radar.row_one.saved_article_key_signals import (
+    RowOneSavedArticleKeySignalEvidence,
+    RowOneSavedArticleKeySignalGroup,
+    RowOneSavedArticleKeySignalReference,
+    RowOneSavedArticleKeySignals,
+    RowOneSavedArticleKeySignalTheme,
+)
 from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibrary,
     RowOneSavedArticleLibraryEntry,
@@ -3440,6 +3447,168 @@ def test_render_local_article_page_includes_saved_article_local_section_binder()
     )
 
 
+def test_render_local_article_page_includes_saved_article_key_signals() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    companion = RowOneSavedArticleLocalReadingCompanion(
+        current_title=LocalizedText(en="Current", zh="当前"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        group_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        group_dek=LocalizedText(en="Brand context", zh="品牌上下文"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        body_source_label=LocalizedText(en="Extracted article text", zh="已提取文章正文"),
+        lead=LocalizedText(en="Current lead", zh="当前导语"),
+        saved_paragraph_count=3,
+        organized_section_count=2,
+        evidence_count=2,
+        detail_path="details/the-row-signal-1234567890.html",
+        local_links=(),
+        related_items=(),
+    )
+    binder = RowOneSavedArticleLocalSectionBinder(
+        title=LocalizedText(en="Binder title", zh="栏目索引"),
+        source_name="Vogue Business",
+        rows=(
+            RowOneSavedArticleLocalSectionBinderRow(
+                title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                section_position=1,
+                section_href="#local-article-content-section-1",
+                item_labels=(),
+                references=(),
+                paragraphs=(),
+            ),
+        ),
+    )
+    key_signals = RowOneSavedArticleKeySignals(
+        title=LocalizedText(en="Saved Article Key Signals", zh="已保存文章关键信号"),
+        source_name="Vogue <Business>",
+        groups=(
+            RowOneSavedArticleKeySignalGroup(
+                key="why_it_matters",
+                title=LocalizedText(en="Why <It> Matters", zh="为什么 <重要>"),
+                statement=LocalizedText(
+                    en="The local saved text explains <demand>.",
+                    zh="本地保存正文解释 <需求>。",
+                ),
+                support_count=1,
+            ),
+            RowOneSavedArticleKeySignalGroup(
+                key="brands",
+                title=LocalizedText(en="Brands", zh="品牌"),
+                statement=LocalizedText(
+                    en="The Row <anchor> supports the signal.",
+                    zh="The Row <锚点> 支撑信号。",
+                ),
+                references=(
+                    RowOneSavedArticleKeySignalReference(
+                        name="The Row <brand>",
+                        reference_type="brand",
+                        label="tracked",
+                        bucket="brands",
+                    ),
+                ),
+                evidence=(
+                    RowOneSavedArticleKeySignalEvidence(
+                        index=0,
+                        href="#local-article-paragraph-1",
+                        excerpt=LocalizedText(
+                            en="Paragraph <excerpt>",
+                            zh="段落 <摘录>",
+                        ),
+                    ),
+                    RowOneSavedArticleKeySignalEvidence(
+                        index=1,
+                        href="javascript:alert(1)",
+                        excerpt=LocalizedText(
+                            en="Unsafe paragraph",
+                            zh="不安全段落",
+                        ),
+                    ),
+                    RowOneSavedArticleKeySignalEvidence(
+                        index=2,
+                        href="#local-article-paragraph-0",
+                        excerpt=LocalizedText(
+                            en="Zero paragraph",
+                            zh="零段落",
+                        ),
+                    ),
+                ),
+                support_count=1,
+                reference_count=1,
+                evidence_count=3,
+            ),
+            RowOneSavedArticleKeySignalGroup(
+                key="themes",
+                title=LocalizedText(en="Themes", zh="主题"),
+                themes=(
+                    RowOneSavedArticleKeySignalTheme(
+                        label=LocalizedText(en="Quiet <Luxury>", zh="静奢 <主题>"),
+                        href="#local-article-content-section-1",
+                    ),
+                    RowOneSavedArticleKeySignalTheme(
+                        label=LocalizedText(en="Unsafe theme", zh="不安全主题"),
+                        href="../secret.html#local-article-content-section-1",
+                    ),
+                    RowOneSavedArticleKeySignalTheme(
+                        label=LocalizedText(en="Leading zero", zh="前导零"),
+                        href="#local-article-content-section-01",
+                    ),
+                ),
+                theme_count=3,
+            ),
+        ),
+    )
+
+    html = render_local_article_page_html(
+        edition,
+        story,
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_reading_companion=companion,
+        saved_article_local_section_binder=binder,
+        saved_article_key_signals=key_signals,
+    )
+    section_html = _html_between(
+        html,
+        '<section class="saved-article-key-signals"',
+        'id="local-article"',
+    )
+
+    assert "Saved Article Key Signals" in section_html
+    assert "已保存文章关键信号" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "Why &lt;It&gt; Matters" in section_html
+    assert "The local saved text explains &lt;demand&gt;." in section_html
+    assert "The Row &lt;anchor&gt; supports the signal." in section_html
+    assert "The Row &lt;brand&gt; / brand / tracked" in section_html
+    assert "Quiet &lt;Luxury&gt;" in section_html
+    assert "Paragraph &lt;excerpt&gt;" in section_html
+    assert 'href="#local-article-paragraph-1"' in section_html
+    assert 'href="#local-article-content-section-1"' in section_html
+    assert "javascript:alert" not in section_html
+    assert "../secret.html" not in section_html
+    assert "#local-article-paragraph-0" not in section_html
+    assert "#local-article-content-section-01" not in section_html
+    assert "<demand>" not in section_html
+    assert html.index('class="saved-article-local-reading-companion"') < html.index(
+        'class="saved-article-local-section-binder"'
+    )
+    assert html.index('class="saved-article-local-section-binder"') < html.index(
+        'class="saved-article-key-signals"'
+    )
+    assert html.index('class="saved-article-key-signals"') < html.index('id="local-article"')
+
+    html_without_binder = render_local_article_page_html(
+        edition,
+        story,
+        local_article=_signal_briefing_local_article(),
+        saved_article_key_signals=key_signals,
+    )
+    assert html_without_binder.index('class="saved-article-key-signals"') < (
+        html_without_binder.index('id="local-article"')
+    )
+
+
 def test_render_row_one_detail_labels_saved_paragraphs_with_paragraph_context_cues() -> None:
     story = _edition().stories[0]
     html = render_detail_html(
@@ -3680,6 +3849,60 @@ def test_render_row_one_site_writes_local_article_section_binder_only_on_article
     assert not (tmp_path / "data" / "saved-article-local-section-binder.json").exists()
     assert not (tmp_path / "data" / "article-local-section-binder.json").exists()
     assert not (tmp_path / "data" / "local-section-binder.json").exists()
+
+
+def test_write_row_one_site_files_writes_key_signals_only_on_local_article_pages(
+    tmp_path,
+) -> None:
+    story = _edition().stories[0]
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+
+    section_html = _html_between(
+        article_html,
+        '<section class="saved-article-key-signals"',
+        'id="local-article"',
+    )
+    assert "Saved Article Key Signals" in section_html
+    assert "Why It Matters" in section_html
+    assert "Brands" in section_html
+    assert "Products" in section_html
+    assert 'href="#local-article-paragraph-1"' in section_html
+    assert 'href="#local-article-content-section-1"' in section_html
+    assert 'class="saved-article-key-signals"' not in library_html
+    assert 'class="saved-article-key-signals"' not in homepage_html
+    assert 'class="saved-article-key-signals"' not in detail_html
+    assert "saved_article_key_signals" not in generated_contract_payload
+    assert "saved-article-key-signals" not in generated_contract_payload
+    assert "Saved Article Key Signals" not in generated_contract_payload
+    for stem in (
+        "saved-article-key-signals",
+        "article-key-signals",
+        "local-article-key-signals",
+        "key-signals",
+        "local-key-signals",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
 
 
 def test_render_row_one_site_local_article_page_paragraph_context_cues_are_html_only(
@@ -10609,6 +10832,24 @@ def test_row_one_css_includes_saved_article_local_section_binder_styles() -> Non
         ".saved-article-local-section-binder-refs",
         ".saved-article-local-section-binder-paragraphs",
         ".saved-article-local-section-binder-unfiled",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_saved_article_key_signals_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".saved-article-key-signals",
+        ".saved-article-key-signals-header",
+        ".saved-article-key-signals-meta",
+        ".saved-article-key-signals-grid",
+        ".saved-article-key-signal",
+        ".saved-article-key-signal-statement",
+        ".saved-article-key-signal-refs",
+        ".saved-article-key-signal-ref",
+        ".saved-article-key-signal-themes",
+        ".saved-article-key-signal-evidence",
     ):
         assert selector in css
 
