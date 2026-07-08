@@ -368,7 +368,7 @@ def _detail_path_key(href: str) -> str | None:
     return str(safe_path)
 
 
-def _bucket_key(reference: RowOneReference) -> str | None:
+def row_one_saved_article_reference_bucket(reference: RowOneReference) -> str | None:
     values = {
         _normalized_bucket_text(reference.type),
         _normalized_bucket_text(reference.label),
@@ -385,6 +385,10 @@ def _bucket_key(reference: RowOneReference) -> str | None:
     if values:
         return "source_context"
     return None
+
+
+def _bucket_key(reference: RowOneReference) -> str | None:
+    return row_one_saved_article_reference_bucket(reference)
 
 
 def _source_key(name: str) -> str:

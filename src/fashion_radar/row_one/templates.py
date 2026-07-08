@@ -65,6 +65,11 @@ from fashion_radar.row_one.saved_article_reference_atlas import (
     RowOneSavedArticleReferenceAtlasEntry,
     RowOneSavedArticleReferenceAtlasSupport,
 )
+from fashion_radar.row_one.saved_article_signal_facets import (
+    RowOneSavedArticleSignalFacetChip,
+    RowOneSavedArticleSignalFacetRow,
+    RowOneSavedArticleSignalFacets,
+)
 from fashion_radar.row_one.saved_article_theme_digest import (
     RowOneSavedArticleThemeDigest,
     RowOneSavedArticleThemeDigestItem,
@@ -322,6 +327,7 @@ def render_saved_article_library_html(
     saved_article_reading_paths: RowOneSavedArticleReadingPaths | None = None,
     saved_article_theme_digest: RowOneSavedArticleThemeDigest | None = None,
     saved_article_reference_atlas: RowOneSavedArticleReferenceAtlas | None = None,
+    saved_article_signal_facets: RowOneSavedArticleSignalFacets | None = None,
     saved_article_evidence_board: RowOneSavedArticleEvidenceBoard | None = None,
     local_article_page_hrefs_by_detail_path: Mapping[str, str] | None = None,
 ) -> str:
@@ -351,6 +357,10 @@ def render_saved_article_library_html(
         saved_article_reference_atlas,
         section_id="saved-article-reference-atlas",
     )
+    signal_facets = _render_saved_article_signal_facets(
+        saved_article_signal_facets,
+        local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+    )
     reading_paths = _render_saved_article_reading_paths(
         saved_article_reading_paths,
         section_id="saved-article-reading-paths",
@@ -372,6 +382,7 @@ def render_saved_article_library_html(
         reading_paths_html=reading_paths,
         theme_digest_html=theme_digest,
         reference_atlas_html=reference_atlas,
+        signal_facets_html=signal_facets,
         evidence_board_html=evidence_board,
         local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
     )
@@ -415,6 +426,7 @@ def render_saved_article_library_html(
     {_render_saved_article_library_metrics(library, css_class="saved-article-library-metrics")}
   </section>
   {daily_summary}
+  {signal_facets}
   {theme_digest}
   {reference_atlas}
   {signal_index}
@@ -1848,6 +1860,82 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   flex-wrap: wrap;
   gap: 6px 10px;
   padding: 8px 10px;
+}
+.saved-article-signal-facets {
+  border-bottom: 1px solid var(--ink);
+  display: grid;
+  gap: 18px;
+  padding-bottom: 28px;
+}
+.saved-article-signal-facets-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.36fr) minmax(0, 1fr);
+}
+.saved-article-signal-facets-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 5vw, 5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.95;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-signal-facets-header p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-signal-facets-grid {
+  display: grid;
+  gap: 12px;
+}
+.saved-article-signal-facets-row {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(140px, 1fr));
+  padding-top: 14px;
+}
+.saved-article-signal-facets-article,
+.saved-article-signal-facets-column {
+  display: grid;
+  gap: 8px;
+}
+.saved-article-signal-facets-article a {
+  color: var(--ink);
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 1.1rem;
+  line-height: 1.15;
+  text-decoration: none;
+}
+.saved-article-signal-facets-source,
+.saved-article-signal-facets-metric,
+.saved-article-signal-facets-column-label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-signal-facets-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.saved-article-signal-facets-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  padding: 5px 9px;
+}
+.saved-article-signal-facets-empty {
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 .saved-signal-index-grid {
   background: var(--line);
@@ -5191,6 +5279,7 @@ def _render_saved_article_daily_summary(
     reading_paths_html: str,
     theme_digest_html: str,
     reference_atlas_html: str,
+    signal_facets_html: str,
     evidence_board_html: str,
     local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
 ) -> str:
@@ -5211,6 +5300,13 @@ def _render_saved_article_daily_summary(
             "引用图谱",
         )
         if reference_atlas_html
+        else "",
+        _render_saved_article_daily_summary_link(
+            "#saved-article-signal-facets",
+            "Signal Facets",
+            "信号切面",
+        )
+        if signal_facets_html
         else "",
         _render_saved_article_daily_summary_link(
             "#saved-signal-index",
@@ -6597,6 +6693,125 @@ def _safe_saved_article_library_paragraph_href(href: object) -> str | None:
 
 def _saved_article_library_page_href(href: str) -> str:
     return f"../{href}"
+
+
+def _render_saved_article_signal_facets(
+    facets: RowOneSavedArticleSignalFacets | None,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    if facets is None or not facets.rows:
+        return ""
+    rows = "\n".join(
+        _render_saved_article_signal_facet_row(
+            row,
+            local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+        )
+        for row in facets.rows
+    )
+    row_count_en = _count_label(facets.row_count, "saved article", "saved articles")
+    chip_count = facets.brand_count + facets.product_count + facets.theme_count
+    chip_count_en = _count_label(chip_count, "signal chip", "signal chips")
+    section_open = (
+        '<section class="saved-article-signal-facets" '
+        'id="saved-article-signal-facets" '
+        'aria-label="Saved article signal facets">'
+    )
+    summary_en = (
+        f"{_esc(row_count_en)} organized by brands, products, and themes "
+        f"with {_esc(chip_count_en)}."
+    )
+    summary_zh = f"{_esc(str(facets.row_count))} 篇保存文章按品牌、产品与主题信号整理。"
+    return f"""{section_open}
+  <div class="saved-article-signal-facets-header">
+    <p class="eyebrow">Signal Facets</p>
+    <h2>
+      <span data-lang="en">Saved Article Signal Facets</span>
+      <span data-lang="zh">保存文章信号切面</span>
+    </h2>
+    <p>
+      <span data-lang="en">{summary_en}</span>
+      <span data-lang="zh">{summary_zh}</span>
+    </p>
+  </div>
+  <div class="saved-article-signal-facets-grid">
+{rows}
+  </div>
+</section>"""
+
+
+def _render_saved_article_signal_facet_row(
+    row: RowOneSavedArticleSignalFacetRow,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    href = _saved_article_signal_facet_row_href(
+        row,
+        local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+    )
+    safe_card_count_en = _count_label(row.safe_card_count, "safe card", "safe cards")
+    return f"""    <article class="saved-article-signal-facets-row">
+      <div class="saved-article-signal-facets-article">
+        <a href="{_esc(href)}">
+          <span data-lang="en">{_esc(row.title.en)}</span>
+          <span data-lang="zh">{_esc(row.title.zh)}</span>
+        </a>
+        <span class="saved-article-signal-facets-source">{_esc(row.source_name)}</span>
+        <span class="saved-article-signal-facets-metric">
+          <span data-lang="en">{_esc(safe_card_count_en)}</span>
+          <span data-lang="zh">{_esc(f"{row.safe_card_count} 个安全卡片")}</span>
+        </span>
+      </div>
+      {_render_saved_article_signal_facet_column("Brands", "品牌", row.brands)}
+      {_render_saved_article_signal_facet_column("Products", "产品", row.products)}
+      {_render_saved_article_signal_facet_column("Themes", "主题", row.themes)}
+    </article>"""
+
+
+def _saved_article_signal_facet_row_href(
+    row: RowOneSavedArticleSignalFacetRow,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    if local_article_page_hrefs_by_detail_path:
+        page_href = local_article_page_hrefs_by_detail_path.get(row.detail_path)
+        if (
+            page_href
+            and not page_href.startswith(".")
+            and "/" not in page_href
+            and page_href.endswith(".html")
+            and safe_local_article_story_id(page_href.removesuffix(".html"))
+        ):
+            return f"{page_href}#local-article-digest"
+    return _saved_article_library_page_href(row.href)
+
+
+def _render_saved_article_signal_facet_column(
+    label_en: str,
+    label_zh: str,
+    chips: Sequence[RowOneSavedArticleSignalFacetChip],
+) -> str:
+    chip_html = "".join(_render_saved_article_signal_facet_chip(chip) for chip in chips)
+    if not chip_html:
+        chip_html = '<span class="saved-article-signal-facets-empty">-</span>'
+    return f"""<div class="saved-article-signal-facets-column">
+        <span class="saved-article-signal-facets-column-label">
+          <span data-lang="en">{_esc(label_en)}</span>
+          <span data-lang="zh">{_esc(label_zh)}</span>
+        </span>
+        <div class="saved-article-signal-facets-chips">{chip_html}</div>
+      </div>"""
+
+
+def _render_saved_article_signal_facet_chip(
+    chip: RowOneSavedArticleSignalFacetChip,
+) -> str:
+    return (
+        '<span class="saved-article-signal-facets-chip">'
+        f'<span data-lang="en">{_esc(chip.label.en)}</span>'
+        f'<span data-lang="zh">{_esc(chip.label.zh)}</span>'
+        "</span>"
+    )
 
 
 def _render_saved_signal_index(

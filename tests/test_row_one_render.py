@@ -71,6 +71,12 @@ from fashion_radar.row_one.saved_article_reference_atlas import (
     RowOneSavedArticleReferenceAtlasEntry,
     RowOneSavedArticleReferenceAtlasSupport,
 )
+from fashion_radar.row_one.saved_article_signal_facets import (
+    RowOneSavedArticleSignalFacetChip,
+    RowOneSavedArticleSignalFacetRow,
+    RowOneSavedArticleSignalFacets,
+    build_row_one_saved_article_signal_facets,
+)
 from fashion_radar.row_one.saved_article_theme_digest import (
     RowOneSavedArticleThemeDigest,
     RowOneSavedArticleThemeDigestItem,
@@ -3848,6 +3854,165 @@ def test_render_row_one_site_includes_saved_article_reference_atlas_in_article_l
     assert not (tmp_path / "data" / "saved-article-reference-atlas.json").exists()
 
 
+def test_render_row_one_site_includes_saved_article_signal_facets_in_article_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _reference_atlas_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    section_html = _saved_article_signal_facets_section_html(library_html)
+
+    assert 'class="saved-article-signal-facets"' in section_html
+    assert "Saved Article Signal Facets" in section_html
+    assert "信号切面" in section_html
+    assert "Reference atlas source article" in section_html
+    assert "Vogue Business" in section_html
+    assert "Brands" in section_html
+    assert "Products" in section_html
+    assert "Themes" in section_html
+    assert "The Row" in section_html
+    assert "Alaia flats" in section_html
+    assert "People &amp; Brands" not in section_html
+    assert "Source Structure" not in section_html
+    assert 'href="the-row-signal-1234567890.html#local-article-digest"' in section_html
+    assert library_html.index('class="saved-article-daily-summary"') < library_html.index(
+        'class="saved-article-signal-facets"'
+    )
+    assert library_html.index('class="saved-article-signal-facets"') < library_html.index(
+        'class="saved-article-theme-digest"'
+    )
+    assert 'class="saved-article-signal-facets"' not in homepage_html
+
+
+def test_render_saved_article_library_html_escapes_signal_facets_and_revalidates_links() -> None:
+    facets = RowOneSavedArticleSignalFacets(
+        row_count=1,
+        brand_count=1,
+        product_count=2,
+        theme_count=1,
+        rows=(
+            RowOneSavedArticleSignalFacetRow(
+                title=LocalizedText(en="Unsafe <Article>", zh="不安全 <文章>"),
+                source_name="Vogue <Business>",
+                href="details/the-row-signal-1234567890.html#local-article-digest",
+                detail_path="details/the-row-signal-1234567890.html",
+                safe_card_count=7,
+                brands=(
+                    RowOneSavedArticleSignalFacetChip(
+                        label=LocalizedText(en="The Row", zh="The Row")
+                    ),
+                ),
+                products=(
+                    RowOneSavedArticleSignalFacetChip(
+                        label=LocalizedText(en="Alaia flats", zh="Alaia 平底鞋")
+                    ),
+                    RowOneSavedArticleSignalFacetChip(
+                        label=LocalizedText(en="Margaux Bag", zh="Margaux 手袋")
+                    ),
+                ),
+                themes=(
+                    RowOneSavedArticleSignalFacetChip(
+                        label=LocalizedText(en="People <Brands>", zh="人物与品牌")
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_signal_facets=facets,
+        local_article_page_hrefs_by_detail_path={
+            "details/the-row-signal-1234567890.html": "javascript:alert(1).html",
+        },
+    )
+    section_html = _saved_article_signal_facets_section_html(html)
+
+    assert "Unsafe &lt;Article&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "People &lt;Brands&gt;" in section_html
+    assert "People <Brands>" not in section_html
+    assert "javascript:" not in section_html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-digest"' in section_html
+    assert "7 safe cards" in section_html
+
+
+def test_render_saved_article_library_html_omits_empty_signal_facets_shell() -> None:
+    empty_facets = RowOneSavedArticleSignalFacets(
+        row_count=0,
+        brand_count=0,
+        product_count=0,
+        theme_count=0,
+        rows=(),
+    )
+
+    for html in (
+        render_saved_article_library_html(
+            _edition(),
+            _saved_article_library_fixture(),
+            saved_article_signal_facets=None,
+        ),
+        render_saved_article_library_html(
+            _edition(),
+            _saved_article_library_fixture(),
+            saved_article_signal_facets=empty_facets,
+        ),
+    ):
+        assert 'class="saved-article-signal-facets"' not in html
+        assert "Saved Article Signal Facets" not in html
+
+
+def test_render_saved_article_library_html_filters_unsafe_only_signal_facets() -> None:
+    library = _saved_article_library_fixture()
+    unsafe_only_organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=LocalizedText(en="People & Brands", zh="人物与品牌"),
+                dek=LocalizedText(en="Unsafe only", zh="仅不安全"),
+                cards=[
+                    RowOneSavedArticleContentOrganizationCard(
+                        title=LocalizedText(en="Unsafe only", zh="仅不安全"),
+                        source_name="Vogue Business",
+                        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+                        section_label=LocalizedText(en="Unsafe", zh="不安全"),
+                        lead=LocalizedText(en="Unsafe lead", zh="不安全摘要"),
+                        detail_path="javascript:alert(1)#local-article-content-section-1",
+                        references=(
+                            RowOneReference(
+                                name="Unsafe Only Facet",
+                                type="brand",
+                                label="tracked",
+                            ),
+                        ),
+                    )
+                ],
+            )
+        ]
+    )
+    facets = build_row_one_saved_article_signal_facets(library, unsafe_only_organization)
+
+    html = render_saved_article_library_html(
+        _edition(),
+        library,
+        saved_article_signal_facets=facets,
+    )
+
+    assert facets is None
+    assert 'class="saved-article-signal-facets"' not in html
+    assert "Unsafe Only Facet" not in html
+    assert "javascript:" not in html
+
+
 def test_render_row_one_site_includes_saved_article_evidence_board_in_article_library(
     tmp_path,
 ) -> None:
@@ -5364,6 +5529,45 @@ def _saved_article_daily_summary_section_html(index_html: str) -> str:
     section_end = section_start + len(marker) + min(boundary_offsets)
     assert section_end > section_start
     return index_html[section_start:section_end]
+
+
+def _saved_article_signal_facets_section_html(index_html: str) -> str:
+    marker = '<section class="saved-article-signal-facets"'
+    assert marker in index_html
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    boundary_offsets: list[int] = []
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is not None:
+        boundary_offsets.append(next_section.start())
+    library_grid = tail.find('<div class="saved-article-library-grid"')
+    if library_grid >= 0:
+        boundary_offsets.append(library_grid)
+    if not boundary_offsets:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + min(boundary_offsets)
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _saved_article_signal_facets_column_html(section_html: str, label: str) -> str:
+    label_marker = f'<span data-lang="en">{label}</span>'
+    assert label_marker in section_html
+    label_start = section_html.index(label_marker)
+    column_start = section_html.rfind(
+        '<div class="saved-article-signal-facets-column">',
+        0,
+        label_start,
+    )
+    assert column_start >= 0
+    next_column = section_html.find(
+        '<div class="saved-article-signal-facets-column">',
+        label_start,
+    )
+    row_end = section_html.find("</article>", label_start)
+    column_end = row_end if next_column == -1 or row_end < next_column else next_column
+    assert column_end > column_start
+    return section_html[column_start:column_end]
 
 
 def _saved_article_library_first_card_html(index_html: str) -> str:
@@ -9397,6 +9601,14 @@ def test_row_one_css_includes_saved_article_library_styles(tmp_path) -> None:
         ".saved-article-source-routes-label",
         ".saved-article-source-routes-meta",
         ".saved-article-source-routes-link",
+        ".saved-article-signal-facets",
+        ".saved-article-signal-facets-header",
+        ".saved-article-signal-facets-grid",
+        ".saved-article-signal-facets-row",
+        ".saved-article-signal-facets-article",
+        ".saved-article-signal-facets-source",
+        ".saved-article-signal-facets-column",
+        ".saved-article-signal-facets-chip",
         ".saved-article-daily-summary",
         ".saved-article-daily-summary-header",
         ".saved-article-daily-summary-metrics",
