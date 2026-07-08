@@ -1014,6 +1014,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "daily_local_reading_brief",
         "article_reading_brief",
         "reading_brief",
+        "daily-local-source-desk",
+        "daily-local-sources",
+        "source-desk",
+        "daily_local_source_desk",
+        "daily_local_sources",
+        "source_desk",
     ):
         for artifact_dir in (output_dir, output_dir / "articles", output_dir / "data"):
             for suffix in (".json", ".html"):
@@ -1185,6 +1191,21 @@ def test_stage_361_daily_local_article_reading_brief_stays_generated_site_only(
     monkeypatch.setattr(
         row_one_templates,
         "_render_daily_local_article_reading_brief",
+        lambda *_args, **_kwargs: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_362_daily_local_source_desk_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_daily_local_source_desk",
         lambda *_args, **_kwargs: "",
         raising=False,
     )

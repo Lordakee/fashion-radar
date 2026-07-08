@@ -47,6 +47,7 @@ from fashion_radar.row_one.saved_article_content_organization import (
     RowOneSavedArticleContentOrganization,
     RowOneSavedArticleContentOrganizationCard,
     RowOneSavedArticleContentOrganizationGroup,
+    build_row_one_saved_article_content_organization,
 )
 from fashion_radar.row_one.saved_article_coverage import (
     RowOneSavedArticleCoverage,
@@ -4213,6 +4214,95 @@ def test_render_row_one_site_writes_daily_local_article_reading_brief_homepage_o
             assert not (directory / f"{stem}.html").exists()
 
 
+def test_render_row_one_site_writes_daily_local_source_desk_homepage_only(
+    tmp_path,
+) -> None:
+    base_story = _edition().stories[0]
+    stories = [
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "site-source-desk-vogue-1111111111",
+                "headline": "Site source desk Vogue",
+                "detail_path": "details/site-source-desk-vogue-1111111111.html",
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "site-source-desk-wwd-2222222222",
+                "headline": "Site source desk WWD",
+                "detail_path": "details/site-source-desk-wwd-2222222222.html",
+            },
+        ),
+    ]
+    local_articles_by_story_id = {
+        stories[0].id: _signal_briefing_local_article().model_copy(
+            deep=True,
+            update={
+                "story_id": stories[0].id,
+                "title": "Vogue source desk article",
+                "source_name": "Vogue Business",
+                "paragraphs": ["Vogue source desk paragraph."],
+                "paragraphs_zh": ["Vogue 来源台段落。"],
+            },
+        ),
+        stories[1].id: _signal_briefing_local_article().model_copy(
+            deep=True,
+            update={
+                "story_id": stories[1].id,
+                "title": "WWD source desk article",
+                "source_name": "WWD",
+                "paragraphs": ["WWD source desk paragraph."],
+                "paragraphs_zh": ["WWD 来源台段落。"],
+            },
+        ),
+    }
+
+    render_row_one_site(
+        _edition_with_stories(*stories),
+        tmp_path,
+        local_articles_by_story_id=local_articles_by_story_id,
+    )
+
+    article_html = (tmp_path / "articles" / f"{stories[0].id}.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / f"{stories[0].id}.html").read_text(encoding="utf-8")
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+    section_html = _daily_local_source_desk_section_html(homepage_html)
+
+    assert "Daily Local Source Desk" in section_html
+    assert 'class="daily-local-source-desk"' in section_html
+    assert (
+        'href="articles/site-source-desk-vogue-1111111111.html#local-article-digest"'
+        in section_html
+    )
+    assert 'class="daily-local-source-desk"' not in library_html
+    assert 'class="daily-local-source-desk"' not in article_html
+    assert 'class="daily-local-source-desk"' not in detail_html
+    assert "daily_local_source_desk" not in generated_contract_payload
+    assert "daily-local-source-desk" not in generated_contract_payload
+    assert "Daily Local Source Desk" not in generated_contract_payload
+    for stem in (
+        "daily-local-source-desk",
+        "local-source-desk",
+        "source-desk",
+        "daily_local_source_desk",
+        "local_source_desk",
+        "source_desk",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
 def test_write_local_article_pages_rejects_orphaned_href_mapping(tmp_path) -> None:
     story = _edition().stories[0]
 
@@ -7145,6 +7235,18 @@ def _daily_local_article_capsules_section_html(index_html: str) -> str:
 
 def _daily_local_article_reading_brief_section_html(index_html: str) -> str:
     marker = '<section class="daily-local-article-reading-brief"'
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is None:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + next_section.start()
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _daily_local_source_desk_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-source-desk"'
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
     next_section = re.search(r"\n\s*<section class=", tail)
@@ -12325,6 +12427,285 @@ def test_render_index_html_omits_daily_local_article_reading_brief_without_eligi
     assert "Daily Local Article Reading Brief" not in html
 
 
+def test_render_index_html_includes_daily_local_source_desk() -> None:
+    base_story = _edition().stories[0]
+    story_source_pairs = [
+        ("source-desk-vogue-1111111111", "Vogue <Business>"),
+        ("source-desk-vogue-2222222222", "Vogue <Business>"),
+        ("source-desk-vogue-3333333335", "Vogue <Business>"),
+        ("source-desk-wwd-3333333333", "WWD"),
+        ("source-desk-wwd-lower-3333333334", "wwd"),
+        ("source-desk-bof-4444444444", "Business of Fashion"),
+        ("source-desk-cut-5555555555", "The Cut"),
+        ("source-desk-overflow-6666666666", "Zzz Overflow Source"),
+    ]
+    stories = [
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": story_id,
+                "headline": "Source desk <script>" if index == 0 else f"Source desk {index}",
+                "detail_path": f"details/{story_id}.html",
+                "source_name": source_name,
+                "entity_refs": [
+                    RowOneReference(name="The Row", type="brand", label="brand"),
+                    RowOneReference(name="Brand <script>", type="brand", label="brand"),
+                    RowOneReference(name="Miu Miu", type="brand", label="brand"),
+                    RowOneReference(name="Mary-Kate Olsen", type="designer", label="designer"),
+                ]
+                if index == 0
+                else (
+                    [RowOneReference(name="The Row", type="brand", label="brand")]
+                    if index == 1
+                    else []
+                ),
+                "product_refs": [
+                    RowOneReference(name="Margaux bag", type="bag", label="product"),
+                    RowOneReference(name="Ballet flat", type="shoe", label="product"),
+                ]
+                if index == 0
+                else [],
+                "designer_refs": [
+                    RowOneReference(name="Loewe", type="brand", label="brand"),
+                    RowOneReference(name="Ashley Olsen", type="designer", label="designer"),
+                ]
+                if index == 0
+                else [],
+            },
+        )
+        for index, (story_id, source_name) in enumerate(story_source_pairs)
+    ]
+    articles = [
+        _signal_briefing_local_article().model_copy(
+            deep=True,
+            update={
+                "story_id": story.id,
+                "title": None if index == 1 else f"{story.headline} source <script>",
+                "source_name": source_name,
+                "body_source": "extracted",
+                "paragraphs": [
+                    "Opening source paragraph <b> for the source desk.",
+                    "Second source paragraph links the publication context.",
+                ],
+                "paragraphs_zh": [
+                    "第一段来源正文 <b> 用于来源台。",
+                    "第二段来源正文连接出版方背景。",
+                ],
+            },
+        )
+        for index, (story, (_, source_name)) in enumerate(
+            zip(stories, story_source_pairs, strict=True)
+        )
+    ]
+    local_articles_by_story_id = {
+        story.id: article for story, article in zip(stories, articles, strict=True)
+    }
+
+    html = render_index_html(
+        _edition_with_stories(*stories),
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_source_desk_article_hrefs_by_story_id={
+            story.id: f"{story.id}.html" for story in stories
+        },
+    )
+    section_html = _daily_local_source_desk_section_html(html)
+    vogue_group = section_html[
+        section_html.index("Vogue &lt;Business&gt;") : section_html.index("WWD")
+    ]
+
+    assert 'class="daily-local-source-desk"' in section_html
+    assert "Daily Local Source Desk" in section_html
+    assert "每日本地来源台" in section_html
+    assert section_html.index("Vogue &lt;Business&gt;") < section_html.index("WWD")
+    assert section_html.index("WWD") < section_html.index("Business of Fashion")
+    assert "Business of Fashion" in section_html
+    assert "The Cut" in section_html
+    assert "Zzz Overflow Source" not in section_html
+    assert "3 articles" in vogue_group
+    assert "6 paragraphs" in vogue_group
+    assert "2 articles" in section_html
+    assert "Extracted article text" in section_html
+    assert "已提取文章正文" in section_html
+    assert "The Row" in vogue_group
+    assert "Margaux bag" in vogue_group
+    assert "Mary-Kate Olsen" in vogue_group
+    assert "Brand &lt;script&gt;" in vogue_group
+    assert vogue_group.count("The Row") == 1
+    assert vogue_group.count('class="daily-local-source-desk-ref"') == 5
+    assert vogue_group.count('class="daily-local-source-desk-link"') == 2
+    assert 'class="daily-local-source-desk-source-title">wwd<' not in section_html
+    assert 'href="articles/source-desk-vogue-1111111111.html#local-article-digest"' in section_html
+    assert (
+        'href="articles/source-desk-vogue-1111111111.html#local-article-paragraph-1"'
+        in section_html
+    )
+    assert "Paragraph 1" in section_html
+    assert "段落 1" in section_html
+    assert "Source desk 1" in section_html
+    assert "None" not in section_html
+    assert "Opening source paragraph" not in section_html
+    assert "Second source paragraph" not in section_html
+    assert "Source desk &lt;script&gt;" in section_html
+    assert "<script>" not in section_html
+    assert "<b>" not in section_html
+    assert "<Business>" not in section_html
+    assert "https://example.com" not in section_html
+
+
+def test_render_index_html_filters_unsafe_daily_local_source_desk() -> None:
+    base_story = _edition().stories[0]
+    cases = [
+        ("safe-source-desk-1111111111", "Safe Source Desk", "Safe Source", "safe"),
+        ("unsafe/source-desk-2222222222", "Unsafe ID Source Desk", "Unsafe ID Source", "unsafe"),
+        (
+            "mismatched-local-source-desk-3333333333",
+            "Mismatched Local Source Desk",
+            "Mismatched Local Unique Source",
+            "mismatch_article",
+        ),
+        ("missing-source-desk-4444444444", "Missing Source Desk", "Missing Source", "missing"),
+        ("blank-source-desk-5555555555", "Blank Source Desk", "   ", "blank_source"),
+        ("empty-source-desk-6666666666", "Empty Source Desk", "Empty Source", "empty"),
+        ("traversal-source-desk-7777777777", "Traversal Source Desk", "Traversal Source", "href"),
+        ("nested-source-desk-8888888888", "Nested Source Desk", "Nested Source", "href"),
+        ("hidden-source-desk-9999999999", "Hidden Source Desk", "Hidden Source", "href"),
+        ("absolute-source-desk-1010101010", "Absolute Source Desk", "Absolute Source", "href"),
+        (
+            "whitespace-source-desk-1212121212",
+            "Whitespace Source Desk",
+            "Whitespace Source",
+            "href",
+        ),
+        ("slash-source-desk-1313131313", "Slash Source Desk", "Slash Source", "href"),
+        ("dot-source-desk-1414141414", "Dot Source Desk", "Dot Source", "href"),
+        ("dotdot-source-desk-1515151515", "Dotdot Source Desk", "Dotdot Source", "href"),
+        ("none-source-desk-1616161616", "None Href Source Desk", "None Href Source", "href"),
+        ("number-source-desk-1717171717", "Number Href Source Desk", "Number Href Source", "href"),
+        (
+            "href-mismatch-source-desk-1818181818",
+            "Href Mismatch Source Desk",
+            "Href Mismatch Source",
+            "href",
+        ),
+    ]
+    stories = [
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": story_id,
+                "headline": headline,
+                "detail_path": f"details/{story_id.replace('/', '-')}.html",
+            },
+        )
+        for story_id, headline, _source_name, _case_type in cases
+    ]
+    local_articles_by_story_id = {}
+    for story, (_story_id, _headline, source_name, case_type) in zip(stories, cases, strict=True):
+        if case_type == "missing":
+            continue
+        local_articles_by_story_id[story.id] = _signal_briefing_local_article().model_copy(
+            deep=True,
+            update={
+                "story_id": "other-source-desk-3333333333"
+                if case_type == "mismatch_article"
+                else story.id,
+                "title": f"{story.headline} article",
+                "source_name": source_name,
+                "paragraphs": [] if case_type == "empty" else ["Eligible source paragraph."],
+                "paragraphs_zh": [] if case_type == "empty" else ["可用来源段落。"],
+            },
+        )
+
+    html = render_index_html(
+        _edition_with_stories(*stories),
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_source_desk_article_hrefs_by_story_id={
+            "safe-source-desk-1111111111": "safe-source-desk-1111111111.html",
+            "unsafe/source-desk-2222222222": "unsafe-source-desk-2222222222.html",
+            "mismatched-local-source-desk-3333333333": (
+                "mismatched-local-source-desk-3333333333.html"
+            ),
+            "blank-source-desk-5555555555": "blank-source-desk-5555555555.html",
+            "empty-source-desk-6666666666": "empty-source-desk-6666666666.html",
+            "traversal-source-desk-7777777777": "../secret.html",
+            "nested-source-desk-8888888888": "nested/story.html",
+            "hidden-source-desk-9999999999": ".hidden.html",
+            "absolute-source-desk-1010101010": "/absolute.html",
+            "whitespace-source-desk-1212121212": "white space.html",
+            "slash-source-desk-1313131313": "//hidden.html",
+            "dot-source-desk-1414141414": ".",
+            "dotdot-source-desk-1515151515": "..",
+            "none-source-desk-1616161616": None,
+            "number-source-desk-1717171717": 123,
+            "href-mismatch-source-desk-1818181818": "mismatch-source-desk-3333333333.html",
+        },
+    )
+    section_html = _daily_local_source_desk_section_html(html)
+
+    assert "Safe Source Desk" in section_html
+    assert "Safe Source" in section_html
+    assert 'href="articles/safe-source-desk-1111111111.html#local-article-digest"' in section_html
+    for unsafe_text in (
+        "Unsafe ID Source Desk",
+        "Unsafe ID Source",
+        "Mismatched Local Source Desk",
+        "Mismatched Local Unique Source",
+        "Missing Source Desk",
+        "Blank Source Desk",
+        "Empty Source Desk",
+        "Traversal Source Desk",
+        "Nested Source Desk",
+        "Hidden Source Desk",
+        "Absolute Source Desk",
+        "Whitespace Source Desk",
+        "Slash Source Desk",
+        "Dot Source Desk",
+        "Dotdot Source Desk",
+        "None Href Source Desk",
+        "Number Href Source Desk",
+        "Href Mismatch Source Desk",
+        "../secret.html",
+        "nested/story.html",
+        ".hidden.html",
+        "/absolute.html",
+        "white space.html",
+        "//hidden.html",
+        "mismatch-source-desk-3333333333.html",
+    ):
+        assert unsafe_text not in section_html
+
+
+@pytest.mark.parametrize(
+    ("local_articles_by_story_id", "hrefs_by_story_id"),
+    [
+        ({}, {"the-row-signal-1234567890": "the-row-signal-1234567890.html"}),
+        (
+            {
+                "the-row-signal-1234567890": _signal_briefing_local_article().model_copy(
+                    deep=True,
+                    update={"source_name": " ", "paragraphs": []},
+                )
+            },
+            {"the-row-signal-1234567890": "../secret.html"},
+        ),
+        ({"the-row-signal-1234567890": _signal_briefing_local_article()}, None),
+        ({"the-row-signal-1234567890": _signal_briefing_local_article()}, {}),
+    ],
+)
+def test_render_index_html_omits_daily_local_source_desk_without_eligible_articles(
+    local_articles_by_story_id: dict[str, RowOneLocalArticle],
+    hrefs_by_story_id: dict[str, str] | None,
+) -> None:
+    html = render_index_html(
+        _edition(),
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_source_desk_article_hrefs_by_story_id=hrefs_by_story_id,
+    )
+
+    assert 'class="daily-local-source-desk"' not in html
+    assert "Daily Local Source Desk" not in html
+
+
 def test_render_index_html_places_daily_local_article_reading_brief_between_sections() -> None:
     organization = RowOneSavedArticleContentOrganization(
         groups=[
@@ -12367,6 +12748,66 @@ def test_render_index_html_places_daily_local_article_reading_brief_between_sect
         'class="daily-local-article-reading-brief"'
     )
     assert html.index('class="daily-local-article-reading-brief"') < html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
+def test_render_index_html_places_daily_local_source_desk_between_sections() -> None:
+    story = _edition().stories[0]
+    edition = _edition_with_stories(story)
+    local_articles_by_story_id = {story.id: _signal_briefing_local_article()}
+    organization = build_row_one_saved_article_content_organization(
+        edition,
+        local_articles_by_story_id,
+    )
+
+    html = render_index_html(
+        edition,
+        saved_article_content_organization=organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_article_reading_brief_article_hrefs_by_story_id={
+            story.id: f"{story.id}.html",
+        },
+        daily_local_source_desk_article_hrefs_by_story_id={
+            story.id: f"{story.id}.html",
+        },
+    )
+
+    assert 'class="saved-article-content-organization"' in html, (
+        "fixture must produce a rendered Saved Article Content Organization"
+    )
+    assert html.index('class="daily-local-article-reading-brief"') < html.index(
+        'class="daily-local-source-desk"'
+    )
+    assert html.index('class="daily-local-source-desk"') < html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
+def test_render_index_html_places_daily_local_source_desk_before_saved_organization_without_reading_brief(  # noqa: E501
+) -> None:
+    story = _edition().stories[0]
+    edition = _edition_with_stories(story)
+    local_articles_by_story_id = {story.id: _signal_briefing_local_article()}
+    organization = build_row_one_saved_article_content_organization(
+        edition,
+        local_articles_by_story_id,
+    )
+
+    html = render_index_html(
+        edition,
+        saved_article_content_organization=organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_source_desk_article_hrefs_by_story_id={
+            story.id: f"{story.id}.html",
+        },
+    )
+
+    assert 'class="saved-article-content-organization"' in html, (
+        "fixture must produce a rendered Saved Article Content Organization"
+    )
+    assert 'class="daily-local-article-reading-brief"' not in html
+    assert html.index('class="daily-local-source-desk"') < html.index(
         'class="saved-article-content-organization"'
     )
 
@@ -13200,6 +13641,28 @@ def test_row_one_css_includes_daily_local_article_reading_brief_styles() -> None
         ".daily-local-article-reading-brief-source",
         ".daily-local-article-reading-brief-excerpt",
         ".daily-local-article-reading-brief-action",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_daily_local_source_desk_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-source-desk",
+        ".daily-local-source-desk-header",
+        ".daily-local-source-desk-metrics",
+        ".daily-local-source-desk-grid",
+        ".daily-local-source-desk-source",
+        ".daily-local-source-desk-source-header",
+        ".daily-local-source-desk-source-title",
+        ".daily-local-source-desk-counts",
+        ".daily-local-source-desk-body-sources",
+        ".daily-local-source-desk-refs",
+        ".daily-local-source-desk-ref",
+        ".daily-local-source-desk-links",
+        ".daily-local-source-desk-link",
+        ".daily-local-source-desk-paragraph-link",
     ):
         assert selector in css
 

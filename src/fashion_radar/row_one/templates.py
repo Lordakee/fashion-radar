@@ -8,6 +8,7 @@ from html import escape
 from pathlib import PurePosixPath
 
 from fashion_radar.row_one.articles import safe_local_article_story_id
+from fashion_radar.row_one.body_source_labels import row_one_body_source_label
 from fashion_radar.row_one.daily_local_key_signals_digest import (
     RowOneDailyLocalKeySignalsDigest,
     RowOneDailyLocalKeySignalsDigestEntry,
@@ -184,6 +185,9 @@ DAILY_LOCAL_ARTICLE_READING_BRIEF_MAX_ITEMS_PER_GROUP = 3
 DAILY_LOCAL_ARTICLE_READING_BRIEF_MAX_TOTAL_ITEMS = 4
 DAILY_LOCAL_ARTICLE_READING_BRIEF_EXCERPT_CHARS = 150
 DAILY_LOCAL_ARTICLE_READING_BRIEF_MAX_REFS = 4
+DAILY_LOCAL_SOURCE_DESK_MAX_SOURCES = 4
+DAILY_LOCAL_SOURCE_DESK_MAX_LINKS_PER_SOURCE = 2
+DAILY_LOCAL_SOURCE_DESK_MAX_REFS_PER_SOURCE = 5
 
 
 @dataclass(frozen=True)
@@ -274,6 +278,31 @@ class _DailyLocalArticleReadingBriefGroup:
 
 
 @dataclass(frozen=True)
+class _DailyLocalSourceDeskLink:
+    story_headline: str
+    article_title: str | None
+    href: str
+    paragraph_href: str
+    paragraph_number: int
+
+
+@dataclass(frozen=True)
+class _DailyLocalSourceDeskReference:
+    name: str
+    label: str
+
+
+@dataclass(frozen=True)
+class _DailyLocalSourceDeskSource:
+    source_name: str
+    article_count: int
+    saved_paragraph_count: int
+    body_source_labels: tuple[LocalizedText, ...]
+    references: tuple[_DailyLocalSourceDeskReference, ...]
+    links: tuple[_DailyLocalSourceDeskLink, ...]
+
+
+@dataclass(frozen=True)
 class _SavedArticleSourceRoute:
     group_index: int
     source_name: str
@@ -320,6 +349,7 @@ def render_index_html(
     daily_local_heat_signals_article_hrefs_by_story_id: Mapping[str, str] | None = None,
     daily_local_article_capsules_article_hrefs_by_story_id: Mapping[str, str] | None = None,
     daily_local_article_reading_brief_article_hrefs_by_story_id: Mapping[str, str] | None = None,
+    daily_local_source_desk_article_hrefs_by_story_id: Mapping[str, str] | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     editorial_brief: _EditorialBrief | None = None,
     local_articles_by_story_id: dict[str, RowOneLocalArticle] | None = None,
@@ -363,6 +393,11 @@ def render_index_html(
         edition,
         local_articles_by_story_id=local_articles_by_story_id,
         article_hrefs_by_story_id=daily_local_article_reading_brief_article_hrefs_by_story_id,
+    )
+    daily_local_source_desk_section = _render_daily_local_source_desk(
+        edition,
+        local_articles_by_story_id=local_articles_by_story_id,
+        article_hrefs_by_story_id=daily_local_source_desk_article_hrefs_by_story_id,
     )
     saved_article_content_organization_section = _render_saved_article_content_organization(
         saved_article_content_organization
@@ -460,6 +495,7 @@ def render_index_html(
 {daily_local_heat_signals_section}
 {daily_local_article_capsules_section}
 {daily_local_article_reading_brief_section}
+{daily_local_source_desk_section}
 {saved_article_content_organization_section}
 {editorial_brief_section}
 {lead_story_block}
@@ -4057,6 +4093,125 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   text-transform: uppercase;
   text-underline-offset: 4px;
 }
+.daily-local-source-desk {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-local-source-desk-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-local-source-desk-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.1rem, 4.5vw, 5.2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.94;
+  margin: 0;
+}
+.daily-local-source-desk-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.daily-local-source-desk-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+.daily-local-source-desk-metrics span,
+.daily-local-source-desk-counts span,
+.daily-local-source-desk-body-sources span,
+.daily-local-source-desk-ref,
+.daily-local-source-desk-ref span {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-source-desk-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: 1fr;
+}
+.daily-local-source-desk-source {
+  background: var(--panel);
+  display: grid;
+  gap: 14px;
+  min-height: 280px;
+  padding: 16px;
+}
+.daily-local-source-desk-source-header,
+.daily-local-source-desk-links,
+.daily-local-source-desk-link {
+  display: grid;
+  gap: 10px;
+}
+.daily-local-source-desk-source-title {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.45rem, 2.4vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.98;
+  margin: 0;
+}
+.daily-local-source-desk-counts,
+.daily-local-source-desk-body-sources,
+.daily-local-source-desk-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.daily-local-source-desk-body-sources span,
+.daily-local-source-desk-counts span {
+  color: var(--ink);
+}
+.daily-local-source-desk-ref {
+  gap: 4px;
+}
+.daily-local-source-desk-link {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.daily-local-source-desk-link a {
+  color: var(--ink);
+  display: grid;
+  gap: 4px;
+  text-decoration-color: var(--line);
+  text-underline-offset: 4px;
+}
+.daily-local-source-desk-link a > span:first-child {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.daily-local-source-desk-link-article-title {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.daily-local-source-desk-paragraph-link {
+  color: var(--accent) !important;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-decoration-color: var(--line);
+  text-transform: uppercase;
+}
 .saved-article-content-organization {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -5618,6 +5773,9 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-article-reading-brief-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .daily-local-source-desk-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @media (max-width: 760px) {
   .site-header { min-height: 46vh; padding: 28px 20px; }
@@ -5647,6 +5805,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-article-capsules-header { grid-template-columns: 1fr; }
   .daily-local-article-reading-brief-header { grid-template-columns: 1fr; }
   .daily-local-article-reading-brief-grid { grid-template-columns: 1fr; }
+  .daily-local-source-desk-header { grid-template-columns: 1fr; }
+  .daily-local-source-desk-grid { grid-template-columns: 1fr; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
   .saved-article-library-entry-header { grid-template-columns: 1fr; }
@@ -10574,6 +10734,310 @@ def _render_daily_local_article_reading_brief_ref(
     return (
         f'<span class="daily-local-article-reading-brief-ref">{_esc(ref.name)}{label_html}</span>'
     )
+
+
+def _render_daily_local_source_desk(
+    edition: RowOneEdition,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> str:
+    sources = _daily_local_source_desk_sources(
+        edition,
+        local_articles_by_story_id=local_articles_by_story_id,
+        article_hrefs_by_story_id=article_hrefs_by_story_id,
+    )
+    if not sources:
+        return ""
+    assert len(sources) <= DAILY_LOCAL_SOURCE_DESK_MAX_SOURCES
+    article_count = sum(source.article_count for source in sources)
+    paragraph_count = sum(source.saved_paragraph_count for source in sources)
+    rendered_sources = "\n".join(
+        _render_daily_local_source_desk_source(source) for source in sources
+    )
+    return f"""<section class="daily-local-source-desk" aria-label="Daily local source desk">
+  <div class="daily-local-source-desk-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Daily Local Source Desk</span>
+        <span data-lang="zh">每日本地来源台</span>
+      </p>
+      <h2>
+        <span data-lang="en">Which sources carried today&apos;s saved local articles</span>
+        <span data-lang="zh">哪些来源承载了今天的本地保存文章</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">
+        A source-by-source desk built only from current-edition downloaded local text.
+      </span>
+      <span data-lang="zh">
+        仅基于当前版本已下载本地正文生成的来源视图。
+      </span>
+    </p>
+  </div>
+  <div class="daily-local-source-desk-metrics">
+    <span>{_esc(_count_label(len(sources), "source", "sources"))}</span>
+    <span>{_esc(_count_label(article_count, "local article", "local articles"))}</span>
+    <span>{_esc(_count_label(paragraph_count, "saved paragraph", "saved paragraphs"))}</span>
+    <span data-lang="en">Homepage only</span>
+    <span data-lang="zh">仅首页展示</span>
+  </div>
+  <div class="daily-local-source-desk-grid">
+{rendered_sources}
+  </div>
+</section>"""
+
+
+def _daily_local_source_desk_sources(
+    edition: RowOneEdition,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle] | None,
+    article_hrefs_by_story_id: Mapping[str, str] | None,
+) -> tuple[_DailyLocalSourceDeskSource, ...]:
+    if not article_hrefs_by_story_id:
+        return ()
+    local_articles = local_articles_by_story_id or {}
+    groups: dict[
+        str,
+        dict[
+            str,
+            object,
+        ],
+    ] = {}
+    for story in edition.stories:
+        if not safe_local_article_story_id(story.id):
+            continue
+        article = local_articles.get(story.id)
+        if article is None or article.story_id != story.id:
+            continue
+        saved_paragraph_count = _usable_local_article_paragraph_count(article)
+        if saved_paragraph_count <= 0:
+            continue
+        source_name = normalize_row_one_paragraph(article.source_name)
+        if not source_name:
+            continue
+        href = _daily_local_source_desk_digest_href(
+            story.id,
+            article_hrefs_by_story_id.get(story.id),
+        )
+        paragraph_index = _daily_local_source_desk_first_paragraph_index(article)
+        if paragraph_index is None:
+            continue
+        paragraph_href = _daily_local_source_desk_paragraph_href(
+            story.id,
+            article_hrefs_by_story_id.get(story.id),
+            paragraph_index + 1,
+        )
+        if href is None or paragraph_href is None:
+            continue
+
+        group_key = source_name.casefold()
+        group = groups.setdefault(
+            group_key,
+            {
+                "source_name": source_name,
+                "article_count": 0,
+                "saved_paragraph_count": 0,
+                "body_source_labels": [],
+                "body_source_keys": set(),
+                "references": [],
+                "reference_keys": set(),
+                "links": [],
+            },
+        )
+        group["article_count"] = int(group["article_count"]) + 1
+        group["saved_paragraph_count"] = int(group["saved_paragraph_count"]) + saved_paragraph_count
+
+        body_source_label = row_one_body_source_label(article.body_source)
+        body_source_key = (body_source_label.en.casefold(), body_source_label.zh.casefold())
+        body_source_keys = group["body_source_keys"]
+        body_source_labels = group["body_source_labels"]
+        if isinstance(body_source_keys, set) and body_source_key not in body_source_keys:
+            body_source_keys.add(body_source_key)
+            if isinstance(body_source_labels, list):
+                body_source_labels.append(body_source_label)
+
+        references = group["references"]
+        reference_keys = group["reference_keys"]
+        if isinstance(references, list) and isinstance(reference_keys, set):
+            for ref in [*story.entity_refs, *story.product_refs, *story.designer_refs]:
+                if len(references) >= DAILY_LOCAL_SOURCE_DESK_MAX_REFS_PER_SOURCE:
+                    break
+                name = normalize_row_one_paragraph(ref.name)
+                label = normalize_row_one_paragraph(ref.label) or normalize_row_one_paragraph(
+                    ref.type
+                )
+                if not name:
+                    continue
+                key = (
+                    name.casefold(),
+                    normalize_row_one_paragraph(ref.type).casefold(),
+                    normalize_row_one_paragraph(ref.label).casefold(),
+                )
+                if key in reference_keys:
+                    continue
+                reference_keys.add(key)
+                references.append(_DailyLocalSourceDeskReference(name=name, label=label))
+
+        links = group["links"]
+        if isinstance(links, list) and len(links) < DAILY_LOCAL_SOURCE_DESK_MAX_LINKS_PER_SOURCE:
+            links.append(
+                _DailyLocalSourceDeskLink(
+                    story_headline=normalize_row_one_paragraph(story.headline),
+                    article_title=normalize_row_one_paragraph(article.title or "") or None,
+                    href=href,
+                    paragraph_href=paragraph_href,
+                    paragraph_number=paragraph_index + 1,
+                )
+            )
+
+    sources: list[_DailyLocalSourceDeskSource] = []
+    for group in groups.values():
+        source_name = str(group["source_name"])
+        body_source_labels = tuple(group["body_source_labels"])
+        references = tuple(group["references"])
+        links = tuple(group["links"])
+        if not source_name or not links:
+            continue
+        sources.append(
+            _DailyLocalSourceDeskSource(
+                source_name=source_name,
+                article_count=int(group["article_count"]),
+                saved_paragraph_count=int(group["saved_paragraph_count"]),
+                body_source_labels=body_source_labels,
+                references=references,
+                links=links,
+            )
+        )
+    sources.sort(
+        key=lambda source: (
+            -source.article_count,
+            -source.saved_paragraph_count,
+            source.source_name.casefold(),
+            source.source_name,
+        )
+    )
+    return tuple(sources[:DAILY_LOCAL_SOURCE_DESK_MAX_SOURCES])
+
+
+def _daily_local_source_desk_first_paragraph_index(article: RowOneLocalArticle) -> int | None:
+    for paragraph_index, paragraph in enumerate(article.paragraphs):
+        if normalize_row_one_paragraph(paragraph):
+            return paragraph_index
+    return None
+
+
+def _daily_local_source_desk_digest_href(
+    story_id: str,
+    href: object,
+) -> str | None:
+    page_href = _safe_daily_local_source_desk_page_href(story_id, href)
+    if page_href is None:
+        return None
+    return f"articles/{page_href}#local-article-digest"
+
+
+def _daily_local_source_desk_paragraph_href(
+    story_id: str,
+    href: object,
+    paragraph_number: int,
+) -> str | None:
+    page_href = _safe_daily_local_source_desk_page_href(story_id, href)
+    if page_href is None or paragraph_number < 1:
+        return None
+    return f"articles/{page_href}#local-article-paragraph-{paragraph_number}"
+
+
+def _safe_daily_local_source_desk_page_href(
+    story_id: str,
+    href: object,
+) -> str | None:
+    if not safe_local_article_story_id(story_id) or not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if href.startswith((".", "/", "//")):
+        return None
+    path = PurePosixPath(href)
+    if (
+        path.is_absolute()
+        or len(path.parts) != 1
+        or path.name in ("", ".", "..")
+        or ".." in path.parts
+        or not path.name.endswith(".html")
+    ):
+        return None
+    mapped_story_id = path.name.removesuffix(".html")
+    if mapped_story_id != story_id or not safe_local_article_story_id(mapped_story_id):
+        return None
+    return f"{mapped_story_id}.html"
+
+
+def _render_daily_local_source_desk_source(source: _DailyLocalSourceDeskSource) -> str:
+    counts = (
+        '<div class="daily-local-source-desk-counts">'
+        f"<span>{_esc(_count_label(source.article_count, 'article', 'articles'))}</span>"
+        f"<span>"
+        f"{_esc(_count_label(source.saved_paragraph_count, 'paragraph', 'paragraphs'))}"
+        f"</span>"
+        "</div>"
+    )
+    body_sources = "".join(
+        (
+            '<span class="daily-local-source-desk-body-source">'
+            f'<span data-lang="en">{_esc(label.en)}</span>'
+            f'<span data-lang="zh">{_esc(label.zh)}</span>'
+            "</span>"
+        )
+        for label in source.body_source_labels
+    )
+    body_sources_html = (
+        f'<div class="daily-local-source-desk-body-sources">{body_sources}</div>'
+        if body_sources
+        else ""
+    )
+    refs = "".join(_render_daily_local_source_desk_ref(ref) for ref in source.references)
+    refs_html = f'<div class="daily-local-source-desk-refs">{refs}</div>' if refs else ""
+    links = "\n".join(_render_daily_local_source_desk_link(link) for link in source.links)
+    return f"""    <article class="daily-local-source-desk-source">
+      <div class="daily-local-source-desk-source-header">
+        <h3 class="daily-local-source-desk-source-title">{_esc(source.source_name)}</h3>
+        {counts}
+      </div>
+      {body_sources_html}
+      {refs_html}
+      <div class="daily-local-source-desk-links">
+{links}
+      </div>
+    </article>"""
+
+
+def _render_daily_local_source_desk_ref(ref: _DailyLocalSourceDeskReference) -> str:
+    label_html = f"<span>{_esc(ref.label)}</span>" if ref.label else ""
+    return f'<span class="daily-local-source-desk-ref">{_esc(ref.name)}{label_html}</span>'
+
+
+def _render_daily_local_source_desk_link(link: _DailyLocalSourceDeskLink) -> str:
+    title = link.article_title or link.story_headline
+    article_title = (
+        '<span class="daily-local-source-desk-link-article-title">'
+        f"{_esc(link.article_title)}</span>"
+        if link.article_title
+        else ""
+    )
+    paragraph_label_en = f"Paragraph {link.paragraph_number}"
+    paragraph_label_zh = f"段落 {link.paragraph_number}"
+    return f"""        <article class="daily-local-source-desk-link">
+          <a href="{_esc(link.href)}">
+            <span>{_esc(title)}</span>
+            {article_title}
+          </a>
+          <a class="daily-local-source-desk-paragraph-link" href="{_esc(link.paragraph_href)}">
+            <span data-lang="en">{_esc(paragraph_label_en)}</span>
+            <span data-lang="zh">{_esc(paragraph_label_zh)}</span>
+          </a>
+        </article>"""
 
 
 def _localized_payload_text(value: object) -> LocalizedText:
