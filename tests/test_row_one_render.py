@@ -65,6 +65,11 @@ from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibraryParagraphLink,
     RowOneSavedArticleLibrarySourceGroup,
 )
+from fashion_radar.row_one.saved_article_local_reading_companion import (
+    RowOneSavedArticleLocalReadingCompanion,
+    RowOneSavedArticleLocalReadingCompanionItem,
+    RowOneSavedArticleLocalReadingCompanionLink,
+)
 from fashion_radar.row_one.saved_article_organization_jump_index import (
     RowOneSavedArticleOrganizationJumpIndex,
     RowOneSavedArticleOrganizationJumpIndexGroup,
@@ -3236,6 +3241,114 @@ def test_render_local_article_information_panel_filters_invalid_paragraph_indice
     assert 'href="#local-article-paragraph-100"' not in panel
 
 
+def test_render_local_article_page_includes_saved_article_local_reading_companion() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    companion = RowOneSavedArticleLocalReadingCompanion(
+        current_title=LocalizedText(en="Current <Article>", zh="当前 <文章>"),
+        source_name="Vogue <Business>",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        group_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        group_dek=LocalizedText(en="Brand context <deck>", zh="品牌上下文 <说明>"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        body_source_label=LocalizedText(en="Extracted article text", zh="已提取文章正文"),
+        lead=LocalizedText(en="The Row <lead>", zh="The Row <导语>"),
+        saved_paragraph_count=3,
+        organized_section_count=2,
+        evidence_count=2,
+        detail_path="details/the-row-signal-1234567890.html",
+        local_links=(
+            RowOneSavedArticleLocalReadingCompanionLink(
+                label=LocalizedText(en="Saved text digest", zh="保存正文整理"),
+                href="#local-article-digest",
+            ),
+            RowOneSavedArticleLocalReadingCompanionLink(
+                label=LocalizedText(en="Saved text reader", zh="保存正文阅读"),
+                href="#local-article-reader",
+            ),
+        ),
+        related_items=(
+            RowOneSavedArticleLocalReadingCompanionItem(
+                title=LocalizedText(en="Alaia <signal>", zh="Alaia <信号>"),
+                source_name="Vogue <Business>",
+                section_label=LocalizedText(en="Products", zh="单品"),
+                body_source_label=LocalizedText(
+                    en="ROW ONE summary fallback",
+                    zh="ROW ONE 摘要回退",
+                ),
+                lead=LocalizedText(en="Alaia flats <lead>", zh="Alaia 平底鞋 <导语>"),
+                saved_paragraph_count=2,
+                organized_section_count=1,
+                evidence_count=1,
+                href="alaia-signal-1234567890.html#local-article-digest",
+                detail_path="details/alaia-signal-1234567890.html",
+                references=(RowOneReference(name="Alaia <flats>", type="shoe", label="product"),),
+            ),
+            RowOneSavedArticleLocalReadingCompanionItem(
+                title=LocalizedText(en="Unsafe", zh="不安全"),
+                source_name="Unsafe",
+                section_label=LocalizedText(en="Unsafe", zh="不安全"),
+                body_source_label=LocalizedText(en="Skipped", zh="已跳过"),
+                lead=LocalizedText(en="Unsafe", zh="不安全"),
+                saved_paragraph_count=1,
+                organized_section_count=1,
+                evidence_count=1,
+                href="javascript:alert(1)",
+                detail_path="details/unsafe-signal-1234567890.html",
+            ),
+            RowOneSavedArticleLocalReadingCompanionItem(
+                title=LocalizedText(en="Fallback detail", zh="详情页回退"),
+                source_name="Vogue Business",
+                section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                body_source_label=LocalizedText(en="Extracted article text", zh="已提取文章正文"),
+                lead=LocalizedText(en="Fallback detail lead", zh="详情页回退导语"),
+                saved_paragraph_count=1,
+                organized_section_count=1,
+                evidence_count=3,
+                href="../details/fallback-signal-1234567890.html#local-article-content-section-2",
+                detail_path="details/fallback-signal-1234567890.html",
+            ),
+        ),
+        references=(RowOneReference(name="The Row <brand>", type="brand", label="tracked"),),
+    )
+
+    html = render_local_article_page_html(
+        edition,
+        story,
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_reading_companion=companion,
+    )
+    section_html = _html_between(
+        html,
+        '<section class="saved-article-local-reading-companion"',
+        'id="local-article"',
+    )
+
+    assert "Saved Article Local Reading Companion" in section_html
+    assert "保存文章本地伴读" in section_html
+    assert "Current &lt;Article&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "The Row &lt;lead&gt;" in section_html
+    assert "Alaia &lt;signal&gt;" in section_html
+    assert "Alaia &lt;flats&gt;" in section_html
+    assert 'href="#local-article-digest"' in section_html
+    assert 'href="#local-article-reader"' in section_html
+    assert 'href="alaia-signal-1234567890.html#local-article-digest"' in section_html
+    assert (
+        'href="../details/fallback-signal-1234567890.html#local-article-content-section-2"'
+        in section_html
+    )
+    assert "3 evidence points" in section_html
+    assert "javascript:alert" not in section_html
+    assert "<Article>" not in section_html
+    assert html.index('class="local-article-information"') < html.index(
+        'class="saved-article-local-reading-companion"'
+    )
+    assert html.index('class="saved-article-local-reading-companion"') < html.index(
+        'id="local-article"'
+    )
+
+
 def test_render_row_one_detail_labels_saved_paragraphs_with_paragraph_context_cues() -> None:
     story = _edition().stories[0]
     html = render_detail_html(
@@ -3359,6 +3472,79 @@ def test_render_row_one_site_writes_first_class_local_article_page(tmp_path) -> 
         assert "local_article_reading_improvements" not in contract_json
     assert not (tmp_path / "data" / "local-article-pages.json").exists()
     assert not (tmp_path / "data" / "local-article-reading-improvements.json").exists()
+
+
+def test_render_row_one_site_writes_local_article_reading_companion_with_peer_links(
+    tmp_path,
+) -> None:
+    current_story = _edition().stories[0]
+    peer_story = _detail_story("alaia-signal-1234567890", "Alaia flats signal")
+    edition = _edition_with_stories(current_story, peer_story)
+    peer_article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "story_id": peer_story.id,
+            "title": "Alaia local article",
+            "paragraphs": ["Alaia flats lead the saved source."],
+            "paragraphs_zh": ["Alaia 平底鞋是保存正文重点。"],
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="entities",
+                    title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="Alaia", zh="Alaia"),
+                            body=LocalizedText(en="Alaia appears locally.", zh="Alaia 出现。"),
+                            references=[
+                                RowOneReference(name="Alaia", type="brand", label="tracked")
+                            ],
+                            paragraph_indices=[0],
+                        )
+                    ],
+                )
+            ],
+        },
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={
+            current_story.id: _signal_briefing_local_article(),
+            peer_story.id: peer_article,
+        },
+    )
+
+    current_html = (tmp_path / "articles" / f"{current_story.id}.html").read_text(encoding="utf-8")
+    peer_html = (tmp_path / "articles" / f"{peer_story.id}.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+
+    companion_html = _html_between(
+        current_html,
+        '<section class="saved-article-local-reading-companion"',
+        'id="local-article"',
+    )
+    assert "Saved Article Local Reading Companion" in companion_html
+    assert 'href="#local-article-digest"' in companion_html
+    assert f'href="{peer_story.id}.html#local-article-digest"' in companion_html
+    assert f'href="{current_story.id}.html#local-article-digest"' not in companion_html
+    assert 'class="saved-article-local-reading-companion"' in peer_html
+    assert 'class="saved-article-local-reading-companion"' not in homepage_html
+    assert 'class="saved-article-local-reading-companion"' not in detail_html
+    assert "saved_article_local_reading_companion" not in generated_contract_payload
+    assert "saved-article-local-reading-companion" not in generated_contract_payload
+    assert not (tmp_path / "data" / "saved-article-local-reading-companion.json").exists()
+    assert not (tmp_path / "data" / "article-local-reading-companion.json").exists()
 
 
 def test_render_row_one_site_local_article_page_paragraph_context_cues_are_html_only(
@@ -10253,6 +10439,24 @@ def test_row_one_css_includes_local_article_information_styles() -> None:
         ".local-article-information-card",
         ".local-article-information-refs",
         ".local-article-information-paragraphs",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_saved_article_local_reading_companion_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".saved-article-local-reading-companion",
+        ".saved-article-local-reading-companion-header",
+        ".saved-article-local-reading-companion-metrics",
+        ".saved-article-local-reading-companion-links",
+        ".saved-article-local-reading-companion-current",
+        ".saved-article-local-reading-companion-related",
+        ".saved-article-local-reading-companion-item",
+        ".saved-article-local-reading-companion-meta",
+        ".saved-article-local-reading-companion-refs",
+        ".saved-article-local-reading-companion-action",
     ):
         assert selector in css
 

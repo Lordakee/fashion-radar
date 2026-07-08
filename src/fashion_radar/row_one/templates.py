@@ -60,6 +60,10 @@ from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibraryParagraphLink,
     RowOneSavedArticleLibrarySourceGroup,
 )
+from fashion_radar.row_one.saved_article_local_reading_companion import (
+    RowOneSavedArticleLocalReadingCompanion,
+    RowOneSavedArticleLocalReadingCompanionItem,
+)
 from fashion_radar.row_one.saved_article_organization_jump_index import (
     RowOneSavedArticleOrganizationJumpIndex,
     RowOneSavedArticleOrganizationJumpIndexGroup,
@@ -523,6 +527,7 @@ def render_local_article_page_html(
     story: RowOneStory,
     *,
     local_article: RowOneLocalArticle,
+    saved_article_local_reading_companion: (RowOneSavedArticleLocalReadingCompanion | None) = None,
 ) -> str:
     local_article_section = _render_local_article(local_article)
     if not local_article_section:
@@ -538,6 +543,9 @@ def render_local_article_page_html(
         story,
         local_article,
         section_title,
+    )
+    local_reading_companion = _render_saved_article_local_reading_companion(
+        saved_article_local_reading_companion
     )
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -588,6 +596,7 @@ def render_local_article_page_html(
     <h1>{_esc(local_article.title or story.headline)}</h1>
     <p class="story-source">{_esc(local_article.source_name)}</p>
 {information_panel}
+{local_reading_companion}
     {local_article_section}
     </div>
   </article>
@@ -1893,6 +1902,87 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   list-style: none;
   margin: 0;
   padding: 0;
+}
+.saved-article-local-reading-companion {
+  border: 1px solid var(--ink);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+.saved-article-local-reading-companion-header {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr);
+}
+.saved-article-local-reading-companion-header h2,
+.saved-article-local-reading-companion-header p,
+.saved-article-local-reading-companion-current h3,
+.saved-article-local-reading-companion-current p,
+.saved-article-local-reading-companion-item h3,
+.saved-article-local-reading-companion-item p {
+  margin: 0;
+}
+.saved-article-local-reading-companion-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.7rem, 4vw, 3.6rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.96;
+}
+.saved-article-local-reading-companion-header p,
+.saved-article-local-reading-companion-current p,
+.saved-article-local-reading-companion-item p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.saved-article-local-reading-companion-metrics,
+.saved-article-local-reading-companion-links,
+.saved-article-local-reading-companion-meta,
+.saved-article-local-reading-companion-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.saved-article-local-reading-companion-metrics span,
+.saved-article-local-reading-companion-links a,
+.saved-article-local-reading-companion-meta span,
+.saved-article-local-reading-companion-refs span {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.75rem;
+  padding: 7px 9px;
+  text-decoration: none;
+}
+.saved-article-local-reading-companion-links a,
+.saved-article-local-reading-companion-action {
+  color: var(--accent);
+  font-weight: 800;
+}
+.saved-article-local-reading-companion-current {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+.saved-article-local-reading-companion-related {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.saved-article-local-reading-companion-item {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+}
+.saved-article-local-reading-companion-current h3,
+.saved-article-local-reading-companion-item h3 {
+  font-size: 0.95rem;
+}
+.saved-article-local-reading-companion-action {
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
 }
 .saved-signal-index {
   border-bottom: 1px solid var(--ink);
@@ -6394,6 +6484,211 @@ def _saved_article_read_next_cluster_href(href: str) -> str | None:
     if not safe_local_article_story_id(page_href.removesuffix(".html")):
         return None
     return href
+
+
+def _render_saved_article_local_reading_companion(
+    companion: RowOneSavedArticleLocalReadingCompanion | None,
+) -> str:
+    if companion is None:
+        return ""
+    current = _render_saved_article_local_reading_companion_current(companion)
+    related = _render_saved_article_local_reading_companion_related(companion.related_items)
+    if not current and not related:
+        return ""
+    paragraph_count = _count_label(
+        companion.saved_paragraph_count,
+        "saved paragraph",
+        "saved paragraphs",
+    )
+    section_count = _count_label(
+        companion.organized_section_count,
+        "organized section",
+        "organized sections",
+    )
+    evidence_count = _count_label(
+        companion.evidence_count,
+        "evidence point",
+        "evidence points",
+    )
+    return f"""    <section class="saved-article-local-reading-companion"
+      aria-labelledby="saved-article-local-reading-companion-title">
+      <div class="saved-article-local-reading-companion-header">
+        <h2 id="saved-article-local-reading-companion-title">
+          <span data-lang="en">Saved Article Local Reading Companion</span>
+          <span data-lang="zh">保存文章本地伴读</span>
+        </h2>
+        <p>
+          <span data-lang="en">A local-first guide for this saved article and what to read
+          next in the same edition.</span>
+          <span data-lang="zh">面向这篇保存文章与同日后续阅读的本地优先导读。</span>
+        </p>
+      </div>
+      <div class="saved-article-local-reading-companion-metrics">
+        <span>{_esc(paragraph_count)}</span>
+        <span>{_esc(section_count)}</span>
+        <span>{_esc(evidence_count)}</span>
+      </div>
+{current}
+{related}
+    </section>"""
+
+
+def _render_saved_article_local_reading_companion_current(
+    companion: RowOneSavedArticleLocalReadingCompanion,
+) -> str:
+    links = _render_saved_article_local_reading_companion_links(companion)
+    refs = _render_saved_article_local_reading_companion_refs(companion.references)
+    return f"""      <article class="saved-article-local-reading-companion-current">
+        <div class="saved-article-local-reading-companion-meta">
+          <span>{_esc(companion.source_name)}</span>
+          <span>
+            <span data-lang="en">{_esc(companion.group_title.en)}</span>
+            <span data-lang="zh">{_esc(companion.group_title.zh)}</span>
+          </span>
+          <span>
+            <span data-lang="en">{_esc(companion.body_source_label.en)}</span>
+            <span data-lang="zh">{_esc(companion.body_source_label.zh)}</span>
+          </span>
+        </div>
+        <h3>
+          <span data-lang="en">{_esc(companion.current_title.en)}</span>
+          <span data-lang="zh">{_esc(companion.current_title.zh)}</span>
+        </h3>
+        <p>
+          <span data-lang="en">{_esc(companion.lead.en)}</span>
+          <span data-lang="zh">{_esc(companion.lead.zh)}</span>
+        </p>
+{links}{refs}
+      </article>"""
+
+
+def _render_saved_article_local_reading_companion_links(
+    companion: RowOneSavedArticleLocalReadingCompanion,
+) -> str:
+    links: list[str] = []
+    for link in companion.local_links:
+        href = _saved_article_local_reading_companion_href(link.href)
+        if href is None or not href.startswith("#"):
+            continue
+        links.append(
+            f"""        <a href="{_esc(href)}">
+          <span data-lang="en">{_esc(link.label.en)}</span>
+          <span data-lang="zh">{_esc(link.label.zh)}</span>
+        </a>"""
+        )
+    if not links:
+        return ""
+    return (
+        '        <div class="saved-article-local-reading-companion-links">\n'
+        + "\n".join(links)
+        + "\n        </div>\n"
+    )
+
+
+def _render_saved_article_local_reading_companion_related(
+    items: Sequence[RowOneSavedArticleLocalReadingCompanionItem],
+) -> str:
+    rendered = [
+        item_html
+        for item in items
+        if (item_html := _render_saved_article_local_reading_companion_item(item))
+    ]
+    if not rendered:
+        return ""
+    return (
+        '      <div class="saved-article-local-reading-companion-related">\n'
+        + "\n".join(rendered)
+        + "\n      </div>"
+    )
+
+
+def _render_saved_article_local_reading_companion_item(
+    item: RowOneSavedArticleLocalReadingCompanionItem,
+) -> str:
+    href = _saved_article_local_reading_companion_href(item.href)
+    if href is None or href.startswith("#"):
+        return ""
+    paragraph_count = _count_label(
+        item.saved_paragraph_count,
+        "saved paragraph",
+        "saved paragraphs",
+    )
+    section_count = _count_label(
+        item.organized_section_count,
+        "organized section",
+        "organized sections",
+    )
+    evidence_count = _count_label(item.evidence_count, "evidence point", "evidence points")
+    refs = _render_saved_article_local_reading_companion_refs(item.references)
+    return f"""        <article class="saved-article-local-reading-companion-item">
+          <div class="saved-article-local-reading-companion-meta">
+            <span>{_esc(item.source_name)}</span>
+            <span>
+              <span data-lang="en">{_esc(item.section_label.en)}</span>
+              <span data-lang="zh">{_esc(item.section_label.zh)}</span>
+            </span>
+            <span>
+              <span data-lang="en">{_esc(item.body_source_label.en)}</span>
+              <span data-lang="zh">{_esc(item.body_source_label.zh)}</span>
+            </span>
+          </div>
+          <h3>
+            <span data-lang="en">{_esc(item.title.en)}</span>
+            <span data-lang="zh">{_esc(item.title.zh)}</span>
+          </h3>
+          <p>
+            <span data-lang="en">{_esc(item.lead.en)}</span>
+            <span data-lang="zh">{_esc(item.lead.zh)}</span>
+          </p>
+          <div class="saved-article-local-reading-companion-meta">
+            <span>{_esc(paragraph_count)}</span>
+            <span>{_esc(section_count)}</span>
+            <span>{_esc(evidence_count)}</span>
+          </div>{refs}
+          <a class="saved-article-local-reading-companion-action" href="{_esc(href)}">
+            <span data-lang="en">Read next locally</span>
+            <span data-lang="zh">继续本地阅读</span>
+          </a>
+        </article>"""
+
+
+def _render_saved_article_local_reading_companion_refs(
+    references: Sequence[RowOneReference],
+) -> str:
+    chips = "".join(
+        f"<span>{_esc(_saved_article_local_reading_companion_ref_label(ref))}</span>"
+        for ref in references
+        if ref.name.strip()
+    )
+    if not chips:
+        return ""
+    return f'\n        <div class="saved-article-local-reading-companion-refs">{chips}</div>'
+
+
+def _saved_article_local_reading_companion_ref_label(ref: RowOneReference) -> str:
+    parts = [part.strip() for part in (ref.name, ref.type, ref.label) if part.strip()]
+    return " / ".join(parts)
+
+
+def _saved_article_local_reading_companion_href(href: str) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if href.startswith(("http:", "https:", "//", "javascript:")):
+        return None
+    if href.startswith("#"):
+        fragment = href.removeprefix("#")
+        if fragment in {
+            "local-article-digest",
+            "local-article-reader",
+            "local-article-paragraph-evidence",
+        }:
+            return href
+        if _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is not None:
+            return href
+        return None
+    return _saved_article_read_next_cluster_href(href)
 
 
 @dataclass(frozen=True)

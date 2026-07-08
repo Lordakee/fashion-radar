@@ -825,6 +825,18 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "read-next-clusters.html",
         output_dir / "articles" / "read-next-clusters.html",
         output_dir / "data" / "read-next-clusters.html",
+        output_dir / "saved-article-local-reading-companion.json",
+        output_dir / "articles" / "saved-article-local-reading-companion.json",
+        output_dir / "data" / "saved-article-local-reading-companion.json",
+        output_dir / "saved-article-local-reading-companion.html",
+        output_dir / "articles" / "saved-article-local-reading-companion.html",
+        output_dir / "data" / "saved-article-local-reading-companion.html",
+        output_dir / "article-local-reading-companion.json",
+        output_dir / "articles" / "article-local-reading-companion.json",
+        output_dir / "data" / "article-local-reading-companion.json",
+        output_dir / "article-local-reading-companion.html",
+        output_dir / "articles" / "article-local-reading-companion.html",
+        output_dir / "data" / "article-local-reading-companion.html",
     ):
         assert not artifact_path.exists()
     assert stored == stored_before
@@ -879,6 +891,25 @@ def test_stage_353_saved_article_read_next_clusters_stays_generated_site_only(
         row_one_templates,
         "_render_saved_article_read_next_clusters",
         lambda _clusters: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_354_saved_article_local_reading_companion_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+    from fashion_radar.row_one.saved_article_local_reading_companion import (
+        build_row_one_saved_article_local_reading_companion,
+    )
+
+    assert build_row_one_saved_article_local_reading_companion is not None
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_saved_article_local_reading_companion",
+        lambda _companion: "",
         raising=False,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)

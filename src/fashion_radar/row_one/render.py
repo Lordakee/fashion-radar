@@ -47,6 +47,9 @@ from fashion_radar.row_one.saved_article_library import (
     RowOneSavedArticleLibrary,
     build_row_one_saved_article_library,
 )
+from fashion_radar.row_one.saved_article_local_reading_companion import (
+    build_row_one_saved_article_local_reading_companion,
+)
 from fashion_radar.row_one.saved_article_reading_paths import (
     RowOneSavedArticleReadingPaths,
     build_row_one_saved_article_reading_paths,
@@ -314,6 +317,8 @@ def _write_saved_article_library_page(
         edition,
         articles_dir,
         local_articles_by_story_id=local_articles_by_story_id,
+        saved_article_library=saved_article_library,
+        saved_article_content_organization=saved_article_content_organization,
     )
     (articles_dir / "index.html").write_text(
         render_saved_article_library_html(
@@ -344,8 +349,43 @@ def _write_local_article_pages(
     articles_dir: Path,
     *,
     local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    saved_article_library: RowOneSavedArticleLibrary | None = None,
+    saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
 ) -> dict[str, str]:
-    written_hrefs: dict[str, str] = {}
+    page_specs = _local_article_page_specs(
+        edition,
+        local_articles_by_story_id=local_articles_by_story_id,
+    )
+    hrefs_by_detail_path = {
+        detail_path: article_page_href
+        for story, _article, article_page_href, detail_path in page_specs
+    }
+    for story, article, article_page_href, _detail_path in page_specs:
+        companion = build_row_one_saved_article_local_reading_companion(
+            story=story,
+            local_article=article,
+            library=saved_article_library,
+            organization=saved_article_content_organization,
+            local_article_page_hrefs_by_detail_path=hrefs_by_detail_path,
+        )
+        html = render_local_article_page_html(
+            edition,
+            story,
+            local_article=article,
+            saved_article_local_reading_companion=companion,
+        )
+        if not html:
+            continue
+        (articles_dir / article_page_href).write_text(html, encoding="utf-8")
+    return hrefs_by_detail_path
+
+
+def _local_article_page_specs(
+    edition: RowOneEdition,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+) -> list[tuple[RowOneStory, RowOneLocalArticle, str, str]]:
+    page_specs: list[tuple[RowOneStory, RowOneLocalArticle, str, str]] = []
     for story in edition.stories:
         article = local_articles_by_story_id.get(story.id)
         if article is None or article.story_id != story.id:
@@ -358,12 +398,8 @@ def _write_local_article_pages(
         pure_detail_path = _validated_detail_relative_path(story.detail_path)
         if pure_detail_path is None:
             continue
-        html = render_local_article_page_html(edition, story, local_article=article)
-        if not html:
-            continue
-        (articles_dir / article_page_href).write_text(html, encoding="utf-8")
-        written_hrefs[str(pure_detail_path)] = article_page_href
-    return written_hrefs
+        page_specs.append((story, article, article_page_href, str(pure_detail_path)))
+    return page_specs
 
 
 def _writable_local_articles(
