@@ -325,14 +325,40 @@ def render_saved_article_library_html(
         )
         for group in library.groups
     )
-    signal_index = _render_saved_signal_index(saved_signal_index)
-    theme_digest = _render_saved_article_theme_digest(saved_article_theme_digest)
-    reference_atlas = _render_saved_article_reference_atlas(saved_article_reference_atlas)
-    reading_paths = _render_saved_article_reading_paths(saved_article_reading_paths)
-    evidence_board = _render_saved_article_evidence_board(saved_article_evidence_board)
+    signal_index = _render_saved_signal_index(
+        saved_signal_index,
+        section_id="saved-signal-index",
+    )
+    theme_digest = _render_saved_article_theme_digest(
+        saved_article_theme_digest,
+        section_id="saved-article-theme-digest",
+    )
+    reference_atlas = _render_saved_article_reference_atlas(
+        saved_article_reference_atlas,
+        section_id="saved-article-reference-atlas",
+    )
+    reading_paths = _render_saved_article_reading_paths(
+        saved_article_reading_paths,
+        section_id="saved-article-reading-paths",
+    )
+    evidence_board = _render_saved_article_evidence_board(
+        saved_article_evidence_board,
+        section_id="saved-article-evidence-board",
+    )
     content_organization = _render_saved_article_content_organization(
         saved_article_content_organization,
         href_prefix="../",
+        section_id="saved-article-content-organization",
+    )
+    daily_summary = _render_saved_article_daily_summary(
+        library,
+        signal_index_html=signal_index,
+        content_organization_html=content_organization,
+        reading_paths_html=reading_paths,
+        theme_digest_html=theme_digest,
+        reference_atlas_html=reference_atlas,
+        evidence_board_html=evidence_board,
+        local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
     )
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -373,12 +399,14 @@ def render_saved_article_library_html(
     </p>
     {_render_saved_article_library_metrics(library, css_class="saved-article-library-metrics")}
   </section>
+  {daily_summary}
   {theme_digest}
   {reference_atlas}
   {signal_index}
   {reading_paths}
   {evidence_board}
   {content_organization}
+  <span id="saved-article-library-grid"></span>
   <div class="saved-article-library-grid">{groups}</div>
 </main>
 <script src="../assets/row-one.js"></script>
@@ -1284,6 +1312,63 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   line-height: 1.45;
   margin: 0;
   max-width: 760px;
+}
+.saved-article-daily-summary {
+  border: 1px solid var(--ink);
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+.saved-article-daily-summary-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.38fr) minmax(0, 1fr);
+}
+.saved-article-daily-summary-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.85rem, 4vw, 4.4rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.96;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-daily-summary-header p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-daily-summary-metrics,
+.saved-article-daily-summary-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-daily-summary-metrics li {
+  border: 1px solid var(--line);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 8px 10px;
+}
+.saved-article-daily-summary-link {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 0.74rem;
+  font-weight: 800;
+  gap: 6px;
+  letter-spacing: 0.08em;
+  padding: 8px 10px;
+  text-decoration: none;
+  text-transform: uppercase;
 }
 .saved-article-library-grid {
   display: grid;
@@ -4966,6 +5051,161 @@ def _render_saved_article_library_metric(label_en: str, label_zh: str) -> str:
     )
 
 
+def _render_saved_article_daily_summary(
+    library: RowOneSavedArticleLibrary,
+    *,
+    signal_index_html: str,
+    content_organization_html: str,
+    reading_paths_html: str,
+    theme_digest_html: str,
+    reference_atlas_html: str,
+    evidence_board_html: str,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    has_source_grid = any(group.entries for group in library.groups)
+    if library.article_count <= 0 or not has_source_grid:
+        return ""
+    links = [
+        _render_saved_article_daily_summary_link(
+            "#saved-article-theme-digest",
+            "Theme Digest",
+            "主题简报",
+        )
+        if theme_digest_html
+        else "",
+        _render_saved_article_daily_summary_link(
+            "#saved-article-reference-atlas",
+            "Reference Atlas",
+            "引用图谱",
+        )
+        if reference_atlas_html
+        else "",
+        _render_saved_article_daily_summary_link(
+            "#saved-signal-index",
+            "Signal Index",
+            "信号索引",
+        )
+        if signal_index_html
+        else "",
+        _render_saved_article_daily_summary_link(
+            "#saved-article-reading-paths",
+            "Reading Paths",
+            "阅读路径",
+        )
+        if reading_paths_html
+        else "",
+        _render_saved_article_daily_summary_link(
+            "#saved-article-evidence-board",
+            "Evidence Board",
+            "证据板",
+        )
+        if evidence_board_html
+        else "",
+        _render_saved_article_daily_summary_link(
+            "#saved-article-content-organization",
+            "Content Organization",
+            "内容整理",
+        )
+        if content_organization_html
+        else "",
+        _render_saved_article_daily_summary_link(
+            "#saved-article-library-grid",
+            "Source Grid",
+            "来源网格",
+        )
+        if has_source_grid
+        else "",
+    ]
+    reading_href = _first_saved_article_daily_summary_reading_href(
+        library,
+        local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
+    )
+    if reading_href is not None:
+        links.append(
+            _render_saved_article_daily_summary_link(
+                reading_href,
+                "Start Reading",
+                "开始阅读",
+            )
+        )
+    links = [link for link in links if link]
+    if not links:
+        return ""
+    surface_count = len(links) - (1 if reading_href is not None else 0)
+    metrics = (
+        _render_saved_article_library_metric(
+            _count_label(library.article_count, "saved local article", "saved local articles"),
+            f"{library.article_count} 篇本地保存文章",
+        )
+        + "\n"
+        + _render_saved_article_library_metric(
+            _count_label(library.source_count, "source", "sources"),
+            f"{library.source_count} 个来源",
+        )
+        + "\n"
+        + _render_saved_article_library_metric(
+            _count_label(surface_count, "available surface", "available surfaces"),
+            f"{surface_count} 个可用导览入口",
+        )
+    )
+    return f"""<section class="saved-article-daily-summary"
+  aria-label="Saved article daily summary">
+  <div class="saved-article-daily-summary-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Saved Article Daily Summary</span>
+        <span data-lang="zh">保存文章每日导览</span>
+      </p>
+      <h2>
+        <span data-lang="en">Saved Article Daily Summary</span>
+        <span data-lang="zh">保存文章每日导览</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">A compact orientation layer for today's saved local article set.</span>
+      <span data-lang="zh">面向今日本地保存文章集合的紧凑阅读导览。</span>
+    </p>
+  </div>
+  <ul class="saved-article-daily-summary-metrics">
+{metrics}
+  </ul>
+  <div class="saved-article-daily-summary-links">{"".join(links)}</div>
+</section>"""
+
+
+def _render_saved_article_daily_summary_link(
+    href: str,
+    label_en: str,
+    label_zh: str,
+) -> str:
+    return f"""<a class="saved-article-daily-summary-link" href="{_esc(href)}">
+    <span data-lang="en">{_esc(label_en)}</span>
+    <span data-lang="zh">{_esc(label_zh)}</span>
+  </a>"""
+
+
+def _first_saved_article_daily_summary_reading_href(
+    library: RowOneSavedArticleLibrary,
+    *,
+    local_article_page_hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str | None:
+    for group in library.groups:
+        for entry in group.entries:
+            article_page_href = _saved_article_library_entry_article_page_href(
+                entry,
+                local_article_page_hrefs_by_detail_path,
+            )
+            if article_page_href is not None:
+                return f"{article_page_href}#local-article-digest"
+            safe_href = safe_row_one_detail_fragment_href(
+                entry.digest_path,
+                "local-article-digest",
+            )
+            if safe_href is not None:
+                return _saved_article_library_page_href(safe_href)
+    return None
+
+
 def _render_saved_article_library_source(
     group: RowOneSavedArticleLibrarySourceGroup,
     *,
@@ -5188,6 +5428,8 @@ def _render_saved_article_library_snippet(
 
 def _render_saved_article_reading_paths(
     reading_paths: RowOneSavedArticleReadingPaths | None,
+    *,
+    section_id: str | None = None,
 ) -> str:
     if reading_paths is None or not reading_paths.paths:
         return ""
@@ -5195,7 +5437,8 @@ def _render_saved_article_reading_paths(
     cards = [card for card in cards if card]
     if not cards:
         return ""
-    return f"""<section class="saved-article-reading-paths"
+    id_attr = f' id="{_esc(section_id)}"' if section_id else ""
+    return f"""<section class="saved-article-reading-paths"{id_attr}
   aria-label="Saved article reading paths">
   <div class="saved-article-reading-paths-header">
     <div>
@@ -5219,6 +5462,8 @@ def _render_saved_article_reading_paths(
 
 def _render_saved_article_theme_digest(
     digest: RowOneSavedArticleThemeDigest | None,
+    *,
+    section_id: str | None = None,
 ) -> str:
     if digest is None or not digest.themes:
         return ""
@@ -5243,7 +5488,8 @@ def _render_saved_article_theme_digest(
         f'<span data-lang="zh">{_esc(f"{digest.source_count} 个来源")}</span>'
         "</li>"
     )
-    return f"""<section class="saved-article-theme-digest"
+    id_attr = f' id="{_esc(section_id)}"' if section_id else ""
+    return f"""<section class="saved-article-theme-digest"{id_attr}
   aria-label="Saved article theme digest">
   <div class="saved-article-theme-digest-header">
     <div>
@@ -5359,6 +5605,8 @@ def _render_saved_article_theme_digest_evidence(
 
 def _render_saved_article_reference_atlas(
     atlas: RowOneSavedArticleReferenceAtlas | None,
+    *,
+    section_id: str | None = None,
 ) -> str:
     if atlas is None or not atlas.buckets:
         return ""
@@ -5386,7 +5634,8 @@ def _render_saved_article_reference_atlas(
     intro_en = (
         "Entities and items already referenced inside today's saved local article organization."
     )
-    return f"""<section class="saved-article-reference-atlas"
+    id_attr = f' id="{_esc(section_id)}"' if section_id else ""
+    return f"""<section class="saved-article-reference-atlas"{id_attr}
   aria-label="Saved article reference atlas">
   <div class="saved-article-reference-atlas-header">
     <div>
@@ -5620,6 +5869,8 @@ def _render_saved_article_reading_path_evidence(
 
 def _render_saved_article_evidence_board(
     evidence_board: RowOneSavedArticleEvidenceBoard | None,
+    *,
+    section_id: str | None = None,
 ) -> str:
     if evidence_board is None or not evidence_board.groups:
         return ""
@@ -5644,7 +5895,8 @@ def _render_saved_article_evidence_board(
         f'<span data-lang="zh">{_esc(f"{evidence_board.source_count} 个来源")}</span>'
         "</li>"
     )
-    return f"""<section class="saved-article-evidence-board"
+    id_attr = f' id="{_esc(section_id)}"' if section_id else ""
+    return f"""<section class="saved-article-evidence-board"{id_attr}
   aria-label="Saved article paragraph evidence board">
   <div class="saved-article-evidence-board-header">
     <div>
@@ -5912,14 +6164,19 @@ def _saved_article_library_page_href(href: str) -> str:
     return f"../{href}"
 
 
-def _render_saved_signal_index(index: RowOneSavedSignalIndex | None) -> str:
+def _render_saved_signal_index(
+    index: RowOneSavedSignalIndex | None,
+    *,
+    section_id: str | None = None,
+) -> str:
     if not _has_saved_signal_index_entries(index):
         return ""
     cards = [_render_saved_signal_index_card(entry) for entry in index.entries]
     cards = [card for card in cards if card]
     if not cards:
         return ""
-    return f"""<section class="saved-signal-index" aria-label="Saved signal index">
+    id_attr = f' id="{_esc(section_id)}"' if section_id else ""
+    return f"""<section class="saved-signal-index"{id_attr} aria-label="Saved signal index">
   <div class="saved-signal-index-header">
     <div>
       <p class="story-section">
@@ -6206,6 +6463,7 @@ def _render_saved_article_content_organization(
     organization: RowOneSavedArticleContentOrganization | None,
     *,
     href_prefix: str = "",
+    section_id: str | None = None,
 ) -> str:
     if organization is None:
         return ""
@@ -6220,7 +6478,8 @@ def _render_saved_article_content_organization(
         organization,
         href_prefix=href_prefix,
     )
-    return f"""<section class="saved-article-content-organization"
+    id_attr = f' id="{_esc(section_id)}"' if section_id else ""
+    return f"""<section class="saved-article-content-organization"{id_attr}
   aria-label="Saved article content organization">
   <div class="saved-article-content-organization-header">
     <div>

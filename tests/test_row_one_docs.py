@@ -1344,6 +1344,68 @@ def test_row_one_docs_describe_stage_344_organization_coverage_matrix_boundary()
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_345_saved_article_daily_summary_boundary() -> None:
+    expected = _normalized(
+        "Stage 345 adds a generated-site only Saved Article Daily Summary "
+        "inside `articles/index.html`; it reuses existing saved article content "
+        "organization groups, existing organization coverage rows, existing "
+        "safe card detail-path anchors, existing card references, and existing "
+        "paragraph indices to summarize the daily saved article library without "
+        "changing app-facing contracts; it does not create "
+        "`data/saved-article-daily-summary.json`, does not create "
+        "`data/daily-saved-article-summary.json`, does not create new "
+        "article-source sidecars, does not create new route families, does not "
+        "publish full articles on the library index, does not add outbound "
+        "article URLs as primary navigation, does not change row-one-app/v7, "
+        "row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, "
+        "source collection, fetching, matching, extraction, scoring, ranking, "
+        "LLM, connector, scheduling, deployment, market grouping, "
+        "domestic/international classification, analytics, personalization, "
+        "recommendation, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_345_pos = normalized.index(
+            "stage 345 adds a generated-site only saved article daily summary"
+        )
+        stage_344_pos = normalized.index(
+            "stage 344 adds a generated-site only saved article organization"
+        )
+        assert stage_345_pos < stage_344_pos
+        stage = normalized[stage_345_pos:stage_344_pos]
+        for stale_phrase in (
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "creates `data/saved-article-daily-summary.json`",
+            "writes `data/saved-article-daily-summary.json`",
+            "creates `data/daily-saved-article-summary.json`",
+            "writes `data/daily-saved-article-summary.json`",
+            "writes a new json artifact",
+            "creates new article-source sidecars",
+            "creates new route families",
+            "publishes full articles on the library index",
+            "adds outbound article urls",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds ranking",
+            "adds llm calls",
+            "adds connectors",
+            "adds scheduling",
+            "adds deployment behavior",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_342_saved_paragraph_context_cues_boundary() -> None:
     expected = _normalized(
         "Stage 342 adds generated-site only saved paragraph context cues for "

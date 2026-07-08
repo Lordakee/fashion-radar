@@ -3909,6 +3909,124 @@ def test_render_row_one_site_includes_saved_article_evidence_board_in_article_li
             assert not any(token in artifact_text for token in forbidden_tokens)
 
 
+def test_render_row_one_site_includes_saved_article_daily_summary_in_article_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _theme_digest_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    edition_payload = json.loads((tmp_path / "data" / "edition.json").read_text())
+    manifest_payload = json.loads((tmp_path / "data" / "manifest.json").read_text())
+    runtime_payload = json.loads((tmp_path / "data" / "runtime.json").read_text())
+    section_html = _saved_article_daily_summary_section_html(library_html)
+
+    assert 'class="saved-article-daily-summary"' in section_html
+    assert "Saved Article Daily Summary" in section_html
+    assert "保存文章每日导览" in section_html
+    assert "1 saved local article" in section_html
+    assert "1 source" in section_html
+    assert "available surfaces" in section_html
+    assert 'href="#saved-article-theme-digest"' in section_html
+    assert 'href="#saved-article-reference-atlas"' in section_html
+    assert 'href="#saved-signal-index"' in section_html
+    assert 'href="#saved-article-reading-paths"' in section_html
+    assert 'href="#saved-article-evidence-board"' in section_html
+    assert 'href="#saved-article-content-organization"' in section_html
+    assert 'href="#saved-article-library-grid"' in section_html
+    assert f'href="{story.id}.html#local-article-digest"' in section_html
+    assert 'id="local-article-digest"' in article_html
+    assert (
+        library_html.index('class="saved-article-library-hero"')
+        < library_html.index('class="saved-article-daily-summary"')
+        < library_html.index('class="saved-article-theme-digest"')
+        < library_html.index('class="saved-article-library-grid"')
+    )
+    assert 'id="saved-article-content-organization"' not in homepage_html
+    assert 'class="saved-article-daily-summary"' not in homepage_html
+
+    for contract_json in (
+        json.dumps(edition_payload, ensure_ascii=False),
+        json.dumps(manifest_payload, ensure_ascii=False),
+        json.dumps(runtime_payload, ensure_ascii=False),
+    ):
+        assert "saved_article_daily_summary" not in contract_json
+        assert "daily_saved_article_summary" not in contract_json
+        assert "saved-article-daily-summary" not in contract_json
+        assert "Saved Article Daily Summary" not in contract_json
+        assert "保存文章每日导览" not in contract_json
+    assert not (tmp_path / "data" / "saved-article-daily-summary.json").exists()
+
+
+def test_saved_article_daily_summary_does_not_duplicate_downstream_content(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _theme_digest_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    section_html = _saved_article_daily_summary_section_html(library_html)
+
+    assert "Start with The Row retail signal." not in section_html
+    assert "Alaia flats appear in paragraph two." not in section_html
+    assert "The Row paragraph one anchors the saved local evidence board." not in section_html
+    assert 'class="saved-article-theme-digest-card"' not in section_html
+    assert 'class="saved-article-reference-atlas-bucket"' not in section_html
+    assert 'class="saved-article-evidence-board-card"' not in section_html
+    assert 'class="saved-article-organization-coverage-row"' not in section_html
+    assert 'class="saved-article-content-organization-card"' not in section_html
+
+
+def test_render_saved_article_library_html_omits_daily_summary_without_targets() -> None:
+    html = render_saved_article_library_html(
+        _edition(),
+        RowOneSavedArticleLibrary(
+            article_count=0,
+            source_count=0,
+            saved_paragraph_count=0,
+            organized_section_count=0,
+            extracted_article_count=0,
+            summary_fallback_article_count=0,
+            skipped_article_count=0,
+            groups=[],
+        ),
+    )
+
+    assert 'class="saved-article-daily-summary"' not in html
+    assert "Saved Article Daily Summary" not in html
+
+
+def test_render_saved_article_library_html_filters_daily_summary_reading_hrefs() -> None:
+    library = _saved_article_library_fixture()
+    html = render_saved_article_library_html(
+        _edition(),
+        library,
+        local_article_page_hrefs_by_detail_path={
+            "details/the-row-signal-1234567890.html": "javascript:alert(1).html",
+        },
+    )
+
+    section_html = _saved_article_daily_summary_section_html(html)
+
+    assert "javascript:alert" not in section_html
+    assert 'href="the-row-signal-1234567890.html#local-article-digest"' not in section_html
+    assert 'href="../details/the-row-signal-1234567890.html#local-article-digest"' in section_html
+
+
 def test_render_row_one_site_omits_saved_article_evidence_board_when_no_valid_paragraphs(
     tmp_path,
 ) -> None:
@@ -5021,6 +5139,25 @@ def _saved_article_content_organization_section_html(index_html: str) -> str:
     if next_section is not None:
         boundary_offsets.append(next_section.start())
     library_grid = tail.find('<div class="saved-article-library-grid">')
+    if library_grid >= 0:
+        boundary_offsets.append(library_grid)
+    if not boundary_offsets:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + min(boundary_offsets)
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _saved_article_daily_summary_section_html(index_html: str) -> str:
+    marker = '<section class="saved-article-daily-summary"'
+    assert marker in index_html
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    boundary_offsets: list[int] = []
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is not None:
+        boundary_offsets.append(next_section.start())
+    library_grid = tail.find('<div class="saved-article-library-grid"')
     if library_grid >= 0:
         boundary_offsets.append(library_grid)
     if not boundary_offsets:
@@ -8342,6 +8479,11 @@ def test_row_one_css_includes_saved_article_library_styles(tmp_path) -> None:
         ".saved-article-library-snippet-body",
         ".saved-article-library-snippet-link",
         ".saved-article-library-snippet-evidence",
+        ".saved-article-daily-summary",
+        ".saved-article-daily-summary-header",
+        ".saved-article-daily-summary-metrics",
+        ".saved-article-daily-summary-links",
+        ".saved-article-daily-summary-link",
     ):
         assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
 

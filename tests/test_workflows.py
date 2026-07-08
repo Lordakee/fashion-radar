@@ -538,6 +538,11 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "Saved Article Organization Coverage Matrix" not in generated_contract_payload
     assert "saved-article-organization-coverage" not in generated_contract_payload
     assert "organization-coverage-matrix" not in generated_contract_payload
+    assert "saved_article_daily_summary" not in generated_contract_payload
+    assert "daily_saved_article_summary" not in generated_contract_payload
+    assert "Saved Article Daily Summary" not in generated_contract_payload
+    assert "saved-article-daily-summary" not in generated_contract_payload
+    assert "daily-saved-article-summary" not in generated_contract_payload
     assert "Saved Paragraph Context Cues" not in generated_contract_payload
     assert "saved-paragraph-context-cues" not in generated_contract_payload
     assert "local-article-paragraph-contexts" not in generated_contract_payload
@@ -627,6 +632,18 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "organization-coverage-matrix.html",
         output_dir / "articles" / "organization-coverage-matrix.html",
         output_dir / "data" / "organization-coverage-matrix.html",
+        output_dir / "saved-article-daily-summary.json",
+        output_dir / "articles" / "saved-article-daily-summary.json",
+        output_dir / "data" / "saved-article-daily-summary.json",
+        output_dir / "saved-article-daily-summary.html",
+        output_dir / "articles" / "saved-article-daily-summary.html",
+        output_dir / "data" / "saved-article-daily-summary.html",
+        output_dir / "daily-saved-article-summary.json",
+        output_dir / "articles" / "daily-saved-article-summary.json",
+        output_dir / "data" / "daily-saved-article-summary.json",
+        output_dir / "daily-saved-article-summary.html",
+        output_dir / "articles" / "daily-saved-article-summary.html",
+        output_dir / "data" / "daily-saved-article-summary.html",
     ):
         assert not artifact_path.exists()
     assert stored == stored_before
