@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from html import escape
 from pathlib import Path
@@ -31,6 +31,40 @@ except ModuleNotFoundError:  # pragma: no cover - parallel Stage 371 builder han
     RowOneDailyLocalSavedArticleOrganizerCard = None  # type: ignore[assignment]
     RowOneDailyLocalSavedArticleOrganizerLane = None  # type: ignore[assignment]
     RowOneDailyLocalSavedArticleOrganizerReference = None  # type: ignore[assignment]
+try:
+    from fashion_radar.row_one.daily_local_reading_itinerary import (
+        RowOneDailyLocalReadingItinerary,
+        RowOneDailyLocalReadingItineraryCard,
+        RowOneDailyLocalReadingItineraryEvidence,
+    )
+except ModuleNotFoundError:  # pragma: no cover - Stage 372 renderer TDD red
+
+    @dataclass(frozen=True)
+    class RowOneDailyLocalReadingItineraryCard:  # type: ignore[no-redef]
+        title: LocalizedText
+        source_name: str
+        reason: LocalizedText
+        excerpt: LocalizedText
+        href: str
+        labels: tuple[str, ...] = ()
+
+    @dataclass(frozen=True)
+    class RowOneDailyLocalReadingItineraryEvidence:  # type: ignore[no-redef]
+        label: str
+        href: str
+
+    @dataclass(frozen=True)
+    class RowOneDailyLocalReadingItinerary:  # type: ignore[no-redef]
+        title: LocalizedText
+        dek: LocalizedText
+        selected_count: int
+        source_count: int
+        evidence_count: int
+        start_here: RowOneDailyLocalReadingItineraryCard | None
+        skim_next: tuple[RowOneDailyLocalReadingItineraryCard, ...]
+        evidence_trail: tuple[RowOneDailyLocalReadingItineraryEvidence, ...]
+
+
 from fashion_radar.row_one.daily_local_key_signals_digest import (
     RowOneDailyLocalKeySignalsDigest,
     RowOneDailyLocalKeySignalsDigestEntry,
@@ -14420,6 +14454,87 @@ def _daily_local_saved_article_organizer_section_html(index_html: str) -> str:
     return tail[:end]
 
 
+def _daily_local_reading_itinerary_fixture(
+    *,
+    start_href: str = "articles/the-row-signal-1234567890.html#local-article-paragraph-1",
+    brand_href: str = ("articles/the-row-signal-1234567890.html#local-article-content-section-1"),
+    product_href: str = ("articles/the-row-signal-1234567890.html#local-article-content-section-2"),
+    source_name: str = "Vogue Business",
+    title_en: str = 'The Row <signals> "quiet" demand',
+    excerpt_en: str = "The saved local article explains the first read for today.",
+) -> RowOneDailyLocalReadingItinerary:
+    return RowOneDailyLocalReadingItinerary(
+        title=LocalizedText(
+            en="Daily Local Reading Itinerary",
+            zh="每日本地阅读路径",
+        ),
+        dek=LocalizedText(
+            en="A short path through today's saved local articles.",
+            zh="用一条短路径读完今日保存本地文章。",
+        ),
+        selected_count=1,
+        source_count=1,
+        evidence_count=3,
+        start_here=RowOneDailyLocalReadingItineraryCard(
+            title=LocalizedText(en=title_en, zh=title_en),
+            source_name=source_name,
+            reason=LocalizedText(en="Start Here", zh="先读这篇"),
+            excerpt=LocalizedText(en=excerpt_en, zh="保存文章说明今日先读路径。"),
+            href=start_href,
+            labels=("The Row", "Quiet luxury"),
+        ),
+        skim_next=(
+            RowOneDailyLocalReadingItineraryCard(
+                title=LocalizedText(en="Brand signal", zh="品牌信号"),
+                source_name=source_name,
+                reason=LocalizedText(en="Brand / people signal", zh="品牌 / 人物信号"),
+                excerpt=LocalizedText(
+                    en="The Row mention turns the story into a brand signal.",
+                    zh="The Row 提及把故事转为品牌信号。",
+                ),
+                href=brand_href,
+                labels=("The Row",),
+            ),
+            RowOneDailyLocalReadingItineraryCard(
+                title=LocalizedText(en="Product signal", zh="单品信号"),
+                source_name=source_name,
+                reason=LocalizedText(en="Product signal", zh="单品信号"),
+                excerpt=LocalizedText(
+                    en="Margaux bag evidence gives the next skim a product angle.",
+                    zh="Margaux 手袋证据给随后快读一个单品角度。",
+                ),
+                href=product_href,
+                labels=("Margaux bag",),
+            ),
+        ),
+        evidence_trail=(
+            RowOneDailyLocalReadingItineraryEvidence(
+                label="The Row",
+                href=brand_href,
+            ),
+            RowOneDailyLocalReadingItineraryEvidence(
+                label="Margaux bag",
+                href=product_href,
+            ),
+            RowOneDailyLocalReadingItineraryEvidence(
+                label="Paragraph 1",
+                href=start_href,
+            ),
+        ),
+    )
+
+
+def _daily_local_reading_itinerary_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-reading-itinerary"'
+    start = index_html.index(marker)
+    tail = index_html[start:]
+    next_saved_organization = tail.find('<section class="saved-article-content-organization"')
+    if next_saved_organization != -1:
+        return tail[:next_saved_organization]
+    end = tail.index("</section>") + len("</section>")
+    return tail[:end]
+
+
 def test_render_index_html_includes_daily_local_article_intelligence_brief() -> None:
     story = _edition().stories[0]
     local_article = _signal_briefing_local_article()
@@ -14738,6 +14853,187 @@ def test_render_row_one_site_writes_daily_local_saved_article_organizer_homepage
         "daily_local_saved_article_organizer",
         "local_saved_article_organizer",
         "saved_article_organizer",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
+def test_render_index_html_includes_daily_local_reading_itinerary() -> None:
+    story = _edition().stories[0]
+    local_article = _signal_briefing_local_article()
+    organization = build_row_one_saved_article_content_organization(
+        _edition(),
+        {story.id: local_article},
+    )
+
+    html = render_index_html(
+        _edition(),
+        saved_article_content_organization=organization,
+        local_articles_by_story_id={story.id: local_article},
+        daily_local_article_intelligence_brief=_daily_local_article_intelligence_brief_fixture(),
+        daily_local_saved_article_organizer=_daily_local_saved_article_organizer_fixture(),
+        daily_local_reading_itinerary=_daily_local_reading_itinerary_fixture(),
+    )
+    section_html = _daily_local_reading_itinerary_section_html(html)
+
+    assert "Daily Local Reading Itinerary" in section_html
+    assert "每日本地阅读路径" in section_html
+    assert "Start Here" in section_html
+    assert "Skim Next" in section_html
+    assert "Evidence Trail" in section_html
+    assert "Brand / people signal" in section_html
+    assert "Product signal" in section_html
+    assert "Vogue Business" in section_html
+    assert "1 selected read" in section_html
+    assert "1 source" in section_html
+    assert "3 evidence links" in section_html
+    assert "A short path through today&#x27;s saved local articles." in section_html
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    )
+    assert html.index('class="daily-local-saved-article-organizer"') < html.index(
+        'class="daily-local-reading-itinerary"'
+    )
+    assert html.index('class="daily-local-reading-itinerary"') < html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
+def test_render_daily_local_reading_itinerary_escapes_and_filters_links() -> None:
+    story_id = "the-row-signal-1234567890"
+    unsafe_hrefs = (
+        f"articles/{story_id}.html#local-article-content-section-0",
+        f"articles/{story_id}.html#local-article-paragraph-0",
+        f"articles/{story_id}.html#",
+        f"articles/{story_id}.html",
+        f"articles/{story_id}.html #local-article-paragraph-1",
+        f"../articles/{story_id}.html#local-article-paragraph-1",
+        f"/articles/{story_id}.html#local-article-paragraph-1",
+        f"//example.com/articles/{story_id}.html#local-article-paragraph-1",
+        f"https://example.com/articles/{story_id}.html#local-article-paragraph-1",
+        f"articles/../{story_id}.html#local-article-paragraph-1",
+        "articles/bad story.html#local-article-paragraph-1",
+    )
+    unsafe_cards = tuple(
+        RowOneDailyLocalReadingItineraryCard(
+            title=LocalizedText(en=f"Unsafe {index}", zh=f"不安全 {index}"),
+            source_name="Bad Source",
+            reason=LocalizedText(en="Unsafe", zh="不安全"),
+            excerpt=LocalizedText(en="Should not render.", zh="不应渲染。"),
+            href=href,
+            labels=("Unsafe label",),
+        )
+        for index, href in enumerate(unsafe_hrefs)
+    )
+    safe_href = f"articles/{story_id}.html#local-article-paragraph-1"
+    safe_itinerary = _daily_local_reading_itinerary_fixture(
+        start_href=safe_href,
+        brand_href=f"articles/{story_id}.html#local-article-content-section-1",
+        product_href=f"articles/{story_id}.html#local-article-content-section-2",
+        source_name="Vogue <Business>",
+        title_en="<script>Safe title</script>",
+        excerpt_en="Excerpt with <script> text.",
+    )
+    itinerary = replace(
+        safe_itinerary,
+        title=LocalizedText(en="Daily <Local> Reading Itinerary", zh="每日 <本地> 阅读路径"),
+        dek=LocalizedText(en="Opening <signal>", zh="开场 <信号>"),
+        selected_count=99,
+        start_here=replace(
+            safe_itinerary.start_here,
+            reason=LocalizedText(en="Start <Here>", zh="先读 <这篇>"),
+            labels=("The Row <brand>",),
+        ),
+        skim_next=(
+            *safe_itinerary.skim_next,
+            *unsafe_cards,
+        ),
+        evidence_trail=(
+            RowOneDailyLocalReadingItineraryEvidence(
+                label="Evidence <chip>",
+                href=safe_href,
+            ),
+            *(
+                RowOneDailyLocalReadingItineraryEvidence(
+                    label=f"Unsafe evidence {index}",
+                    href=href,
+                )
+                for index, href in enumerate(unsafe_hrefs)
+            ),
+        ),
+    )
+
+    html = render_index_html(_edition(), daily_local_reading_itinerary=itinerary)
+    section_html = _daily_local_reading_itinerary_section_html(html)
+
+    assert "<script>" not in section_html
+    assert "&lt;script&gt;" in section_html
+    assert "Daily &lt;Local&gt; Reading Itinerary" in section_html
+    assert "Opening &lt;signal&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "Start &lt;Here&gt;" in section_html
+    assert "The Row &lt;brand&gt;" in section_html
+    assert "Evidence &lt;chip&gt;" in section_html
+    assert "1 selected read" in section_html
+    assert "99 selected reads" not in section_html
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-paragraph-1"' in (
+        section_html
+    )
+    assert "#local-article-content-section-0" not in section_html
+    assert "#local-article-paragraph-0" not in section_html
+    assert "Should not render" not in section_html
+    assert "Bad Source" not in section_html
+    assert "Unsafe evidence" not in section_html
+    assert "https://example.com" not in section_html
+    assert "../" not in section_html
+    assert "//example.com" not in section_html
+
+
+def test_render_row_one_site_writes_daily_local_reading_itinerary_homepage_only(
+    tmp_path,
+) -> None:
+    story = _edition().stories[0]
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / f"{story.id}.html").read_text(encoding="utf-8")
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+
+    assert 'class="daily-local-reading-itinerary"' in homepage_html
+    assert 'class="daily-local-reading-itinerary"' not in library_html
+    assert 'class="daily-local-reading-itinerary"' not in article_html
+    assert 'class="daily-local-reading-itinerary"' not in detail_html
+    for token in (
+        "daily-local-reading-itinerary",
+        "Daily Local Reading Itinerary",
+        "daily_local_reading_itinerary",
+    ):
+        assert token not in generated_contract_payload
+    for stem in (
+        "daily-local-reading-itinerary",
+        "local-reading-itinerary",
+        "reading-itinerary",
+        "daily_local_reading_itinerary",
+        "local_reading_itinerary",
+        "reading_itinerary",
     ):
         for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
             assert not (directory / f"{stem}.json").exists()
@@ -16718,6 +17014,30 @@ def test_row_one_css_includes_daily_local_saved_article_organizer_styles() -> No
     )
     assert re.search(
         r"\.daily-local-saved-article-organizer-lanes\s*\{[^}]*grid-template-columns:\s*1fr",
+        mobile_block,
+    )
+
+
+def test_row_one_css_includes_daily_local_reading_itinerary_rules() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-reading-itinerary",
+        ".daily-local-reading-itinerary-header",
+        ".daily-local-reading-itinerary-grid",
+        ".daily-local-reading-itinerary-start",
+        ".daily-local-reading-itinerary-card",
+        ".daily-local-reading-itinerary-evidence",
+        ".daily-local-reading-itinerary-chip",
+    ):
+        assert selector in css
+    assert re.search(
+        r"\.daily-local-reading-itinerary-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1\.2fr\)\s+minmax\(0,\s*1fr\)",
+        css,
+    )
+    mobile_block = css[css.index("@media (max-width: 760px)") :]
+    assert re.search(
+        r"\.daily-local-reading-itinerary-grid\s*\{[^}]*grid-template-columns:\s*1fr",
         mobile_block,
     )
 

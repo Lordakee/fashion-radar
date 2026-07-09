@@ -682,9 +682,13 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "daily_local_saved_article_organizer" not in generated_contract_payload
     assert "local_saved_article_organizer" not in generated_contract_payload
     assert "saved_article_organizer" not in generated_contract_payload
+    assert "daily_local_reading_itinerary" not in generated_contract_payload
+    assert "local_reading_itinerary" not in generated_contract_payload
+    assert "reading_itinerary" not in generated_contract_payload
     assert "RowOneDailyLocalSavedArticleOrganizer" not in generated_contract_payload
     assert "RowOneLocalSavedArticleOrganizer" not in generated_contract_payload
     assert "Daily Local Saved Article Organizer" not in generated_contract_payload
+    assert "Daily Local Reading Itinerary" not in generated_contract_payload
     assert "Local Saved Article Organizer" not in generated_contract_payload
     assert "Saved Article Organizer" not in generated_contract_payload
     assert "每日保存文章整理器" not in generated_contract_payload
@@ -692,6 +696,9 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "daily-local-saved-article-organizer" not in generated_contract_payload
     assert "local-saved-article-organizer" not in generated_contract_payload
     assert "saved-article-organizer" not in generated_contract_payload
+    assert "daily-local-reading-itinerary" not in generated_contract_payload
+    assert "local-reading-itinerary" not in generated_contract_payload
+    assert "reading-itinerary" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -1238,6 +1245,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "daily_local_saved_article_organizer",
         "local_saved_article_organizer",
         "saved_article_organizer",
+        "daily-local-reading-itinerary",
+        "local-reading-itinerary",
+        "reading-itinerary",
+        "daily_local_reading_itinerary",
+        "local_reading_itinerary",
+        "reading_itinerary",
     ):
         for artifact_dir in (
             output_dir,
@@ -1434,6 +1447,21 @@ def test_stage_371_daily_local_saved_article_organizer_stays_generated_site_only
         row_one_templates,
         "_render_daily_local_saved_article_organizer",
         lambda _organizer: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_372_daily_local_reading_itinerary_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_daily_local_reading_itinerary",
+        lambda _itinerary: "",
         raising=False,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)

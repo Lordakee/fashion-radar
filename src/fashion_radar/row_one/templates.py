@@ -21,6 +21,11 @@ from fashion_radar.row_one.daily_local_key_signals_digest import (
     RowOneDailyLocalKeySignalsDigestEntry,
     RowOneDailyLocalKeySignalsDigestGroup,
 )
+from fashion_radar.row_one.daily_local_reading_itinerary import (
+    RowOneDailyLocalReadingItinerary,
+    RowOneDailyLocalReadingItineraryCard,
+    RowOneDailyLocalReadingItineraryEvidence,
+)
 from fashion_radar.row_one.daily_local_saved_article_organizer import (
     RowOneDailyLocalSavedArticleOrganizer,
     RowOneDailyLocalSavedArticleOrganizerCard,
@@ -446,6 +451,7 @@ def render_index_html(
     daily_local_theme_summary_strip_hrefs_by_detail_path: Mapping[str, str] | None = None,
     daily_local_article_intelligence_brief: RowOneDailyLocalArticleIntelligenceBrief | None = None,
     daily_local_saved_article_organizer: RowOneDailyLocalSavedArticleOrganizer | None = None,
+    daily_local_reading_itinerary: RowOneDailyLocalReadingItinerary | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     editorial_brief: _EditorialBrief | None = None,
     local_articles_by_story_id: dict[str, RowOneLocalArticle] | None = None,
@@ -510,6 +516,9 @@ def render_index_html(
     )
     daily_local_saved_article_organizer_section = _render_daily_local_saved_article_organizer(
         daily_local_saved_article_organizer
+    )
+    daily_local_reading_itinerary_section = _render_daily_local_reading_itinerary(
+        daily_local_reading_itinerary
     )
     saved_article_content_organization_section = _render_saved_article_content_organization(
         saved_article_content_organization
@@ -612,6 +621,7 @@ def render_index_html(
 {daily_local_theme_summary_strip_section}
 {daily_local_article_intelligence_brief_section}
 {daily_local_saved_article_organizer_section}
+{daily_local_reading_itinerary_section}
 {saved_article_content_organization_section}
 {editorial_brief_section}
 {lead_story_block}
@@ -5168,6 +5178,125 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .daily-local-saved-article-organizer-card-link:focus-visible {
   opacity: 0.75;
 }
+.daily-local-reading-itinerary {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-local-reading-itinerary-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.38fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-local-reading-itinerary-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 4.4vw, 5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.96;
+  margin: 0;
+}
+.daily-local-reading-itinerary-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 680px;
+}
+.daily-local-reading-itinerary-metrics,
+.daily-local-reading-itinerary-labels,
+.daily-local-reading-itinerary-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.daily-local-reading-itinerary-metrics {
+  margin: 0 0 18px;
+}
+.daily-local-reading-itinerary-metrics span,
+.daily-local-reading-itinerary-card-meta span,
+.daily-local-reading-itinerary-label,
+.daily-local-reading-itinerary-chip,
+.daily-local-reading-itinerary-card-link {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-reading-itinerary-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+}
+.daily-local-reading-itinerary-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+.daily-local-reading-itinerary-panel h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.35rem, 2.2vw, 2.2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.daily-local-reading-itinerary-stack {
+  display: grid;
+  gap: 12px;
+}
+.daily-local-reading-itinerary-card {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+.daily-local-reading-itinerary-start {
+  border-top: 0;
+  padding-top: 0;
+}
+.daily-local-reading-itinerary-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.daily-local-reading-itinerary-card h4 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.2rem, 2vw, 2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.daily-local-reading-itinerary-card p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.daily-local-reading-itinerary-label,
+.daily-local-reading-itinerary-chip {
+  color: var(--ink);
+}
+.daily-local-reading-itinerary-card-link,
+.daily-local-reading-itinerary-chip {
+  color: var(--accent);
+  text-decoration: none;
+  width: fit-content;
+}
+.daily-local-reading-itinerary-card-link:hover,
+.daily-local-reading-itinerary-card-link:focus-visible,
+.daily-local-reading-itinerary-chip:hover,
+.daily-local-reading-itinerary-chip:focus-visible {
+  opacity: 0.75;
+}
 .saved-article-content-organization {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -6808,6 +6937,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-article-intelligence-brief-grid { grid-template-columns: 1fr; }
   .daily-local-saved-article-organizer-header { grid-template-columns: 1fr; }
   .daily-local-saved-article-organizer-lanes { grid-template-columns: 1fr; }
+  .daily-local-reading-itinerary-header { grid-template-columns: 1fr; }
+  .daily-local-reading-itinerary-grid { grid-template-columns: 1fr; }
   .local-article-content-segment-deck-header { grid-template-columns: 1fr; }
   .local-article-content-segment-deck-grid { grid-template-columns: 1fr; }
   .local-article-body-organizer-header { grid-template-columns: 1fr; }
@@ -13223,6 +13354,246 @@ def _safe_daily_local_saved_article_organizer_href(href: object) -> str | None:
     section_match = _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment)
     paragraph_match = _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment)
     if section_match is None and paragraph_match is None:
+        return None
+    return f"articles/{story_id}.html#{fragment}"
+
+
+def _render_daily_local_reading_itinerary(
+    itinerary: RowOneDailyLocalReadingItinerary | None,
+) -> str:
+    if itinerary is None:
+        return ""
+    start_card = (
+        _render_daily_local_reading_itinerary_card(itinerary.start_here, featured=True)
+        if itinerary.start_here is not None
+        else ""
+    )
+    skim_cards = [
+        card_html
+        for card in itinerary.skim_next
+        if (card_html := _render_daily_local_reading_itinerary_card(card))
+    ]
+    if not start_card and not skim_cards:
+        return ""
+    evidence_chips = [
+        chip_html
+        for evidence in itinerary.evidence_trail
+        if (chip_html := _render_daily_local_reading_itinerary_evidence(evidence))
+    ]
+    safe_cards = _daily_local_reading_itinerary_safe_cards(itinerary)
+    source_count = _daily_local_reading_itinerary_source_count(safe_cards)
+    selected_count = _daily_local_reading_itinerary_story_count(safe_cards)
+    evidence_count = len(evidence_chips)
+    metrics = (
+        _render_daily_local_reading_itinerary_metric(
+            _count_label(selected_count, "selected read", "selected reads"),
+            f"{selected_count} 条选读",
+        )
+        + _render_daily_local_reading_itinerary_metric(
+            _count_label(source_count, "source", "sources"),
+            f"{source_count} 个来源",
+        )
+        + _render_daily_local_reading_itinerary_metric(
+            _count_label(evidence_count, "evidence link", "evidence links"),
+            f"{evidence_count} 条证据链接",
+        )
+    )
+    title_en = normalize_row_one_paragraph(itinerary.title.en) or "Daily Local Reading Itinerary"
+    title_zh = normalize_row_one_paragraph(itinerary.title.zh) or "每日本地阅读路径"
+    dek_en = normalize_row_one_paragraph(itinerary.dek.en)
+    dek_zh = normalize_row_one_paragraph(itinerary.dek.zh)
+    skim_section = (
+        f"""    <div class="daily-local-reading-itinerary-panel">
+      <h3>
+        <span data-lang="en">Skim Next</span>
+        <span data-lang="zh">随后快读</span>
+      </h3>
+      <div class="daily-local-reading-itinerary-stack">{"".join(skim_cards)}</div>
+    </div>"""
+        if skim_cards
+        else ""
+    )
+    evidence_section = (
+        f"""    <div class="daily-local-reading-itinerary-panel">
+      <h3>
+        <span data-lang="en">Evidence Trail</span>
+        <span data-lang="zh">证据路径</span>
+      </h3>
+      <div class="daily-local-reading-itinerary-evidence">{"".join(evidence_chips)}</div>
+    </div>"""
+        if evidence_chips
+        else ""
+    )
+    return f"""<section class="daily-local-reading-itinerary"
+  aria-label="Daily local reading itinerary">
+  <div class="daily-local-reading-itinerary-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">{_esc(title_en)}</span>
+        <span data-lang="zh">{_esc(title_zh)}</span>
+      </p>
+      <h2>
+        <span data-lang="en">Start here, skim next, verify the trail</span>
+        <span data-lang="zh">先读重点，再看线索，最后核验证据</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">{_esc(dek_en or dek_zh)}</span>
+      <span data-lang="zh">{_esc(dek_zh or dek_en)}</span>
+    </p>
+  </div>
+  <div class="daily-local-reading-itinerary-metrics">{metrics}</div>
+  <div class="daily-local-reading-itinerary-grid">
+    <div class="daily-local-reading-itinerary-panel">
+      <h3>
+        <span data-lang="en">Start Here</span>
+        <span data-lang="zh">先读这篇</span>
+      </h3>
+      {start_card}
+    </div>
+{skim_section}
+{evidence_section}
+  </div>
+</section>"""
+
+
+def _daily_local_reading_itinerary_safe_cards(
+    itinerary: RowOneDailyLocalReadingItinerary,
+) -> tuple[RowOneDailyLocalReadingItineraryCard, ...]:
+    cards = []
+    if itinerary.start_here is not None:
+        cards.append(itinerary.start_here)
+    cards.extend(itinerary.skim_next)
+    return tuple(
+        card for card in cards if _safe_daily_local_reading_itinerary_href(card.href) is not None
+    )
+
+
+def _daily_local_reading_itinerary_source_count(
+    cards: Sequence[RowOneDailyLocalReadingItineraryCard],
+) -> int:
+    source_names = {
+        source_name.casefold()
+        for card in cards
+        if (source_name := normalize_row_one_paragraph(card.source_name))
+    }
+    return len(source_names)
+
+
+def _daily_local_reading_itinerary_story_count(
+    cards: Sequence[RowOneDailyLocalReadingItineraryCard],
+) -> int:
+    story_ids = {
+        story_id
+        for card in cards
+        if (href := _safe_daily_local_reading_itinerary_href(card.href)) is not None
+        and (story_id := PurePosixPath(href.partition("#")[0]).name.removesuffix(".html"))
+    }
+    return len(story_ids)
+
+
+def _render_daily_local_reading_itinerary_metric(value_en: str, value_zh: str) -> str:
+    return (
+        "<span>"
+        f'<span data-lang="en">{_esc(value_en)}</span>'
+        f'<span data-lang="zh">{_esc(value_zh)}</span>'
+        "</span>"
+    )
+
+
+def _render_daily_local_reading_itinerary_card(
+    card: RowOneDailyLocalReadingItineraryCard | None,
+    *,
+    featured: bool = False,
+) -> str:
+    if card is None:
+        return ""
+    href = _safe_daily_local_reading_itinerary_href(card.href)
+    if href is None:
+        return ""
+    title_en = normalize_row_one_paragraph(card.title.en)
+    title_zh = normalize_row_one_paragraph(card.title.zh)
+    source_name = normalize_row_one_paragraph(card.source_name)
+    reason_en = normalize_row_one_paragraph(card.reason.en)
+    reason_zh = normalize_row_one_paragraph(card.reason.zh)
+    excerpt_en = normalize_row_one_paragraph(card.excerpt.en)
+    excerpt_zh = normalize_row_one_paragraph(card.excerpt.zh)
+    labels = "".join(_render_daily_local_reading_itinerary_label(label) for label in card.labels)
+    labels_html = (
+        f'\n        <div class="daily-local-reading-itinerary-labels">{labels}</div>'
+        if labels
+        else ""
+    )
+    class_name = "daily-local-reading-itinerary-card"
+    if featured:
+        class_name += " daily-local-reading-itinerary-start"
+    return f"""        <article class="{class_name}">
+          <div class="daily-local-reading-itinerary-card-meta">
+            <span>{_esc(source_name)}</span>
+            <span>
+              <span data-lang="en">{_esc(reason_en or reason_zh)}</span>
+              <span data-lang="zh">{_esc(reason_zh or reason_en)}</span>
+            </span>
+          </div>
+          <h4>
+            <span data-lang="en">{_esc(title_en or title_zh)}</span>
+            <span data-lang="zh">{_esc(title_zh or title_en)}</span>
+          </h4>
+          <p>
+            <span data-lang="en">{_esc(excerpt_en or excerpt_zh)}</span>
+            <span data-lang="zh">{_esc(excerpt_zh or excerpt_en)}</span>
+          </p>{labels_html}
+          <a class="daily-local-reading-itinerary-card-link" href="{_esc(href)}">
+            <span data-lang="en">Open saved article anchor</span>
+            <span data-lang="zh">打开保存文章锚点</span>
+          </a>
+        </article>"""
+
+
+def _render_daily_local_reading_itinerary_label(label: str) -> str:
+    safe_label = normalize_row_one_paragraph(label)
+    if not safe_label:
+        return ""
+    return f'<span class="daily-local-reading-itinerary-label">{_esc(safe_label)}</span>'
+
+
+def _render_daily_local_reading_itinerary_evidence(
+    evidence: RowOneDailyLocalReadingItineraryEvidence,
+) -> str:
+    href = _safe_daily_local_reading_itinerary_href(evidence.href)
+    label = normalize_row_one_paragraph(evidence.label)
+    if href is None or not label:
+        return ""
+    return f'<a class="daily-local-reading-itinerary-chip" href="{_esc(href)}">{_esc(label)}</a>'
+
+
+def _safe_daily_local_reading_itinerary_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if "://" in href or href.startswith((".", "/", "//")) or "//" in href:
+        return None
+    path, separator, fragment = href.partition("#")
+    if not separator or not fragment:
+        return None
+    route_path = PurePosixPath(path)
+    if (
+        route_path.is_absolute()
+        or len(route_path.parts) != 2
+        or route_path.parts[0] != "articles"
+        or route_path.name in ("", ".", "..")
+        or ".." in route_path.parts
+        or not route_path.name.endswith(".html")
+    ):
+        return None
+    story_id = route_path.name.removesuffix(".html")
+    if not safe_local_article_story_id(story_id):
+        return None
+    if (
+        _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is None
+        and _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is None
+    ):
         return None
     return f"articles/{story_id}.html#{fragment}"
 

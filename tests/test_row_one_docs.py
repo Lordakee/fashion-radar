@@ -4619,3 +4619,48 @@ def test_row_one_docs_describe_newsroom_digest_polish_boundary() -> None:
         "row-one status fetches",
     ):
         assert forbidden not in row_one
+
+
+def test_row_one_docs_describe_stage_372_daily_local_reading_itinerary_boundary() -> None:
+    paragraph = (
+        "Stage 372 adds generated-site only Daily Local Reading Itinerary inside `index.html` "
+        "between the Daily Local Saved Article Organizer and Saved Article Content Organization; "
+        "it reuses current-edition stories, current-edition saved local article sidecars, "
+        "generated local article page routes, existing saved local paragraphs, existing local "
+        "article brief sections, existing local article content sections, existing content-section "
+        "item bodies, existing item references, existing item-level paragraph indices, existing "
+        "content-section anchors, and existing paragraph anchors to arrange today's saved articles "
+        "into a short Start Here, Skim Next, and Evidence Trail reading sequence with "
+        "article-backed excerpts, reason labels, and same-site reader anchors without changing "
+        "app-facing contracts; it does not create `data/daily-local-reading-itinerary.json`, "
+        "does not create `data/local-reading-itinerary.json`, does not create "
+        "`data/reading-itinerary.json`, does not create `daily-local-reading-itinerary.html`, "
+        "does not create `local-reading-itinerary.html`, does not create "
+        "`reading-itinerary.html`, does not create new article-source sidecars, does not create "
+        "new route families, does not alter `articles/index.html`, `articles/<story-id>.html`, "
+        "or detail pages, does not publish full articles on the homepage, does not add outbound "
+        "article URLs as primary navigation, and does not change row-one-app/v7, "
+        "row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, source collection, "
+        "fetching, matching, extraction, scoring, ranking, LLM, connector, scheduling, "
+        "deployment, market grouping, domestic/international classification, analytics, "
+        "personalization, recommendation, or compliance-review behavior."
+    )
+    readme = _read(README)
+    docs = _read(ROW_ONE_DOC)
+
+    for text in (readme, docs):
+        assert paragraph in text
+        assert text.index(paragraph) < text.index("Stage 371 adds")
+
+        stage_372_slice = text[text.index(paragraph) : text.index("Stage 371 adds")]
+        normalized = _normalized(stage_372_slice)
+        for stale_phrase in (
+            "creates data/daily-local-reading-itinerary.json",
+            "writes data/daily-local-reading-itinerary.json",
+            "creates daily-local-reading-itinerary.html",
+            "writes daily-local-reading-itinerary.html",
+            "changes row-one-app/v7",
+            "adds recommendation",
+            "adds compliance-review",
+        ):
+            assert stale_phrase not in normalized
