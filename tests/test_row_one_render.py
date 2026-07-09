@@ -18,6 +18,19 @@ from fashion_radar.row_one.daily_local_article_intelligence_brief import (
     RowOneDailyLocalArticleIntelligenceBriefLaneChip,
     RowOneDailyLocalArticleIntelligenceBriefRoute,
 )
+
+try:
+    from fashion_radar.row_one.daily_local_saved_article_organizer import (
+        RowOneDailyLocalSavedArticleOrganizer,
+        RowOneDailyLocalSavedArticleOrganizerCard,
+        RowOneDailyLocalSavedArticleOrganizerLane,
+        RowOneDailyLocalSavedArticleOrganizerReference,
+    )
+except ModuleNotFoundError:  # pragma: no cover - parallel Stage 371 builder handoff
+    RowOneDailyLocalSavedArticleOrganizer = None  # type: ignore[assignment]
+    RowOneDailyLocalSavedArticleOrganizerCard = None  # type: ignore[assignment]
+    RowOneDailyLocalSavedArticleOrganizerLane = None  # type: ignore[assignment]
+    RowOneDailyLocalSavedArticleOrganizerReference = None  # type: ignore[assignment]
 from fashion_radar.row_one.daily_local_key_signals_digest import (
     RowOneDailyLocalKeySignalsDigest,
     RowOneDailyLocalKeySignalsDigestEntry,
@@ -14307,6 +14320,106 @@ def _daily_local_article_intelligence_brief_fixture(
     )
 
 
+def _require_daily_local_saved_article_organizer_models() -> None:
+    if RowOneDailyLocalSavedArticleOrganizer is None:
+        pytest.skip("Stage 371 builder module has not landed yet.")
+
+
+def _daily_local_saved_article_organizer_fixture(
+    *,
+    article_href: str = "articles/the-row-signal-1234567890.html#local-article-content-section-1",
+    source_name: str = "Vogue Business",
+    title_en: str = 'The Row <signals> "quiet" demand',
+    excerpt_en: str = "The saved local article frames why the signal matters now.",
+) -> RowOneDailyLocalSavedArticleOrganizer:
+    _require_daily_local_saved_article_organizer_models()
+    return RowOneDailyLocalSavedArticleOrganizer(  # type: ignore[operator]
+        title=LocalizedText(
+            en="Daily Local Saved Article Organizer",
+            zh="每日保存文章整理器",
+        ),
+        dek=LocalizedText(
+            en="Short article-backed lanes for today's saved local reads.",
+            zh="用短篇文章证据整理今日本地保存阅读。",
+        ),
+        article_count=1,
+        card_count=2,
+        source_count=1,
+        reference_count=3,
+        lanes=(
+            RowOneDailyLocalSavedArticleOrganizerLane(  # type: ignore[operator]
+                key="read_first",
+                title=LocalizedText(en="Read First", zh="优先阅读"),
+                dek=LocalizedText(
+                    en="Start with the strongest saved read.",
+                    zh="先读最强本地保存线索。",
+                ),
+                cards=(
+                    RowOneDailyLocalSavedArticleOrganizerCard(  # type: ignore[operator]
+                        title=LocalizedText(en=title_en, zh=title_en),
+                        source_name=source_name,
+                        lane_label=LocalizedText(en="Read First", zh="优先阅读"),
+                        excerpt=LocalizedText(
+                            en=excerpt_en,
+                            zh="本地保存文章说明今日信号为何重要。",
+                        ),
+                        href=article_href,
+                        references=(
+                            RowOneDailyLocalSavedArticleOrganizerReference(  # type: ignore[operator]
+                                name="The Row",
+                                label="brand",
+                            ),
+                            RowOneDailyLocalSavedArticleOrganizerReference(  # type: ignore[operator]
+                                name="Margaux bag",
+                                label="product",
+                            ),
+                        ),
+                    ),
+                ),
+                total_count=1,
+            ),
+            RowOneDailyLocalSavedArticleOrganizerLane(  # type: ignore[operator]
+                key="products",
+                title=LocalizedText(en="Products", zh="单品"),
+                dek=LocalizedText(
+                    en="Product-backed saved article evidence.",
+                    zh="保存文章里的单品证据。",
+                ),
+                cards=(
+                    RowOneDailyLocalSavedArticleOrganizerCard(  # type: ignore[operator]
+                        title=LocalizedText(en="Margaux demand", zh="Margaux 需求"),
+                        source_name="Vogue Business",
+                        lane_label=LocalizedText(en="Products", zh="单品"),
+                        excerpt=LocalizedText(
+                            en="The Margaux mention turns the story into product evidence.",
+                            zh="Margaux 提及把故事转化为单品证据。",
+                        ),
+                        href=("articles/the-row-signal-1234567890.html#local-article-paragraph-1"),
+                        references=(
+                            RowOneDailyLocalSavedArticleOrganizerReference(  # type: ignore[operator]
+                                name="Alaia flats",
+                                label="shoe",
+                            ),
+                        ),
+                    ),
+                ),
+                total_count=1,
+            ),
+        ),
+    )
+
+
+def _daily_local_saved_article_organizer_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-saved-article-organizer"'
+    start = index_html.index(marker)
+    tail = index_html[start:]
+    next_saved_organization = tail.find('<section class="saved-article-content-organization"')
+    if next_saved_organization != -1:
+        return tail[:next_saved_organization]
+    end = tail.index("</section>") + len("</section>")
+    return tail[:end]
+
+
 def test_render_index_html_includes_daily_local_article_intelligence_brief() -> None:
     story = _edition().stories[0]
     local_article = _signal_briefing_local_article()
@@ -14455,6 +14568,176 @@ def test_render_row_one_site_writes_daily_local_article_intelligence_brief_homep
         "daily_local_article_intelligence_brief",
         "local_article_intelligence_brief",
         "article_intelligence_brief",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
+def test_render_index_html_includes_daily_local_saved_article_organizer() -> None:
+    story = _edition().stories[0]
+    local_article = _signal_briefing_local_article()
+    organization = build_row_one_saved_article_content_organization(
+        _edition(),
+        {story.id: local_article},
+    )
+
+    html = render_index_html(
+        _edition(),
+        saved_article_content_organization=organization,
+        local_articles_by_story_id={story.id: local_article},
+        daily_local_article_intelligence_brief=_daily_local_article_intelligence_brief_fixture(),
+        daily_local_saved_article_organizer=_daily_local_saved_article_organizer_fixture(),
+    )
+    section_html = _daily_local_saved_article_organizer_section_html(html)
+
+    assert "Daily Local Saved Article Organizer" in section_html
+    assert "每日保存文章整理器" in section_html
+    assert "Read First" in section_html
+    assert "Products" in section_html
+    assert "The Row" in section_html
+    assert "Margaux bag" in section_html
+    assert "Vogue Business" in section_html
+    assert "2 lanes" in section_html
+    assert "2 cards" in section_html
+    assert "1 source" in section_html
+    assert "3 references" in section_html
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    )
+    assert html.index('class="daily-local-article-intelligence-brief"') < html.index(
+        'class="daily-local-saved-article-organizer"'
+    )
+    assert html.index('class="daily-local-saved-article-organizer"') < html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
+def test_render_daily_local_saved_article_organizer_escapes_and_filters_links() -> None:
+    story_id = "the-row-signal-1234567890"
+    safe_card = RowOneDailyLocalSavedArticleOrganizerCard(  # type: ignore[operator]
+        title=LocalizedText(en="<script>Safe title</script>", zh="<script>安全标题</script>"),
+        source_name="Vogue <Business>",
+        lane_label=LocalizedText(en="Read <First>", zh="优先 <阅读>"),
+        excerpt=LocalizedText(en="Excerpt with <script> text.", zh="带 <script> 的摘要。"),
+        href=f"articles/{story_id}.html#local-article-content-section-1",
+        references=(
+            RowOneDailyLocalSavedArticleOrganizerReference(  # type: ignore[operator]
+                name="The Row <brand>",
+                label="brand <tracked>",
+            ),
+        ),
+    )
+    unsafe_hrefs = (
+        f"articles/{story_id}.html#local-article-content-section-0",
+        f"articles/{story_id}.html#local-article-paragraph-0",
+        f"articles/{story_id}.html#",
+        f"articles/{story_id}.html",
+        f"articles/{story_id}.html #local-article-paragraph-1",
+        f"../articles/{story_id}.html#local-article-paragraph-1",
+        f"/articles/{story_id}.html#local-article-paragraph-1",
+        f"//example.com/articles/{story_id}.html#local-article-paragraph-1",
+        f"https://example.com/articles/{story_id}.html#local-article-paragraph-1",
+        f"articles/../{story_id}.html#local-article-paragraph-1",
+        "articles/bad story.html#local-article-paragraph-1",
+    )
+    unsafe_cards = tuple(
+        RowOneDailyLocalSavedArticleOrganizerCard(  # type: ignore[operator]
+            title=LocalizedText(en=f"Unsafe {index}", zh=f"不安全 {index}"),
+            source_name="Bad Source",
+            lane_label=LocalizedText(en="Unsafe", zh="不安全"),
+            excerpt=LocalizedText(en="Should not render.", zh="不应渲染。"),
+            href=href,
+            references=(),
+        )
+        for index, href in enumerate(unsafe_hrefs)
+    )
+    organizer = RowOneDailyLocalSavedArticleOrganizer(  # type: ignore[operator]
+        title=LocalizedText(en="Daily Local Saved Article Organizer", zh="每日保存文章整理器"),
+        dek=LocalizedText(en="Opening <signal>", zh="开场 <信号>"),
+        article_count=1,
+        card_count=1,
+        source_count=1,
+        reference_count=1,
+        lanes=(
+            RowOneDailyLocalSavedArticleOrganizerLane(  # type: ignore[operator]
+                key="read_first",
+                title=LocalizedText(en="Read First", zh="优先阅读"),
+                dek=LocalizedText(en="Lane <dek>", zh="分栏 <说明>"),
+                cards=(safe_card, *unsafe_cards),
+                total_count=1,
+            ),
+        ),
+    )
+
+    html = render_index_html(_edition(), daily_local_saved_article_organizer=organizer)
+    section_html = _daily_local_saved_article_organizer_section_html(html)
+
+    assert "<script>" not in section_html
+    assert "&lt;script&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "The Row &lt;brand&gt;" in section_html
+    assert "brand &lt;tracked&gt;" in section_html
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert "#local-article-content-section-0" not in section_html
+    assert "#local-article-paragraph-0" not in section_html
+    assert "Should not render" not in section_html
+    assert "Bad Source" not in section_html
+    assert "https://example.com" not in section_html
+    assert "../" not in section_html
+    assert "//example.com" not in section_html
+
+
+def test_render_row_one_site_writes_daily_local_saved_article_organizer_homepage_only(
+    tmp_path,
+) -> None:
+    story = _edition().stories[0]
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / f"{story.id}.html").read_text(encoding="utf-8")
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+    section_html = _daily_local_saved_article_organizer_section_html(homepage_html)
+
+    assert "Daily Local Saved Article Organizer" in section_html
+    assert "每日保存文章整理器" in section_html
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert 'class="daily-local-saved-article-organizer"' not in library_html
+    assert 'class="daily-local-saved-article-organizer"' not in article_html
+    assert 'class="daily-local-saved-article-organizer"' not in detail_html
+    assert "daily_local_saved_article_organizer" not in generated_contract_payload
+    assert "daily-local-saved-article-organizer" not in generated_contract_payload
+    assert "Daily Local Saved Article Organizer" not in generated_contract_payload
+    for stem in (
+        "daily-local-saved-article-organizer",
+        "local-saved-article-organizer",
+        "saved-article-organizer",
+        "daily_local_saved_article_organizer",
+        "local_saved_article_organizer",
+        "saved_article_organizer",
     ):
         for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
             assert not (directory / f"{stem}.json").exists()
@@ -16402,6 +16685,40 @@ def test_row_one_css_includes_daily_local_article_intelligence_brief_styles() ->
     assert re.search(
         r"\.daily-local-article-intelligence-brief-grid\s*\{[^}]*grid-template-columns:\s*1fr",
         css,
+    )
+
+
+def test_row_one_css_includes_daily_local_saved_article_organizer_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-saved-article-organizer",
+        ".daily-local-saved-article-organizer-header",
+        ".daily-local-saved-article-organizer-metrics",
+        ".daily-local-saved-article-organizer-lanes",
+        ".daily-local-saved-article-organizer-lane",
+        ".daily-local-saved-article-organizer-lane-header",
+        ".daily-local-saved-article-organizer-lane-count",
+        ".daily-local-saved-article-organizer-cards",
+        ".daily-local-saved-article-organizer-card",
+        ".daily-local-saved-article-organizer-card-meta",
+        ".daily-local-saved-article-organizer-refs",
+        ".daily-local-saved-article-organizer-ref",
+        ".daily-local-saved-article-organizer-card-link",
+    ):
+        assert selector in css
+    assert re.search(
+        r"\.daily-local-saved-article-organizer-lanes\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)",
+        css,
+    )
+    mobile_block = css[css.index("@media (max-width: 760px)") :]
+    assert re.search(
+        r"\.daily-local-saved-article-organizer-header\s*\{[^}]*grid-template-columns:\s*1fr",
+        mobile_block,
+    )
+    assert re.search(
+        r"\.daily-local-saved-article-organizer-lanes\s*\{[^}]*grid-template-columns:\s*1fr",
+        mobile_block,
     )
 
 

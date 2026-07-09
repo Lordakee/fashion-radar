@@ -15,6 +15,9 @@ from fashion_radar.row_one.daily_local_article_intelligence_brief import (
 from fashion_radar.row_one.daily_local_key_signals_digest import (
     build_row_one_daily_local_key_signals_digest,
 )
+from fashion_radar.row_one.daily_local_saved_article_organizer import (
+    build_row_one_daily_local_saved_article_organizer,
+)
 from fashion_radar.row_one.display import display_for_story, safe_story_image_src
 from fashion_radar.row_one.local_intelligence import build_row_one_local_article_intelligence
 from fashion_radar.row_one.models import (
@@ -206,6 +209,11 @@ def render_row_one_site(
         local_articles_by_story_id,
         local_article_page_hrefs_by_story_id,
     )
+    daily_local_saved_article_organizer = build_row_one_daily_local_saved_article_organizer(
+        edition,
+        local_articles_by_story_id,
+        local_article_page_hrefs_by_story_id,
+    )
     editorial_brief = _editorial_brief_payload(edition, local_articles_by_story_id)
     index_path = output_dir / "index.html"
     index_path.write_text(
@@ -239,6 +247,7 @@ def render_row_one_site(
                 local_article_page_hrefs_by_detail_path
             ),
             daily_local_article_intelligence_brief=daily_local_article_intelligence_brief,
+            daily_local_saved_article_organizer=daily_local_saved_article_organizer,
             saved_article_content_organization=saved_article_content_organization,
             editorial_brief=editorial_brief,
             local_articles_by_story_id=local_articles_by_story_id,

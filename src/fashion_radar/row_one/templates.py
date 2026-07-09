@@ -21,6 +21,12 @@ from fashion_radar.row_one.daily_local_key_signals_digest import (
     RowOneDailyLocalKeySignalsDigestEntry,
     RowOneDailyLocalKeySignalsDigestGroup,
 )
+from fashion_radar.row_one.daily_local_saved_article_organizer import (
+    RowOneDailyLocalSavedArticleOrganizer,
+    RowOneDailyLocalSavedArticleOrganizerCard,
+    RowOneDailyLocalSavedArticleOrganizerLane,
+    RowOneDailyLocalSavedArticleOrganizerReference,
+)
 from fashion_radar.row_one.detail_routes import (
     safe_row_one_detail_fragment_href,
     validated_row_one_detail_relative_path,
@@ -439,6 +445,7 @@ def render_index_html(
     daily_local_coverage_map_hrefs_by_detail_path: Mapping[str, str] | None = None,
     daily_local_theme_summary_strip_hrefs_by_detail_path: Mapping[str, str] | None = None,
     daily_local_article_intelligence_brief: RowOneDailyLocalArticleIntelligenceBrief | None = None,
+    daily_local_saved_article_organizer: RowOneDailyLocalSavedArticleOrganizer | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     editorial_brief: _EditorialBrief | None = None,
     local_articles_by_story_id: dict[str, RowOneLocalArticle] | None = None,
@@ -500,6 +507,9 @@ def render_index_html(
     )
     daily_local_article_intelligence_brief_section = _render_daily_local_article_intelligence_brief(
         daily_local_article_intelligence_brief
+    )
+    daily_local_saved_article_organizer_section = _render_daily_local_saved_article_organizer(
+        daily_local_saved_article_organizer
     )
     saved_article_content_organization_section = _render_saved_article_content_organization(
         saved_article_content_organization
@@ -601,6 +611,7 @@ def render_index_html(
 {daily_local_coverage_map_section}
 {daily_local_theme_summary_strip_section}
 {daily_local_article_intelligence_brief_section}
+{daily_local_saved_article_organizer_section}
 {saved_article_content_organization_section}
 {editorial_brief_section}
 {lead_story_block}
@@ -5036,6 +5047,127 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .daily-local-article-intelligence-brief-route:focus-visible {
   opacity: 0.75;
 }
+.daily-local-saved-article-organizer {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-local-saved-article-organizer-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-local-saved-article-organizer-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.1rem, 4.8vw, 5.5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.94;
+  margin: 0;
+}
+.daily-local-saved-article-organizer-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.daily-local-saved-article-organizer-metrics,
+.daily-local-saved-article-organizer-card-meta,
+.daily-local-saved-article-organizer-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.daily-local-saved-article-organizer-metrics {
+  margin: 0 0 18px;
+}
+.daily-local-saved-article-organizer-metrics span,
+.daily-local-saved-article-organizer-card-meta span,
+.daily-local-saved-article-organizer-lane-count,
+.daily-local-saved-article-organizer-ref,
+.daily-local-saved-article-organizer-card-link {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-saved-article-organizer-lanes {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.daily-local-saved-article-organizer-lane {
+  background: var(--panel);
+  display: grid;
+  gap: 14px;
+  min-height: 320px;
+  padding: 16px;
+}
+.daily-local-saved-article-organizer-lane-header {
+  display: grid;
+  gap: 8px;
+}
+.daily-local-saved-article-organizer-lane-header h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.35rem, 2.2vw, 2.2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.daily-local-saved-article-organizer-lane-header p {
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+}
+.daily-local-saved-article-organizer-cards {
+  display: grid;
+  gap: 12px;
+}
+.daily-local-saved-article-organizer-card {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+.daily-local-saved-article-organizer-card h4 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.15rem, 1.8vw, 1.9rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.daily-local-saved-article-organizer-card p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.daily-local-saved-article-organizer-ref {
+  color: var(--ink);
+  gap: 4px;
+}
+.daily-local-saved-article-organizer-ref span:last-child {
+  color: var(--muted);
+}
+.daily-local-saved-article-organizer-card-link {
+  color: var(--accent);
+  text-decoration: none;
+  width: fit-content;
+}
+.daily-local-saved-article-organizer-card-link:hover,
+.daily-local-saved-article-organizer-card-link:focus-visible {
+  opacity: 0.75;
+}
 .saved-article-content-organization {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -6674,6 +6806,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-article-intelligence-brief-header { grid-template-columns: 1fr; }
   .daily-local-article-intelligence-brief-lanes { grid-template-columns: 1fr; }
   .daily-local-article-intelligence-brief-grid { grid-template-columns: 1fr; }
+  .daily-local-saved-article-organizer-header { grid-template-columns: 1fr; }
+  .daily-local-saved-article-organizer-lanes { grid-template-columns: 1fr; }
   .local-article-content-segment-deck-header { grid-template-columns: 1fr; }
   .local-article-content-segment-deck-grid { grid-template-columns: 1fr; }
   .local-article-body-organizer-header { grid-template-columns: 1fr; }
@@ -12870,6 +13004,225 @@ def _safe_daily_local_article_intelligence_href(href: object) -> str | None:
         _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is None
         and _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is None
     ):
+        return None
+    return f"articles/{story_id}.html#{fragment}"
+
+
+def _render_daily_local_saved_article_organizer(
+    organizer: RowOneDailyLocalSavedArticleOrganizer | None,
+) -> str:
+    if organizer is None or not organizer.lanes:
+        return ""
+    lanes = [
+        lane_html
+        for lane in organizer.lanes
+        if (lane_html := _render_daily_local_saved_article_organizer_lane(lane))
+    ]
+    if not lanes:
+        return ""
+    lane_count = len(lanes)
+    safe_cards = _daily_local_saved_article_organizer_safe_cards(organizer)
+    source_count = _daily_local_saved_article_organizer_source_count(safe_cards)
+    reference_count = sum(len(card.references) for card in safe_cards)
+    metrics = (
+        _render_daily_local_saved_article_organizer_metric(
+            _count_label(lane_count, "lane", "lanes"),
+            f"{lane_count} 条阅读线",
+        )
+        + _render_daily_local_saved_article_organizer_metric(
+            _count_label(len(safe_cards), "card", "cards"),
+            f"{len(safe_cards)} 张卡片",
+        )
+        + _render_daily_local_saved_article_organizer_metric(
+            _count_label(source_count, "source", "sources"),
+            f"{source_count} 个来源",
+        )
+        + _render_daily_local_saved_article_organizer_metric(
+            _count_label(reference_count, "reference", "references"),
+            f"{reference_count} 个引用",
+        )
+    )
+    title_en = (
+        normalize_row_one_paragraph(organizer.title.en) or "Daily Local Saved Article Organizer"
+    )
+    title_zh = normalize_row_one_paragraph(organizer.title.zh) or "每日保存文章整理器"
+    dek_en = normalize_row_one_paragraph(organizer.dek.en)
+    dek_zh = normalize_row_one_paragraph(organizer.dek.zh)
+    return f"""<section class="daily-local-saved-article-organizer"
+  aria-label="Daily local saved article organizer">
+  <div class="daily-local-saved-article-organizer-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">{_esc(title_en)}</span>
+        <span data-lang="zh">{_esc(title_zh)}</span>
+      </p>
+      <h2>
+        <span data-lang="en">Organized lanes from today's saved local articles</span>
+        <span data-lang="zh">从今日保存本地文章整理阅读分栏</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">{_esc(dek_en or dek_zh)}</span>
+      <span data-lang="zh">{_esc(dek_zh or dek_en)}</span>
+    </p>
+  </div>
+  <div class="daily-local-saved-article-organizer-metrics">{metrics}</div>
+  <div class="daily-local-saved-article-organizer-lanes">{"".join(lanes)}</div>
+</section>"""
+
+
+def _daily_local_saved_article_organizer_safe_cards(
+    organizer: RowOneDailyLocalSavedArticleOrganizer,
+) -> tuple[RowOneDailyLocalSavedArticleOrganizerCard, ...]:
+    return tuple(
+        card
+        for lane in organizer.lanes
+        for card in lane.cards
+        if _safe_daily_local_saved_article_organizer_href(card.href) is not None
+    )
+
+
+def _daily_local_saved_article_organizer_source_count(
+    cards: Sequence[RowOneDailyLocalSavedArticleOrganizerCard],
+) -> int:
+    source_names = {
+        source_name.casefold()
+        for card in cards
+        if (source_name := normalize_row_one_paragraph(card.source_name))
+    }
+    return len(source_names)
+
+
+def _render_daily_local_saved_article_organizer_metric(
+    value_en: str,
+    value_zh: str,
+) -> str:
+    return (
+        "<span>"
+        f'<span data-lang="en">{_esc(value_en)}</span>'
+        f'<span data-lang="zh">{_esc(value_zh)}</span>'
+        "</span>"
+    )
+
+
+def _render_daily_local_saved_article_organizer_lane(
+    lane: RowOneDailyLocalSavedArticleOrganizerLane,
+) -> str:
+    cards = [
+        card_html
+        for card in lane.cards
+        if (card_html := _render_daily_local_saved_article_organizer_card(card))
+    ]
+    if not cards:
+        return ""
+    title_en = normalize_row_one_paragraph(lane.title.en)
+    title_zh = normalize_row_one_paragraph(lane.title.zh)
+    dek_en = normalize_row_one_paragraph(lane.dek.en)
+    dek_zh = normalize_row_one_paragraph(lane.dek.zh)
+    rendered_count = len(cards)
+    total_count = lane.total_count if lane.total_count > 0 else rendered_count
+    return f"""    <article class="daily-local-saved-article-organizer-lane">
+      <div class="daily-local-saved-article-organizer-lane-header">
+        <h3>
+          <span data-lang="en">{_esc(title_en or title_zh)}</span>
+          <span data-lang="zh">{_esc(title_zh or title_en)}</span>
+        </h3>
+        <span class="daily-local-saved-article-organizer-lane-count">
+          <span data-lang="en">{_esc(_count_label(total_count, "card", "cards"))}</span>
+          <span data-lang="zh">{_esc(f"{total_count} 张卡片")}</span>
+        </span>
+        <p>
+          <span data-lang="en">{_esc(dek_en or dek_zh)}</span>
+          <span data-lang="zh">{_esc(dek_zh or dek_en)}</span>
+        </p>
+      </div>
+      <div class="daily-local-saved-article-organizer-cards">{"".join(cards)}</div>
+    </article>"""
+
+
+def _render_daily_local_saved_article_organizer_card(
+    card: RowOneDailyLocalSavedArticleOrganizerCard,
+) -> str:
+    href = _safe_daily_local_saved_article_organizer_href(card.href)
+    if href is None:
+        return ""
+    title_en = normalize_row_one_paragraph(card.title.en)
+    title_zh = normalize_row_one_paragraph(card.title.zh)
+    source_name = normalize_row_one_paragraph(card.source_name)
+    lane_label_en = normalize_row_one_paragraph(card.lane_label.en)
+    lane_label_zh = normalize_row_one_paragraph(card.lane_label.zh)
+    excerpt_en = normalize_row_one_paragraph(card.excerpt.en)
+    excerpt_zh = normalize_row_one_paragraph(card.excerpt.zh)
+    refs = "".join(_render_daily_local_saved_article_organizer_ref(ref) for ref in card.references)
+    refs_html = (
+        f'\n        <div class="daily-local-saved-article-organizer-refs">{refs}</div>'
+        if refs
+        else ""
+    )
+    return f"""        <article class="daily-local-saved-article-organizer-card">
+          <div class="daily-local-saved-article-organizer-card-meta">
+            <span>{_esc(source_name)}</span>
+            <span>
+              <span data-lang="en">{_esc(lane_label_en or lane_label_zh)}</span>
+              <span data-lang="zh">{_esc(lane_label_zh or lane_label_en)}</span>
+            </span>
+          </div>
+          <h4>
+            <span data-lang="en">{_esc(title_en or title_zh)}</span>
+            <span data-lang="zh">{_esc(title_zh or title_en)}</span>
+          </h4>
+          <p>
+            <span data-lang="en">{_esc(excerpt_en or excerpt_zh)}</span>
+            <span data-lang="zh">{_esc(excerpt_zh or excerpt_en)}</span>
+          </p>{refs_html}
+          <a class="daily-local-saved-article-organizer-card-link" href="{_esc(href)}">
+            <span data-lang="en">Open saved article anchor</span>
+            <span data-lang="zh">打开保存文章锚点</span>
+          </a>
+        </article>"""
+
+
+def _render_daily_local_saved_article_organizer_ref(
+    ref: RowOneDailyLocalSavedArticleOrganizerReference,
+) -> str:
+    name = normalize_row_one_paragraph(ref.name)
+    if not name:
+        return ""
+    label = normalize_row_one_paragraph(ref.label)
+    label_html = f"<span>{_esc(label)}</span>" if label else ""
+    return (
+        '<span class="daily-local-saved-article-organizer-ref">'
+        f"<span>{_esc(name)}</span>{label_html}"
+        "</span>"
+    )
+
+
+def _safe_daily_local_saved_article_organizer_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if "://" in href or href.startswith((".", "/", "//")) or "//" in href:
+        return None
+    path, separator, fragment = href.partition("#")
+    if not separator or not fragment:
+        return None
+    route_path = PurePosixPath(path)
+    if (
+        route_path.is_absolute()
+        or len(route_path.parts) != 2
+        or route_path.parts[0] != "articles"
+        or route_path.name in ("", ".", "..")
+        or ".." in route_path.parts
+        or not route_path.name.endswith(".html")
+    ):
+        return None
+    story_id = route_path.name.removesuffix(".html")
+    if not safe_local_article_story_id(story_id):
+        return None
+    section_match = _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment)
+    paragraph_match = _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment)
+    if section_match is None and paragraph_match is None:
         return None
     return f"articles/{story_id}.html#{fragment}"
 

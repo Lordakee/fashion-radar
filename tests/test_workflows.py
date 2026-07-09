@@ -679,6 +679,19 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "local-article-intelligence-brief" not in generated_contract_payload
     assert "article-intelligence-brief" not in generated_contract_payload
     assert "intelligence-brief" not in generated_contract_payload
+    assert "daily_local_saved_article_organizer" not in generated_contract_payload
+    assert "local_saved_article_organizer" not in generated_contract_payload
+    assert "saved_article_organizer" not in generated_contract_payload
+    assert "RowOneDailyLocalSavedArticleOrganizer" not in generated_contract_payload
+    assert "RowOneLocalSavedArticleOrganizer" not in generated_contract_payload
+    assert "Daily Local Saved Article Organizer" not in generated_contract_payload
+    assert "Local Saved Article Organizer" not in generated_contract_payload
+    assert "Saved Article Organizer" not in generated_contract_payload
+    assert "每日保存文章整理器" not in generated_contract_payload
+    assert "本地保存文章整理器" not in generated_contract_payload
+    assert "daily-local-saved-article-organizer" not in generated_contract_payload
+    assert "local-saved-article-organizer" not in generated_contract_payload
+    assert "saved-article-organizer" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -1219,6 +1232,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "local_article_intelligence_brief",
         "article_intelligence_brief",
         "intelligence_brief",
+        "daily-local-saved-article-organizer",
+        "local-saved-article-organizer",
+        "saved-article-organizer",
+        "daily_local_saved_article_organizer",
+        "local_saved_article_organizer",
+        "saved_article_organizer",
     ):
         for artifact_dir in (
             output_dir,
@@ -1400,6 +1419,21 @@ def test_stage_370_daily_local_article_intelligence_brief_stays_generated_site_o
         row_one_templates,
         "_render_daily_local_article_intelligence_brief",
         lambda _brief: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_371_daily_local_saved_article_organizer_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_daily_local_saved_article_organizer",
+        lambda _organizer: "",
         raising=False,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
