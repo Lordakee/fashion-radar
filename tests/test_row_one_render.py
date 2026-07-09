@@ -3818,6 +3818,143 @@ def test_render_local_article_page_content_segment_deck_filters_invalid_links() 
     assert "../" not in section_html
 
 
+def test_render_local_article_page_includes_body_filing_cues() -> None:
+    article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "paragraphs": [
+                "The Row filed paragraph should carry a body filing cue.",
+                "Fallback section label paragraph should also be filed.",
+                "Unfiled paragraph remains saved local text.",
+            ],
+            "paragraphs_zh": [
+                "The Row 已归档段落应带有正文归档提示。",
+                "回退栏目标签段落也应归档。",
+                "未归档段落仍是保存本地正文。",
+            ],
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="entities",
+                    title=LocalizedText(en="People & <Brands>", zh="品牌与 <人物>"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="The Row <signal>", zh="The Row <信号>"),
+                            paragraph_indices=[0],
+                        ),
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en=" ", zh=" "),
+                            paragraph_indices=[1],
+                        ),
+                    ],
+                )
+            ],
+        },
+    )
+
+    html = render_local_article_page_html(_edition(), _edition().stories[0], local_article=article)
+    body_html = _html_between(html, 'id="local-article-body"', "</section>")
+
+    assert 'class="local-article-body-filing-cue"' in body_html
+    assert body_html.count('class="local-article-body-filing-cue"') == 3
+    assert '<span data-lang="en">Filed under</span>' in body_html
+    assert '<span data-lang="zh">已归档到</span>' in body_html
+    assert '<span data-lang="en">Unfiled saved paragraph</span>' in body_html
+    assert '<span data-lang="zh">未归档保存段落</span>' in body_html
+    assert 'href="#local-article-content-section-1"' in body_html
+    assert 'href="#local-article-content-section-2"' not in body_html
+    assert "The Row &lt;signal&gt;" in body_html
+    assert "People &amp; &lt;Brands&gt;" in body_html
+    assert "<Brands>" not in body_html
+    assert 'id="local-article-paragraph-1"' in body_html
+    assert 'id="local-article-paragraph-2"' in body_html
+    assert 'id="local-article-paragraph-3"' in body_html
+    assert "The Row filed paragraph should carry a body filing cue." in body_html
+    assert "Unfiled paragraph remains saved local text." in body_html
+    assert body_html.index('class="local-article-body-filing-cue"') < body_html.index(
+        "The Row filed paragraph should carry a body filing cue."
+    )
+    assert html.index('class="local-article-content-segment-deck"') < html.index(
+        'id="local-article"'
+    )
+    assert html.index('id="local-article-body"') < html.index(
+        'class="local-article-body-filing-cue"'
+    )
+
+
+def test_render_local_article_page_body_filing_cues_filter_invalid_links() -> None:
+    article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "paragraphs": [
+                "Safe first saved paragraph.",
+                "",
+                "Safe third saved paragraph.",
+                "Safe fourth saved paragraph.",
+            ],
+            "paragraphs_zh": [
+                "安全第一段。",
+                "",
+                "安全第三段。",
+                "安全第四段。",
+            ],
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="entities",
+                    title=LocalizedText(en="<script>Section</script>", zh="<script>栏目</script>"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(
+                                en="<script>Item</script>", zh="<script>条目</script>"
+                            ),
+                            paragraph_indices=[True, False, "0", -1, 0, 0, 1, 2, 2, 99],
+                        )
+                    ],
+                )
+            ],
+        },
+    )
+
+    html = render_local_article_page_html(_edition(), _edition().stories[0], local_article=article)
+    body_html = _html_between(html, 'id="local-article-body"', "</section>")
+    filing_links_html = "".join(
+        re.findall(
+            r'<span class="local-article-body-filing-cue-links">(?P<links>.*?)</span></span>',
+            body_html,
+            re.S,
+        )
+    )
+
+    assert body_html.count('class="local-article-body-filing-cue"') == 3
+    assert filing_links_html.count('href="#local-article-content-section-1"') == 2
+    assert 'id="local-article-paragraph-1"' in body_html
+    assert 'id="local-article-paragraph-3"' in body_html
+    assert 'id="local-article-paragraph-4"' in body_html
+    assert 'href="#local-article-content-section-0"' not in body_html
+    assert 'href="#local-article-paragraph-0"' not in body_html
+    assert 'href="#local-article-paragraph-2"' not in body_html
+    assert 'href="#local-article-paragraph-100"' not in body_html
+    assert "javascript:" not in body_html
+    assert "../" not in body_html
+    assert "<script>" not in body_html
+    assert "&lt;script&gt;Item&lt;/script&gt;" in body_html
+    assert '<span data-lang="en">Unfiled saved paragraph</span>' in body_html
+
+
+def test_render_local_article_page_omits_body_filing_cues_without_rendered_paragraphs() -> None:
+    article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "paragraphs": ["", "   "],
+            "paragraphs_zh": ["", "   "],
+        },
+    )
+
+    html = render_local_article_page_html(_edition(), _edition().stories[0], local_article=article)
+
+    assert 'id="local-article-body"' not in html
+    assert 'class="local-article-body-filing-cue"' not in html
+
+
 @pytest.mark.parametrize(
     "article",
     [
@@ -4263,6 +4400,65 @@ def test_render_row_one_site_writes_content_segment_deck_only_on_local_article_p
         "local_article_content_segment_deck",
         "article_content_segment_deck",
         "content_segment_deck",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
+def test_render_row_one_site_writes_body_filing_cues_only_on_local_article_pages(
+    tmp_path,
+) -> None:
+    story = _edition().stories[0]
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+
+    body_html = _html_between(article_html, 'id="local-article-body"', "</section>")
+    assert 'class="local-article-body-filing-cue"' in body_html
+    assert '<span data-lang="en">Filed under</span>' in body_html
+    assert 'href="#local-article-content-section-1"' in body_html
+    assert 'class="local-article-body-filing-cue"' not in library_html
+    assert 'class="local-article-body-filing-cue"' not in homepage_html
+    assert 'class="local-article-body-filing-cue"' not in detail_html
+    for forbidden in (
+        "local_article_body_filing_cues",
+        "article_body_filing_cues",
+        "body_filing_cues",
+        "paragraph_filing_cues",
+        "local-article-body-filing-cues",
+        "article-body-filing-cues",
+        "body-filing-cues",
+        "paragraph-filing-cues",
+        "Body Filing Cues",
+    ):
+        assert forbidden not in generated_contract_payload
+    for stem in (
+        "local-article-body-filing-cues",
+        "article-body-filing-cues",
+        "body-filing-cues",
+        "paragraph-filing-cues",
+        "local_article_body_filing_cues",
+        "article_body_filing_cues",
+        "body_filing_cues",
+        "paragraph_filing_cues",
     ):
         for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
             assert not (directory / f"{stem}.json").exists()
@@ -15132,6 +15328,19 @@ def test_row_one_css_includes_local_article_content_segment_deck_styles() -> Non
         r"\.local-article-content-segment-deck-grid\s*\{[^}]*grid-template-columns:\s*1fr",
         css,
     )
+
+
+def test_row_one_css_includes_local_article_body_filing_cue_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".local-article-body-filing-cue",
+        ".local-article-body-filing-cue-label",
+        ".local-article-body-filing-cue-links",
+        ".local-article-body-filing-cue-unfiled",
+        ".local-article-body-filing-cue a",
+    ):
+        assert selector in css
 
 
 def test_row_one_css_includes_daily_local_key_signals_digest_styles() -> None:

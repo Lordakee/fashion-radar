@@ -150,6 +150,7 @@ LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_ITEMS = 4
 LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_REFS = 4
 LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_MAX_ROWS = 8
 LOCAL_ARTICLE_PARAGRAPH_CONTEXT_LIMIT = 4
+LOCAL_ARTICLE_BODY_FILING_CUES_MAX_CONTEXTS = 3
 LOCAL_ARTICLE_READER_EXCERPT_CHARS = 120
 LOCAL_ARTICLE_INFORMATION_BODY_MAX_CHARS = 120
 LOCAL_ARTICLE_INFORMATION_MAX_ITEMS_PER_SECTION = 2
@@ -768,7 +769,7 @@ def render_local_article_page_html(
     saved_article_local_section_binder: (RowOneSavedArticleLocalSectionBinder | None) = None,
     saved_article_key_signals: RowOneSavedArticleKeySignals | None = None,
 ) -> str:
-    local_article_section = _render_local_article(local_article)
+    local_article_section = _render_local_article(local_article, include_body_filing_cues=True)
     if not local_article_section:
         return ""
     section_title = _section_title(edition, story.section_key)
@@ -5542,6 +5543,36 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   gap: 6px;
 }
 .local-article-paragraph-context a {
+  border-bottom: 1px solid rgba(36, 84, 255, 0.3);
+  color: var(--accent);
+  text-decoration: none;
+}
+.local-article-body-filing-cue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+.local-article-body-filing-cue-label {
+  color: var(--muted);
+}
+.local-article-body-filing-cue-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.local-article-body-filing-cue-unfiled {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 2px 6px;
+}
+.local-article-body-filing-cue a {
   border-bottom: 1px solid rgba(36, 84, 255, 0.3);
   color: var(--accent);
   text-decoration: none;
@@ -14046,10 +14077,17 @@ def _detail_continue_reading_excerpt(text: str) -> str:
     )
 
 
-def _render_local_article(article: RowOneLocalArticle | None) -> str:
+def _render_local_article(
+    article: RowOneLocalArticle | None,
+    *,
+    include_body_filing_cues: bool = False,
+) -> str:
     if article is None:
         return ""
-    paragraphs = _render_local_article_paragraphs(article)
+    paragraphs = _render_local_article_paragraphs(
+        article,
+        include_body_filing_cues=include_body_filing_cues,
+    )
     if not paragraphs:
         return ""
     title = article.title or "Source article"
@@ -15439,6 +15477,84 @@ def _render_local_article_paragraph_context(
     )
 
 
+def _local_article_body_filing_contexts(
+    article: RowOneLocalArticle,
+    *,
+    rendered_indices: set[int] | None = None,
+) -> dict[int, list[_LocalArticleParagraphContextCue]]:
+    if rendered_indices is None:
+        rendered_indices = _local_article_rendered_paragraph_indices(article)
+    contexts: dict[int, list[_LocalArticleParagraphContextCue]] = {}
+    seen_by_index: dict[int, set[tuple[str, str, str]]] = {}
+    for section_position, section in enumerate(article.content_sections, start=1):
+        section_anchor = _local_article_content_section_anchor(section_position)
+        section_title_en = normalize_row_one_paragraph(section.title.en)
+        section_title_zh = normalize_row_one_paragraph(section.title.zh)
+        for item in section.items:
+            item_label_en = normalize_row_one_paragraph(item.label.en)
+            item_label_zh = normalize_row_one_paragraph(item.label.zh)
+            label_en = item_label_en or section_title_en
+            label_zh = item_label_zh or section_title_zh or label_en
+            if not label_en:
+                continue
+            label = LocalizedText(en=label_en, zh=label_zh)
+            dedupe_key = (
+                section_anchor,
+                label.en.casefold(),
+                label.zh.casefold(),
+            )
+            for paragraph_index in _strict_valid_local_article_paragraph_indices(
+                item.paragraph_indices,
+                rendered_indices,
+            ):
+                seen = seen_by_index.setdefault(paragraph_index, set())
+                if dedupe_key in seen:
+                    continue
+                seen.add(dedupe_key)
+                entries = contexts.setdefault(paragraph_index, [])
+                if len(entries) < LOCAL_ARTICLE_BODY_FILING_CUES_MAX_CONTEXTS:
+                    entries.append(
+                        _LocalArticleParagraphContextCue(
+                            anchor=section_anchor,
+                            label=label,
+                            excerpt=_local_article_paragraph_context_excerpt(
+                                article,
+                                paragraph_index,
+                            ),
+                        )
+                    )
+    return contexts
+
+
+def _render_local_article_body_filing_cue(
+    entries: Sequence[_LocalArticleParagraphContextCue],
+) -> str:
+    if not entries:
+        return (
+            '<span class="local-article-body-filing-cue">'
+            '<span class="local-article-body-filing-cue-unfiled">'
+            '<span data-lang="en">Unfiled saved paragraph</span>'
+            '<span data-lang="zh">未归档保存段落</span>'
+            "</span>"
+            "</span>"
+        )
+    links = "".join(
+        f'<a href="#{_esc(entry.anchor)}">'
+        f'<span data-lang="en">{_esc(entry.label.en)}</span>'
+        f'<span data-lang="zh">{_esc(entry.label.zh)}</span></a>'
+        for entry in entries
+    )
+    return (
+        '<span class="local-article-body-filing-cue">'
+        '<span class="local-article-body-filing-cue-label">'
+        '<span data-lang="en">Filed under</span>'
+        '<span data-lang="zh">已归档到</span>'
+        "</span>"
+        f'<span class="local-article-body-filing-cue-links">{links}</span>'
+        "</span>"
+    )
+
+
 def _local_article_rendered_paragraph_indices(article: RowOneLocalArticle) -> set[int]:
     return {index for index, paragraph in enumerate(article.paragraphs) if paragraph.strip()}
 
@@ -15732,19 +15848,36 @@ def _render_local_article_content_references(references: list[RowOneReference]) 
               </p>"""
 
 
-def _render_local_article_paragraphs(article: RowOneLocalArticle) -> list[str]:
+def _render_local_article_paragraphs(
+    article: RowOneLocalArticle,
+    *,
+    include_body_filing_cues: bool = False,
+) -> list[str]:
     source_paragraphs = [paragraph for paragraph in article.paragraphs if paragraph.strip()]
     if not source_paragraphs:
         return []
+    rendered_indices = _local_article_rendered_paragraph_indices(article)
+    body_filing_contexts = (
+        _local_article_body_filing_contexts(
+            article,
+            rendered_indices=rendered_indices,
+        )
+        if include_body_filing_cues
+        else {}
+    )
     if len(article.paragraphs_zh) != len(article.paragraphs):
         rendered: list[str] = []
         for index, paragraph in enumerate(article.paragraphs):
             if not paragraph.strip():
                 continue
             anchor = _local_article_paragraph_anchor(index)
-            rendered.append(f'      <p id="{_esc(anchor)}">{_esc(paragraph)}</p>')
+            filing_cue = (
+                _render_local_article_body_filing_cue(body_filing_contexts.get(index, []))
+                if include_body_filing_cues
+                else ""
+            )
+            rendered.append(f'      <p id="{_esc(anchor)}">{filing_cue}{_esc(paragraph)}</p>')
         return rendered
-    rendered_indices = _local_article_rendered_paragraph_indices(article)
     paragraph_contexts = _local_article_paragraph_contexts(
         article,
         rendered_indices=rendered_indices,
@@ -15757,9 +15890,15 @@ def _render_local_article_paragraphs(article: RowOneLocalArticle) -> list[str]:
             continue
         zh = paragraph_zh if paragraph_zh.strip() else paragraph_en
         anchor = _local_article_paragraph_anchor(index)
+        filing_cue = (
+            _render_local_article_body_filing_cue(body_filing_contexts.get(index, []))
+            if include_body_filing_cues
+            else ""
+        )
         context = _render_local_article_paragraph_context(paragraph_contexts.get(index, []))
         rendered.append(
             f'      <p id="{_esc(anchor)}">'
+            f"{filing_cue}"
             f"{context}"
             f'<span data-lang="en">{_esc(paragraph_en)}</span>'
             f'<span data-lang="zh">{_esc(zh)}</span>'

@@ -633,6 +633,18 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "local-article-content-segment-deck" not in generated_contract_payload
     assert "article-content-segment-deck" not in generated_contract_payload
     assert "content-segment-deck" not in generated_contract_payload
+    assert "local_article_body_filing_cues" not in generated_contract_payload
+    assert "article_body_filing_cues" not in generated_contract_payload
+    assert "body_filing_cues" not in generated_contract_payload
+    assert "paragraph_filing_cues" not in generated_contract_payload
+    assert "Local Article Body Filing Cues" not in generated_contract_payload
+    assert "Article Body Filing Cues" not in generated_contract_payload
+    assert "Body Filing Cues" not in generated_contract_payload
+    assert "Paragraph Filing Cues" not in generated_contract_payload
+    assert "local-article-body-filing-cues" not in generated_contract_payload
+    assert "article-body-filing-cues" not in generated_contract_payload
+    assert "body-filing-cues" not in generated_contract_payload
+    assert "paragraph-filing-cues" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -771,6 +783,54 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "local-article-reading-improvements.html",
         output_dir / "articles" / "local-article-reading-improvements.html",
         output_dir / "data" / "local-article-reading-improvements.html",
+        output_dir / "local-article-body-filing-cues.json",
+        output_dir / "articles" / "local-article-body-filing-cues.json",
+        output_dir / "data" / "local-article-body-filing-cues.json",
+        output_dir / "article-body-filing-cues.json",
+        output_dir / "articles" / "article-body-filing-cues.json",
+        output_dir / "data" / "article-body-filing-cues.json",
+        output_dir / "body-filing-cues.json",
+        output_dir / "articles" / "body-filing-cues.json",
+        output_dir / "data" / "body-filing-cues.json",
+        output_dir / "paragraph-filing-cues.json",
+        output_dir / "articles" / "paragraph-filing-cues.json",
+        output_dir / "data" / "paragraph-filing-cues.json",
+        output_dir / "local-article-body-filing-cues.html",
+        output_dir / "articles" / "local-article-body-filing-cues.html",
+        output_dir / "data" / "local-article-body-filing-cues.html",
+        output_dir / "article-body-filing-cues.html",
+        output_dir / "articles" / "article-body-filing-cues.html",
+        output_dir / "data" / "article-body-filing-cues.html",
+        output_dir / "body-filing-cues.html",
+        output_dir / "articles" / "body-filing-cues.html",
+        output_dir / "data" / "body-filing-cues.html",
+        output_dir / "paragraph-filing-cues.html",
+        output_dir / "articles" / "paragraph-filing-cues.html",
+        output_dir / "data" / "paragraph-filing-cues.html",
+        output_dir / "local_article_body_filing_cues.json",
+        output_dir / "articles" / "local_article_body_filing_cues.json",
+        output_dir / "data" / "local_article_body_filing_cues.json",
+        output_dir / "article_body_filing_cues.json",
+        output_dir / "articles" / "article_body_filing_cues.json",
+        output_dir / "data" / "article_body_filing_cues.json",
+        output_dir / "body_filing_cues.json",
+        output_dir / "articles" / "body_filing_cues.json",
+        output_dir / "data" / "body_filing_cues.json",
+        output_dir / "paragraph_filing_cues.json",
+        output_dir / "articles" / "paragraph_filing_cues.json",
+        output_dir / "data" / "paragraph_filing_cues.json",
+        output_dir / "local_article_body_filing_cues.html",
+        output_dir / "articles" / "local_article_body_filing_cues.html",
+        output_dir / "data" / "local_article_body_filing_cues.html",
+        output_dir / "article_body_filing_cues.html",
+        output_dir / "articles" / "article_body_filing_cues.html",
+        output_dir / "data" / "article_body_filing_cues.html",
+        output_dir / "body_filing_cues.html",
+        output_dir / "articles" / "body_filing_cues.html",
+        output_dir / "data" / "body_filing_cues.html",
+        output_dir / "paragraph_filing_cues.html",
+        output_dir / "articles" / "paragraph_filing_cues.html",
+        output_dir / "data" / "paragraph_filing_cues.html",
         output_dir / "saved-paragraph-context-cues.json",
         output_dir / "articles" / "saved-paragraph-context-cues.json",
         output_dir / "data" / "saved-paragraph-context-cues.json",
@@ -1188,6 +1248,21 @@ def test_stage_365_local_article_content_segment_deck_stays_generated_site_only(
         row_one_templates,
         "_render_local_article_content_segment_deck",
         lambda *_args, **_kwargs: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_366_local_article_body_filing_cues_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_local_article_body_filing_cue",
+        lambda _entries: "",
         raising=False,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
