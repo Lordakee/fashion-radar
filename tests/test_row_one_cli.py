@@ -922,6 +922,7 @@ def test_row_one_ops_check_human_output_is_read_only(
             "freshness": {"status": "fresh"},
             "server": {"status": "serving_row_one"},
             "systemd": {"status": "present"},
+            "local_article_routes": {"status": "missing", "article_count": 1},
             "access": {
                 "message": (
                     "Open locally: http://127.0.0.1:8787\nOpen from LAN: http://<LAN-IP>:8787"
@@ -960,6 +961,7 @@ def test_row_one_ops_check_human_output_is_read_only(
     assert "Freshness: fresh" in result.output
     assert "Server: serving_row_one" in result.output
     assert "Systemd units: present" in result.output
+    assert "Local article routes: missing" in result.output
     assert "Access:" in result.output
     assert "Open locally: http://127.0.0.1:8787" in result.output
     assert "Actions:" in result.output
@@ -1505,6 +1507,48 @@ def test_row_one_status_json_includes_local_article_metrics(tmp_path: Path) -> N
     )
 
 
+def test_row_one_status_json_includes_local_article_route_health(tmp_path: Path) -> None:
+    story = _render_status_site_with_local_article(tmp_path)
+    assert (tmp_path / "articles" / "index.html").is_file()
+    assert (tmp_path / "articles" / f"{story['id']}.html").is_file()
+    assert 'href="articles/index.html"' in (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert f'href="{story["id"]}.html"' in (tmp_path / "articles" / "index.html").read_text(
+        encoding="utf-8"
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["row-one", "status", "--site-dir", str(tmp_path), "--json"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["local_article_routes"] == {
+        "status": "ready",
+        "article_count": 1,
+        "library_path": "articles/index.html",
+        "library_present": True,
+        "homepage_library_link_present": True,
+        "missing_article_pages": [],
+        "missing_library_links": [],
+    }
+
+
+def test_row_one_status_prints_local_article_route_health(tmp_path: Path) -> None:
+    story = _render_status_site_with_local_article(tmp_path)
+    assert (tmp_path / "articles" / "index.html").is_file()
+    assert (tmp_path / "articles" / f"{story['id']}.html").is_file()
+    assert 'href="articles/index.html"' in (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert f'href="{story["id"]}.html"' in (tmp_path / "articles" / "index.html").read_text(
+        encoding="utf-8"
+    )
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+    assert "Local article routes: ready (1 saved local article)" in result.output
+
+
 def test_row_one_article_readiness_prints_config_and_site_counts(tmp_path: Path) -> None:
     config_dir = tmp_path / "configs"
     output_dir = tmp_path / "site"
@@ -1924,6 +1968,64 @@ def test_row_one_status_rejects_article_sidecar_story_id_mismatch(tmp_path: Path
 
     assert result.exit_code == 1
     assert "story_id" in result.output
+
+
+def test_row_one_status_rejects_missing_saved_article_library_route(tmp_path: Path) -> None:
+    _render_status_site_with_local_article(tmp_path)
+    (tmp_path / "articles" / "index.html").unlink()
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "articles/index.html" in result.output
+
+
+def test_row_one_status_rejects_missing_saved_article_page_route(tmp_path: Path) -> None:
+    story = _render_status_site_with_local_article(tmp_path)
+    (tmp_path / "articles" / f"{story['id']}.html").unlink()
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert f"articles/{story['id']}.html" in result.output
+
+
+def test_row_one_status_rejects_missing_homepage_saved_article_library_link(
+    tmp_path: Path,
+) -> None:
+    _render_status_site_with_local_article(tmp_path)
+    index_path = tmp_path / "index.html"
+    index_path.write_text(
+        index_path.read_text(encoding="utf-8").replace(
+            'href="articles/index.html"',
+            'href="details/index.html"',
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "library link is missing from index.html" in result.output
+
+
+def test_row_one_status_rejects_missing_saved_article_library_page_link(
+    tmp_path: Path,
+) -> None:
+    story = _render_status_site_with_local_article(tmp_path)
+    library_path = tmp_path / "articles" / "index.html"
+    library_path.write_text(
+        library_path.read_text(encoding="utf-8").replace(
+            f'href="{story["id"]}.html"',
+            'href="missing.html"',
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert f"{story['id']}.html" in result.output
 
 
 def test_row_one_status_rejects_unsafe_local_intelligence_detail_path(tmp_path: Path) -> None:

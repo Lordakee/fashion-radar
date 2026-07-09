@@ -4716,3 +4716,82 @@ def test_row_one_docs_describe_stage_373_local_article_body_section_markers_boun
             "adds compliance-review",
         ):
             assert stale_phrase not in normalized
+
+
+def test_row_one_docs_describe_stage_374_saved_local_article_route_health_boundary() -> None:
+    paragraph = (
+        "Stage 374 adds read-only generated-site Saved Local Article Route Health to "
+        "`row-one status` and `row-one ops-check`; it reuses current generated "
+        "`data/articles/*.json` saved local article sidecars, current validated story ids, "
+        "existing `index.html`, existing `articles/index.html`, and existing "
+        "`articles/<story-id>.html` routes to verify that already-saved local article bodies "
+        "are reachable through same-site generated article pages without changing app-facing "
+        "contracts; it adds CLI-only route-health status payload fields, but it does not "
+        "create `data/local-article-route-health.json`, does not create "
+        "`data/article-route-health.json`, does not create `data/route-health.json`, does not "
+        "create `local-article-route-health.html`, does not create `article-route-health.html`, "
+        "does not create `route-health.html`, does not create new article-source sidecars, "
+        "does not create new route families, does not alter `index.html`, "
+        "`articles/index.html`, `articles/<story-id>.html`, or detail page rendering, does "
+        "not publish full articles outside existing local article pages, does not add outbound "
+        "article URLs as primary navigation, and does not change row-one-app/v7, "
+        "row-one-manifest/v1, row-one-runtime/v1, schemas, generated JSON artifacts, source "
+        "collection, fetching, matching, extraction, scoring, ranking, LLM, connector, "
+        "scheduling, deployment, market grouping, domestic/international classification, "
+        "analytics, personalization, recommendation, or compliance-review behavior."
+    )
+    readme = _read(README)
+    docs = _read(ROW_ONE_DOC)
+
+    for text in (readme, docs):
+        assert paragraph in text
+        assert text.index(paragraph) < text.index("Stage 373 adds")
+
+        stage_374_slice = text[text.index(paragraph) : text.index("Stage 373 adds")]
+        normalized = _normalized(stage_374_slice)
+        for stale_phrase in (
+            "creates data/local-article-route-health.json",
+            "writes data/local-article-route-health.json",
+            "creates data/article-route-health.json",
+            "writes data/article-route-health.json",
+            "creates data/route-health.json",
+            "writes data/route-health.json",
+            "creates local-article-route-health.html",
+            "writes local-article-route-health.html",
+            "creates article-route-health.html",
+            "writes article-route-health.html",
+            "creates route-health.html",
+            "writes route-health.html",
+            "changes row-one-app/v7",
+            "changes row-one-manifest/v1",
+            "changes row-one-runtime/v1",
+            "adds app contract",
+            "changes app contract",
+            "adds generated json artifact",
+            "changes generated json artifacts",
+            "creates new article-source sidecars",
+            "creates new route families",
+            "adds new routes",
+            "alters index.html",
+            "alters articles/index.html",
+            "alters articles/<story-id>.html",
+            "publishes full articles outside existing local article pages",
+            "adds outbound article urls as primary navigation",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+            "adds compliance-review",
+            "adds compliance-review behavior",
+        ):
+            assert stale_phrase not in normalized

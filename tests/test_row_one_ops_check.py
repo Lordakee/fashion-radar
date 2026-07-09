@@ -41,6 +41,29 @@ def _write_site(site_dir: Path, *, edition_date: str) -> None:
     (site_dir / "data" / "manifest.json").write_text("{}", encoding="utf-8")
 
 
+def _write_saved_article_route_fixture(site_dir: Path, *, complete: bool = True) -> None:
+    _write_site(site_dir, edition_date="2026-07-07T04:00:00Z")
+    story_id = "the-row-route-1234567890"
+    articles_data = site_dir / "data" / "articles"
+    articles_data.mkdir(parents=True, exist_ok=True)
+    (articles_data / f"{story_id}.json").write_text("{}", encoding="utf-8")
+    if complete:
+        (site_dir / "index.html").write_text(
+            '<h1>ROW ONE</h1><a href="articles/index.html">Saved article library</a>',
+            encoding="utf-8",
+        )
+        articles_dir = site_dir / "articles"
+        articles_dir.mkdir(parents=True, exist_ok=True)
+        (articles_dir / "index.html").write_text(
+            f'<a href="{story_id}.html">Read local article</a>',
+            encoding="utf-8",
+        )
+        (articles_dir / f"{story_id}.html").write_text(
+            "<!doctype html><title>ROW ONE local article</title>",
+            encoding="utf-8",
+        )
+
+
 def _probe(status: str) -> RowOneServerProbeResult:
     return RowOneServerProbeResult(
         status=status,
@@ -168,6 +191,53 @@ def test_ops_check_reports_attention_when_freshness_is_stale_only(tmp_path: Path
     assert payload["server"]["status"] == "serving_row_one"
     assert payload["systemd"]["status"] == "present"
     assert payload["actions"] == [f"Run `fashion-radar row-one refresh --output-dir {site_dir}`."]
+
+
+def test_ops_check_reports_local_article_route_health_ready(tmp_path: Path) -> None:
+    site_dir = tmp_path / "site"
+    unit_dir = tmp_path / "units"
+    _write_saved_article_route_fixture(site_dir, complete=True)
+    unit_dir.mkdir()
+    for unit in ROW_ONE_SYSTEMD_UNITS:
+        (unit_dir / unit).write_text("[Unit]\n", encoding="utf-8")
+
+    payload = build_row_one_ops_check_payload(
+        site_dir=site_dir,
+        host="127.0.0.1",
+        port=8787,
+        unit_dir=unit_dir,
+        as_of=datetime(2026, 7, 7, 8, 0, tzinfo=UTC),
+        server_probe=lambda host, port, timeout: _probe("serving_row_one"),
+    )
+
+    assert payload["status"] == "ready"
+    assert payload["local_article_routes"]["status"] == "ready"
+    assert payload["local_article_routes"]["article_count"] == 1
+    assert payload["actions"] == []
+
+
+def test_ops_check_reports_attention_for_missing_local_article_routes(
+    tmp_path: Path,
+) -> None:
+    site_dir = tmp_path / "site"
+    unit_dir = tmp_path / "units"
+    _write_saved_article_route_fixture(site_dir, complete=False)
+    unit_dir.mkdir()
+    for unit in ROW_ONE_SYSTEMD_UNITS:
+        (unit_dir / unit).write_text("[Unit]\n", encoding="utf-8")
+
+    payload = build_row_one_ops_check_payload(
+        site_dir=site_dir,
+        host="127.0.0.1",
+        port=8787,
+        unit_dir=unit_dir,
+        as_of=datetime(2026, 7, 7, 8, 0, tzinfo=UTC),
+        server_probe=lambda host, port, timeout: _probe("serving_row_one"),
+    )
+
+    assert payload["status"] == "attention"
+    assert payload["local_article_routes"]["status"] == "missing"
+    assert any("row-one refresh" in action for action in payload["actions"])
 
 
 def test_ops_check_reports_missing_site_without_writing_files(tmp_path: Path) -> None:

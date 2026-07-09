@@ -9,6 +9,10 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
+from fashion_radar.row_one.local_article_route_health import (
+    build_row_one_local_article_route_health,
+    row_one_local_article_route_health_payload,
+)
 from fashion_radar.row_one.server import (
     format_row_one_site_access_message,
     format_row_one_site_url,
@@ -53,8 +57,11 @@ def build_row_one_ops_check_payload(
     )
     systemd = _systemd_payload(unit_dir)
     access = _access_payload(host, port)
-    actions = _actions(site, freshness, probe, systemd, site_dir)
-    status = _overall_status(site, freshness, probe, systemd)
+    local_article_routes = row_one_local_article_route_health_payload(
+        build_row_one_local_article_route_health(site_dir),
+    )
+    actions = _actions(site, freshness, probe, systemd, local_article_routes, site_dir)
+    status = _overall_status(site, freshness, probe, systemd, local_article_routes)
     return {
         "ok": True,
         "status": status,
@@ -71,6 +78,7 @@ def build_row_one_ops_check_payload(
             "detail": probe.detail,
         },
         "systemd": systemd,
+        "local_article_routes": local_article_routes,
         "actions": actions,
     }
 
@@ -213,6 +221,7 @@ def _actions(
     freshness: dict[str, object],
     server: RowOneServerProbeResult,
     systemd: dict[str, object],
+    local_article_routes: dict[str, object],
     site_dir: Path,
 ) -> list[str]:
     actions: list[str] = []
@@ -235,6 +244,10 @@ def _actions(
         actions.append(
             "Run `fashion-radar row-one install-local --dry-run` to inspect user systemd units.",
         )
+    if local_article_routes.get("status") == "missing":
+        action = f"Run `fashion-radar row-one refresh --output-dir {site_dir}`."
+        if action not in actions:
+            actions.append(action)
     return actions
 
 
@@ -243,6 +256,7 @@ def _overall_status(
     freshness: dict[str, object],
     server: RowOneServerProbeResult,
     systemd: dict[str, object],
+    local_article_routes: dict[str, object],
 ) -> str:
     if site.get("status") != "present" or freshness.get("status") == "unknown":
         return "unknown"
@@ -250,6 +264,7 @@ def _overall_status(
         freshness.get("status") == "fresh"
         and server.status == "serving_row_one"
         and systemd.get("status") == "present"
+        and local_article_routes.get("status") != "missing"
     ):
         return "ready"
     return "attention"

@@ -706,6 +706,18 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "local-article-body-section-markers" not in generated_contract_payload
     assert "body-section-markers" not in generated_contract_payload
     assert "article-body-section-markers" not in generated_contract_payload
+    assert "local_article_route_health" not in generated_contract_payload
+    assert "article_route_health" not in generated_contract_payload
+    assert "route_health" not in generated_contract_payload
+    assert "RowOneLocalArticleRouteHealth" not in generated_contract_payload
+    assert "RowOneArticleRouteHealth" not in generated_contract_payload
+    assert "Saved Local Article Route Health" not in generated_contract_payload
+    assert "Local Article Route Health" not in generated_contract_payload
+    assert "Article Route Health" not in generated_contract_payload
+    assert "local-article-route-health" not in generated_contract_payload
+    assert "article-route-health" not in generated_contract_payload
+    assert "route-health" not in generated_contract_payload
+    assert "本地文章路由健康检查" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -1288,6 +1300,16 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "local_article_body_section_markers",
         "article_body_section_markers",
         "body_section_markers",
+        "local-article-route-health",
+        "article-route-health",
+        "route-health",
+        "saved-local-article-route-health",
+        "saved-article-route-health",
+        "local_article_route_health",
+        "article_route_health",
+        "route_health",
+        "saved_local_article_route_health",
+        "saved_article_route_health",
     ):
         for artifact_dir in (
             output_dir,
@@ -1514,6 +1536,27 @@ def test_stage_373_local_article_body_section_markers_stays_generated_site_only(
         row_one_templates,
         "build_row_one_local_article_body_section_markers",
         lambda *_args, **_kwargs: (),
+        raising=True,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_374_saved_local_article_route_health_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import status_integrity
+
+    monkeypatch.setattr(
+        status_integrity,
+        "build_row_one_local_article_route_health",
+        lambda *_args, **_kwargs: None,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        status_integrity,
+        "validate_row_one_local_article_route_health",
+        lambda _health: None,
         raising=True,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)

@@ -9,6 +9,11 @@ from pydantic import ValidationError
 
 from fashion_radar.row_one.articles import safe_local_article_story_id
 from fashion_radar.row_one.display import safe_story_image_src
+from fashion_radar.row_one.local_article_route_health import (
+    RowOneLocalArticleRouteHealth,
+    build_row_one_local_article_route_health,
+    validate_row_one_local_article_route_health,
+)
 from fashion_radar.row_one.models import (
     RowOneDailyLocalIntelligenceItem,
     RowOneDailyLocalIntelligenceSection,
@@ -32,7 +37,7 @@ def validate_row_one_generated_site_integrity(
     *,
     site_dir: Path,
     edition: dict[str, object],
-) -> None:
+) -> RowOneLocalArticleRouteHealth:
     """Validate generated ROW ONE files that schemas cannot express."""
     for relative_path in _REQUIRED_GENERATED_FILES:
         _require_file(site_dir, relative_path)
@@ -75,11 +80,17 @@ def validate_row_one_generated_site_integrity(
         )
 
     article_sidecars = _load_article_sidecars(site_dir, current_story_ids)
+    route_health = build_row_one_local_article_route_health(
+        site_dir,
+        story_ids=article_sidecars.keys(),
+    )
+    validate_row_one_local_article_route_health(route_health)
     _validate_local_intelligence(
         site_dir=site_dir,
         detail_to_story_id=detail_to_story_id,
         article_sidecars=article_sidecars,
     )
+    return route_health
 
 
 def _require_file(site_dir: Path, relative_path: str) -> Path:

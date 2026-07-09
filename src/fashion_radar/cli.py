@@ -148,6 +148,10 @@ from fashion_radar.row_one.article_readiness import (
     build_row_one_article_readiness,
     row_one_article_readiness_payload,
 )
+from fashion_radar.row_one.local_article_route_health import (
+    RowOneLocalArticleRouteHealth,
+    row_one_local_article_route_health_payload,
+)
 from fashion_radar.row_one.ops import render_row_one_local_ops_runbook
 from fashion_radar.row_one.ops_check import build_row_one_ops_check_payload
 from fashion_radar.row_one.readiness import build_row_one_readiness
@@ -2124,6 +2128,7 @@ def _build_row_one_status_payload(
     manifest: dict[str, object],
     edition: dict[str, object],
     runtime: dict[str, object],
+    local_article_route_health: RowOneLocalArticleRouteHealth,
 ) -> dict[str, object]:
     site = _require_row_one_object(runtime, "site", label="runtime.site")
     counts = _require_row_one_object(runtime, "counts", label="runtime.counts")
@@ -2132,6 +2137,7 @@ def _build_row_one_status_payload(
     serve = _require_row_one_object(runtime, "serve", label="runtime.serve")
     story_count = counts.get("story_count")
     local_articles = _row_one_local_article_metrics_payload(site_dir)
+    local_article_routes = row_one_local_article_route_health_payload(local_article_route_health)
     return {
         "ok": True,
         "site_dir": str(site_dir),
@@ -2153,6 +2159,7 @@ def _build_row_one_status_payload(
         },
         "counts": counts,
         "local_articles": local_articles,
+        "local_article_routes": local_article_routes,
         "readiness": readiness,
         "story_count": story_count,
         "section_count": counts.get("section_count"),
@@ -2194,7 +2201,10 @@ def row_one_status(
             edition=edition,
             runtime=runtime,
         )
-        validate_row_one_generated_site_integrity(site_dir=site_dir, edition=edition)
+        local_article_route_health = validate_row_one_generated_site_integrity(
+            site_dir=site_dir,
+            edition=edition,
+        )
     except Exception as exc:
         typer.echo(f"ROW ONE status failed: {exc}", err=True)
         raise typer.Exit(1) from exc
@@ -2206,6 +2216,7 @@ def row_one_status(
         manifest=manifest,
         edition=edition,
         runtime=runtime,
+        local_article_route_health=local_article_route_health,
     )
     if json_output:
         typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
@@ -2225,6 +2236,12 @@ def row_one_status(
         typer.echo(f"Evidence links: {counts.get('evidence_count', 'unknown')}")
     local_articles = payload["local_articles"]
     _echo_row_one_local_article_metrics_payload(local_articles)
+    local_article_routes = payload["local_article_routes"]
+    typer.echo(
+        "Local article routes: "
+        f"{local_article_routes['status']} "
+        f"({_format_saved_local_article_count(local_article_routes['article_count'])})"
+    )
     refresh = runtime.get("refresh")
     if isinstance(refresh, dict):
         typer.echo(f"Refresh time: {refresh.get('recommended_time', 'unknown')}")
@@ -2260,6 +2277,12 @@ def _echo_row_one_local_article_metrics_payload(payload: dict[str, int]) -> None
     typer.echo(f"Extracted local articles: {payload['extracted_article_count']}")
     typer.echo(f"Summary fallback local articles: {payload['summary_fallback_article_count']}")
     typer.echo(f"Skipped local articles: {payload['skipped_article_count']}")
+
+
+def _format_saved_local_article_count(article_count: object) -> str:
+    count = article_count if isinstance(article_count, int) else 0
+    noun = "saved local article" if count == 1 else "saved local articles"
+    return f"{count} {noun}"
 
 
 @row_one_app.command(name="article-readiness")
@@ -2331,6 +2354,11 @@ def _render_row_one_ops_check_text(payload: dict[str, object]) -> str:
     freshness = payload.get("freshness") if isinstance(payload.get("freshness"), dict) else {}
     server = payload.get("server") if isinstance(payload.get("server"), dict) else {}
     systemd = payload.get("systemd") if isinstance(payload.get("systemd"), dict) else {}
+    local_article_routes = (
+        payload.get("local_article_routes")
+        if isinstance(payload.get("local_article_routes"), dict)
+        else {}
+    )
     access = payload.get("access") if isinstance(payload.get("access"), dict) else {}
     actions = payload.get("actions") if isinstance(payload.get("actions"), list) else []
     lines = [
@@ -2339,6 +2367,7 @@ def _render_row_one_ops_check_text(payload: dict[str, object]) -> str:
         f"Freshness: {freshness.get('status', 'unknown')}",
         f"Server: {server.get('status', 'unknown')}",
         f"Systemd units: {systemd.get('status', 'unknown')}",
+        f"Local article routes: {local_article_routes.get('status', 'unknown')}",
     ]
     message = access.get("message")
     if isinstance(message, str) and message:
