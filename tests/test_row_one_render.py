@@ -3129,6 +3129,14 @@ def _local_article_body_organizer_html(html: str) -> str:
     return _html_between(
         html,
         '<section class="local-article-body-organizer"',
+        '<section class="local-article-intelligence-brief"',
+    )
+
+
+def _local_article_intelligence_brief_html(html: str) -> str:
+    return _html_between(
+        html,
+        '<section class="local-article-intelligence-brief"',
         'id="local-article"',
     )
 
@@ -3990,6 +3998,218 @@ def test_render_row_one_site_local_article_body_organizer_does_not_leak_contract
             "local_article_body_organizer",
             "article_body_organizer",
             "body_organizer",
+        ):
+            for suffix in (".json", ".html"):
+                assert not (artifact_dir / f"{artifact_stem}{suffix}").exists()
+
+
+def test_render_local_article_page_includes_intelligence_brief_after_body_organizer() -> None:
+    article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "paragraphs": [
+                "The Row restraint signal appears in local saved body text.",
+                "The Margaux bag is the commercial anchor.",
+                "Alaia flats show up as a product signal.",
+            ],
+            "paragraphs_zh": [
+                "The Row 克制信号出现在本地保存正文中。",
+                "Margaux 包是商业锚点。",
+                "Alaia 平底鞋作为产品信号出现。",
+            ],
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="brand_signals",
+                    title=LocalizedText(en="Brand Signals", zh="品牌信号"),
+                    body=LocalizedText(en="Brand signal support.", zh="品牌信号支撑。"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="The Row", zh="The Row"),
+                            body=LocalizedText(en="The Row support.", zh="The Row 支撑。"),
+                            references=[
+                                RowOneReference(name="The Row", type="brand", label="brand"),
+                                RowOneReference(name="Margaux", type="accessory", label="product"),
+                            ],
+                            paragraph_indices=[0, 1],
+                        )
+                    ],
+                ),
+                RowOneLocalArticleContentSection(
+                    key="product_signals",
+                    title=LocalizedText(en="Product Signals", zh="产品信号"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="Alaia flats", zh="Alaia 平底鞋"),
+                            references=[
+                                RowOneReference(name="Alaia flats", type="shoe", label="product")
+                            ],
+                            paragraph_indices=[2],
+                        )
+                    ],
+                ),
+            ],
+        },
+    )
+
+    html = render_local_article_page_html(_edition(), _edition().stories[0], local_article=article)
+    section_html = _local_article_intelligence_brief_html(html)
+
+    assert "Local Article Intelligence Brief" in section_html
+    assert "本地文章情报摘要" in section_html
+    assert "It changes the read on quiet luxury." in section_html
+    assert "Brands" in section_html
+    assert "Products" in section_html
+    assert "Themes" in section_html
+    assert "The Row" in section_html
+    assert "Margaux" in section_html
+    assert "Alaia flats" in section_html
+    assert 'href="#local-article-paragraph-1"' in section_html
+    assert 'href="#local-article-paragraph-2"' in section_html
+    assert 'href="#local-article-paragraph-3"' in section_html
+    assert 'href="#local-article-content-section-1"' in section_html
+    assert 'href="#local-article-content-section-2"' in section_html
+    assert html.index('class="local-article-content-segment-deck"') < html.index(
+        'class="local-article-body-organizer"'
+    )
+    assert html.index('class="local-article-body-organizer"') < html.index(
+        'class="local-article-intelligence-brief"'
+    )
+    assert html.index('class="local-article-intelligence-brief"') < html.index('id="local-article"')
+
+
+def test_render_local_article_intelligence_brief_escapes_and_filters_links() -> None:
+    article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "source_name": "Source <script>",
+            "paragraphs": [
+                "Safe first paragraph with <script> marker.",
+                "",
+                "Safe third paragraph.",
+            ],
+            "paragraphs_zh": [
+                "安全第一段包含 <script> 标记。",
+                "",
+                "安全第三段。",
+            ],
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="entities",
+                    title=LocalizedText(en="People & <Brands>", zh="品牌与 <人物>"),
+                    body=LocalizedText(en="Escaped <section> body.", zh="转义的 <栏目> 正文。"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="The Row <signal>", zh="The Row <信号>"),
+                            body=LocalizedText(en="Item <body>.", zh="条目 <正文>。"),
+                            references=[
+                                RowOneReference(name="<script>", type="brand", label="<script>"),
+                                RowOneReference(name=" ", type="brand", label="brand"),
+                            ],
+                            paragraph_indices=[True, "0", -1, 0, 0, 1, 2, 99],  # type: ignore[list-item]
+                        )
+                    ],
+                )
+            ],
+        },
+    )
+
+    html = render_local_article_page_html(_edition(), _edition().stories[0], local_article=article)
+    section_html = _local_article_intelligence_brief_html(html)
+
+    assert "<script>" not in section_html
+    assert "&lt;script&gt;" in section_html
+    assert "People &amp; &lt;Brands&gt;" in section_html
+    assert "Safe first paragraph with" in section_html
+    assert 'href="#local-article-paragraph-1"' in section_html
+    assert 'href="#local-article-paragraph-3"' in section_html
+    assert 'href="#local-article-paragraph-0"' not in section_html
+    assert 'href="#local-article-paragraph-2"' not in section_html
+    assert 'href="#local-article-paragraph-100"' not in section_html
+    assert "javascript:" not in section_html
+    assert "../" not in section_html
+
+
+def test_render_row_one_site_writes_local_article_intelligence_brief_only_on_local_article_page(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    local_article_html = (tmp_path / "articles" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    section_html = _local_article_intelligence_brief_html(local_article_html)
+
+    assert 'class="local-article-intelligence-brief"' in section_html
+    assert "Local Article Intelligence Brief" in section_html
+    assert "本地文章情报摘要" in section_html
+    for outside_html in (homepage_html, library_html, detail_html):
+        assert 'class="local-article-intelligence-brief"' not in outside_html
+        assert "Local Article Intelligence Brief" not in outside_html
+        assert "本地文章情报摘要" not in outside_html
+
+
+def test_render_row_one_site_intelligence_brief_does_not_leak_contracts_or_artifacts(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    generated_contract_payload = json.dumps(
+        {
+            "edition": json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8")),
+            "manifest": json.loads(
+                (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8")
+            ),
+            "runtime": json.loads((tmp_path / "data" / "runtime.json").read_text(encoding="utf-8")),
+        },
+        sort_keys=True,
+    )
+
+    for forbidden in (
+        "local_article_intelligence_brief",
+        "article_intelligence_brief",
+        "intelligence_brief",
+        "RowOneLocalArticleIntelligenceBrief",
+        "Local Article Intelligence Brief",
+        "Article Intelligence Brief",
+        "本地文章情报摘要",
+        "local-article-intelligence-brief",
+        "article-intelligence-brief",
+        "intelligence-brief",
+    ):
+        assert forbidden not in generated_contract_payload
+
+    for artifact_dir in (
+        tmp_path,
+        tmp_path / "articles",
+        tmp_path / "data",
+        tmp_path / "data" / "articles",
+    ):
+        for artifact_stem in (
+            "local-article-intelligence-brief",
+            "article-intelligence-brief",
+            "intelligence-brief",
+            "local_article_intelligence_brief",
+            "article_intelligence_brief",
+            "intelligence_brief",
         ):
             for suffix in (".json", ".html"):
                 assert not (artifact_dir / f"{artifact_stem}{suffix}").exists()
@@ -15714,6 +15934,26 @@ def test_row_one_css_includes_local_article_body_organizer_styles() -> None:
         assert selector in css
     assert re.search(
         r"\.local-article-body-organizer-sections\s*\{[^}]*grid-template-columns:\s*1fr",
+        css,
+    )
+
+
+def test_row_one_css_includes_local_article_intelligence_brief_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".local-article-intelligence-brief",
+        ".local-article-intelligence-brief-header",
+        ".local-article-intelligence-brief-opening",
+        ".local-article-intelligence-brief-lanes",
+        ".local-article-intelligence-brief-lane",
+        ".local-article-intelligence-brief-chip",
+        ".local-article-intelligence-brief-evidence",
+        ".local-article-intelligence-brief-route",
+    ):
+        assert selector in css
+    assert re.search(
+        r"\.local-article-intelligence-brief-lanes\s*\{[^}]*grid-template-columns:\s*1fr",
         css,
     )
 

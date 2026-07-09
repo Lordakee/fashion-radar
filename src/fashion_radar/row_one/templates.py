@@ -19,6 +19,14 @@ from fashion_radar.row_one.detail_routes import (
     validated_row_one_detail_relative_path,
 )
 from fashion_radar.row_one.display import display_for_story, safe_story_image_src
+from fashion_radar.row_one.local_article_intelligence_brief import (
+    RowOneLocalArticleIntelligenceBrief,
+    RowOneLocalArticleIntelligenceChip,
+    RowOneLocalArticleIntelligenceEvidence,
+    RowOneLocalArticleIntelligenceLane,
+    RowOneLocalArticleIntelligenceRoute,
+    build_row_one_local_article_intelligence_brief,
+)
 from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneDailyLocalIntelligenceItem,
@@ -812,6 +820,12 @@ def render_local_article_page_html(
             local_article=local_article,
         )
     )
+    local_article_intelligence_brief = _render_local_article_intelligence_brief(
+        build_row_one_local_article_intelligence_brief(
+            story=story,
+            local_article=local_article,
+        )
+    )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -866,6 +880,7 @@ def render_local_article_page_html(
 {key_signals}
 {content_segment_deck}
 {local_article_body_organizer}
+{local_article_intelligence_brief}
     {local_article_section}
     </div>
   </article>
@@ -2337,6 +2352,97 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   font-weight: 500;
   letter-spacing: 0;
   line-height: 1;
+}
+.local-article-intelligence-brief {
+  border: 1px solid var(--ink);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+.local-article-intelligence-brief-header {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr);
+}
+.local-article-intelligence-brief-header h2,
+.local-article-intelligence-brief-header p,
+.local-article-intelligence-brief-opening,
+.local-article-intelligence-brief-lane h3,
+.local-article-intelligence-brief-lane p {
+  margin: 0;
+}
+.local-article-intelligence-brief-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.7rem, 4vw, 3.6rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.96;
+}
+.local-article-intelligence-brief-header p,
+.local-article-intelligence-brief-opening,
+.local-article-intelligence-brief-lane p,
+.local-article-intelligence-brief-evidence a > span,
+.local-article-intelligence-brief-route a > span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.local-article-intelligence-brief-opening {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.local-article-intelligence-brief-lanes {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.local-article-intelligence-brief-lane {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+.local-article-intelligence-brief-lane h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.25rem, 2.4vw, 2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+}
+.local-article-intelligence-brief-lane > div,
+.local-article-intelligence-brief-evidence,
+.local-article-intelligence-brief-route {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.local-article-intelligence-brief-chip,
+.local-article-intelligence-brief-evidence a,
+.local-article-intelligence-brief-route a {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.75rem;
+  padding: 7px 9px;
+  text-decoration: none;
+}
+.local-article-intelligence-brief-chip span,
+.local-article-intelligence-brief-evidence strong,
+.local-article-intelligence-brief-evidence a > span,
+.local-article-intelligence-brief-route strong,
+.local-article-intelligence-brief-route a > span {
+  display: block;
+}
+.local-article-intelligence-brief-chip span:last-child {
+  color: var(--muted);
+}
+.local-article-intelligence-brief-evidence a,
+.local-article-intelligence-brief-route a {
+  display: grid;
+  gap: 5px;
+  max-width: 320px;
+}
+.local-article-intelligence-brief-evidence strong,
+.local-article-intelligence-brief-route strong {
+  color: var(--accent);
 }
 .saved-article-local-reading-companion {
   border: 1px solid var(--ink);
@@ -6424,6 +6530,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .local-article-content-segment-deck-grid { grid-template-columns: 1fr; }
   .local-article-body-organizer-header { grid-template-columns: 1fr; }
   .local-article-body-organizer-sections { grid-template-columns: 1fr; }
+  .local-article-intelligence-brief-header { grid-template-columns: 1fr; }
+  .local-article-intelligence-brief-lanes { grid-template-columns: 1fr; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
   .saved-article-library-entry-header { grid-template-columns: 1fr; }
@@ -15393,6 +15501,176 @@ def _render_local_article_body_organizer_paragraph_chip(
 
 
 def _safe_local_article_body_organizer_href(href: object) -> str | None:
+    if not isinstance(href, str) or href != href.strip() or not href.startswith("#"):
+        return None
+    if any(character.isspace() for character in href):
+        return None
+    fragment = href[1:]
+    if _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is not None:
+        return href
+    if _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is not None:
+        return href
+    return None
+
+
+def _render_local_article_intelligence_brief(
+    brief: RowOneLocalArticleIntelligenceBrief | None,
+) -> str:
+    if brief is None or (
+        not brief.opening_signal.en
+        and not brief.opening_signal.zh
+        and not brief.lanes
+        and not brief.evidence
+        and not brief.routes
+    ):
+        return ""
+    lanes = "\n".join(
+        rendered
+        for lane in brief.lanes
+        if (rendered := _render_local_article_intelligence_lane(lane))
+    )
+    evidence = "\n".join(
+        rendered
+        for item in brief.evidence
+        if (rendered := _render_local_article_intelligence_evidence(item))
+    )
+    routes = "\n".join(
+        rendered
+        for route in brief.routes
+        if (rendered := _render_local_article_intelligence_route(route))
+    )
+    lane_block = (
+        f"""      <div class="local-article-intelligence-brief-lanes">
+{lanes}
+      </div>
+"""
+        if lanes
+        else ""
+    )
+    evidence_block = (
+        f"""      <div class="local-article-intelligence-brief-evidence"
+        aria-label="Paragraph evidence trail">
+{evidence}
+      </div>
+"""
+        if evidence
+        else ""
+    )
+    route_block = (
+        f"""      <div class="local-article-intelligence-brief-route"
+        aria-label="Local reader route">
+{routes}
+      </div>
+"""
+        if routes
+        else ""
+    )
+    opening = ""
+    if brief.opening_signal.en or brief.opening_signal.zh:
+        opening = f"""      <p class="local-article-intelligence-brief-opening">
+        <span data-lang="en">{_esc(brief.opening_signal.en or brief.opening_signal.zh)}</span>
+        <span data-lang="zh">{_esc(brief.opening_signal.zh or brief.opening_signal.en)}</span>
+      </p>
+"""
+    return f"""    <section class="local-article-intelligence-brief"
+      aria-labelledby="local-article-intelligence-brief-title">
+      <div class="local-article-intelligence-brief-header">
+        <h2 id="local-article-intelligence-brief-title">
+          <span data-lang="en">{_esc(brief.title.en)}</span>
+          <span data-lang="zh">{_esc(brief.title.zh)}</span>
+        </h2>
+        <p>
+          <span data-lang="en">
+            Entity lanes, paragraph evidence, and local reading routes from
+            {_esc(brief.source_name)}.
+          </span>
+          <span data-lang="zh">
+            来自 {_esc(brief.source_name)} 的实体分道、段落证据与本地阅读路径。
+          </span>
+        </p>
+      </div>
+{opening}{lane_block}{evidence_block}{route_block}    </section>"""
+
+
+def _render_local_article_intelligence_lane(
+    lane: RowOneLocalArticleIntelligenceLane,
+) -> str:
+    chips = "\n".join(
+        rendered
+        for chip in lane.chips
+        if (rendered := _render_local_article_intelligence_chip(chip))
+    )
+    if not chips:
+        return ""
+    total = _count_label(lane.total_count, "signal", "signals")
+    return f"""        <article class="local-article-intelligence-brief-lane">
+          <h3>
+            <span data-lang="en">{_esc(lane.title.en)}</span>
+            <span data-lang="zh">{_esc(lane.title.zh)}</span>
+          </h3>
+          <p>{_esc(total)}</p>
+          <div>
+{chips}
+          </div>
+        </article>"""
+
+
+def _render_local_article_intelligence_chip(
+    chip: RowOneLocalArticleIntelligenceChip,
+) -> str:
+    href = _safe_local_article_intelligence_href(chip.href)
+    meta = f" <span>{_esc(chip.meta)}</span>" if chip.meta else ""
+    label = (
+        f'<span data-lang="en">{_esc(chip.label.en or chip.label.zh)}</span>'
+        f'<span data-lang="zh">{_esc(chip.label.zh or chip.label.en)}</span>'
+        f"{meta}"
+    )
+    if href is None:
+        return f'            <span class="local-article-intelligence-brief-chip">{label}</span>'
+    return (
+        f'            <a class="local-article-intelligence-brief-chip" '
+        f'href="{_esc(href)}">{label}</a>'
+    )
+
+
+def _render_local_article_intelligence_evidence(
+    evidence: RowOneLocalArticleIntelligenceEvidence,
+) -> str:
+    href = _safe_local_article_intelligence_href(evidence.href)
+    if href is None:
+        return ""
+    return f"""        <a href="{_esc(href)}">
+          <strong>
+            <span data-lang="en">{_esc(evidence.label.en)}</span>
+            <span data-lang="zh">{_esc(evidence.label.zh)}</span>
+          </strong>
+          <span data-lang="en">{_esc(evidence.excerpt.en)}</span>
+          <span data-lang="zh">{_esc(evidence.excerpt.zh)}</span>
+        </a>"""
+
+
+def _render_local_article_intelligence_route(
+    route: RowOneLocalArticleIntelligenceRoute,
+) -> str:
+    href = _safe_local_article_intelligence_href(route.href)
+    if href is None:
+        return ""
+    support = ""
+    if route.support is not None and (route.support.en or route.support.zh):
+        support = (
+            f'<span data-lang="en">{_esc(route.support.en or route.support.zh)}</span>'
+            f'<span data-lang="zh">{_esc(route.support.zh or route.support.en)}</span>'
+        )
+    return f"""        <a href="{_esc(href)}">
+          <strong>
+            <span data-lang="en">{_esc(route.label.en or route.label.zh)}</span>
+            <span data-lang="zh">{_esc(route.label.zh or route.label.en)}</span>
+          </strong>
+          {support}
+        </a>"""
+
+
+def _safe_local_article_intelligence_href(href: object) -> str | None:
     if not isinstance(href, str) or href != href.strip() or not href.startswith("#"):
         return None
     if any(character.isspace() for character in href):
