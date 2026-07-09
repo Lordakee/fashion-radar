@@ -9,6 +9,9 @@ from typing import Literal
 
 from fashion_radar.row_one.articles import safe_local_article_story_id
 from fashion_radar.row_one.briefing_topics import briefing_topics_payload
+from fashion_radar.row_one.daily_local_article_intelligence_brief import (
+    build_row_one_daily_local_article_intelligence_brief,
+)
 from fashion_radar.row_one.daily_local_key_signals_digest import (
     build_row_one_daily_local_key_signals_digest,
 )
@@ -198,6 +201,11 @@ def render_row_one_site(
     local_article_page_hrefs_by_story_id = _local_article_page_hrefs_by_story_id(
         local_article_page_specs
     )
+    daily_local_article_intelligence_brief = build_row_one_daily_local_article_intelligence_brief(
+        edition,
+        local_articles_by_story_id,
+        local_article_page_hrefs_by_story_id,
+    )
     editorial_brief = _editorial_brief_payload(edition, local_articles_by_story_id)
     index_path = output_dir / "index.html"
     index_path.write_text(
@@ -230,6 +238,7 @@ def render_row_one_site(
             daily_local_theme_summary_strip_hrefs_by_detail_path=(
                 local_article_page_hrefs_by_detail_path
             ),
+            daily_local_article_intelligence_brief=daily_local_article_intelligence_brief,
             saved_article_content_organization=saved_article_content_organization,
             editorial_brief=editorial_brief,
             local_articles_by_story_id=local_articles_by_story_id,

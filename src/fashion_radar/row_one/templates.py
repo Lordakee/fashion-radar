@@ -9,6 +9,13 @@ from pathlib import PurePosixPath
 
 from fashion_radar.row_one.articles import safe_local_article_story_id
 from fashion_radar.row_one.body_source_labels import row_one_body_source_label
+from fashion_radar.row_one.daily_local_article_intelligence_brief import (
+    RowOneDailyLocalArticleIntelligenceBrief,
+    RowOneDailyLocalArticleIntelligenceBriefArticle,
+    RowOneDailyLocalArticleIntelligenceBriefLane,
+    RowOneDailyLocalArticleIntelligenceBriefLaneChip,
+    RowOneDailyLocalArticleIntelligenceBriefRoute,
+)
 from fashion_radar.row_one.daily_local_key_signals_digest import (
     RowOneDailyLocalKeySignalsDigest,
     RowOneDailyLocalKeySignalsDigestEntry,
@@ -431,6 +438,7 @@ def render_index_html(
     daily_local_source_desk_article_hrefs_by_story_id: Mapping[str, str] | None = None,
     daily_local_coverage_map_hrefs_by_detail_path: Mapping[str, str] | None = None,
     daily_local_theme_summary_strip_hrefs_by_detail_path: Mapping[str, str] | None = None,
+    daily_local_article_intelligence_brief: RowOneDailyLocalArticleIntelligenceBrief | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     editorial_brief: _EditorialBrief | None = None,
     local_articles_by_story_id: dict[str, RowOneLocalArticle] | None = None,
@@ -489,6 +497,9 @@ def render_index_html(
         saved_article_content_organization,
         local_articles_by_story_id=local_articles_by_story_id,
         hrefs_by_detail_path=daily_local_theme_summary_strip_hrefs_by_detail_path,
+    )
+    daily_local_article_intelligence_brief_section = _render_daily_local_article_intelligence_brief(
+        daily_local_article_intelligence_brief
     )
     saved_article_content_organization_section = _render_saved_article_content_organization(
         saved_article_content_organization
@@ -589,6 +600,7 @@ def render_index_html(
 {daily_local_source_desk_section}
 {daily_local_coverage_map_section}
 {daily_local_theme_summary_strip_section}
+{daily_local_article_intelligence_brief_section}
 {saved_article_content_organization_section}
 {editorial_brief_section}
 {lead_story_block}
@@ -4891,6 +4903,139 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   color: var(--accent) !important;
   width: fit-content;
 }
+.daily-local-article-intelligence-brief {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-local-article-intelligence-brief-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-local-article-intelligence-brief-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.1rem, 4.8vw, 5.5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.94;
+  margin: 0;
+}
+.daily-local-article-intelligence-brief-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.daily-local-article-intelligence-brief-metrics,
+.daily-local-article-intelligence-brief-card-meta,
+.daily-local-article-intelligence-brief-chips,
+.daily-local-article-intelligence-brief-routes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.daily-local-article-intelligence-brief-metrics {
+  margin: 0 0 14px;
+}
+.daily-local-article-intelligence-brief-metrics span,
+.daily-local-article-intelligence-brief-card-meta span,
+.daily-local-article-intelligence-brief-chip,
+.daily-local-article-intelligence-brief-chip span,
+.daily-local-article-intelligence-brief-lane-header span,
+.daily-local-article-intelligence-brief-route {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-article-intelligence-brief-summary {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0 0 16px;
+  max-width: 860px;
+}
+.daily-local-article-intelligence-brief-lanes {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 0 18px;
+}
+.daily-local-article-intelligence-brief-lane {
+  background: var(--panel);
+  display: grid;
+  gap: 12px;
+  min-height: 175px;
+  padding: 14px;
+}
+.daily-local-article-intelligence-brief-lane-header {
+  display: grid;
+  gap: 8px;
+}
+.daily-local-article-intelligence-brief-lane-header h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.25rem, 2vw, 2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.daily-local-article-intelligence-brief-chip {
+  color: var(--ink);
+  gap: 4px;
+}
+.daily-local-article-intelligence-brief-chip span:last-child {
+  color: var(--muted);
+}
+.daily-local-article-intelligence-brief-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.daily-local-article-intelligence-brief-card {
+  background: var(--panel);
+  display: grid;
+  gap: 12px;
+  min-height: 285px;
+  padding: 16px;
+}
+.daily-local-article-intelligence-brief-card-title {
+  color: var(--ink);
+  display: grid;
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.35rem, 2.25vw, 2.45rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.98;
+  text-decoration-color: var(--line);
+  text-underline-offset: 4px;
+}
+.daily-local-article-intelligence-brief-card p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.daily-local-article-intelligence-brief-route {
+  color: var(--accent);
+  text-decoration: none;
+}
+.daily-local-article-intelligence-brief-card-title:hover,
+.daily-local-article-intelligence-brief-card-title:focus-visible,
+.daily-local-article-intelligence-brief-route:hover,
+.daily-local-article-intelligence-brief-route:focus-visible {
+  opacity: 0.75;
+}
 .saved-article-content-organization {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -6526,6 +6671,9 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-coverage-map-grid { grid-template-columns: 1fr; }
   .daily-local-theme-summary-strip-header { grid-template-columns: 1fr; }
   .daily-local-theme-summary-strip-grid { grid-template-columns: 1fr; }
+  .daily-local-article-intelligence-brief-header { grid-template-columns: 1fr; }
+  .daily-local-article-intelligence-brief-lanes { grid-template-columns: 1fr; }
+  .daily-local-article-intelligence-brief-grid { grid-template-columns: 1fr; }
   .local-article-content-segment-deck-header { grid-template-columns: 1fr; }
   .local-article-content-segment-deck-grid { grid-template-columns: 1fr; }
   .local-article-body-organizer-header { grid-template-columns: 1fr; }
@@ -12525,6 +12673,205 @@ def _render_daily_local_theme_summary_strip_link(
           </a>
           <span class="daily-local-theme-summary-strip-source">{_esc(link.source_name)}</span>
         </article>"""
+
+
+def _render_daily_local_article_intelligence_brief(
+    brief: RowOneDailyLocalArticleIntelligenceBrief | None,
+) -> str:
+    if brief is None or not brief.articles:
+        return ""
+    rendered_articles = [
+        article_html
+        for article in brief.articles
+        if (article_html := _render_daily_local_article_intelligence_article(article))
+    ]
+    if not rendered_articles:
+        return ""
+    lanes = [
+        lane_html
+        for lane in brief.lanes
+        if (lane_html := _render_daily_local_article_intelligence_lane(lane))
+    ]
+    lanes_html = (
+        '<div class="daily-local-article-intelligence-brief-lanes">' + "".join(lanes) + "</div>"
+        if lanes
+        else ""
+    )
+    source_names = {
+        normalize_row_one_paragraph(article.source_name).casefold()
+        for article in brief.articles
+        if _safe_daily_local_article_intelligence_href(article.href) is not None
+        and normalize_row_one_paragraph(article.source_name)
+    }
+    article_count = len(rendered_articles)
+    source_count = len(source_names) or brief.source_count
+    summary_en = (
+        f"{_esc(_count_label(article_count, 'local article', 'local articles'))}, "
+        f"{_esc(_count_label(source_count, 'source', 'sources'))}, "
+        f"{_esc(_count_label(brief.signal_count, 'signal', 'signals'))}, and "
+        f"{_esc(_count_label(brief.evidence_count, 'evidence link', 'evidence links'))} "
+        "from today's saved local article briefs."
+    )
+    summary_zh = (
+        f"{_esc(str(article_count))} 篇本地文章，{_esc(str(source_count))} 个来源，"
+        f"{_esc(str(brief.signal_count))} 个信号，"
+        f"{_esc(str(brief.evidence_count))} 条证据链接。"
+    )
+    return f"""<section class="daily-local-article-intelligence-brief"
+  aria-label="Daily local article intelligence brief">
+  <div class="daily-local-article-intelligence-brief-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">{_esc(brief.title.en)}</span>
+        <span data-lang="zh">{_esc(brief.title.zh)}</span>
+      </p>
+      <h2>
+        <span data-lang="en">The edited read from today's saved local articles</span>
+        <span data-lang="zh">从今日保存本地文章提炼编辑阅读线索</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">{_esc(brief.opening_signal.en)}</span>
+      <span data-lang="zh">{_esc(brief.opening_signal.zh)}</span>
+    </p>
+  </div>
+  <div class="daily-local-article-intelligence-brief-metrics">
+    <span>{_esc(_count_label(article_count, "local article", "local articles"))}</span>
+    <span>{_esc(_count_label(source_count, "source", "sources"))}</span>
+    <span>{_esc(_count_label(brief.signal_count, "signal", "signals"))}</span>
+    <span>{_esc(_count_label(brief.evidence_count, "evidence link", "evidence links"))}</span>
+    <span data-lang="en">Homepage only</span>
+    <span data-lang="zh">仅首页展示</span>
+  </div>
+  <p class="daily-local-article-intelligence-brief-summary">
+    <span data-lang="en">{summary_en}</span>
+    <span data-lang="zh">{summary_zh}</span>
+  </p>
+  {lanes_html}
+  <div class="daily-local-article-intelligence-brief-grid">
+{"".join(rendered_articles)}
+  </div>
+</section>"""
+
+
+def _render_daily_local_article_intelligence_lane(
+    lane: RowOneDailyLocalArticleIntelligenceBriefLane,
+) -> str:
+    chips = [
+        chip_html
+        for chip in lane.chips
+        if (chip_html := _render_daily_local_article_intelligence_chip(chip))
+    ]
+    if not chips:
+        return ""
+    return f"""    <article class="daily-local-article-intelligence-brief-lane">
+      <div class="daily-local-article-intelligence-brief-lane-header">
+        <h3>
+          <span data-lang="en">{_esc(lane.title.en)}</span>
+          <span data-lang="zh">{_esc(lane.title.zh)}</span>
+        </h3>
+        <span>{_esc(_count_label(lane.total_count, "signal", "signals"))}</span>
+      </div>
+      <div class="daily-local-article-intelligence-brief-chips">{"".join(chips)}</div>
+    </article>"""
+
+
+def _render_daily_local_article_intelligence_chip(
+    chip: RowOneDailyLocalArticleIntelligenceBriefLaneChip,
+) -> str:
+    label_en = normalize_row_one_paragraph(chip.label.en)
+    label_zh = normalize_row_one_paragraph(chip.label.zh)
+    if not label_en and not label_zh:
+        return ""
+    return f"""<span class="daily-local-article-intelligence-brief-chip">
+        <span data-lang="en">{_esc(label_en or label_zh)}</span>
+        <span data-lang="zh">{_esc(label_zh or label_en)}</span>
+        <span>{_esc(_count_label(chip.support_count, "article", "articles"))}</span>
+      </span>"""
+
+
+def _render_daily_local_article_intelligence_article(
+    article: RowOneDailyLocalArticleIntelligenceBriefArticle,
+) -> str:
+    href = _safe_daily_local_article_intelligence_href(article.href)
+    if href is None:
+        return ""
+    routes = [
+        route_html
+        for route in article.routes
+        if (route_html := _render_daily_local_article_intelligence_route(route))
+    ]
+    if not routes:
+        return ""
+    title_en = normalize_row_one_paragraph(article.title.en)
+    title_zh = normalize_row_one_paragraph(article.title.zh)
+    source_name = normalize_row_one_paragraph(article.source_name)
+    opening_en = normalize_row_one_paragraph(article.opening_signal.en)
+    opening_zh = normalize_row_one_paragraph(article.opening_signal.zh)
+    return f"""    <article class="daily-local-article-intelligence-brief-card">
+      <a class="daily-local-article-intelligence-brief-card-title" href="{_esc(href)}">
+        <span data-lang="en">{_esc(title_en or title_zh)}</span>
+        <span data-lang="zh">{_esc(title_zh or title_en)}</span>
+      </a>
+      <div class="daily-local-article-intelligence-brief-card-meta">
+        <span>{_esc(source_name)}</span>
+        <span>{_esc(_count_label(article.evidence_count, "evidence link", "evidence links"))}</span>
+      </div>
+      <p>
+        <span data-lang="en">{_esc(opening_en or opening_zh)}</span>
+        <span data-lang="zh">{_esc(opening_zh or opening_en)}</span>
+      </p>
+      <div class="daily-local-article-intelligence-brief-routes">
+{"".join(routes)}
+      </div>
+    </article>"""
+
+
+def _render_daily_local_article_intelligence_route(
+    route: RowOneDailyLocalArticleIntelligenceBriefRoute,
+) -> str:
+    href = _safe_daily_local_article_intelligence_href(route.href)
+    if href is None:
+        return ""
+    label_en = normalize_row_one_paragraph(route.label.en)
+    label_zh = normalize_row_one_paragraph(route.label.zh)
+    if not label_en and not label_zh:
+        return ""
+    return f"""        <a class="daily-local-article-intelligence-brief-route" href="{_esc(href)}">
+          <span data-lang="en">{_esc(label_en or label_zh)}</span>
+          <span data-lang="zh">{_esc(label_zh or label_en)}</span>
+        </a>"""
+
+
+def _safe_daily_local_article_intelligence_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if "://" in href or href.startswith((".", "/", "//")) or "//" in href:
+        return None
+    path, separator, fragment = href.partition("#")
+    if not separator:
+        return None
+    route_path = PurePosixPath(path)
+    if (
+        route_path.is_absolute()
+        or len(route_path.parts) != 2
+        or route_path.parts[0] != "articles"
+        or route_path.name in ("", ".", "..")
+        or ".." in route_path.parts
+        or not route_path.name.endswith(".html")
+    ):
+        return None
+    story_id = route_path.name.removesuffix(".html")
+    if not safe_local_article_story_id(story_id):
+        return None
+    if (
+        _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is None
+        and _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is None
+    ):
+        return None
+    return f"articles/{story_id}.html#{fragment}"
 
 
 def _localized_payload_text(value: object) -> LocalizedText:

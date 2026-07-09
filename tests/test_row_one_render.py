@@ -11,6 +11,13 @@ import pytest
 from pydantic import ValidationError
 
 import fashion_radar.row_one.render as row_one_render
+from fashion_radar.row_one.daily_local_article_intelligence_brief import (
+    RowOneDailyLocalArticleIntelligenceBrief,
+    RowOneDailyLocalArticleIntelligenceBriefArticle,
+    RowOneDailyLocalArticleIntelligenceBriefLane,
+    RowOneDailyLocalArticleIntelligenceBriefLaneChip,
+    RowOneDailyLocalArticleIntelligenceBriefRoute,
+)
 from fashion_radar.row_one.daily_local_key_signals_digest import (
     RowOneDailyLocalKeySignalsDigest,
     RowOneDailyLocalKeySignalsDigestEntry,
@@ -4156,7 +4163,7 @@ def test_render_row_one_site_writes_local_article_intelligence_brief_only_on_loc
     assert "本地文章情报摘要" in section_html
     for outside_html in (homepage_html, library_html, detail_html):
         assert 'class="local-article-intelligence-brief"' not in outside_html
-        assert "Local Article Intelligence Brief" not in outside_html
+        assert '<span data-lang="en">Local Article Intelligence Brief</span>' not in outside_html
         assert "本地文章情报摘要" not in outside_html
 
 
@@ -8560,6 +8567,18 @@ def _daily_local_coverage_map_section_html(index_html: str) -> str:
 
 def _daily_local_theme_summary_strip_section_html(index_html: str) -> str:
     marker = '<section class="daily-local-theme-summary-strip"'
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is None:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + next_section.start()
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _daily_local_article_intelligence_brief_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-article-intelligence-brief"'
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
     next_section = re.search(r"\n\s*<section class=", tail)
@@ -14210,6 +14229,238 @@ def _coverage_map_card(
     )
 
 
+def _daily_local_article_intelligence_brief_fixture(
+    *,
+    source_name: str = "Vogue Business",
+) -> RowOneDailyLocalArticleIntelligenceBrief:
+    story_id = "the-row-signal-1234567890"
+    return RowOneDailyLocalArticleIntelligenceBrief(
+        title=LocalizedText(
+            en="Daily Local Article Intelligence Brief",
+            zh="每日文章情报摘要",
+        ),
+        opening_signal=LocalizedText(
+            en="The Row opens the saved local read.",
+            zh="The Row 打开今日本地阅读。",
+        ),
+        article_count=1,
+        source_count=1,
+        signal_count=4,
+        evidence_count=2,
+        lanes=(
+            RowOneDailyLocalArticleIntelligenceBriefLane(
+                key="brands",
+                title=LocalizedText(en="Brands", zh="品牌"),
+                total_count=2,
+                chips=(
+                    RowOneDailyLocalArticleIntelligenceBriefLaneChip(
+                        label=LocalizedText(en="The Row", zh="The Row"),
+                        support_count=2,
+                    ),
+                    RowOneDailyLocalArticleIntelligenceBriefLaneChip(
+                        label=LocalizedText(en="Khaite", zh="Khaite"),
+                        support_count=1,
+                    ),
+                ),
+            ),
+            RowOneDailyLocalArticleIntelligenceBriefLane(
+                key="products",
+                title=LocalizedText(en="Products", zh="单品"),
+                total_count=2,
+                chips=(
+                    RowOneDailyLocalArticleIntelligenceBriefLaneChip(
+                        label=LocalizedText(en="Margaux bag", zh="Margaux 包"),
+                        support_count=1,
+                    ),
+                    RowOneDailyLocalArticleIntelligenceBriefLaneChip(
+                        label=LocalizedText(en="Alaia flats", zh="Alaia 平底鞋"),
+                        support_count=1,
+                    ),
+                ),
+            ),
+        ),
+        articles=(
+            RowOneDailyLocalArticleIntelligenceBriefArticle(
+                title=LocalizedText(
+                    en='The Row <signals> "quiet" demand',
+                    zh='The Row <signals> "quiet" demand',
+                ),
+                source_name=source_name,
+                opening_signal=LocalizedText(
+                    en="It changes the read on quiet luxury.",
+                    zh="这改变了静奢解读。",
+                ),
+                href=f"articles/{story_id}.html#local-article-content-section-1",
+                evidence_count=2,
+                routes=(
+                    RowOneDailyLocalArticleIntelligenceBriefRoute(
+                        label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                        href=f"articles/{story_id}.html#local-article-content-section-1",
+                    ),
+                    RowOneDailyLocalArticleIntelligenceBriefRoute(
+                        label=LocalizedText(en="Paragraph 1", zh="第 1 段"),
+                        href=f"articles/{story_id}.html#local-article-paragraph-1",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
+def test_render_index_html_includes_daily_local_article_intelligence_brief() -> None:
+    story = _edition().stories[0]
+    local_article = _signal_briefing_local_article()
+    organization = build_row_one_saved_article_content_organization(
+        _edition(),
+        {story.id: local_article},
+    )
+
+    html = render_index_html(
+        _edition(),
+        saved_article_content_organization=organization,
+        local_articles_by_story_id={story.id: local_article},
+        daily_local_theme_summary_strip_hrefs_by_detail_path={
+            story.detail_path: f"{story.id}.html"
+        },
+        daily_local_article_intelligence_brief=(_daily_local_article_intelligence_brief_fixture()),
+    )
+    section_html = _daily_local_article_intelligence_brief_section_html(html)
+
+    assert "Daily Local Article Intelligence Brief" in section_html
+    assert "每日文章情报摘要" in section_html
+    assert "The Row opens the saved local read." in section_html
+    assert "1 local article" in section_html
+    assert "1 source" in section_html
+    assert "4 signals" in section_html
+    assert "2 evidence links" in section_html
+    assert "Brands" in section_html
+    assert "Products" in section_html
+    assert "The Row" in section_html
+    assert "Margaux bag" in section_html
+    assert "Vogue Business" in section_html
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-content-section-1"' in (
+        section_html
+    )
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-paragraph-1"' in (
+        section_html
+    )
+    assert html.index('class="daily-local-theme-summary-strip"') < html.index(
+        'class="daily-local-article-intelligence-brief"'
+    )
+    assert html.index('class="daily-local-article-intelligence-brief"') < html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
+def test_render_daily_local_article_intelligence_brief_escapes_and_filters_links() -> None:
+    story_id = "the-row-signal-1234567890"
+    brief = _daily_local_article_intelligence_brief_fixture(source_name="Vogue <Business>")
+    unsafe_article = RowOneDailyLocalArticleIntelligenceBriefArticle(
+        title=LocalizedText(en="<script>Bad</script>", zh="<script>坏</script>"),
+        source_name="Vogue <Business>",
+        opening_signal=LocalizedText(en="Unsafe <script> body.", zh="不安全 <script> 正文。"),
+        href=f"articles/{story_id}.html#local-article-paragraph-1",
+        evidence_count=1,
+        routes=(
+            RowOneDailyLocalArticleIntelligenceBriefRoute(
+                label=LocalizedText(en="Safe route", zh="安全路径"),
+                href=f"articles/{story_id}.html#local-article-paragraph-1",
+            ),
+            RowOneDailyLocalArticleIntelligenceBriefRoute(
+                label=LocalizedText(en="Bad zero", zh="错误零"),
+                href=f"articles/{story_id}.html#local-article-paragraph-0",
+            ),
+            RowOneDailyLocalArticleIntelligenceBriefRoute(
+                label=LocalizedText(en="Bad external", zh="错误外链"),
+                href="https://example.com/story#local-article-paragraph-1",
+            ),
+            RowOneDailyLocalArticleIntelligenceBriefRoute(
+                label=LocalizedText(en="Bad traversal", zh="错误穿越"),
+                href=f"../articles/{story_id}.html#local-article-paragraph-1",
+            ),
+        ),
+    )
+    brief = replace(
+        brief,
+        articles=(unsafe_article,),
+        lanes=(
+            RowOneDailyLocalArticleIntelligenceBriefLane(
+                key="brands",
+                title=LocalizedText(en="Brands", zh="品牌"),
+                total_count=1,
+                chips=(
+                    RowOneDailyLocalArticleIntelligenceBriefLaneChip(
+                        label=LocalizedText(en="<script>", zh="<script>"),
+                        support_count=1,
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    html = render_index_html(_edition(), daily_local_article_intelligence_brief=brief)
+    section_html = _daily_local_article_intelligence_brief_section_html(html)
+
+    assert "<script>" not in section_html
+    assert "&lt;script&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-paragraph-1"' in (
+        section_html
+    )
+    assert "#local-article-paragraph-0" not in section_html
+    assert "https://example.com" not in section_html
+    assert "../" not in section_html
+
+
+def test_render_row_one_site_writes_daily_local_article_intelligence_brief_homepage_only(
+    tmp_path,
+) -> None:
+    story = _edition().stories[0]
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / f"{story.id}.html").read_text(encoding="utf-8")
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+    section_html = _daily_local_article_intelligence_brief_section_html(homepage_html)
+
+    assert "Daily Local Article Intelligence Brief" in section_html
+    assert "每日文章情报摘要" in section_html
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert 'class="daily-local-article-intelligence-brief"' not in library_html
+    assert 'class="daily-local-article-intelligence-brief"' not in article_html
+    assert 'class="daily-local-article-intelligence-brief"' not in detail_html
+    assert "daily_local_article_intelligence_brief" not in generated_contract_payload
+    assert "daily-local-article-intelligence-brief" not in generated_contract_payload
+    assert "Daily Local Article Intelligence Brief" not in generated_contract_payload
+    for stem in (
+        "daily-local-article-intelligence-brief",
+        "local-article-intelligence-brief",
+        "article-intelligence-brief",
+        "daily_local_article_intelligence_brief",
+        "local_article_intelligence_brief",
+        "article_intelligence_brief",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
 def test_render_index_html_includes_daily_local_coverage_map() -> None:
     story_source_pairs = [
         ("source-map-vogue-1111111111", "Coverage map <script>", "Vogue <Business>"),
@@ -16123,6 +16374,33 @@ def test_row_one_css_includes_daily_local_theme_summary_strip_styles() -> None:
     assert "@media (max-width: 760px)" in css
     assert re.search(
         r"\.daily-local-theme-summary-strip-grid\s*\{[^}]*grid-template-columns:\s*1fr",
+        css,
+    )
+
+
+def test_row_one_css_includes_daily_local_article_intelligence_brief_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-article-intelligence-brief",
+        ".daily-local-article-intelligence-brief-header",
+        ".daily-local-article-intelligence-brief-metrics",
+        ".daily-local-article-intelligence-brief-summary",
+        ".daily-local-article-intelligence-brief-lanes",
+        ".daily-local-article-intelligence-brief-lane",
+        ".daily-local-article-intelligence-brief-lane-header",
+        ".daily-local-article-intelligence-brief-chip",
+        ".daily-local-article-intelligence-brief-grid",
+        ".daily-local-article-intelligence-brief-card",
+        ".daily-local-article-intelligence-brief-card-title",
+        ".daily-local-article-intelligence-brief-card-meta",
+        ".daily-local-article-intelligence-brief-routes",
+        ".daily-local-article-intelligence-brief-route",
+    ):
+        assert selector in css
+    assert "@media (max-width: 760px)" in css
+    assert re.search(
+        r"\.daily-local-article-intelligence-brief-grid\s*\{[^}]*grid-template-columns:\s*1fr",
         css,
     )
 

@@ -664,13 +664,18 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "local-article-body-organizer" not in generated_contract_payload
     assert "article-body-organizer" not in generated_contract_payload
     assert "body-organizer" not in generated_contract_payload
+    assert "daily_local_article_intelligence_brief" not in generated_contract_payload
     assert "local_article_intelligence_brief" not in generated_contract_payload
     assert "article_intelligence_brief" not in generated_contract_payload
     assert "intelligence_brief" not in generated_contract_payload
+    assert "RowOneDailyLocalArticleIntelligenceBrief" not in generated_contract_payload
     assert "RowOneLocalArticleIntelligenceBrief" not in generated_contract_payload
+    assert "Daily Local Article Intelligence Brief" not in generated_contract_payload
     assert "Local Article Intelligence Brief" not in generated_contract_payload
     assert "Article Intelligence Brief" not in generated_contract_payload
+    assert "每日文章情报摘要" not in generated_contract_payload
     assert "本地文章情报摘要" not in generated_contract_payload
+    assert "daily-local-article-intelligence-brief" not in generated_contract_payload
     assert "local-article-intelligence-brief" not in generated_contract_payload
     assert "article-intelligence-brief" not in generated_contract_payload
     assert "intelligence-brief" not in generated_contract_payload
@@ -1206,8 +1211,10 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "local_article_body_organizer",
         "article_body_organizer",
         "body_organizer",
+        "daily-local-article-intelligence-brief",
         "local-article-intelligence-brief",
         "article-intelligence-brief",
+        "daily_local_article_intelligence_brief",
         "intelligence-brief",
         "local_article_intelligence_brief",
         "article_intelligence_brief",
@@ -1377,6 +1384,21 @@ def test_stage_369_local_article_intelligence_brief_stays_generated_site_only(
     monkeypatch.setattr(
         row_one_templates,
         "_render_local_article_intelligence_brief",
+        lambda _brief: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_370_daily_local_article_intelligence_brief_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_daily_local_article_intelligence_brief",
         lambda _brief: "",
         raising=False,
     )

@@ -2251,6 +2251,97 @@ def test_row_one_docs_describe_stage_366_local_article_body_filing_cues_boundary
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_370_daily_local_article_intelligence_brief_boundary() -> None:
+    expected = (
+        "Stage 370 adds generated-site only Daily Local Article Intelligence Brief "
+        "inside `index.html` between the Daily Local Theme Summary Strip and Saved "
+        "Article Content Organization; it reuses current-edition stories, "
+        "current-edition saved local article sidecars, Stage 369 local article "
+        "intelligence briefs, generated local article page routes, existing saved "
+        "local paragraphs, existing local article brief sections, existing local "
+        "article content sections, existing item references, existing item-level "
+        "paragraph indices, existing content-section anchors, and existing paragraph "
+        "anchors to summarize today's saved articles into a homepage opening read, "
+        "entity lanes, article cards, and same-site reader routes without changing "
+        "app-facing contracts; it does not create "
+        "`data/daily-local-article-intelligence-brief.json`, does not create "
+        "`data/local-article-intelligence-brief.json`, does not create "
+        "`data/article-intelligence-brief.json`, does not create "
+        "`daily-local-article-intelligence-brief.html`, does not create "
+        "`local-article-intelligence-brief.html`, does not create "
+        "`article-intelligence-brief.html`, does not create new article-source "
+        "sidecars, does not create new route families, does not alter "
+        "`articles/index.html`, `articles/<story-id>.html`, or detail pages, does "
+        "not publish full articles on the homepage, does not add outbound article "
+        "URLs as primary navigation, and does not change row-one-app/v7, "
+        "row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, source "
+        "collection, fetching, matching, extraction, scoring, ranking, LLM, "
+        "connector, scheduling, deployment, market grouping, domestic/international "
+        "classification, analytics, personalization, recommendation, or "
+        "compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        text = _read(path)
+        assert expected in text
+        stage_370_pos = text.index(
+            "Stage 370 adds generated-site only Daily Local Article Intelligence Brief"
+        )
+        stage_369_pos = text.index(
+            "Stage 369 adds generated-site only Local Article Intelligence Brief"
+        )
+        assert stage_370_pos < stage_369_pos
+        stage = _normalized(text[stage_370_pos:stage_369_pos])
+        for stale_phrase in (
+            "creates data/daily-local-article-intelligence-brief.json",
+            "writes data/daily-local-article-intelligence-brief.json",
+            "creates data/local-article-intelligence-brief.json",
+            "writes data/local-article-intelligence-brief.json",
+            "creates data/article-intelligence-brief.json",
+            "writes data/article-intelligence-brief.json",
+            "creates daily-local-article-intelligence-brief.html",
+            "writes daily-local-article-intelligence-brief.html",
+            "creates local-article-intelligence-brief.html",
+            "writes local-article-intelligence-brief.html",
+            "creates article-intelligence-brief.html",
+            "writes article-intelligence-brief.html",
+            "creates `data/daily-local-article-intelligence-brief.json`",
+            "writes `data/daily-local-article-intelligence-brief.json`",
+            "creates `data/local-article-intelligence-brief.json`",
+            "writes `data/local-article-intelligence-brief.json`",
+            "creates `data/article-intelligence-brief.json`",
+            "writes `data/article-intelligence-brief.json`",
+            "writes a new json artifact",
+            "creates new article-source sidecars",
+            "creates new route families",
+            "adds new routes",
+            "adds routes",
+            "changes routes",
+            "alters articles/index.html",
+            "alters articles/<story-id>.html",
+            "alters detail pages",
+            "publishes full articles on the homepage",
+            "adds outbound article urls as primary navigation",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+            "adds compliance-review",
+            "adds compliance-review behavior",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_369_local_article_intelligence_brief_boundary() -> None:
     expected = _normalized(
         "Stage 369 adds generated-site only Local Article Intelligence Brief "
