@@ -5,6 +5,7 @@ import re
 from dataclasses import replace
 from datetime import UTC, datetime
 from html import escape
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -4303,6 +4304,95 @@ def test_render_row_one_site_writes_daily_local_source_desk_homepage_only(
             assert not (directory / f"{stem}.html").exists()
 
 
+def test_render_row_one_site_writes_daily_local_coverage_map_homepage_only(
+    tmp_path,
+) -> None:
+    base_story = _edition().stories[0]
+    stories = [
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "site-coverage-map-vogue-1111111111",
+                "headline": "Site coverage map Vogue",
+                "detail_path": "details/site-coverage-map-vogue-1111111111.html",
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "site-coverage-map-wwd-2222222222",
+                "headline": "Site coverage map WWD",
+                "detail_path": "details/site-coverage-map-wwd-2222222222.html",
+            },
+        ),
+    ]
+    local_articles_by_story_id = {
+        stories[0].id: _signal_briefing_local_article().model_copy(
+            deep=True,
+            update={
+                "story_id": stories[0].id,
+                "title": "Vogue coverage map article",
+                "source_name": "Vogue Business",
+                "paragraphs": ["Vogue coverage map paragraph."],
+                "paragraphs_zh": ["Vogue 覆盖地图段落。"],
+            },
+        ),
+        stories[1].id: _signal_briefing_local_article().model_copy(
+            deep=True,
+            update={
+                "story_id": stories[1].id,
+                "title": "WWD coverage map article",
+                "source_name": "WWD",
+                "paragraphs": ["WWD coverage map paragraph."],
+                "paragraphs_zh": ["WWD 覆盖地图段落。"],
+            },
+        ),
+    }
+
+    render_row_one_site(
+        _edition_with_stories(*stories),
+        tmp_path,
+        local_articles_by_story_id=local_articles_by_story_id,
+    )
+
+    article_html = (tmp_path / "articles" / f"{stories[0].id}.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / f"{stories[0].id}.html").read_text(encoding="utf-8")
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+    section_html = _daily_local_coverage_map_section_html(homepage_html)
+
+    assert "Daily Local Coverage Map" in section_html
+    assert 'class="daily-local-coverage-map"' in section_html
+    assert (
+        'href="articles/site-coverage-map-vogue-1111111111.html'
+        '#local-article-content-section-1"' in section_html
+    )
+    assert 'class="daily-local-coverage-map"' not in library_html
+    assert 'class="daily-local-coverage-map"' not in article_html
+    assert 'class="daily-local-coverage-map"' not in detail_html
+    assert "daily_local_coverage_map" not in generated_contract_payload
+    assert "daily-local-coverage-map" not in generated_contract_payload
+    assert "Daily Local Coverage Map" not in generated_contract_payload
+    for stem in (
+        "daily-local-coverage-map",
+        "local-coverage-map",
+        "coverage-map",
+        "daily_local_coverage_map",
+        "local_coverage_map",
+        "coverage_map",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
 def test_write_local_article_pages_rejects_orphaned_href_mapping(tmp_path) -> None:
     story = _edition().stories[0]
 
@@ -7247,6 +7337,18 @@ def _daily_local_article_reading_brief_section_html(index_html: str) -> str:
 
 def _daily_local_source_desk_section_html(index_html: str) -> str:
     marker = '<section class="daily-local-source-desk"'
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is None:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + next_section.start()
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _daily_local_coverage_map_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-coverage-map"'
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
     next_section = re.search(r"\n\s*<section class=", tail)
@@ -12812,6 +12914,584 @@ def test_render_index_html_places_daily_local_source_desk_before_saved_organizat
     )
 
 
+def _coverage_map_story(story_id: str, headline: str, source_name: str) -> RowOneStory:
+    return (
+        _edition()
+        .stories[0]
+        .model_copy(
+            deep=True,
+            update={
+                "id": story_id,
+                "headline": headline,
+                "detail_path": f"details/{story_id}.html",
+                "source_name": source_name,
+            },
+        )
+    )
+
+
+def _coverage_map_article(
+    story: RowOneStory,
+    source_name: str,
+    *,
+    paragraph_count: int = 2,
+) -> RowOneLocalArticle:
+    return _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "story_id": story.id,
+            "title": f"{story.headline} local article",
+            "source_name": source_name,
+            "paragraphs": [
+                f"{story.headline} saved coverage paragraph {index + 1}."
+                for index in range(paragraph_count)
+            ],
+            "paragraphs_zh": [
+                f"{story.headline} 本地覆盖段落 {index + 1}。" for index in range(paragraph_count)
+            ],
+        },
+    )
+
+
+def _coverage_map_card(
+    story: RowOneStory,
+    *,
+    source_name: str,
+    group_title: LocalizedText,
+    section_label: LocalizedText,
+    detail_path: str | None = None,
+    fragment: str = "local-article-content-section-1",
+    paragraph_indices: tuple[int, ...] = (0,),
+    references: tuple[RowOneReference, ...] = (),
+) -> RowOneSavedArticleContentOrganizationCard:
+    return RowOneSavedArticleContentOrganizationCard(
+        title=LocalizedText(en=f"{story.headline} card", zh=f"{story.headline} 卡片"),
+        source_name=source_name,
+        section_title=group_title,
+        section_label=section_label,
+        lead=LocalizedText(en=f"{story.headline} lead", zh=f"{story.headline} 摘要"),
+        detail_path=detail_path
+        if detail_path is not None
+        else f"{story.detail_path}#{fragment}"
+        if fragment
+        else story.detail_path,
+        paragraph_indices=paragraph_indices,
+        references=references,
+    )
+
+
+def test_render_index_html_includes_daily_local_coverage_map() -> None:
+    story_source_pairs = [
+        ("source-map-vogue-1111111111", "Coverage map <script>", "Vogue <Business>"),
+        ("source-map-vogue-2222222222", "Coverage map fallback", "Vogue <Business>"),
+        ("source-map-vogue-3333333333", "Coverage map third", "Vogue <Business>"),
+        ("source-map-wwd-4444444444", "Coverage map WWD", "WWD"),
+        ("source-map-wwd-lower-5555555555", "Coverage map wwd", "wwd"),
+        ("source-map-bof-6666666666", "Coverage map BoF", "Business of Fashion"),
+        ("source-map-cut-7777777777", "Coverage map Cut", "The Cut"),
+        ("source-map-overflow-8888888888", "Coverage map Overflow", "Zzz Overflow Source"),
+    ]
+    stories = [
+        _coverage_map_story(story_id, headline, source_name)
+        for story_id, headline, source_name in story_source_pairs
+    ]
+    local_articles_by_story_id = {
+        story.id: _coverage_map_article(story, source_name)
+        for story, (_story_id, _headline, source_name) in zip(
+            stories, story_source_pairs, strict=True
+        )
+    }
+    read_first = LocalizedText(en="Read First", zh="优先阅读")
+    people_brands = LocalizedText(en="People & Brands", zh="品牌与人物")
+    products = LocalizedText(en="Products", zh="单品")
+    source_structure = LocalizedText(en="Source Structure", zh="来源结构")
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="takeaways",
+                title=read_first,
+                dek=LocalizedText(en="Top saved-local coverage.", zh="本地保存重点。"),
+                cards=[
+                    _coverage_map_card(
+                        stories[0],
+                        source_name="Vogue <Business>",
+                        group_title=read_first,
+                        section_label=LocalizedText(en="Lead <script>", zh="主线"),
+                        references=(
+                            RowOneReference(name="The Row", type="brand", label="brand"),
+                            RowOneReference(name="Brand <script>", type="brand", label="brand"),
+                        ),
+                    ),
+                    _coverage_map_card(
+                        stories[3],
+                        source_name="WWD",
+                        group_title=read_first,
+                        section_label=LocalizedText(en="Lead", zh="主线"),
+                        references=(RowOneReference(name="The Row", type="brand", label="brand"),),
+                    ),
+                    _coverage_map_card(
+                        stories[5],
+                        source_name="Business of Fashion",
+                        group_title=read_first,
+                        section_label=LocalizedText(en="Lead", zh="主线"),
+                    ),
+                    _coverage_map_card(
+                        stories[6],
+                        source_name="The Cut",
+                        group_title=read_first,
+                        section_label=LocalizedText(en="Lead", zh="主线"),
+                    ),
+                    _coverage_map_card(
+                        stories[7],
+                        source_name="Zzz Overflow Source",
+                        group_title=read_first,
+                        section_label=LocalizedText(en="Lead", zh="主线"),
+                    ),
+                ],
+            ),
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=people_brands,
+                dek=LocalizedText(en="Brand coverage.", zh="品牌覆盖。"),
+                cards=[
+                    _coverage_map_card(
+                        stories[1],
+                        source_name="Vogue <Business>",
+                        group_title=people_brands,
+                        section_label=LocalizedText(en="Brands", zh="品牌"),
+                        fragment="",
+                        paragraph_indices=(1,),
+                        references=(
+                            RowOneReference(name="The Row", type="brand", label="brand"),
+                            RowOneReference(
+                                name="Mary-Kate Olsen",
+                                type="designer",
+                                label="designer",
+                            ),
+                        ),
+                    ),
+                    _coverage_map_card(
+                        stories[4],
+                        source_name="wwd",
+                        group_title=people_brands,
+                        section_label=LocalizedText(en="Brands", zh="品牌"),
+                    ),
+                ],
+            ),
+            RowOneSavedArticleContentOrganizationGroup(
+                key="product_signals",
+                title=products,
+                dek=LocalizedText(en="Product coverage.", zh="单品覆盖。"),
+                cards=[
+                    _coverage_map_card(
+                        stories[2],
+                        source_name="Vogue <Business>",
+                        group_title=products,
+                        section_label=LocalizedText(en="Products", zh="单品"),
+                        references=(
+                            RowOneReference(name="Margaux bag", type="bag", label="product"),
+                            RowOneReference(name="Ballet flat", type="shoe", label="product"),
+                            RowOneReference(name="Loewe", type="brand", label="brand"),
+                            RowOneReference(name="Extra ref", type="brand", label="overflow"),
+                        ),
+                    ),
+                ],
+            ),
+            RowOneSavedArticleContentOrganizationGroup(
+                key="brand_signals",
+                title=source_structure,
+                dek=LocalizedText(en="Source structure.", zh="来源结构。"),
+                cards=[
+                    _coverage_map_card(
+                        stories[2],
+                        source_name="Vogue <Business>",
+                        group_title=source_structure,
+                        section_label=LocalizedText(en="Structure", zh="结构"),
+                    ),
+                ],
+            ),
+        ]
+    )
+
+    html = render_index_html(
+        _edition_with_stories(*stories),
+        saved_article_content_organization=organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_source_desk_article_hrefs_by_story_id={
+            story.id: f"{story.id}.html" for story in stories
+        },
+        daily_local_coverage_map_hrefs_by_detail_path={
+            f"details/{story.id}.html": f"{story.id}.html" for story in stories
+        },
+    )
+    section_html = _daily_local_coverage_map_section_html(html)
+    vogue_group = section_html[
+        section_html.index("Vogue &lt;Business&gt;") : section_html.index("WWD")
+    ]
+
+    assert 'class="daily-local-coverage-map"' in section_html
+    assert "Daily Local Coverage Map" in section_html
+    assert "每日本地覆盖地图" in section_html
+    assert section_html.index("Vogue &lt;Business&gt;") < section_html.index("WWD")
+    assert section_html.index("WWD") < section_html.index("Business of Fashion")
+    assert "The Cut" in section_html
+    assert "Zzz Overflow Source" not in section_html
+    assert "4 buckets" in section_html
+    assert "4 buckets" in vogue_group
+    assert "3 articles" in vogue_group
+    assert "6 paragraphs" in vogue_group
+    assert "Read First" in vogue_group
+    assert "People &amp; Brands" in vogue_group
+    assert "Products" in vogue_group
+    assert "Source Structure" in vogue_group
+    assert "4 cards" in vogue_group
+    assert "The Row" in vogue_group
+    assert vogue_group.count("The Row") == 1
+    assert "Brand &lt;script&gt;" in vogue_group
+    assert "Margaux bag" in vogue_group
+    assert vogue_group.count('class="daily-local-coverage-map-ref"') == 5
+    assert vogue_group.count('class="daily-local-coverage-map-link"') == 2
+    assert (
+        'href="articles/source-map-vogue-1111111111.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert (
+        'href="articles/source-map-vogue-2222222222.html#local-article-paragraph-2"' in section_html
+    )
+    assert "Coverage map &lt;script&gt; card" in section_html
+    assert "<script>" not in section_html
+    assert "<Business>" not in section_html
+    assert "saved coverage paragraph" not in section_html
+    assert "https://example.com" not in section_html
+
+
+def test_render_index_html_daily_local_coverage_map_falls_back_from_unrendered_content_section() -> (  # noqa: E501
+    None
+):
+    story = _coverage_map_story(
+        "section-gap-coverage-map-1111111111",
+        "Section Gap Coverage",
+        "Vogue",
+    )
+    article = _coverage_map_article(story, "Vogue").model_copy(
+        deep=True,
+        update={"content_sections": []},
+    )
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="takeaways",
+                title=LocalizedText(en="Read First", zh="优先阅读"),
+                dek=LocalizedText(en="Coverage.", zh="覆盖。"),
+                cards=[
+                    _coverage_map_card(
+                        story,
+                        source_name="Vogue",
+                        group_title=LocalizedText(en="Read First", zh="优先阅读"),
+                        section_label=LocalizedText(en="Lead", zh="主线"),
+                        fragment="local-article-content-section-9",
+                        paragraph_indices=(1,),
+                    )
+                ],
+            )
+        ]
+    )
+
+    html = render_index_html(
+        _edition_with_stories(story),
+        saved_article_content_organization=organization,
+        local_articles_by_story_id={story.id: article},
+        daily_local_coverage_map_hrefs_by_detail_path={
+            story.detail_path: f"{story.id}.html",
+        },
+    )
+    section_html = _daily_local_coverage_map_section_html(html)
+
+    assert "#local-article-content-section-9" not in section_html
+    assert f'href="articles/{story.id}.html#local-article-paragraph-2"' in section_html
+
+
+def test_render_index_html_filters_unsafe_daily_local_coverage_map() -> None:
+    base_story = _edition().stories[0]
+    cases = [
+        ("safe-coverage-map-1111111111", "Safe Coverage Map", "Safe Source", "safe"),
+        ("unsafe/coverage-map-2222222222", "Unsafe ID Coverage Map", "Unsafe Source", "unsafe"),
+        ("wrong-prefix-coverage-map-3333333333", "Wrong Prefix Coverage", "Wrong Source", "detail"),
+        ("absolute-coverage-map-4444444444", "Absolute Coverage", "Absolute Source", "detail"),
+        ("traversal-coverage-map-5555555555", "Traversal Coverage", "Traversal Source", "detail"),
+        ("nested-coverage-map-6666666666", "Nested Coverage", "Nested Source", "href"),
+        ("whitespace-coverage-map-7777777777", "Whitespace Coverage", "Whitespace Source", "href"),
+        ("slash-coverage-map-8888888888", "Slash Coverage", "Slash Source", "href"),
+        ("dot-coverage-map-9999999999", "Dot Coverage", "Dot Source", "href"),
+        ("doubleslash-coverage-map-1010101010", "Double Slash Coverage", "Double Source", "href"),
+        ("mismatch-coverage-map-1212121212", "Mismatch Coverage", "Mismatch Source", "href"),
+        ("missing-href-coverage-map-1313131313", "Missing Href Coverage", "Missing Href", "href"),
+        (
+            "missing-article-coverage-map-1414141414",
+            "Missing Article Coverage",
+            "Missing Article",
+            "missing",
+        ),
+        (
+            "mismatch-article-coverage-map-1515151515",
+            "Mismatch Article Coverage",
+            "Mismatch Article",
+            "mismatch_article",
+        ),
+        ("blank-source-coverage-map-1616161616", "Blank Source Coverage", "   ", "blank"),
+        ("empty-coverage-map-1717171717", "Empty Coverage", "Empty Source", "empty"),
+    ]
+    stories = [
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": story_id,
+                "headline": headline,
+                "detail_path": f"details/{story_id.replace('/', '-')}.html",
+            },
+        )
+        for story_id, headline, _source_name, _case_type in cases
+    ]
+    local_articles_by_story_id = {}
+    for story, (_story_id, _headline, source_name, case_type) in zip(stories, cases, strict=True):
+        if case_type == "missing":
+            continue
+        local_articles_by_story_id[story.id] = _coverage_map_article(
+            story,
+            source_name,
+            paragraph_count=0 if case_type == "empty" else 1,
+        ).model_copy(
+            deep=True,
+            update={
+                "story_id": "other-coverage-map-1515151515"
+                if case_type == "mismatch_article"
+                else story.id,
+            },
+        )
+
+    def detail_path_for(story: RowOneStory, case_type: str) -> str:
+        if case_type == "detail" and story.id.startswith("wrong-prefix"):
+            return f"elsewhere/{story.id}.html#local-article-content-section-1"
+        if case_type == "detail" and story.id.startswith("absolute"):
+            return f"/details/{story.id}.html#local-article-content-section-1"
+        if case_type == "detail" and story.id.startswith("traversal"):
+            return f"details/../{story.id}.html#local-article-content-section-1"
+        return f"{story.detail_path}#local-article-content-section-1"
+
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="takeaways",
+                title=LocalizedText(en="Read First", zh="优先阅读"),
+                dek=LocalizedText(en="Coverage.", zh="覆盖。"),
+                cards=[
+                    _coverage_map_card(
+                        story,
+                        source_name=source_name,
+                        group_title=LocalizedText(en="Read First", zh="优先阅读"),
+                        section_label=LocalizedText(en="Lead", zh="主线"),
+                        detail_path=detail_path_for(story, case_type),
+                    )
+                    for story, (_story_id, _headline, source_name, case_type) in zip(
+                        stories, cases, strict=True
+                    )
+                ],
+            )
+        ]
+    )
+
+    html = render_index_html(
+        _edition_with_stories(*stories),
+        saved_article_content_organization=organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_coverage_map_hrefs_by_detail_path={
+            "details/safe-coverage-map-1111111111.html": "safe-coverage-map-1111111111.html",
+            "details/unsafe-coverage-map-2222222222.html": "unsafe-coverage-map-2222222222.html",
+            "details/wrong-prefix-coverage-map-3333333333.html": (
+                "wrong-prefix-coverage-map-3333333333.html"
+            ),
+            "details/absolute-coverage-map-4444444444.html": (
+                "absolute-coverage-map-4444444444.html"
+            ),
+            "details/traversal-coverage-map-5555555555.html": (
+                "traversal-coverage-map-5555555555.html"
+            ),
+            "details/nested-coverage-map-6666666666.html": "nested/story.html",
+            "details/whitespace-coverage-map-7777777777.html": "white space.html",
+            "details/slash-coverage-map-8888888888.html": "/absolute.html",
+            "details/dot-coverage-map-9999999999.html": ".hidden.html",
+            "details/doubleslash-coverage-map-1010101010.html": "//hidden.html",
+            "details/mismatch-coverage-map-1212121212.html": ("other-coverage-map-1212121212.html"),
+            "details/mismatch-article-coverage-map-1515151515.html": (
+                "mismatch-article-coverage-map-1515151515.html"
+            ),
+            "details/blank-source-coverage-map-1616161616.html": (
+                "blank-source-coverage-map-1616161616.html"
+            ),
+            "details/empty-coverage-map-1717171717.html": "empty-coverage-map-1717171717.html",
+        },
+    )
+    section_html = _daily_local_coverage_map_section_html(html)
+
+    assert "Safe Coverage Map" in section_html
+    assert "Safe Source" in section_html
+    assert (
+        'href="articles/safe-coverage-map-1111111111.html#local-article-content-section-1"'
+        in section_html
+    )
+    for unsafe_text in (
+        "Unsafe ID Coverage Map",
+        "Unsafe Source",
+        "Wrong Prefix Coverage",
+        "Wrong Source",
+        "Absolute Coverage",
+        "Absolute Source",
+        "Traversal Coverage",
+        "Traversal Source",
+        "Nested Coverage",
+        "Whitespace Coverage",
+        "Slash Coverage",
+        "Dot Coverage",
+        "Double Slash Coverage",
+        "Mismatch Coverage",
+        "Missing Href Coverage",
+        "Missing Article Coverage",
+        "Mismatch Article Coverage",
+        "Blank Source Coverage",
+        "Empty Coverage",
+        "nested/story.html",
+        "white space.html",
+        "/absolute.html",
+        ".hidden.html",
+        "//hidden.html",
+        "other-coverage-map-1212121212.html",
+    ):
+        assert unsafe_text not in section_html
+
+
+@pytest.mark.parametrize(
+    ("organization", "local_articles_by_story_id", "hrefs_by_detail_path"),
+    [
+        (None, {"the-row-signal-1234567890": _signal_briefing_local_article()}, {}),
+        (build_row_one_saved_article_content_organization(_edition(), {}), {}, {}),
+        (
+            build_row_one_saved_article_content_organization(
+                _edition(),
+                {"the-row-signal-1234567890": _signal_briefing_local_article()},
+            ),
+            {"the-row-signal-1234567890": _signal_briefing_local_article()},
+            None,
+        ),
+        (
+            build_row_one_saved_article_content_organization(
+                _edition(),
+                {"the-row-signal-1234567890": _signal_briefing_local_article()},
+            ),
+            {"the-row-signal-1234567890": _signal_briefing_local_article()},
+            {},
+        ),
+    ],
+)
+def test_render_index_html_omits_daily_local_coverage_map_without_eligible_cards(
+    organization: RowOneSavedArticleContentOrganization | None,
+    local_articles_by_story_id: dict[str, RowOneLocalArticle],
+    hrefs_by_detail_path: dict[str, str] | None,
+) -> None:
+    html = render_index_html(
+        _edition(),
+        saved_article_content_organization=organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_coverage_map_hrefs_by_detail_path=hrefs_by_detail_path,
+    )
+
+    assert 'class="daily-local-coverage-map"' not in html
+    assert "Daily Local Coverage Map" not in html
+
+
+def test_render_index_html_places_daily_local_coverage_map_between_source_desk_and_saved_organization() -> (  # noqa: E501
+    None
+):
+    story = _edition().stories[0]
+    edition = _edition_with_stories(story)
+    local_articles_by_story_id = {story.id: _signal_briefing_local_article()}
+    organization = build_row_one_saved_article_content_organization(
+        edition,
+        local_articles_by_story_id,
+    )
+
+    html = render_index_html(
+        edition,
+        saved_article_content_organization=organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_source_desk_article_hrefs_by_story_id={story.id: f"{story.id}.html"},
+        daily_local_coverage_map_hrefs_by_detail_path={
+            story.detail_path: f"{story.id}.html",
+        },
+    )
+
+    assert 'class="saved-article-content-organization"' in html
+    assert html.index('class="daily-local-source-desk"') < html.index(
+        'class="daily-local-coverage-map"'
+    )
+    assert html.index('class="daily-local-coverage-map"') < html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
+def test_render_index_html_places_daily_local_coverage_map_before_saved_organization_without_source_desk() -> (  # noqa: E501
+    None
+):
+    story = _edition().stories[0]
+    edition = _edition_with_stories(story)
+    local_articles_by_story_id = {story.id: _signal_briefing_local_article()}
+    organization = build_row_one_saved_article_content_organization(
+        edition,
+        local_articles_by_story_id,
+    )
+
+    html = render_index_html(
+        edition,
+        saved_article_content_organization=organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_coverage_map_hrefs_by_detail_path={
+            story.detail_path: f"{story.id}.html",
+        },
+    )
+
+    assert 'class="saved-article-content-organization"' in html
+    assert 'class="daily-local-source-desk"' not in html
+    assert html.index('class="daily-local-coverage-map"') < html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
+def test_render_row_one_site_rejects_normalized_duplicate_detail_paths(tmp_path: Path) -> None:
+    first_story = _coverage_map_story(
+        "normalized-detail-aaaaaaaaaa",
+        "Normalized Detail First",
+        "Vogue",
+    )
+    second_story = _coverage_map_story(
+        "normalized-detail-bbbbbbbbbb",
+        "Normalized Detail Second",
+        "WWD",
+    ).model_copy(
+        deep=True,
+        update={"detail_path": first_story.detail_path.replace("details/", "details/./")},
+    )
+    local_articles_by_story_id = {
+        first_story.id: _coverage_map_article(first_story, "Vogue"),
+        second_story.id: _coverage_map_article(second_story, "WWD"),
+    }
+
+    with pytest.raises(ValueError, match="Duplicate ROW ONE detail path"):
+        render_row_one_site(
+            _edition_with_stories(first_story, second_story),
+            tmp_path,
+            local_articles_by_story_id=local_articles_by_story_id,
+        )
+
+
 def test_render_index_html_places_daily_local_key_signals_digest_between_saved_sections() -> None:
     briefs = RowOneSavedArticleBriefs(
         article_count=1,
@@ -13663,6 +14343,29 @@ def test_row_one_css_includes_daily_local_source_desk_styles() -> None:
         ".daily-local-source-desk-links",
         ".daily-local-source-desk-link",
         ".daily-local-source-desk-paragraph-link",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_daily_local_coverage_map_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-coverage-map",
+        ".daily-local-coverage-map-header",
+        ".daily-local-coverage-map-metrics",
+        ".daily-local-coverage-map-grid",
+        ".daily-local-coverage-map-source",
+        ".daily-local-coverage-map-source-header",
+        ".daily-local-coverage-map-source-title",
+        ".daily-local-coverage-map-counts",
+        ".daily-local-coverage-map-buckets",
+        ".daily-local-coverage-map-bucket",
+        ".daily-local-coverage-map-refs",
+        ".daily-local-coverage-map-ref",
+        ".daily-local-coverage-map-links",
+        ".daily-local-coverage-map-link",
+        ".daily-local-coverage-map-link-bucket",
     ):
         assert selector in css
 

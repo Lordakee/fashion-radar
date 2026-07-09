@@ -606,6 +606,16 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "article-reading-brief" not in generated_contract_payload
     assert "reading-brief" not in generated_contract_payload
     assert "每日本地文章阅读简报" not in generated_contract_payload
+    assert '"daily_local_coverage_map"' not in generated_contract_payload
+    assert '"local_coverage_map"' not in generated_contract_payload
+    assert '"coverage_map"' not in generated_contract_payload
+    assert "Daily Local Coverage Map" not in generated_contract_payload
+    assert "Local Coverage Map" not in generated_contract_payload
+    assert "Coverage Map" not in generated_contract_payload
+    assert "daily-local-coverage-map" not in generated_contract_payload
+    assert "local-coverage-map" not in generated_contract_payload
+    assert "coverage-map" not in generated_contract_payload
+    assert "每日本地覆盖地图" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -969,6 +979,24 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "local-key-signals.html",
         output_dir / "articles" / "local-key-signals.html",
         output_dir / "data" / "local-key-signals.html",
+        output_dir / "daily-local-coverage-map.json",
+        output_dir / "articles" / "daily-local-coverage-map.json",
+        output_dir / "data" / "daily-local-coverage-map.json",
+        output_dir / "daily-local-coverage-map.html",
+        output_dir / "articles" / "daily-local-coverage-map.html",
+        output_dir / "data" / "daily-local-coverage-map.html",
+        output_dir / "local-coverage-map.json",
+        output_dir / "articles" / "local-coverage-map.json",
+        output_dir / "data" / "local-coverage-map.json",
+        output_dir / "local-coverage-map.html",
+        output_dir / "articles" / "local-coverage-map.html",
+        output_dir / "data" / "local-coverage-map.html",
+        output_dir / "coverage-map.json",
+        output_dir / "articles" / "coverage-map.json",
+        output_dir / "data" / "coverage-map.json",
+        output_dir / "coverage-map.html",
+        output_dir / "articles" / "coverage-map.html",
+        output_dir / "data" / "coverage-map.html",
     ):
         assert not artifact_path.exists()
     for artifact_stem in (
@@ -1020,6 +1048,14 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "daily_local_source_desk",
         "daily_local_sources",
         "source_desk",
+        "daily-local-coverage",
+        "daily-local-coverage-map",
+        "local-coverage-map",
+        "coverage-map",
+        "daily_local_coverage",
+        "daily_local_coverage_map",
+        "local_coverage_map",
+        "coverage_map",
     ):
         for artifact_dir in (output_dir, output_dir / "articles", output_dir / "data"):
             for suffix in (".json", ".html"):
@@ -1076,6 +1112,21 @@ def test_stage_353_saved_article_read_next_clusters_stays_generated_site_only(
         row_one_templates,
         "_render_saved_article_read_next_clusters",
         lambda _clusters: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_363_daily_local_coverage_map_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_daily_local_coverage_map",
+        lambda *_args, **_kwargs: "",
         raising=False,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)

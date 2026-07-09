@@ -223,6 +223,7 @@ def render_row_one_site(
             daily_local_source_desk_article_hrefs_by_story_id=(
                 local_article_page_hrefs_by_story_id
             ),
+            daily_local_coverage_map_hrefs_by_detail_path=(local_article_page_hrefs_by_detail_path),
             saved_article_content_organization=saved_article_content_organization,
             editorial_brief=editorial_brief,
             local_articles_by_story_id=local_articles_by_story_id,
@@ -285,9 +286,11 @@ def _validate_unique_story_routes(edition: RowOneEdition) -> None:
         if story.id in seen_ids:
             raise ValueError(f"Duplicate ROW ONE story id: {story.id}")
         seen_ids.add(story.id)
-        if story.detail_path in seen_paths:
+        pure_path = _validated_detail_relative_path(story.detail_path)
+        path_key = str(pure_path) if pure_path is not None else story.detail_path
+        if path_key in seen_paths:
             raise ValueError(f"Duplicate ROW ONE detail path: {story.detail_path}")
-        seen_paths.add(story.detail_path)
+        seen_paths.add(path_key)
 
 
 def clean_row_one_site_children(output_dir: Path) -> None:

@@ -1921,6 +1921,87 @@ def test_row_one_docs_describe_stage_362_daily_local_source_desk_boundary() -> N
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_363_daily_local_coverage_map_boundary() -> None:
+    expected = _normalized(
+        "Stage 363 adds generated-site only Daily Local Coverage Map as a "
+        "homepage-only section inside `index.html` after Daily Local Source "
+        "Desk and before Saved Article Content Organization; it reuses "
+        "current-edition stories, existing saved local article content "
+        "organization groups and cards, already-saved local article "
+        "paragraphs, existing source names, existing card references, "
+        "generated local article page routes, and existing local article "
+        "content-section and paragraph anchors to cross-tab saved local "
+        "article sources against editorial organization buckets without "
+        "changing app-facing contracts; it does not create "
+        "`data/daily-local-coverage-map.json`, does not create "
+        "`data/local-coverage-map.json`, does not create "
+        "`data/coverage-map.json`, does not create new route families, does "
+        "not alter `articles/index.html`, `articles/<story-id>.html`, or "
+        "detail pages, does not publish full articles on the homepage, does "
+        "not add outbound article URLs as primary navigation, and does not "
+        "change schemas, JSON artifacts, fetching, extraction, scoring, "
+        "ranking, LLM, connector, scheduling, deployment, analytics, "
+        "personalization, recommendation, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_363_pos = normalized.index(
+            "stage 363 adds generated-site only daily local coverage map"
+        )
+        stage_362_pos = normalized.index(
+            "stage 362 adds generated-site only daily local source desk"
+        )
+        assert stage_363_pos < stage_362_pos
+        stage = normalized[stage_363_pos:stage_362_pos]
+        for stale_phrase in (
+            "creates data/daily-local-coverage-map.json",
+            "writes data/daily-local-coverage-map.json",
+            "creates data/local-coverage-map.json",
+            "writes data/local-coverage-map.json",
+            "creates data/coverage-map.json",
+            "writes data/coverage-map.json",
+            "creates `data/daily-local-coverage-map.json`",
+            "writes `data/daily-local-coverage-map.json`",
+            "creates `data/local-coverage-map.json`",
+            "writes `data/local-coverage-map.json`",
+            "creates `data/coverage-map.json`",
+            "writes `data/coverage-map.json`",
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "writes a new json artifact",
+            "creates new route families",
+            "adds new routes",
+            "adds routes",
+            "changes routes",
+            "alters articles/index.html",
+            "alters articles/<story-id>.html",
+            "alters detail pages",
+            "publishes full articles on the homepage",
+            "adds outbound article urls as primary navigation",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+            "adds compliance-review",
+            "adds compliance-review behavior",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_361_daily_local_article_reading_brief_boundary() -> None:
     expected = _normalized(
         "Stage 361 adds generated-site only Daily Local Article Reading Brief "
