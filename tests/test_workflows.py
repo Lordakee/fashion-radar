@@ -700,6 +700,14 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "article-related-reads" not in generated_contract_payload
     assert "related-reads" not in generated_contract_payload
     assert "相关本地保存阅读" not in generated_contract_payload
+    assert "saved_article_local_related_read_lanes" not in generated_contract_payload
+    assert "local_article_related_read_lanes" not in generated_contract_payload
+    assert "related_read_lanes" not in generated_contract_payload
+    assert "RowOneSavedArticleLocalRelatedReadLane" not in generated_contract_payload
+    assert "Saved Local Article Related Read Lanes" not in generated_contract_payload
+    assert "saved-article-local-related-read-lanes" not in generated_contract_payload
+    assert "local-article-related-read-lanes" not in generated_contract_payload
+    assert "related-read-lanes" not in generated_contract_payload
     assert "daily_local_saved_article_organizer" not in generated_contract_payload
     assert "local_saved_article_organizer" not in generated_contract_payload
     assert "saved_article_organizer" not in generated_contract_payload
@@ -1328,6 +1336,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "local_article_related_reads",
         "article_related_reads",
         "related_reads",
+        "saved-local-article-related-read-lanes",
+        "local-article-related-read-lanes",
+        "related-read-lanes",
+        "saved_local_article_related_read_lanes",
+        "local_article_related_read_lanes",
+        "related_read_lanes",
         "daily-local-saved-article-organizer",
         "local-saved-article-organizer",
         "saved-article-organizer",

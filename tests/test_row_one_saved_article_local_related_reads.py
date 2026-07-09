@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from fashion_radar.row_one.models import (
@@ -17,6 +18,9 @@ from fashion_radar.row_one.models import (
 from fashion_radar.row_one.saved_article_local_related_reads import (
     SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_CARDS,
     SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_REFS,
+    RowOneSavedArticleLocalRelatedReadCard,
+    RowOneSavedArticleLocalRelatedReadReference,
+    build_row_one_saved_article_local_related_read_lanes,
     build_row_one_saved_article_local_related_reads,
 )
 
@@ -435,3 +439,141 @@ def test_saved_article_local_related_reads_returns_none_without_related_cards() 
         )
         is None
     )
+
+
+def test_saved_article_local_related_reads_groups_cards_into_lanes() -> None:
+    current = _story("current-row-0000000000", section_key="top_stories")
+    shared = _story(
+        "shared-row-1111111111",
+        headline="Shared The Row signal",
+        source_name="WWD",
+    )
+    same_section = _story(
+        "same-section-2222222222",
+        headline="Same section read",
+        source_name="Harper's Bazaar",
+    )
+    same_source = _story(
+        "same-source-3333333333",
+        headline="Same source read",
+        section_key="brand_moves",
+    )
+    articles = {
+        current.id: _article(
+            current.id,
+            content_sections=[
+                _content_section("Current refs", refs=[_ref("The Row")], paragraph_indices=[0])
+            ],
+        ),
+        shared.id: _article(
+            shared.id,
+            source_name=shared.source_name,
+            content_sections=[
+                _content_section("Shared refs", refs=[_ref("The Row")], paragraph_indices=[1])
+            ],
+        ),
+        same_section.id: _article(same_section.id, source_name=same_section.source_name),
+        same_source.id: _article(same_source.id, source_name=same_source.source_name),
+    }
+
+    related = build_row_one_saved_article_local_related_reads(
+        current_story=current,
+        edition=_edition(current, shared, same_section, same_source),
+        local_articles_by_story_id=articles,
+        local_article_page_hrefs_by_story_id=_hrefs(current, shared, same_section, same_source),
+    )
+
+    assert related is not None
+    lanes = build_row_one_saved_article_local_related_read_lanes(related.cards)
+
+    assert [lane.key for lane in lanes] == [
+        "shared_signal",
+        "same_section",
+        "same_source",
+    ]
+    assert [lane.cards[0].candidate_story_id for lane in lanes] == [
+        shared.id,
+        same_section.id,
+        same_source.id,
+    ]
+    assert lanes[0].title.en == "Shared signals"
+    assert lanes[0].dek.en == "Next reads carrying the same named fashion signal."
+    assert lanes[1].title.en == "Same ROW ONE section"
+    assert lanes[1].dek.en == "Next reads filed near this story in today's edition."
+    assert lanes[2].title.en == "Same source desk"
+    assert lanes[2].dek.en == "Next reads from the same saved local source context."
+
+
+def test_saved_article_local_related_read_lanes_dedupe_and_omit_unknown_reasons() -> None:
+    safe_card = RowOneSavedArticleLocalRelatedReadCard(
+        candidate_story_id="safe-row-1111111111",
+        title=_text("Safe read"),
+        source_name="WWD",
+        reason=LocalizedText(en="Shared signal: The Row", zh="共同信号：The Row"),
+        excerpt=_text("Saved excerpt"),
+        href="safe-row-1111111111.html#local-article-paragraph-1",
+        references=(RowOneSavedArticleLocalRelatedReadReference(name="The Row", label="Brand"),),
+    )
+    duplicate_card = replace(safe_card)
+    unknown_card = RowOneSavedArticleLocalRelatedReadCard(
+        candidate_story_id="unknown-row-2222222222",
+        title=_text("Unknown read"),
+        source_name="WWD",
+        reason=LocalizedText(en="Editorial adjacency", zh="编辑相邻"),
+        excerpt=_text("Unknown excerpt"),
+        href="unknown-row-2222222222.html#local-article-paragraph-1",
+    )
+
+    lanes = build_row_one_saved_article_local_related_read_lanes(
+        (safe_card, duplicate_card, unknown_card)
+    )
+
+    assert len(lanes) == 1
+    assert lanes[0].key == "shared_signal"
+    assert [card.candidate_story_id for card in lanes[0].cards] == ["safe-row-1111111111"]
+
+
+def test_saved_article_local_related_read_lanes_returns_empty_for_empty_input() -> None:
+    assert build_row_one_saved_article_local_related_read_lanes(()) == ()
+
+
+def test_saved_article_local_related_read_lanes_preserve_order_and_cap_each_lane() -> None:
+    first = RowOneSavedArticleLocalRelatedReadCard(
+        candidate_story_id="source-row-1111111111",
+        title=_text("Source read one"),
+        source_name="WWD",
+        reason=LocalizedText(en="", zh="同一来源"),
+        excerpt=_text("Saved excerpt one"),
+        href="source-row-1111111111.html#local-article-paragraph-1",
+    )
+    cards = (
+        first,
+        replace(
+            first,
+            candidate_story_id="source-row-2222222222",
+            title=_text("Source read two"),
+            href="source-row-2222222222.html#local-article-paragraph-1",
+        ),
+        replace(
+            first,
+            candidate_story_id="source-row-3333333333",
+            title=_text("Source read three"),
+            href="source-row-3333333333.html#local-article-paragraph-1",
+        ),
+        replace(
+            first,
+            candidate_story_id="source-row-4444444444",
+            title=_text("Source read four"),
+            href="source-row-4444444444.html#local-article-paragraph-1",
+        ),
+    )
+
+    lanes = build_row_one_saved_article_local_related_read_lanes(cards)
+
+    assert len(lanes) == 1
+    assert lanes[0].key == "same_source"
+    assert [card.candidate_story_id for card in lanes[0].cards] == [
+        "source-row-1111111111",
+        "source-row-2222222222",
+        "source-row-3333333333",
+    ]

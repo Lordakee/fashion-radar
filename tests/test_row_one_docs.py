@@ -4881,6 +4881,39 @@ def test_row_one_docs_describe_stage_377_saved_local_article_related_reads_bound
             assert stale_phrase not in normalized
 
 
+def test_row_one_docs_describe_stage_378_saved_local_article_related_read_lanes_boundary() -> None:
+    paragraph = (
+        "Stage 378 adds generated-site only Saved Local Article Related Read Lanes "
+        "inside the existing post-body Saved Local Article Related Reads section on "
+        "`articles/<story-id>.html`; it reuses the Stage 377 same-site related-read "
+        "cards, existing card reasons, existing source labels, existing reference "
+        "chips, generated local article page routes, and existing paragraph anchors "
+        "to organize next reads by shared signal, same ROW ONE section, and same "
+        "source while preserving the current flat-card fallback; it does not create "
+        "`data/saved-local-article-related-read-lanes.json`, does not create "
+        "`data/local-article-related-read-lanes.json`, does not create "
+        "`data/related-read-lanes.json`, does not create "
+        "`saved-local-article-related-read-lanes.html`, does not create "
+        "`local-article-related-read-lanes.html`, does not create "
+        "`related-read-lanes.html`, does not create new article-source sidecars, does "
+        "not create new route families, does not alter `index.html`, "
+        "`articles/index.html`, or detail pages, does not publish full related "
+        "articles outside existing local article pages, does not add outbound article "
+        "URLs as primary navigation, and does not change row-one-app/v7, "
+        "row-one-manifest/v1, row-one-runtime/v1, schemas, generated JSON artifacts, "
+        "source collection, fetching, matching, extraction, scoring, ranking, LLM, "
+        "connector, scheduling, deployment, market grouping, domestic/international "
+        "classification, analytics, personalization, recommendation, or "
+        "compliance-review behavior."
+    )
+    readme = _read(README)
+    docs = _read(ROW_ONE_DOC)
+
+    for text in (readme, docs):
+        assert paragraph in text
+        assert text.index(paragraph) < text.index("Stage 377 adds")
+
+
 def test_row_one_docs_describe_stage_374_saved_local_article_route_health_boundary() -> None:
     paragraph = (
         "Stage 374 adds read-only generated-site Saved Local Article Route Health to "

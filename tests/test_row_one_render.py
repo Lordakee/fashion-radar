@@ -3555,6 +3555,108 @@ def test_render_local_article_page_includes_related_reads_after_local_article_bo
     assert "相关本地保存阅读" in html
 
 
+def test_render_local_article_page_groups_related_reads_into_lanes() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(
+            _related_read_card(
+                candidate_story_id="related-row-2222222222",
+                title="Shared signal read",
+                reason=LocalizedText(en="Shared signal: The Row", zh="共同信号：The Row"),
+                href="related-row-2222222222.html#local-article-paragraph-1",
+            ),
+            _related_read_card(
+                candidate_story_id="section-row-3333333333",
+                title="Same section read",
+                reason=LocalizedText(
+                    en="Same ROW ONE section",
+                    zh="同一 ROW ONE 栏目",
+                ),
+                href="section-row-3333333333.html#local-article-paragraph-1",
+            ),
+        ),
+    )
+
+    assert 'class="saved-article-local-related-read-lanes"' in html
+    assert 'class="saved-article-local-related-read-lane"' in html
+    assert "Shared signals" in html
+    assert "Same ROW ONE section" in html
+    assert html.index('class="saved-article-local-related-read-lanes"') > html.index(
+        'id="local-article"'
+    )
+    assert 'href="related-row-2222222222.html#local-article-paragraph-1"' in html
+    assert 'href="section-row-3333333333.html#local-article-paragraph-1"' in html
+    assert "articles/related-row-2222222222.html" not in html
+
+
+def test_render_local_article_page_related_read_lanes_drop_unsafe_hrefs() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(
+            _related_read_card(
+                candidate_story_id="related-row-2222222222",
+                title="Safe lane read",
+                reason=LocalizedText(en="Shared signal: The Row", zh="共同信号：The Row"),
+                href="related-row-2222222222.html#local-article-paragraph-1",
+            ),
+            _related_read_card(
+                candidate_story_id="unsafe-row-3333333333",
+                title="Unsafe lane read",
+                reason=LocalizedText(en="Same source desk", zh="同一来源"),
+                href="articles/unsafe-row-3333333333.html#local-article-paragraph-1",
+            ),
+        ),
+    )
+
+    related_html = _html_between(
+        html,
+        '<section class="saved-article-local-related-reads"',
+        "</section>",
+    )
+
+    assert 'class="saved-article-local-related-read-lanes"' in related_html
+    assert "Safe lane read" in related_html
+    assert "Unsafe lane read" not in related_html
+    assert "articles/unsafe-row-3333333333.html" not in related_html
+
+
+def test_render_local_article_page_related_read_lanes_fallback_when_reason_unknown() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(
+            _related_read_card(
+                candidate_story_id="related-row-2222222222",
+                title="Classified lane read",
+                reason=LocalizedText(en="Shared signal: The Row", zh="共同信号：The Row"),
+                href="related-row-2222222222.html#local-article-paragraph-1",
+            ),
+            _related_read_card(
+                candidate_story_id="unknown-row-3333333333",
+                title="Unknown reason read",
+                reason=LocalizedText(en="Editorial adjacency", zh="编辑相邻"),
+                href="unknown-row-3333333333.html#local-article-paragraph-1",
+            ),
+        ),
+    )
+
+    related_html = _html_between(
+        html,
+        '<section class="saved-article-local-related-reads"',
+        "</section>",
+    )
+
+    assert 'class="saved-article-local-related-read-lanes"' not in related_html
+    assert 'class="saved-article-local-related-reads-grid"' in related_html
+    assert "Classified lane read" in related_html
+    assert "Unknown reason read" in related_html
+
+
 def test_render_local_article_page_escapes_related_reads_content() -> None:
     html = render_local_article_page_html(
         _edition(),
@@ -17377,6 +17479,9 @@ def test_row_one_css_includes_saved_article_local_related_reads_styles() -> None
         ".saved-article-local-related-reads",
         ".saved-article-local-related-reads-header",
         ".saved-article-local-related-reads-grid",
+        ".saved-article-local-related-read-lanes",
+        ".saved-article-local-related-read-lane",
+        ".saved-article-local-related-read-lane-header",
         ".saved-article-local-related-read-card",
         ".saved-article-local-related-read-meta",
         ".saved-article-local-related-read-references",

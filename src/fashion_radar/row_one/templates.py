@@ -124,7 +124,9 @@ from fashion_radar.row_one.saved_article_local_reading_companion import (
 )
 from fashion_radar.row_one.saved_article_local_related_reads import (
     RowOneSavedArticleLocalRelatedReadCard,
+    RowOneSavedArticleLocalRelatedReadLane,
     RowOneSavedArticleLocalRelatedReads,
+    build_row_one_saved_article_local_related_read_lanes,
 )
 from fashion_radar.row_one.saved_article_local_section_binder import (
     RowOneSavedArticleLocalSectionBinder,
@@ -2620,6 +2622,33 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.saved-article-local-related-read-lanes {
+  display: grid;
+  gap: 14px;
+}
+.saved-article-local-related-read-lane {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+}
+.saved-article-local-related-read-lane-header {
+  display: grid;
+  gap: 6px;
+}
+.saved-article-local-related-read-lane-header h3,
+.saved-article-local-related-read-lane-header p {
+  margin: 0;
+}
+.saved-article-local-related-read-lane-header h3 {
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-local-related-read-lane-header p {
+  color: var(--muted);
+  line-height: 1.45;
 }
 .saved-article-local-related-read-card {
   border: 1px solid var(--line);
@@ -9322,6 +9351,17 @@ def _render_saved_article_local_related_reads(
     if not cards:
         return ""
     cards_html = "\n".join(cards)
+    renderable_cards = _renderable_saved_article_local_related_read_cards(related_reads.cards)
+    lanes = build_row_one_saved_article_local_related_read_lanes(renderable_cards)
+    lanes_html = _render_saved_article_local_related_read_lanes(lanes)
+    if _saved_article_local_related_read_lane_card_count(lanes) != len(renderable_cards):
+        lanes_html = ""
+    body_html = (
+        lanes_html
+        or '      <div class="saved-article-local-related-reads-grid">\n'
+        + cards_html
+        + "\n      </div>"
+    )
     return f"""    <section class="saved-article-local-related-reads"
       aria-labelledby="saved-article-local-related-reads-title">
       <div class="saved-article-local-related-reads-header">
@@ -9334,10 +9374,74 @@ def _render_saved_article_local_related_reads(
           <span data-lang="zh">{_esc(related_reads.dek.zh)}</span>
         </p>
       </div>
-      <div class="saved-article-local-related-reads-grid">
-{cards_html}
-      </div>
+{body_html}
     </section>"""
+
+
+def _renderable_saved_article_local_related_read_cards(
+    cards: Sequence[RowOneSavedArticleLocalRelatedReadCard],
+) -> tuple[RowOneSavedArticleLocalRelatedReadCard, ...]:
+    return tuple(
+        card
+        for card in cards
+        if _safe_saved_article_local_related_read_href(
+            card.candidate_story_id,
+            card.href,
+        )
+        is not None
+    )
+
+
+def _render_saved_article_local_related_read_lanes(
+    lanes: Sequence[RowOneSavedArticleLocalRelatedReadLane],
+) -> str:
+    rendered = [
+        lane_html
+        for lane in lanes
+        if (lane_html := _render_saved_article_local_related_read_lane(lane))
+    ]
+    if not rendered:
+        return ""
+    return (
+        '      <div class="saved-article-local-related-read-lanes">\n'
+        + "\n".join(rendered)
+        + "\n      </div>"
+    )
+
+
+def _render_saved_article_local_related_read_lane(
+    lane: RowOneSavedArticleLocalRelatedReadLane,
+) -> str:
+    cards = [
+        card_html
+        for card in lane.cards
+        if (card_html := _render_saved_article_local_related_read_card(card))
+    ]
+    if not cards:
+        return ""
+    cards_html = "\n".join(cards)
+    lane_key = _esc(lane.key)
+    return f"""        <div class="saved-article-local-related-read-lane" data-lane="{lane_key}">
+          <div class="saved-article-local-related-read-lane-header">
+            <h3>
+              <span data-lang="en">{_esc(lane.title.en)}</span>
+              <span data-lang="zh">{_esc(lane.title.zh)}</span>
+            </h3>
+            <p>
+              <span data-lang="en">{_esc(lane.dek.en)}</span>
+              <span data-lang="zh">{_esc(lane.dek.zh)}</span>
+            </p>
+          </div>
+          <div class="saved-article-local-related-reads-grid">
+{cards_html}
+          </div>
+        </div>"""
+
+
+def _saved_article_local_related_read_lane_card_count(
+    lanes: Sequence[RowOneSavedArticleLocalRelatedReadLane],
+) -> int:
+    return sum(len(lane.cards) for lane in lanes)
 
 
 def _render_saved_article_local_related_read_card(

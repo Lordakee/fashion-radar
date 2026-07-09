@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
 from fashion_radar.row_one.articles import safe_local_article_story_id
@@ -15,6 +15,7 @@ from fashion_radar.row_one.models import (
 from fashion_radar.row_one.text import normalize_row_one_paragraph
 
 SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_CARDS = 3
+SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_CARDS_PER_LANE = 3
 SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_REFS = 3
 SAVED_ARTICLE_LOCAL_RELATED_READS_EXCERPT_CHARS = 180
 
@@ -34,6 +35,14 @@ class RowOneSavedArticleLocalRelatedReadCard:
     excerpt: LocalizedText
     href: str
     references: tuple[RowOneSavedArticleLocalRelatedReadReference, ...] = ()
+
+
+@dataclass(frozen=True)
+class RowOneSavedArticleLocalRelatedReadLane:
+    key: str
+    title: LocalizedText
+    dek: LocalizedText
+    cards: tuple[RowOneSavedArticleLocalRelatedReadCard, ...]
 
 
 @dataclass(frozen=True)
@@ -63,6 +72,59 @@ class _Candidate:
     score: int
     href: str
     references: tuple[RowOneSavedArticleLocalRelatedReadReference, ...]
+
+
+_LANE_COPY = {
+    "shared_signal": (
+        LocalizedText(en="Shared signals", zh="共同信号"),
+        LocalizedText(
+            en="Next reads carrying the same named fashion signal.",
+            zh="包含同一时尚信号的后续阅读。",
+        ),
+    ),
+    "same_section": (
+        LocalizedText(en="Same ROW ONE section", zh="同一 ROW ONE 栏目"),
+        LocalizedText(
+            en="Next reads filed near this story in today's edition.",
+            zh="与本文同属今日相近栏目脉络的后续阅读。",
+        ),
+    ),
+    "same_source": (
+        LocalizedText(en="Same source desk", zh="同一来源台"),
+        LocalizedText(
+            en="Next reads from the same saved local source context.",
+            zh="来自同一保存来源语境的后续阅读。",
+        ),
+    ),
+}
+
+
+def build_row_one_saved_article_local_related_read_lanes(
+    cards: Sequence[RowOneSavedArticleLocalRelatedReadCard],
+) -> tuple[RowOneSavedArticleLocalRelatedReadLane, ...]:
+    deduped_by_lane: dict[str, list[RowOneSavedArticleLocalRelatedReadCard]] = {
+        "shared_signal": [],
+        "same_section": [],
+        "same_source": [],
+    }
+    seen: set[tuple[str, str]] = set()
+    for card in cards:
+        dedupe_key = (card.candidate_story_id, card.href)
+        if dedupe_key in seen:
+            continue
+        lane_key = _related_read_lane_key(card)
+        if lane_key is None:
+            continue
+        seen.add(dedupe_key)
+        if len(deduped_by_lane[lane_key]) < SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_CARDS_PER_LANE:
+            deduped_by_lane[lane_key].append(card)
+
+    lanes = [
+        lane
+        for key in ("shared_signal", "same_section", "same_source")
+        if (lane := _related_read_lane(key, tuple(deduped_by_lane[key]))) is not None
+    ]
+    return tuple(lanes)
 
 
 def build_row_one_saved_article_local_related_reads(
@@ -132,6 +194,34 @@ def build_row_one_saved_article_local_related_reads(
         ),
         current_story_id=current_story.id,
         card_count=len(cards),
+        cards=cards,
+    )
+
+
+def _related_read_lane_key(card: RowOneSavedArticleLocalRelatedReadCard) -> str | None:
+    reason_en = normalize_row_one_paragraph(card.reason.en).casefold()
+    reason_zh = normalize_row_one_paragraph(card.reason.zh)
+    if reason_en.startswith("shared signal:") or reason_zh.startswith("共同信号："):
+        return "shared_signal"
+    if reason_en == "same row one section" or reason_zh == "同一 ROW ONE 栏目":
+        return "same_section"
+    if reason_en == "same source desk" or reason_zh == "同一来源":
+        return "same_source"
+    return None
+
+
+def _related_read_lane(
+    key: str,
+    cards: tuple[RowOneSavedArticleLocalRelatedReadCard, ...],
+) -> RowOneSavedArticleLocalRelatedReadLane | None:
+    copy = _LANE_COPY.get(key)
+    if copy is None or not cards:
+        return None
+    title, dek = copy
+    return RowOneSavedArticleLocalRelatedReadLane(
+        key=key,
+        title=title,
+        dek=dek,
         cards=cards,
     )
 
