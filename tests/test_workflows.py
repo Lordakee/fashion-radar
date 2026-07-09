@@ -616,6 +616,16 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "local-coverage-map" not in generated_contract_payload
     assert "coverage-map" not in generated_contract_payload
     assert "每日本地覆盖地图" not in generated_contract_payload
+    assert '"daily_local_theme_summary_strip"' not in generated_contract_payload
+    assert '"local_theme_summary_strip"' not in generated_contract_payload
+    assert '"theme_summary_strip"' not in generated_contract_payload
+    assert "Daily Local Theme Summary Strip" not in generated_contract_payload
+    assert "Local Theme Summary Strip" not in generated_contract_payload
+    assert "Theme Summary Strip" not in generated_contract_payload
+    assert "daily-local-theme-summary-strip" not in generated_contract_payload
+    assert "local-theme-summary-strip" not in generated_contract_payload
+    assert "theme-summary-strip" not in generated_contract_payload
+    assert "每日本地主题摘要条" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -1056,6 +1066,14 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "daily_local_coverage_map",
         "local_coverage_map",
         "coverage_map",
+        "daily-local-theme-summary",
+        "daily-local-theme-summary-strip",
+        "local-theme-summary-strip",
+        "theme-summary-strip",
+        "daily_local_theme_summary",
+        "daily_local_theme_summary_strip",
+        "local_theme_summary_strip",
+        "theme_summary_strip",
     ):
         for artifact_dir in (output_dir, output_dir / "articles", output_dir / "data"):
             for suffix in (".json", ".html"):
@@ -1126,6 +1144,21 @@ def test_stage_363_daily_local_coverage_map_stays_generated_site_only(
     monkeypatch.setattr(
         row_one_templates,
         "_render_daily_local_coverage_map",
+        lambda *_args, **_kwargs: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_364_daily_local_theme_summary_strip_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_daily_local_theme_summary_strip",
         lambda *_args, **_kwargs: "",
         raising=False,
     )

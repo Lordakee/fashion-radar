@@ -192,6 +192,10 @@ DAILY_LOCAL_COVERAGE_MAP_MAX_SOURCES = 4
 DAILY_LOCAL_COVERAGE_MAP_MAX_BUCKETS_PER_SOURCE = 4
 DAILY_LOCAL_COVERAGE_MAP_MAX_REFS_PER_SOURCE = 5
 DAILY_LOCAL_COVERAGE_MAP_MAX_LINKS_PER_SOURCE = 2
+DAILY_LOCAL_THEME_SUMMARY_STRIP_MAX_THEMES = 4
+DAILY_LOCAL_THEME_SUMMARY_STRIP_MAX_LINKS_PER_THEME = 2
+DAILY_LOCAL_THEME_SUMMARY_STRIP_MAX_REFS_PER_THEME = 5
+DAILY_LOCAL_THEME_SUMMARY_STRIP_SUMMARY_CHARS = 160
 
 
 @dataclass(frozen=True)
@@ -333,6 +337,26 @@ class _DailyLocalCoverageMapSource:
 
 
 @dataclass(frozen=True)
+class _DailyLocalThemeSummaryStripLink:
+    title: LocalizedText
+    href: str
+    source_name: str
+
+
+@dataclass(frozen=True)
+class _DailyLocalThemeSummaryStripTheme:
+    title: LocalizedText
+    summary: LocalizedText
+    card_count: int
+    source_count: int
+    article_count: int
+    saved_paragraph_count: int
+    references: tuple[RowOneReference, ...]
+    links: tuple[_DailyLocalThemeSummaryStripLink, ...]
+    original_index: int
+
+
+@dataclass(frozen=True)
 class _SavedArticleSourceRoute:
     group_index: int
     source_name: str
@@ -381,6 +405,7 @@ def render_index_html(
     daily_local_article_reading_brief_article_hrefs_by_story_id: Mapping[str, str] | None = None,
     daily_local_source_desk_article_hrefs_by_story_id: Mapping[str, str] | None = None,
     daily_local_coverage_map_hrefs_by_detail_path: Mapping[str, str] | None = None,
+    daily_local_theme_summary_strip_hrefs_by_detail_path: Mapping[str, str] | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
     editorial_brief: _EditorialBrief | None = None,
     local_articles_by_story_id: dict[str, RowOneLocalArticle] | None = None,
@@ -434,6 +459,11 @@ def render_index_html(
         saved_article_content_organization,
         local_articles_by_story_id=local_articles_by_story_id,
         hrefs_by_detail_path=daily_local_coverage_map_hrefs_by_detail_path,
+    )
+    daily_local_theme_summary_strip_section = _render_daily_local_theme_summary_strip(
+        saved_article_content_organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        hrefs_by_detail_path=daily_local_theme_summary_strip_hrefs_by_detail_path,
     )
     saved_article_content_organization_section = _render_saved_article_content_organization(
         saved_article_content_organization
@@ -533,6 +563,7 @@ def render_index_html(
 {daily_local_article_reading_brief_section}
 {daily_local_source_desk_section}
 {daily_local_coverage_map_section}
+{daily_local_theme_summary_strip_section}
 {saved_article_content_organization_section}
 {editorial_brief_section}
 {lead_story_block}
@@ -4359,6 +4390,113 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   color: var(--accent) !important;
   width: fit-content;
 }
+.daily-local-theme-summary-strip {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-local-theme-summary-strip-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-local-theme-summary-strip-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2.1rem, 4.5vw, 5.2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.94;
+  margin: 0;
+}
+.daily-local-theme-summary-strip-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.daily-local-theme-summary-strip-metrics,
+.daily-local-theme-summary-strip-meta,
+.daily-local-theme-summary-strip-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.daily-local-theme-summary-strip-metrics {
+  margin: 0 0 14px;
+}
+.daily-local-theme-summary-strip-metrics span,
+.daily-local-theme-summary-strip-meta span,
+.daily-local-theme-summary-strip-ref,
+.daily-local-theme-summary-strip-ref span,
+.daily-local-theme-summary-strip-source {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-theme-summary-strip-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: 1fr;
+}
+.daily-local-theme-summary-strip-theme {
+  background: var(--panel);
+  display: grid;
+  gap: 14px;
+  min-height: 260px;
+  padding: 16px;
+}
+.daily-local-theme-summary-strip-theme-header,
+.daily-local-theme-summary-strip-links,
+.daily-local-theme-summary-strip-link {
+  display: grid;
+  gap: 10px;
+}
+.daily-local-theme-summary-strip-title {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.45rem, 2.4vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.98;
+  margin: 0;
+}
+.daily-local-theme-summary-strip-summary {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.daily-local-theme-summary-strip-ref {
+  gap: 4px;
+}
+.daily-local-theme-summary-strip-link {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.daily-local-theme-summary-strip-link a {
+  color: var(--ink);
+  display: grid;
+  gap: 4px;
+  text-decoration-color: var(--line);
+  text-underline-offset: 4px;
+}
+.daily-local-theme-summary-strip-link a > span:first-child {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.daily-local-theme-summary-strip-source {
+  color: var(--accent) !important;
+  width: fit-content;
+}
 .saved-article-content-organization {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -5926,6 +6064,9 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-coverage-map-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .daily-local-theme-summary-strip-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @media (max-width: 760px) {
   .site-header { min-height: 46vh; padding: 28px 20px; }
@@ -5959,6 +6100,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-source-desk-grid { grid-template-columns: 1fr; }
   .daily-local-coverage-map-header { grid-template-columns: 1fr; }
   .daily-local-coverage-map-grid { grid-template-columns: 1fr; }
+  .daily-local-theme-summary-strip-header { grid-template-columns: 1fr; }
+  .daily-local-theme-summary-strip-grid { grid-template-columns: 1fr; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
   .saved-article-library-entry-header { grid-template-columns: 1fr; }
@@ -11548,6 +11691,248 @@ def _render_daily_local_coverage_map_link(link: _DailyLocalCoverageMapLink) -> s
             <span data-lang="en">{_esc(link.bucket_title.en)}</span>
             <span data-lang="zh">{_esc(link.bucket_title.zh)}</span>
           </span>
+        </article>"""
+
+
+def _render_daily_local_theme_summary_strip(
+    organization: RowOneSavedArticleContentOrganization | None,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    hrefs_by_detail_path: Mapping[str, str] | None,
+) -> str:
+    themes = _daily_local_theme_summary_strip_themes(
+        organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        hrefs_by_detail_path=hrefs_by_detail_path,
+    )
+    if not themes:
+        return ""
+    assert len(themes) <= DAILY_LOCAL_THEME_SUMMARY_STRIP_MAX_THEMES
+    article_count = sum(theme.article_count for theme in themes)
+    card_count = sum(theme.card_count for theme in themes)
+    paragraph_count = sum(theme.saved_paragraph_count for theme in themes)
+    rendered_themes = "\n".join(
+        _render_daily_local_theme_summary_strip_theme(theme) for theme in themes
+    )
+    return f"""<section class="daily-local-theme-summary-strip"
+  aria-label="Daily local theme summary strip">
+  <div class="daily-local-theme-summary-strip-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">Daily Local Theme Summary Strip</span>
+        <span data-lang="zh">每日本地主题摘要条</span>
+      </p>
+      <h2>
+        <span data-lang="en">Theme-level takeaways from saved local text</span>
+        <span data-lang="zh">从本地保存正文提炼主题级摘要</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">
+        Compact theme cards built from existing organization groups, leads, references, and
+        same-site local article anchors.
+      </span>
+      <span data-lang="zh">
+        基于现有整理分组、摘要、引用和站内本地文章锚点生成的紧凑主题卡片。
+      </span>
+    </p>
+  </div>
+  <div class="daily-local-theme-summary-strip-metrics">
+    <span>{_esc(_count_label(len(themes), "theme", "themes"))}</span>
+    <span>{_esc(_count_label(card_count, "card", "cards"))}</span>
+    <span>{_esc(_count_label(article_count, "local article", "local articles"))}</span>
+    <span>{_esc(_count_label(paragraph_count, "saved paragraph", "saved paragraphs"))}</span>
+    <span data-lang="en">Homepage only</span>
+    <span data-lang="zh">仅首页展示</span>
+  </div>
+  <div class="daily-local-theme-summary-strip-grid">
+{rendered_themes}
+  </div>
+</section>"""
+
+
+def _daily_local_theme_summary_strip_themes(
+    organization: RowOneSavedArticleContentOrganization | None,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle] | None,
+    hrefs_by_detail_path: Mapping[str, str] | None,
+) -> tuple[_DailyLocalThemeSummaryStripTheme, ...]:
+    if organization is None or not local_articles_by_story_id or not hrefs_by_detail_path:
+        return ()
+    themes: list[_DailyLocalThemeSummaryStripTheme] = []
+    for group_index, organization_group in enumerate(organization.groups):
+        title = _daily_local_theme_summary_strip_text(organization_group.title)
+        if not title.en and not title.zh:
+            continue
+        source_names: set[str] = set()
+        article_ids: set[str] = set()
+        saved_paragraph_counts: dict[str, int] = {}
+        references: list[RowOneReference] = []
+        reference_keys: set[tuple[str, str, str]] = set()
+        links: list[_DailyLocalThemeSummaryStripLink] = []
+        link_hrefs: set[str] = set()
+        summary: LocalizedText | None = None
+        card_count = 0
+
+        for card in organization_group.cards:
+            source_name = normalize_row_one_paragraph(card.source_name)
+            if not source_name:
+                continue
+            target = _daily_local_theme_summary_strip_card_target(
+                card,
+                local_articles_by_story_id=local_articles_by_story_id,
+                hrefs_by_detail_path=hrefs_by_detail_path,
+            )
+            if target is None:
+                continue
+            story_id, saved_paragraph_count, href = target
+            card_count += 1
+            source_names.add(source_name.casefold())
+            article_ids.add(story_id)
+            saved_paragraph_counts.setdefault(story_id, saved_paragraph_count)
+            if summary is None:
+                summary = _daily_local_theme_summary_strip_summary(
+                    organization_group.dek,
+                    card.lead,
+                )
+            for ref in card.references:
+                if len(references) >= DAILY_LOCAL_THEME_SUMMARY_STRIP_MAX_REFS_PER_THEME:
+                    break
+                name = normalize_row_one_paragraph(ref.name)
+                ref_type = normalize_row_one_paragraph(ref.type)
+                label = normalize_row_one_paragraph(ref.label)
+                if not name:
+                    continue
+                reference_key = (name.casefold(), ref_type.casefold(), label.casefold())
+                if reference_key in reference_keys:
+                    continue
+                reference_keys.add(reference_key)
+                references.append(RowOneReference(name=name, type=ref_type, label=label))
+            if (
+                len(links) < DAILY_LOCAL_THEME_SUMMARY_STRIP_MAX_LINKS_PER_THEME
+                and href not in link_hrefs
+            ):
+                link_hrefs.add(href)
+                links.append(
+                    _DailyLocalThemeSummaryStripLink(
+                        title=_daily_local_theme_summary_strip_text(card.title),
+                        href=href,
+                        source_name=source_name,
+                    )
+                )
+
+        if card_count <= 0 or not links or summary is None:
+            continue
+        themes.append(
+            _DailyLocalThemeSummaryStripTheme(
+                title=title,
+                summary=summary,
+                card_count=card_count,
+                source_count=len(source_names),
+                article_count=len(article_ids),
+                saved_paragraph_count=sum(int(count) for count in saved_paragraph_counts.values()),
+                references=tuple(references),
+                links=tuple(links),
+                original_index=group_index,
+            )
+        )
+    themes.sort(
+        key=lambda theme: (
+            -theme.card_count,
+            -theme.article_count,
+            -theme.saved_paragraph_count,
+            theme.original_index,
+        )
+    )
+    return tuple(themes[:DAILY_LOCAL_THEME_SUMMARY_STRIP_MAX_THEMES])
+
+
+def _daily_local_theme_summary_strip_text(text: LocalizedText) -> LocalizedText:
+    return LocalizedText(
+        en=normalize_row_one_paragraph(text.en),
+        zh=normalize_row_one_paragraph(text.zh),
+    )
+
+
+def _daily_local_theme_summary_strip_summary(
+    group_dek: LocalizedText,
+    card_lead: LocalizedText,
+) -> LocalizedText:
+    dek = _daily_local_theme_summary_strip_text(group_dek)
+    lead = _daily_local_theme_summary_strip_text(card_lead)
+    return LocalizedText(
+        en=_daily_local_theme_summary_strip_excerpt(dek.en or lead.en or lead.zh),
+        zh=_daily_local_theme_summary_strip_excerpt(dek.zh or lead.zh or lead.en),
+    )
+
+
+def _daily_local_theme_summary_strip_excerpt(text: str) -> str:
+    return _meta_description(
+        normalize_row_one_paragraph(text),
+        limit=DAILY_LOCAL_THEME_SUMMARY_STRIP_SUMMARY_CHARS,
+    )
+
+
+def _daily_local_theme_summary_strip_card_target(
+    card: RowOneSavedArticleContentOrganizationCard,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+    hrefs_by_detail_path: Mapping[str, str],
+) -> tuple[str, int, str] | None:
+    return _daily_local_coverage_map_card_target(
+        card,
+        local_articles_by_story_id=local_articles_by_story_id,
+        hrefs_by_detail_path=hrefs_by_detail_path,
+    )
+
+
+def _render_daily_local_theme_summary_strip_theme(
+    theme: _DailyLocalThemeSummaryStripTheme,
+) -> str:
+    refs = "".join(_render_daily_local_theme_summary_strip_ref(ref) for ref in theme.references)
+    refs_html = f'<div class="daily-local-theme-summary-strip-refs">{refs}</div>' if refs else ""
+    links = "\n".join(_render_daily_local_theme_summary_strip_link(link) for link in theme.links)
+    return f"""    <article class="daily-local-theme-summary-strip-theme">
+      <div class="daily-local-theme-summary-strip-theme-header">
+        <h3 class="daily-local-theme-summary-strip-title">
+          <span data-lang="en">{_esc(theme.title.en)}</span>
+          <span data-lang="zh">{_esc(theme.title.zh)}</span>
+        </h3>
+        <div class="daily-local-theme-summary-strip-meta">
+          <span>{_esc(_count_label(theme.card_count, "card", "cards"))}</span>
+          <span>{_esc(_count_label(theme.source_count, "source", "sources"))}</span>
+          <span>{_esc(_count_label(theme.article_count, "article", "articles"))}</span>
+          <span>{_esc(_count_label(theme.saved_paragraph_count, "paragraph", "paragraphs"))}</span>
+        </div>
+      </div>
+      <p class="daily-local-theme-summary-strip-summary">
+        <span data-lang="en">{_esc(theme.summary.en)}</span>
+        <span data-lang="zh">{_esc(theme.summary.zh)}</span>
+      </p>
+      {refs_html}
+      <div class="daily-local-theme-summary-strip-links">
+{links}
+      </div>
+    </article>"""
+
+
+def _render_daily_local_theme_summary_strip_ref(ref: RowOneReference) -> str:
+    label = normalize_row_one_paragraph(ref.label) or normalize_row_one_paragraph(ref.type)
+    label_html = f"<span>{_esc(label)}</span>" if label else ""
+    return f'<span class="daily-local-theme-summary-strip-ref">{_esc(ref.name)}{label_html}</span>'
+
+
+def _render_daily_local_theme_summary_strip_link(
+    link: _DailyLocalThemeSummaryStripLink,
+) -> str:
+    title_en = link.title.en or link.title.zh
+    title_zh = link.title.zh or link.title.en
+    return f"""        <article class="daily-local-theme-summary-strip-link">
+          <a href="{_esc(link.href)}">
+            <span data-lang="en">{_esc(title_en)}</span>
+            <span data-lang="zh">{_esc(title_zh)}</span>
+          </a>
+          <span class="daily-local-theme-summary-strip-source">{_esc(link.source_name)}</span>
         </article>"""
 
 

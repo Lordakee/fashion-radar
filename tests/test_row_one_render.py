@@ -4393,6 +4393,95 @@ def test_render_row_one_site_writes_daily_local_coverage_map_homepage_only(
             assert not (directory / f"{stem}.html").exists()
 
 
+def test_render_row_one_site_writes_daily_local_theme_summary_strip_homepage_only(
+    tmp_path,
+) -> None:
+    base_story = _edition().stories[0]
+    stories = [
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "site-theme-strip-vogue-1111111111",
+                "headline": "Site theme strip Vogue",
+                "detail_path": "details/site-theme-strip-vogue-1111111111.html",
+            },
+        ),
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": "site-theme-strip-wwd-2222222222",
+                "headline": "Site theme strip WWD",
+                "detail_path": "details/site-theme-strip-wwd-2222222222.html",
+            },
+        ),
+    ]
+    local_articles_by_story_id = {
+        stories[0].id: _theme_digest_local_article().model_copy(
+            deep=True,
+            update={
+                "story_id": stories[0].id,
+                "title": "Vogue theme strip article",
+                "source_name": "Vogue Business",
+                "paragraphs": ["Vogue theme strip paragraph."],
+                "paragraphs_zh": ["Vogue 主题摘要段落。"],
+            },
+        ),
+        stories[1].id: _theme_digest_local_article().model_copy(
+            deep=True,
+            update={
+                "story_id": stories[1].id,
+                "title": "WWD theme strip article",
+                "source_name": "WWD",
+                "paragraphs": ["WWD theme strip paragraph."],
+                "paragraphs_zh": ["WWD 主题摘要段落。"],
+            },
+        ),
+    }
+
+    render_row_one_site(
+        _edition_with_stories(*stories),
+        tmp_path,
+        local_articles_by_story_id=local_articles_by_story_id,
+    )
+
+    article_html = (tmp_path / "articles" / f"{stories[0].id}.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / f"{stories[0].id}.html").read_text(encoding="utf-8")
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+    section_html = _daily_local_theme_summary_strip_section_html(homepage_html)
+
+    assert "Daily Local Theme Summary Strip" in section_html
+    assert 'class="daily-local-theme-summary-strip"' in section_html
+    assert (
+        'href="articles/site-theme-strip-vogue-1111111111.html'
+        '#local-article-content-section-1"' in section_html
+    )
+    assert 'class="daily-local-theme-summary-strip"' not in library_html
+    assert 'class="daily-local-theme-summary-strip"' not in article_html
+    assert 'class="daily-local-theme-summary-strip"' not in detail_html
+    assert "daily_local_theme_summary_strip" not in generated_contract_payload
+    assert "daily-local-theme-summary-strip" not in generated_contract_payload
+    assert "Daily Local Theme Summary Strip" not in generated_contract_payload
+    for stem in (
+        "daily-local-theme-summary-strip",
+        "local-theme-summary-strip",
+        "theme-summary-strip",
+        "daily_local_theme_summary_strip",
+        "local_theme_summary_strip",
+        "theme_summary_strip",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
 def test_write_local_article_pages_rejects_orphaned_href_mapping(tmp_path) -> None:
     story = _edition().stories[0]
 
@@ -7349,6 +7438,18 @@ def _daily_local_source_desk_section_html(index_html: str) -> str:
 
 def _daily_local_coverage_map_section_html(index_html: str) -> str:
     marker = '<section class="daily-local-coverage-map"'
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is None:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + next_section.start()
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _daily_local_theme_summary_strip_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-theme-summary-strip"'
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
     next_section = re.search(r"\n\s*<section class=", tail)
@@ -13465,6 +13566,431 @@ def test_render_index_html_places_daily_local_coverage_map_before_saved_organiza
     )
 
 
+def test_render_index_html_includes_daily_local_theme_summary_strip() -> None:
+    story_source_pairs = [
+        ("theme-strip-row-1111111111", "Theme strip <script>", "Vogue <Business>"),
+        ("theme-strip-row-2222222222", "Theme strip second", "Vogue <Business>"),
+        ("theme-strip-wwd-3333333333", "Theme strip WWD", "WWD"),
+        ("theme-strip-bof-4444444444", "Theme strip BoF", "Business of Fashion"),
+        ("theme-strip-cut-5555555555", "Theme strip Cut", "The Cut"),
+        ("theme-strip-overflow-6666666666", "Theme strip Overflow", "Overflow Source"),
+    ]
+    stories = [
+        _coverage_map_story(story_id, headline, source_name)
+        for story_id, headline, source_name in story_source_pairs
+    ]
+    local_articles_by_story_id = {
+        story.id: _coverage_map_article(story, source_name)
+        for story, (_story_id, _headline, source_name) in zip(
+            stories, story_source_pairs, strict=True
+        )
+    }
+    read_first = LocalizedText(en="Read First", zh="优先阅读")
+    people_brands = LocalizedText(en="People & Brands", zh="品牌与人物")
+    products = LocalizedText(en="Products", zh="单品")
+    source_structure = LocalizedText(en="Source Structure", zh="来源结构")
+    overflow = LocalizedText(en="Overflow Theme", zh="溢出主题")
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="takeaways",
+                title=read_first,
+                dek=LocalizedText(
+                    en="Top saved-local theme summary from existing organization dek.",
+                    zh="来自现有整理说明的本地主题摘要。",
+                ),
+                cards=[
+                    _coverage_map_card(
+                        stories[0],
+                        source_name="Vogue <Business>",
+                        group_title=read_first,
+                        section_label=LocalizedText(en="Lead <script>", zh="主线"),
+                        references=(
+                            RowOneReference(name="The Row", type="brand", label="tracked"),
+                            RowOneReference(name="The Row", type="brand", label="tracked"),
+                            RowOneReference(name="Brand <script>", type="brand", label="tracked"),
+                            RowOneReference(name="Margaux bag", type="bag", label="product"),
+                            RowOneReference(name="Ballet flat", type="shoe", label="product"),
+                            RowOneReference(name="Overflow ref", type="brand", label="overflow"),
+                        ),
+                    ),
+                    _coverage_map_card(
+                        stories[1],
+                        source_name="Vogue <Business>",
+                        group_title=read_first,
+                        section_label=LocalizedText(en="Lead", zh="主线"),
+                        fragment="",
+                        paragraph_indices=(1,),
+                    ),
+                    _coverage_map_card(
+                        stories[2],
+                        source_name="WWD",
+                        group_title=read_first,
+                        section_label=LocalizedText(en="Lead", zh="主线"),
+                    ),
+                ],
+            ),
+            RowOneSavedArticleContentOrganizationGroup(
+                key="entities",
+                title=people_brands,
+                dek=LocalizedText(en="Brand coverage.", zh="品牌覆盖。"),
+                cards=[
+                    _coverage_map_card(
+                        stories[3],
+                        source_name="Business of Fashion",
+                        group_title=people_brands,
+                        section_label=LocalizedText(en="Brands", zh="品牌"),
+                        references=(
+                            RowOneReference(
+                                name="Mary-Kate Olsen", type="designer", label="person"
+                            ),
+                        ),
+                    ),
+                    _coverage_map_card(
+                        stories[4],
+                        source_name="The Cut",
+                        group_title=people_brands,
+                        section_label=LocalizedText(en="Brands", zh="品牌"),
+                    ),
+                ],
+            ),
+            RowOneSavedArticleContentOrganizationGroup(
+                key="product_signals",
+                title=products,
+                dek=LocalizedText(en="Product coverage.", zh="单品覆盖。"),
+                cards=[
+                    _coverage_map_card(
+                        stories[0],
+                        source_name="Vogue <Business>",
+                        group_title=products,
+                        section_label=LocalizedText(en="Products", zh="单品"),
+                    ),
+                ],
+            ),
+            RowOneSavedArticleContentOrganizationGroup(
+                key="brand_signals",
+                title=source_structure,
+                dek=LocalizedText(en="Source structure.", zh="来源结构。"),
+                cards=[
+                    _coverage_map_card(
+                        stories[2],
+                        source_name="WWD",
+                        group_title=source_structure,
+                        section_label=LocalizedText(en="Structure", zh="结构"),
+                    ),
+                ],
+            ),
+            RowOneSavedArticleContentOrganizationGroup(
+                key="overflow",
+                title=overflow,
+                dek=LocalizedText(en="Overflow theme.", zh="溢出主题。"),
+                cards=[
+                    _coverage_map_card(
+                        stories[5],
+                        source_name="Overflow Source",
+                        group_title=overflow,
+                        section_label=LocalizedText(en="Overflow", zh="溢出"),
+                    ),
+                ],
+            ),
+        ]
+    )
+
+    html = render_index_html(
+        _edition_with_stories(*stories),
+        saved_article_content_organization=organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_theme_summary_strip_hrefs_by_detail_path={
+            f"details/{story.id}.html": f"{story.id}.html" for story in stories
+        },
+    )
+    section_html = _daily_local_theme_summary_strip_section_html(html)
+    read_first_card = section_html[
+        section_html.index("Read First") : section_html.index("People &amp; Brands")
+    ]
+
+    assert 'class="daily-local-theme-summary-strip"' in section_html
+    assert "Daily Local Theme Summary Strip" in section_html
+    assert "每日本地主题摘要条" in section_html
+    assert section_html.index("Read First") < section_html.index("People &amp; Brands")
+    assert section_html.index("People &amp; Brands") < section_html.index("Products")
+    assert section_html.index("Products") < section_html.index("Source Structure")
+    assert "Overflow Theme" not in section_html
+    assert "4 themes" in section_html
+    assert "7 cards" in section_html
+    assert "3 cards" in read_first_card
+    assert "2 sources" in read_first_card
+    assert "3 articles" in read_first_card
+    assert "6 paragraphs" in read_first_card
+    assert "Top saved-local theme summary from existing organization dek." in read_first_card
+    assert "The Row" in read_first_card
+    assert read_first_card.count("The Row") == 1
+    assert "Brand &lt;script&gt;" in read_first_card
+    assert "Overflow ref" in read_first_card
+    assert read_first_card.count('class="daily-local-theme-summary-strip-ref"') == 5
+    assert read_first_card.count('class="daily-local-theme-summary-strip-link"') == 2
+    assert (
+        'href="articles/theme-strip-row-1111111111.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert (
+        'href="articles/theme-strip-row-2222222222.html#local-article-paragraph-2"' in section_html
+    )
+    assert "Theme strip &lt;script&gt; card" in section_html
+    assert "<script>" not in section_html
+    assert "<Business>" not in section_html
+    assert "saved coverage paragraph" not in section_html
+    assert "https://example.com" not in section_html
+
+
+def test_render_index_html_filters_unsafe_daily_local_theme_summary_strip() -> None:
+    base_story = _edition().stories[0]
+    cases = [
+        ("safe-theme-strip-1111111111", "Safe Theme Strip", "Safe Source", "safe"),
+        ("unsafe/theme-strip-2222222222", "Unsafe ID Theme Strip", "Unsafe Source", "unsafe"),
+        ("wrong-prefix-theme-strip-3333333333", "Wrong Prefix Theme", "Wrong Source", "detail"),
+        ("absolute-theme-strip-4444444444", "Absolute Theme", "Absolute Source", "detail"),
+        ("traversal-theme-strip-5555555555", "Traversal Theme", "Traversal Source", "detail"),
+        ("nested-theme-strip-6666666666", "Nested Theme", "Nested Source", "href"),
+        ("whitespace-theme-strip-7777777777", "Whitespace Theme", "Whitespace Source", "href"),
+        ("slash-theme-strip-8888888888", "Slash Theme", "Slash Source", "href"),
+        ("dot-theme-strip-9999999999", "Dot Theme", "Dot Source", "href"),
+        ("doubleslash-theme-strip-1010101010", "Double Slash Theme", "Double Source", "href"),
+        ("mismatch-theme-strip-1212121212", "Mismatch Theme", "Mismatch Source", "href"),
+        ("missing-href-theme-strip-1313131313", "Missing Href Theme", "Missing Href", "href"),
+        (
+            "missing-article-theme-strip-1414141414",
+            "Missing Article Theme",
+            "Missing Article",
+            "missing",
+        ),
+        (
+            "mismatch-article-theme-strip-1515151515",
+            "Mismatch Article Theme",
+            "Mismatch Article",
+            "mismatch_article",
+        ),
+        ("blank-source-theme-strip-1616161616", "Blank Source Theme", "   ", "blank"),
+        ("empty-theme-strip-1717171717", "Empty Theme", "Empty Source", "empty"),
+    ]
+    stories = [
+        base_story.model_copy(
+            deep=True,
+            update={
+                "id": story_id,
+                "headline": headline,
+                "detail_path": f"details/{story_id.replace('/', '-')}.html",
+            },
+        )
+        for story_id, headline, _source_name, _case_type in cases
+    ]
+    local_articles_by_story_id = {}
+    for story, (_story_id, _headline, source_name, case_type) in zip(stories, cases, strict=True):
+        if case_type == "missing":
+            continue
+        local_articles_by_story_id[story.id] = _coverage_map_article(
+            story,
+            source_name,
+            paragraph_count=0 if case_type == "empty" else 1,
+        ).model_copy(
+            deep=True,
+            update={
+                "story_id": "other-theme-strip-1515151515"
+                if case_type == "mismatch_article"
+                else story.id,
+            },
+        )
+
+    def detail_path_for(story: RowOneStory, case_type: str) -> str:
+        if case_type == "detail" and story.id.startswith("wrong-prefix"):
+            return f"elsewhere/{story.id}.html#local-article-content-section-1"
+        if case_type == "detail" and story.id.startswith("absolute"):
+            return f"/details/{story.id}.html#local-article-content-section-1"
+        if case_type == "detail" and story.id.startswith("traversal"):
+            return f"details/../{story.id}.html#local-article-content-section-1"
+        return f"{story.detail_path}#local-article-content-section-1"
+
+    organization = RowOneSavedArticleContentOrganization(
+        groups=[
+            RowOneSavedArticleContentOrganizationGroup(
+                key="takeaways",
+                title=LocalizedText(en="Read First", zh="优先阅读"),
+                dek=LocalizedText(en="Theme coverage.", zh="主题覆盖。"),
+                cards=[
+                    _coverage_map_card(
+                        story,
+                        source_name=source_name,
+                        group_title=LocalizedText(en="Read First", zh="优先阅读"),
+                        section_label=LocalizedText(en="Lead", zh="主线"),
+                        detail_path=detail_path_for(story, case_type),
+                    )
+                    for story, (_story_id, _headline, source_name, case_type) in zip(
+                        stories,
+                        cases,
+                        strict=True,
+                    )
+                ],
+            )
+        ]
+    )
+
+    html = render_index_html(
+        _edition_with_stories(*stories),
+        saved_article_content_organization=organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_theme_summary_strip_hrefs_by_detail_path={
+            "details/safe-theme-strip-1111111111.html": "safe-theme-strip-1111111111.html",
+            "details/nested-theme-strip-6666666666.html": "nested/story.html",
+            "details/whitespace-theme-strip-7777777777.html": "white space.html",
+            "details/slash-theme-strip-8888888888.html": "/absolute.html",
+            "details/dot-theme-strip-9999999999.html": ".hidden.html",
+            "details/doubleslash-theme-strip-1010101010.html": "//hidden.html",
+            "details/mismatch-theme-strip-1212121212.html": "other-theme-strip-1212121212.html",
+            "details/mismatch-article-theme-strip-1515151515.html": (
+                "mismatch-article-theme-strip-1515151515.html"
+            ),
+            "details/blank-source-theme-strip-1616161616.html": (
+                "blank-source-theme-strip-1616161616.html"
+            ),
+            "details/empty-theme-strip-1717171717.html": "empty-theme-strip-1717171717.html",
+        },
+    )
+    section_html = _daily_local_theme_summary_strip_section_html(html)
+
+    assert "Safe Theme Strip" in section_html
+    assert "Safe Source" in section_html
+    assert (
+        'href="articles/safe-theme-strip-1111111111.html#local-article-content-section-1"'
+        in section_html
+    )
+    for unsafe_text in (
+        "Unsafe ID Theme Strip",
+        "Unsafe Source",
+        "Wrong Prefix Theme",
+        "Wrong Source",
+        "Absolute Theme",
+        "Absolute Source",
+        "Traversal Theme",
+        "Traversal Source",
+        "Nested Theme",
+        "Whitespace Theme",
+        "Slash Theme",
+        "Dot Theme",
+        "Double Slash Theme",
+        "Mismatch Theme",
+        "Missing Href Theme",
+        "Missing Article Theme",
+        "Mismatch Article Theme",
+        "Blank Source Theme",
+        "Empty Theme",
+        "nested/story.html",
+        "white space.html",
+        "/absolute.html",
+        ".hidden.html",
+        "//hidden.html",
+        "other-theme-strip-1212121212.html",
+    ):
+        assert unsafe_text not in section_html
+
+
+@pytest.mark.parametrize(
+    ("organization", "local_articles_by_story_id", "hrefs_by_detail_path"),
+    [
+        (None, {"the-row-signal-1234567890": _signal_briefing_local_article()}, {}),
+        (build_row_one_saved_article_content_organization(_edition(), {}), {}, {}),
+        (
+            build_row_one_saved_article_content_organization(
+                _edition(),
+                {"the-row-signal-1234567890": _signal_briefing_local_article()},
+            ),
+            {"the-row-signal-1234567890": _signal_briefing_local_article()},
+            None,
+        ),
+        (
+            build_row_one_saved_article_content_organization(
+                _edition(),
+                {"the-row-signal-1234567890": _signal_briefing_local_article()},
+            ),
+            {"the-row-signal-1234567890": _signal_briefing_local_article()},
+            {},
+        ),
+    ],
+)
+def test_render_index_html_omits_daily_local_theme_summary_strip_without_eligible_cards(
+    organization: RowOneSavedArticleContentOrganization | None,
+    local_articles_by_story_id: dict[str, RowOneLocalArticle],
+    hrefs_by_detail_path: dict[str, str] | None,
+) -> None:
+    html = render_index_html(
+        _edition(),
+        saved_article_content_organization=organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_theme_summary_strip_hrefs_by_detail_path=hrefs_by_detail_path,
+    )
+
+    assert 'class="daily-local-theme-summary-strip"' not in html
+    assert "Daily Local Theme Summary Strip" not in html
+
+
+def test_render_index_html_places_daily_local_theme_summary_strip_after_coverage_map_before_saved_organization() -> (  # noqa: E501
+    None
+):
+    story = _edition().stories[0]
+    edition = _edition_with_stories(story)
+    local_articles_by_story_id = {story.id: _signal_briefing_local_article()}
+    organization = build_row_one_saved_article_content_organization(
+        edition,
+        local_articles_by_story_id,
+    )
+
+    html = render_index_html(
+        edition,
+        saved_article_content_organization=organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_coverage_map_hrefs_by_detail_path={
+            story.detail_path: f"{story.id}.html",
+        },
+        daily_local_theme_summary_strip_hrefs_by_detail_path={
+            story.detail_path: f"{story.id}.html",
+        },
+    )
+
+    assert 'class="saved-article-content-organization"' in html
+    assert html.index('class="daily-local-coverage-map"') < html.index(
+        'class="daily-local-theme-summary-strip"'
+    )
+    assert html.index('class="daily-local-theme-summary-strip"') < html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
+def test_render_index_html_places_daily_local_theme_summary_strip_before_saved_organization_without_coverage_map() -> (  # noqa: E501
+    None
+):
+    story = _edition().stories[0]
+    edition = _edition_with_stories(story)
+    local_articles_by_story_id = {story.id: _signal_briefing_local_article()}
+    organization = build_row_one_saved_article_content_organization(
+        edition,
+        local_articles_by_story_id,
+    )
+
+    html = render_index_html(
+        edition,
+        saved_article_content_organization=organization,
+        local_articles_by_story_id=local_articles_by_story_id,
+        daily_local_theme_summary_strip_hrefs_by_detail_path={
+            story.detail_path: f"{story.id}.html",
+        },
+    )
+
+    assert 'class="saved-article-content-organization"' in html
+    assert 'class="daily-local-coverage-map"' not in html
+    assert html.index('class="daily-local-theme-summary-strip"') < html.index(
+        'class="saved-article-content-organization"'
+    )
+
+
 def test_render_row_one_site_rejects_normalized_duplicate_detail_paths(tmp_path: Path) -> None:
     first_story = _coverage_map_story(
         "normalized-detail-aaaaaaaaaa",
@@ -14368,6 +14894,33 @@ def test_row_one_css_includes_daily_local_coverage_map_styles() -> None:
         ".daily-local-coverage-map-link-bucket",
     ):
         assert selector in css
+
+
+def test_row_one_css_includes_daily_local_theme_summary_strip_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-theme-summary-strip",
+        ".daily-local-theme-summary-strip-header",
+        ".daily-local-theme-summary-strip-metrics",
+        ".daily-local-theme-summary-strip-grid",
+        ".daily-local-theme-summary-strip-theme",
+        ".daily-local-theme-summary-strip-theme-header",
+        ".daily-local-theme-summary-strip-title",
+        ".daily-local-theme-summary-strip-summary",
+        ".daily-local-theme-summary-strip-meta",
+        ".daily-local-theme-summary-strip-refs",
+        ".daily-local-theme-summary-strip-ref",
+        ".daily-local-theme-summary-strip-links",
+        ".daily-local-theme-summary-strip-link",
+        ".daily-local-theme-summary-strip-source",
+    ):
+        assert selector in css
+    assert "@media (max-width: 760px)" in css
+    assert re.search(
+        r"\.daily-local-theme-summary-strip-grid\s*\{[^}]*grid-template-columns:\s*1fr",
+        css,
+    )
 
 
 def test_row_one_css_includes_local_article_paragraph_context_styles() -> None:

@@ -224,6 +224,9 @@ def render_row_one_site(
                 local_article_page_hrefs_by_story_id
             ),
             daily_local_coverage_map_hrefs_by_detail_path=(local_article_page_hrefs_by_detail_path),
+            daily_local_theme_summary_strip_hrefs_by_detail_path=(
+                local_article_page_hrefs_by_detail_path
+            ),
             saved_article_content_organization=saved_article_content_organization,
             editorial_brief=editorial_brief,
             local_articles_by_story_id=local_articles_by_story_id,
