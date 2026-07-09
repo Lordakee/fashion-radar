@@ -70,6 +70,10 @@ from fashion_radar.row_one.daily_local_key_signals_digest import (
     RowOneDailyLocalKeySignalsDigestEntry,
     RowOneDailyLocalKeySignalsDigestGroup,
 )
+from fashion_radar.row_one.daily_local_news_timeline import (
+    RowOneDailyLocalNewsTimeline,
+    RowOneDailyLocalNewsTimelineItem,
+)
 from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneDailyLocalIntelligenceItem,
@@ -8867,6 +8871,18 @@ def _daily_local_article_intelligence_brief_section_html(index_html: str) -> str
     return index_html[section_start:section_end]
 
 
+def _daily_local_news_timeline_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-news-timeline"'
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is None:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + next_section.start()
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
 def _saved_article_daily_summary_section_html(index_html: str) -> str:
     marker = '<section class="saved-article-daily-summary"'
     assert marker in index_html
@@ -14585,6 +14601,37 @@ def _daily_local_article_intelligence_brief_fixture(
     )
 
 
+def _daily_local_news_timeline_fixture(
+    *,
+    href: str = "articles/the-row-signal-1234567890.html#local-article-paragraph-1",
+    title_en: str = "The Row timeline",
+    source_name: str = "Vogue Business",
+) -> RowOneDailyLocalNewsTimeline:
+    return RowOneDailyLocalNewsTimeline(
+        title=LocalizedText(en="Daily Local News Timeline", zh="每日本地新闻时间线"),
+        dek=LocalizedText(
+            en="Newest saved local fashion stories.",
+            zh="最新本地保存时尚资讯。",
+        ),
+        item_count=1,
+        source_count=1,
+        latest_label=LocalizedText(en="Jul 10, 2026", zh="2026-07-10"),
+        items=(
+            RowOneDailyLocalNewsTimelineItem(
+                title=LocalizedText(en=title_en, zh="The Row 时间线"),
+                source_name=source_name,
+                published_at=datetime(2026, 7, 10, 8, 30, tzinfo=UTC),
+                published_label=LocalizedText(en="Jul 10, 2026", zh="2026-07-10"),
+                excerpt=LocalizedText(
+                    en="A saved local paragraph.",
+                    zh="一段本地保存正文。",
+                ),
+                href=href,
+            ),
+        ),
+    )
+
+
 def _require_daily_local_saved_article_organizer_models() -> None:
     if RowOneDailyLocalSavedArticleOrganizer is None:
         pytest.skip("Stage 371 builder module has not landed yet.")
@@ -14914,6 +14961,166 @@ def test_render_row_one_site_writes_daily_local_article_intelligence_brief_homep
         "daily_local_article_intelligence_brief",
         "local_article_intelligence_brief",
         "article_intelligence_brief",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
+def test_render_index_html_includes_daily_local_news_timeline() -> None:
+    story = _edition().stories[0]
+    local_article = _signal_briefing_local_article()
+    organization = build_row_one_saved_article_content_organization(
+        _edition(),
+        {story.id: local_article},
+    )
+
+    html = render_index_html(
+        _edition(),
+        saved_article_content_organization=organization,
+        local_articles_by_story_id={story.id: local_article},
+        daily_local_theme_summary_strip_hrefs_by_detail_path={
+            story.detail_path: f"{story.id}.html"
+        },
+        daily_local_news_timeline=_daily_local_news_timeline_fixture(),
+        daily_local_article_intelligence_brief=(_daily_local_article_intelligence_brief_fixture()),
+    )
+    section_html = _daily_local_news_timeline_section_html(html)
+
+    assert (
+        '<section class="daily-local-news-timeline" '
+        'aria-labelledby="daily-local-news-timeline-title"'
+    ) in section_html
+    assert 'id="daily-local-news-timeline-title"' in section_html
+    assert "Daily Local News Timeline" in section_html
+    assert "每日本地新闻时间线" in section_html
+    assert "The Row timeline" in section_html
+    assert "Vogue Business" in section_html
+    assert "Jul 10, 2026" in section_html
+    assert "2026-07-10" in section_html
+    assert "1 timed story" in section_html
+    assert "1 source" in section_html
+    assert "A saved local paragraph." in section_html
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-paragraph-1"' in html
+    assert html.index('class="daily-local-theme-summary-strip"') < html.index(
+        'class="daily-local-news-timeline"'
+    )
+    assert html.index('class="daily-local-news-timeline"') < html.index(
+        'class="daily-local-article-intelligence-brief"'
+    )
+
+
+def test_render_daily_local_news_timeline_escapes_and_filters_links() -> None:
+    story_id = "the-row-signal-1234567890"
+    unsafe_hrefs = (
+        f"articles/{story_id}.html",
+        f"articles/{story_id}.html#",
+        f"articles/{story_id}.html#local-article-paragraph-",
+        f"articles/{story_id}.html#local-article-paragraph-0",
+        f"articles/{story_id}.html#local-article-paragraph-01",
+        f"articles/{story_id}.html#local-article-paragraph-1x",
+        f"articles/{story_id}.html #local-article-paragraph-1",
+        f"../articles/{story_id}.html#local-article-paragraph-1",
+        f"/articles/{story_id}.html#local-article-paragraph-1",
+        f"//example.com/articles/{story_id}.html#local-article-paragraph-1",
+        f"https://example.com/articles/{story_id}.html#local-article-paragraph-1",
+        f"articles/../{story_id}.html#local-article-paragraph-1",
+        "articles/bad story.html#local-article-paragraph-1",
+        "articles/javascript:void(0).html#local-article-paragraph-1",
+    )
+    timeline = replace(
+        _daily_local_news_timeline_fixture(
+            title_en="<script>Good</script>",
+            source_name="Vogue <Business>",
+        ),
+        items=(
+            RowOneDailyLocalNewsTimelineItem(
+                title=LocalizedText(en="<script>Good</script>", zh="<script>好</script>"),
+                source_name="Vogue <Business>",
+                published_at=datetime(2026, 7, 10, 8, 30, tzinfo=UTC),
+                published_label=LocalizedText(en="Jul 10, 2026", zh="2026-07-10"),
+                excerpt=LocalizedText(
+                    en="Local <b>paragraph</b>.",
+                    zh="本地 <b>正文</b>。",
+                ),
+                href=f"articles/{story_id}.html#local-article-paragraph-1",
+            ),
+            *(
+                RowOneDailyLocalNewsTimelineItem(
+                    title=LocalizedText(
+                        en=f"Unsafe timeline {index}",
+                        zh=f"不安全时间线 {index}",
+                    ),
+                    source_name="Unsafe Source",
+                    published_at=datetime(2026, 7, 10, 7, 0, tzinfo=UTC),
+                    published_label=LocalizedText(en="Jul 10, 2026", zh="2026-07-10"),
+                    excerpt=LocalizedText(en="Unsafe excerpt.", zh="不安全摘要。"),
+                    href=href,
+                )
+                for index, href in enumerate(unsafe_hrefs, start=1)
+            ),
+        ),
+    )
+
+    html = render_index_html(_edition(), daily_local_news_timeline=timeline)
+    section_html = _daily_local_news_timeline_section_html(html)
+
+    assert "<script>" not in section_html
+    assert "&lt;script&gt;Good&lt;/script&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "Local &lt;b&gt;paragraph&lt;/b&gt;." in section_html
+    assert 'href="articles/the-row-signal-1234567890.html#local-article-paragraph-1"' in (
+        section_html
+    )
+    assert "Unsafe timeline" not in section_html
+    assert "Unsafe Source" not in section_html
+    assert "https://example.com" not in section_html
+    assert "../" not in section_html
+    assert "#local-article-paragraph-0" not in section_html
+
+
+def test_render_row_one_site_writes_daily_local_news_timeline_homepage_only(
+    tmp_path,
+) -> None:
+    story = _edition().stories[0]
+
+    render_row_one_site(
+        _edition(),
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / f"{story.id}.html").read_text(encoding="utf-8")
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+    section_html = _daily_local_news_timeline_section_html(homepage_html)
+
+    assert "Daily Local News Timeline" in section_html
+    assert "每日本地新闻时间线" in section_html
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    )
+    assert 'class="daily-local-news-timeline"' not in library_html
+    assert 'class="daily-local-news-timeline"' not in article_html
+    assert 'class="daily-local-news-timeline"' not in detail_html
+    assert "daily_local_news_timeline" not in generated_contract_payload
+    assert "daily-local-news-timeline" not in generated_contract_payload
+    assert "Daily Local News Timeline" not in generated_contract_payload
+    for stem in (
+        "daily-local-news-timeline",
+        "local-news-timeline",
+        "news-timeline",
+        "daily_local_news_timeline",
+        "local_news_timeline",
+        "news_timeline",
     ):
         for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
             assert not (directory / f"{stem}.json").exists()
@@ -17211,6 +17418,28 @@ def test_row_one_css_includes_daily_local_article_intelligence_brief_styles() ->
     assert "@media (max-width: 760px)" in css
     assert re.search(
         r"\.daily-local-article-intelligence-brief-grid\s*\{[^}]*grid-template-columns:\s*1fr",
+        css,
+    )
+
+
+def test_row_one_css_includes_daily_local_news_timeline_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-news-timeline",
+        ".daily-local-news-timeline-header",
+        ".daily-local-news-timeline-meta",
+        ".daily-local-news-timeline-list",
+        ".daily-local-news-timeline-item",
+        ".daily-local-news-timeline-date",
+        ".daily-local-news-timeline-source",
+        ".daily-local-news-timeline-excerpt",
+        ".daily-local-news-timeline-link",
+    ):
+        assert selector in css
+    assert "@media (max-width: 760px)" in css
+    assert re.search(
+        r"\.daily-local-news-timeline-list\s*\{[^}]*grid-template-columns:\s*1fr",
         css,
     )
 

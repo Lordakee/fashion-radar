@@ -679,6 +679,15 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "local-article-intelligence-brief" not in generated_contract_payload
     assert "article-intelligence-brief" not in generated_contract_payload
     assert "intelligence-brief" not in generated_contract_payload
+    assert "daily_local_news_timeline" not in generated_contract_payload
+    assert "local_news_timeline" not in generated_contract_payload
+    assert "news_timeline" not in generated_contract_payload
+    assert "RowOneDailyLocalNewsTimeline" not in generated_contract_payload
+    assert "Daily Local News Timeline" not in generated_contract_payload
+    assert "daily-local-news-timeline" not in generated_contract_payload
+    assert "local-news-timeline" not in generated_contract_payload
+    assert "news-timeline" not in generated_contract_payload
+    assert "每日本地新闻时间线" not in generated_contract_payload
     assert "daily_local_saved_article_organizer" not in generated_contract_payload
     assert "local_saved_article_organizer" not in generated_contract_payload
     assert "saved_article_organizer" not in generated_contract_payload
@@ -1293,6 +1302,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "local_article_intelligence_brief",
         "article_intelligence_brief",
         "intelligence_brief",
+        "daily-local-news-timeline",
+        "local-news-timeline",
+        "news-timeline",
+        "daily_local_news_timeline",
+        "local_news_timeline",
+        "news_timeline",
         "daily-local-saved-article-organizer",
         "local-saved-article-organizer",
         "saved-article-organizer",
@@ -1539,6 +1554,21 @@ def test_stage_372_daily_local_reading_itinerary_stays_generated_site_only(
         "_render_daily_local_reading_itinerary",
         lambda _itinerary: "",
         raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_376_daily_local_news_timeline_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_daily_local_news_timeline",
+        lambda *_args, **_kwargs: "",
+        raising=True,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
 

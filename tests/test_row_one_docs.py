@@ -4796,6 +4796,35 @@ def test_row_one_docs_describe_stage_375_local_article_content_health_boundary()
             assert stale_phrase not in normalized
 
 
+def test_row_one_docs_describe_stage_376_daily_local_news_timeline_boundary() -> None:
+    paragraph = (
+        "Stage 376 adds generated-site only Daily Local News Timeline inside `index.html` "
+        "between Daily Local Theme Summary Strip and Daily Local Article Intelligence Brief; "
+        "it reuses current-edition stories, current-edition saved local article sidecars, "
+        "generated local article page routes, existing saved local paragraphs, and existing "
+        "paragraph anchors to show today's saved local fashion stories in publication-time "
+        "order with short same-site excerpts without changing app-facing contracts; it does "
+        "not create `data/daily-local-news-timeline.json`, does not create "
+        "`data/local-news-timeline.json`, does not create `data/news-timeline.json`, does "
+        "not create `daily-local-news-timeline.html`, does not create "
+        "`local-news-timeline.html`, does not create `news-timeline.html`, does not create "
+        "new article-source sidecars, does not create new route families, does not alter "
+        "`articles/index.html`, `articles/<story-id>.html`, or detail pages, does not "
+        "publish full articles on the homepage, does not add outbound article URLs as "
+        "primary navigation, and does not change row-one-app/v7, row-one-manifest/v1, "
+        "row-one-runtime/v1, schemas, generated JSON artifacts, source collection, "
+        "fetching, matching, extraction, scoring, ranking, LLM, connector, scheduling, "
+        "deployment, market grouping, domestic/international classification, analytics, "
+        "personalization, recommendation, or compliance-review behavior."
+    )
+    readme = _read(README)
+    docs = _read(ROW_ONE_DOC)
+
+    for text in (readme, docs):
+        assert paragraph in text
+        assert text.index(paragraph) < text.index("Stage 375 adds")
+
+
 def test_row_one_docs_describe_stage_374_saved_local_article_route_health_boundary() -> None:
     paragraph = (
         "Stage 374 adds read-only generated-site Saved Local Article Route Health to "
