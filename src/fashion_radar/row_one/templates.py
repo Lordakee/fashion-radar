@@ -156,6 +156,11 @@ LOCAL_ARTICLE_INFORMATION_MAX_ITEMS_PER_SECTION = 2
 LOCAL_ARTICLE_INFORMATION_MAX_PARAGRAPH_LINKS = 5
 LOCAL_ARTICLE_INFORMATION_MAX_REFS = 6
 LOCAL_ARTICLE_INFORMATION_MAX_SECTIONS = 4
+LOCAL_ARTICLE_CONTENT_SEGMENT_DECK_EXCERPT_CHARS = 180
+LOCAL_ARTICLE_CONTENT_SEGMENT_DECK_MAX_ITEMS_PER_SECTION = 3
+LOCAL_ARTICLE_CONTENT_SEGMENT_DECK_MAX_PARAGRAPH_LINKS = 3
+LOCAL_ARTICLE_CONTENT_SEGMENT_DECK_MAX_REFS_PER_SECTION = 5
+LOCAL_ARTICLE_CONTENT_SEGMENT_DECK_MAX_SECTIONS = 4
 DETAIL_CONTINUE_READING_EXCERPT_CHARS = 120
 DETAIL_CONTINUE_READING_MAX_ITEMS = 3
 DETAIL_SIGNAL_BRIEFING_MAX_REFS = 8
@@ -785,6 +790,7 @@ def render_local_article_page_html(
         saved_article_local_section_binder
     )
     key_signals = _render_saved_article_key_signals(saved_article_key_signals)
+    content_segment_deck = _render_local_article_content_segment_deck(local_article)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -837,6 +843,7 @@ def render_local_article_page_html(
 {local_reading_companion}
 {local_section_binder}
 {key_signals}
+{content_segment_deck}
     {local_article_section}
     </div>
   </article>
@@ -2142,6 +2149,97 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   list-style: none;
   margin: 0;
   padding: 0;
+}
+.local-article-content-segment-deck {
+  border: 1px solid var(--ink);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+.local-article-content-segment-deck-header {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr);
+}
+.local-article-content-segment-deck-header h2,
+.local-article-content-segment-deck-header p,
+.local-article-content-segment-deck-card h3,
+.local-article-content-segment-deck-card p,
+.local-article-content-segment-deck-item h4,
+.local-article-content-segment-deck-item p {
+  margin: 0;
+}
+.local-article-content-segment-deck-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.7rem, 4vw, 3.6rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.96;
+}
+.local-article-content-segment-deck-header p,
+.local-article-content-segment-deck-card p,
+.local-article-content-segment-deck-item p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.local-article-content-segment-deck-metrics,
+.local-article-content-segment-deck-refs,
+.local-article-content-segment-deck-paragraphs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.local-article-content-segment-deck-metrics span,
+.local-article-content-segment-deck-ref,
+.local-article-content-segment-deck-paragraphs a,
+.local-article-content-segment-deck-action {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.75rem;
+  padding: 7px 9px;
+  text-decoration: none;
+}
+.local-article-content-segment-deck-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.local-article-content-segment-deck-card {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+.local-article-content-segment-deck-card h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.35rem, 2.8vw, 2.4rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+}
+.local-article-content-segment-deck-items {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.local-article-content-segment-deck-item {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+}
+.local-article-content-segment-deck-item h4 {
+  font-size: 0.88rem;
+}
+.local-article-content-segment-deck-ref span {
+  color: var(--muted);
+}
+.local-article-content-segment-deck-paragraphs a,
+.local-article-content-segment-deck-action {
+  color: var(--accent);
+  font-weight: 800;
 }
 .saved-article-local-reading-companion {
   border: 1px solid var(--ink);
@@ -6102,6 +6200,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-coverage-map-grid { grid-template-columns: 1fr; }
   .daily-local-theme-summary-strip-header { grid-template-columns: 1fr; }
   .daily-local-theme-summary-strip-grid { grid-template-columns: 1fr; }
+  .local-article-content-segment-deck-header { grid-template-columns: 1fr; }
+  .local-article-content-segment-deck-grid { grid-template-columns: 1fr; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
   .saved-article-library-entry-header { grid-template-columns: 1fr; }
@@ -14480,6 +14580,241 @@ def _local_article_information_excerpt(text: str) -> str:
     return _meta_description(
         normalize_row_one_paragraph(text),
         limit=LOCAL_ARTICLE_INFORMATION_BODY_MAX_CHARS,
+    )
+
+
+def _render_local_article_content_segment_deck(article: RowOneLocalArticle) -> str:
+    rendered_indices = _local_article_rendered_paragraph_indices(article)
+    if not rendered_indices:
+        return ""
+    cards: list[str] = []
+    for position, section in enumerate(article.content_sections, start=1):
+        if len(cards) >= LOCAL_ARTICLE_CONTENT_SEGMENT_DECK_MAX_SECTIONS:
+            break
+        card = _render_local_article_content_segment_deck_card(
+            section,
+            position=position,
+            rendered_indices=rendered_indices,
+        )
+        if card:
+            cards.append(card)
+    if not cards:
+        return ""
+    body_source = _local_article_body_source_label_localized(article)
+    source_name = normalize_row_one_paragraph(article.source_name) or "Unknown source"
+    segment_count = len(cards)
+    metrics = "".join(
+        (
+            f"<span>{_esc(_count_label(segment_count, 'segment', 'segments'))}</span>",
+            f"<span>{_esc(source_name)}</span>",
+            f'<span data-lang="en">{_esc(body_source.en)}</span>',
+            f'<span data-lang="zh">{_esc(body_source.zh)}</span>',
+        )
+    )
+    rendered_cards = "\n".join(cards)
+    return f"""    <section class="local-article-content-segment-deck"
+      aria-labelledby="local-article-content-segment-deck-title">
+      <div class="local-article-content-segment-deck-header">
+        <h2 id="local-article-content-segment-deck-title">
+          <span data-lang="en">Local Article Content Segment Deck</span>
+          <span data-lang="zh">本地文章内容段</span>
+        </h2>
+        <p>
+          <span data-lang="en">
+            Publish-page content cards from the saved local article structure.
+          </span>
+          <span data-lang="zh">
+            基于本地保存文章结构生成的发布页内容卡片。
+          </span>
+        </p>
+      </div>
+      <div class="local-article-content-segment-deck-metrics">{metrics}</div>
+      <div class="local-article-content-segment-deck-grid">
+{rendered_cards}
+      </div>
+    </section>"""
+
+
+def _render_local_article_content_segment_deck_card(
+    section: RowOneLocalArticleContentSection,
+    *,
+    position: int,
+    rendered_indices: set[int],
+) -> str:
+    title = _local_article_content_segment_deck_text(section.title)
+    if not title.en and not title.zh:
+        return ""
+    section_href = f"#{_local_article_content_section_anchor(position)}"
+    body = _render_local_article_content_segment_deck_body(section.body)
+    items = [
+        item_html
+        for item in section.items[:LOCAL_ARTICLE_CONTENT_SEGMENT_DECK_MAX_ITEMS_PER_SECTION]
+        if (
+            item_html := _render_local_article_content_segment_deck_item(
+                item,
+                rendered_indices=rendered_indices,
+            )
+        )
+    ]
+    refs = _render_local_article_content_segment_deck_refs(section.items)
+    paragraphs = (
+        ""
+        if items
+        else _render_local_article_content_segment_deck_paragraph_links(
+            _local_article_information_section_indices(section),
+            rendered_indices=rendered_indices,
+        )
+    )
+    if not body and not items and not refs and not paragraphs:
+        return ""
+    item_list = (
+        '          <ul class="local-article-content-segment-deck-items">\n'
+        + "\n".join(items)
+        + "\n          </ul>\n"
+        if items
+        else ""
+    )
+    action_en = f"Open {title.en or title.zh}"
+    action_zh = f"打开{title.zh or title.en}"
+    return f"""        <article class="local-article-content-segment-deck-card">
+          <h3>
+            <span data-lang="en">{_esc(title.en or title.zh)}</span>
+            <span data-lang="zh">{_esc(title.zh or title.en)}</span>
+          </h3>
+{body}{item_list}{refs}{paragraphs}
+          <a class="local-article-content-segment-deck-action" href="{_esc(section_href)}">
+            <span data-lang="en">{_esc(action_en)}</span>
+            <span data-lang="zh">{_esc(action_zh)}</span>
+          </a>
+        </article>"""
+
+
+def _render_local_article_content_segment_deck_item(
+    item: RowOneLocalArticleContentItem,
+    *,
+    rendered_indices: set[int],
+) -> str:
+    label = _local_article_content_segment_deck_text(item.label)
+    body = _render_local_article_content_segment_deck_body(item.body, indent=14)
+    paragraphs = _render_local_article_content_segment_deck_paragraph_links(
+        item.paragraph_indices,
+        rendered_indices=rendered_indices,
+        indent=14,
+    )
+    if not label.en and not label.zh and not body and not paragraphs:
+        return ""
+    heading = ""
+    if label.en or label.zh:
+        heading = (
+            "              <h4>"
+            f'<span data-lang="en">{_esc(label.en or label.zh)}</span>'
+            f'<span data-lang="zh">{_esc(label.zh or label.en)}</span>'
+            "</h4>\n"
+        )
+    return f"""            <li class="local-article-content-segment-deck-item">
+{heading}{body}{paragraphs}
+            </li>"""
+
+
+def _render_local_article_content_segment_deck_body(
+    text: LocalizedText | None,
+    *,
+    indent: int = 10,
+) -> str:
+    if text is None:
+        return ""
+    normalized = _local_article_content_segment_deck_text(text)
+    if not normalized.en and not normalized.zh:
+        return ""
+    prefix = " " * indent
+    en_excerpt = _local_article_content_segment_deck_excerpt(normalized.en or normalized.zh)
+    zh_excerpt = _local_article_content_segment_deck_excerpt(normalized.zh or normalized.en)
+    return (
+        f"{prefix}<p>"
+        f'<span data-lang="en">{_esc(en_excerpt)}</span>'
+        f'<span data-lang="zh">{_esc(zh_excerpt)}</span>'
+        "</p>\n"
+    )
+
+
+def _render_local_article_content_segment_deck_refs(
+    items: Sequence[RowOneLocalArticleContentItem],
+    *,
+    indent: int = 10,
+) -> str:
+    refs = _local_article_content_segment_deck_refs(items)
+    if not refs:
+        return ""
+    prefix = " " * indent
+    rendered = "\n".join(
+        f'{prefix}  <span class="local-article-content-segment-deck-ref">{_esc(ref.name)}'
+        f" <span>{_esc(ref.type)} / {_esc(ref.label)}</span></span>"
+        for ref in refs
+    )
+    return f"""{prefix}<div class="local-article-content-segment-deck-refs">
+{rendered}
+{prefix}</div>
+"""
+
+
+def _local_article_content_segment_deck_refs(
+    items: Sequence[RowOneLocalArticleContentItem],
+) -> list[RowOneReference]:
+    refs: list[RowOneReference] = []
+    seen: set[tuple[str, str, str]] = set()
+    for item in items:
+        for ref in item.references:
+            name = normalize_row_one_paragraph(ref.name)
+            ref_type = normalize_row_one_paragraph(ref.type)
+            label = normalize_row_one_paragraph(ref.label)
+            if not name:
+                continue
+            key = (name.casefold(), ref_type.casefold(), label.casefold())
+            if key in seen:
+                continue
+            seen.add(key)
+            refs.append(RowOneReference(name=name, type=ref_type, label=label))
+            if len(refs) >= LOCAL_ARTICLE_CONTENT_SEGMENT_DECK_MAX_REFS_PER_SECTION:
+                return refs
+    return refs
+
+
+def _render_local_article_content_segment_deck_paragraph_links(
+    indices: Sequence[object],
+    *,
+    rendered_indices: set[int],
+    indent: int = 10,
+) -> str:
+    valid_indices = _strict_valid_local_article_paragraph_indices(
+        indices,
+        rendered_indices,
+    )[:LOCAL_ARTICLE_CONTENT_SEGMENT_DECK_MAX_PARAGRAPH_LINKS]
+    if not valid_indices:
+        return ""
+    prefix = " " * indent
+    links = "\n".join(
+        f'{prefix}  <a href="#{_esc(_local_article_paragraph_anchor(index))}">'
+        f'<span data-lang="en">Paragraph {index + 1}</span>'
+        f'<span data-lang="zh">段落 {index + 1}</span></a>'
+        for index in valid_indices
+    )
+    return f"""{prefix}<div class="local-article-content-segment-deck-paragraphs">
+{links}
+{prefix}</div>
+"""
+
+
+def _local_article_content_segment_deck_text(text: LocalizedText) -> LocalizedText:
+    return LocalizedText(
+        en=normalize_row_one_paragraph(text.en),
+        zh=normalize_row_one_paragraph(text.zh),
+    )
+
+
+def _local_article_content_segment_deck_excerpt(text: str) -> str:
+    return _meta_description(
+        normalize_row_one_paragraph(text),
+        limit=LOCAL_ARTICLE_CONTENT_SEGMENT_DECK_EXCERPT_CHARS,
     )
 
 

@@ -626,6 +626,13 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "local-theme-summary-strip" not in generated_contract_payload
     assert "theme-summary-strip" not in generated_contract_payload
     assert "每日本地主题摘要条" not in generated_contract_payload
+    assert "local_article_content_segment_deck" not in generated_contract_payload
+    assert "article_content_segment_deck" not in generated_contract_payload
+    assert "content_segment_deck" not in generated_contract_payload
+    assert "Local Article Content Segment Deck" not in generated_contract_payload
+    assert "local-article-content-segment-deck" not in generated_contract_payload
+    assert "article-content-segment-deck" not in generated_contract_payload
+    assert "content-segment-deck" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -1074,6 +1081,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "daily_local_theme_summary_strip",
         "local_theme_summary_strip",
         "theme_summary_strip",
+        "local-article-content-segment-deck",
+        "article-content-segment-deck",
+        "content-segment-deck",
+        "local_article_content_segment_deck",
+        "article_content_segment_deck",
+        "content_segment_deck",
     ):
         for artifact_dir in (output_dir, output_dir / "articles", output_dir / "data"):
             for suffix in (".json", ".html"):
@@ -1159,6 +1172,21 @@ def test_stage_364_daily_local_theme_summary_strip_stays_generated_site_only(
     monkeypatch.setattr(
         row_one_templates,
         "_render_daily_local_theme_summary_strip",
+        lambda *_args, **_kwargs: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_365_local_article_content_segment_deck_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_local_article_content_segment_deck",
         lambda *_args, **_kwargs: "",
         raising=False,
     )

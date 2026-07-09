@@ -2083,6 +2083,88 @@ def test_row_one_docs_describe_stage_364_daily_local_theme_summary_strip_boundar
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_365_local_article_content_segment_deck_boundary() -> None:
+    expected = _normalized(
+        "Stage 365 adds generated-site only Local Article Content Segment Deck "
+        "inside `articles/<story-id>.html` pages after Saved Article Key "
+        "Signals and before the saved local article body; it reuses "
+        "current-edition saved local article sidecars, existing local article "
+        "content sections, existing content-section anchors, existing "
+        "paragraph anchors, existing item references, and existing body-source "
+        "labels to turn already-saved local text into compact content segment "
+        "cards without changing app-facing contracts; it does not create "
+        "`data/local-article-content-segment-deck.json`, does not create "
+        "`data/article-content-segment-deck.json`, does not create "
+        "`data/content-segment-deck.json`, does not create new route "
+        "families, does not alter `index.html`, `articles/index.html`, or "
+        "detail pages, does not publish full articles on the homepage or "
+        "library index, does not add outbound article URLs as primary "
+        "navigation, and does not change schemas, JSON artifacts, fetching, "
+        "extraction, scoring, ranking, LLM, connector, scheduling, "
+        "deployment, analytics, personalization, recommendation, or "
+        "compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_365_pos = normalized.index(
+            "stage 365 adds generated-site only local article content segment deck"
+        )
+        stage_364_pos = normalized.index(
+            "stage 364 adds generated-site only daily local theme summary strip"
+        )
+        assert stage_365_pos < stage_364_pos
+        stage = normalized[stage_365_pos:stage_364_pos]
+        for stale_phrase in (
+            "creates data/local-article-content-segment-deck.json",
+            "writes data/local-article-content-segment-deck.json",
+            "creates data/article-content-segment-deck.json",
+            "writes data/article-content-segment-deck.json",
+            "creates data/content-segment-deck.json",
+            "writes data/content-segment-deck.json",
+            "creates `data/local-article-content-segment-deck.json`",
+            "writes `data/local-article-content-segment-deck.json`",
+            "creates `data/article-content-segment-deck.json`",
+            "writes `data/article-content-segment-deck.json`",
+            "creates `data/content-segment-deck.json`",
+            "writes `data/content-segment-deck.json`",
+            "row-one-app/v8",
+            "row-one-manifest/v2",
+            "row-one-runtime/v2",
+            "changes schemas",
+            "writes a new json artifact",
+            "creates new route families",
+            "adds new routes",
+            "adds routes",
+            "changes routes",
+            "alters index.html",
+            "alters articles/index.html",
+            "alters detail pages",
+            "publishes full articles on the homepage",
+            "publishes full articles on the library index",
+            "adds outbound article urls as primary navigation",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds analysis",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+            "adds compliance-review",
+            "adds compliance-review behavior",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_361_daily_local_article_reading_brief_boundary() -> None:
     expected = _normalized(
         "Stage 361 adds generated-site only Daily Local Article Reading Brief "
