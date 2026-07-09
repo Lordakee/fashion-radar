@@ -4718,6 +4718,84 @@ def test_row_one_docs_describe_stage_373_local_article_body_section_markers_boun
             assert stale_phrase not in normalized
 
 
+def test_row_one_docs_describe_stage_375_local_article_content_health_boundary() -> None:
+    paragraph = (
+        "Stage 375 adds read-only generated-site Local Article Content Health to "
+        "`row-one status` and `row-one ops-check`; it reuses current generated "
+        "`data/articles/*.json` saved local article sidecars, existing "
+        "`articles/<story-id>.html` pages, existing local article section anchors, "
+        "existing saved local article body container anchors, existing saved paragraph "
+        "anchors, and existing local content-section anchors to verify that already-saved "
+        "local article bodies are rendered inside same-site article pages without changing "
+        "app-facing contracts; it adds CLI-only content-health status payload fields, but "
+        "it does not create `data/local-article-content-health.json`, does not create "
+        "`data/article-content-health.json`, does not create `data/content-health.json`, "
+        "does not create `local-article-content-health.html`, does not create "
+        "`article-content-health.html`, does not create `content-health.html`, does not "
+        "create new article-source sidecars, does not create new route families, does not "
+        "alter `index.html`, `articles/index.html`, `articles/<story-id>.html`, or detail "
+        "page rendering, does not publish full articles outside existing local article "
+        "pages, does not add outbound article URLs as primary navigation, and does not "
+        "change row-one-app/v7, row-one-manifest/v1, row-one-runtime/v1, schemas, "
+        "generated JSON artifacts, source collection, fetching, matching, extraction, "
+        "scoring, ranking, LLM, connector, scheduling, deployment, market grouping, "
+        "domestic/international classification, analytics, personalization, "
+        "recommendation, or compliance-review behavior."
+    )
+    readme = _read(README)
+    docs = _read(ROW_ONE_DOC)
+
+    for text in (readme, docs):
+        assert paragraph in text
+        assert text.index(paragraph) < text.index("Stage 374 adds")
+
+        stage_375_slice = text[text.index(paragraph) : text.index("Stage 374 adds")]
+        normalized = _normalized(stage_375_slice)
+        for stale_phrase in (
+            "creates data/local-article-content-health.json",
+            "writes data/local-article-content-health.json",
+            "creates data/article-content-health.json",
+            "writes data/article-content-health.json",
+            "creates data/content-health.json",
+            "writes data/content-health.json",
+            "creates local-article-content-health.html",
+            "writes local-article-content-health.html",
+            "creates article-content-health.html",
+            "writes article-content-health.html",
+            "creates content-health.html",
+            "writes content-health.html",
+            "changes row-one-app/v7",
+            "changes row-one-manifest/v1",
+            "changes row-one-runtime/v1",
+            "adds app contract",
+            "changes app contract",
+            "adds generated json artifact",
+            "creates new article-source sidecars",
+            "creates new route families",
+            "adds new routes",
+            "alters index.html",
+            "alters articles/index.html",
+            "alters articles/<story-id>.html",
+            "publishes full articles outside existing local article pages",
+            "adds outbound article urls as primary navigation",
+            "adds source collection",
+            "adds fetching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+            "adds compliance-review",
+        ):
+            assert stale_phrase not in normalized
+
+
 def test_row_one_docs_describe_stage_374_saved_local_article_route_health_boundary() -> None:
     paragraph = (
         "Stage 374 adds read-only generated-site Saved Local Article Route Health to "

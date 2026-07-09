@@ -718,6 +718,17 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "article-route-health" not in generated_contract_payload
     assert "route-health" not in generated_contract_payload
     assert "本地文章路由健康检查" not in generated_contract_payload
+    assert "local_article_content_health" not in generated_contract_payload
+    assert "article_content_health" not in generated_contract_payload
+    assert "content_health" not in generated_contract_payload
+    assert "RowOneLocalArticleContentHealth" not in generated_contract_payload
+    assert "RowOneArticleContentHealth" not in generated_contract_payload
+    assert "Local Article Content Health" not in generated_contract_payload
+    assert "Article Content Health" not in generated_contract_payload
+    assert "local-article-content-health" not in generated_contract_payload
+    assert "article-content-health" not in generated_contract_payload
+    assert "content-health" not in generated_contract_payload
+    assert "本地文章内容健康检查" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -1310,6 +1321,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "route_health",
         "saved_local_article_route_health",
         "saved_article_route_health",
+        "local-article-content-health",
+        "article-content-health",
+        "content-health",
+        "local_article_content_health",
+        "article_content_health",
+        "content_health",
     ):
         for artifact_dir in (
             output_dir,
@@ -1557,6 +1574,42 @@ def test_stage_374_saved_local_article_route_health_stays_generated_site_only(
         status_integrity,
         "validate_row_one_local_article_route_health",
         lambda _health: None,
+        raising=True,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_375_local_article_content_health_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import local_article_content_health, status_integrity
+
+    def fail_if_called(*_args, **_kwargs):
+        raise AssertionError("local article content health must stay out of site generation")
+
+    monkeypatch.setattr(
+        local_article_content_health,
+        "build_row_one_local_article_content_health",
+        fail_if_called,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        local_article_content_health,
+        "validate_row_one_local_article_content_health",
+        fail_if_called,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        status_integrity,
+        "build_row_one_local_article_content_health",
+        fail_if_called,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        status_integrity,
+        "validate_row_one_local_article_content_health",
+        fail_if_called,
         raising=True,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)

@@ -923,6 +923,7 @@ def test_row_one_ops_check_human_output_is_read_only(
             "server": {"status": "serving_row_one"},
             "systemd": {"status": "present"},
             "local_article_routes": {"status": "missing", "article_count": 1},
+            "local_article_content": {"status": "ready", "article_count": 1},
             "access": {
                 "message": (
                     "Open locally: http://127.0.0.1:8787\nOpen from LAN: http://<LAN-IP>:8787"
@@ -962,6 +963,7 @@ def test_row_one_ops_check_human_output_is_read_only(
     assert "Server: serving_row_one" in result.output
     assert "Systemd units: present" in result.output
     assert "Local article routes: missing" in result.output
+    assert "Local article content: ready" in result.output
     assert "Access:" in result.output
     assert "Open locally: http://127.0.0.1:8787" in result.output
     assert "Actions:" in result.output
@@ -1547,6 +1549,120 @@ def test_row_one_status_prints_local_article_route_health(tmp_path: Path) -> Non
 
     assert result.exit_code == 0, result.output
     assert "Local article routes: ready (1 saved local article)" in result.output
+
+
+def test_row_one_status_json_includes_local_article_content_health(tmp_path: Path) -> None:
+    story = _render_status_site_with_local_article(tmp_path)
+    assert (tmp_path / "articles" / f"{story['id']}.html").is_file()
+
+    result = CliRunner().invoke(
+        app,
+        ["row-one", "status", "--site-dir", str(tmp_path), "--json"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["local_article_content"] == {
+        "status": "ready",
+        "article_count": 1,
+        "paragraph_anchor_count": 2,
+        "content_section_anchor_count": 2,
+        "missing_article_sections": [],
+        "missing_body_containers": [],
+        "missing_paragraph_anchors": [],
+        "missing_content_section_anchors": [],
+    }
+
+
+def test_row_one_status_prints_local_article_content_health(tmp_path: Path) -> None:
+    _render_status_site_with_local_article(tmp_path)
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+    assert "Local article content: ready (1 saved local article, 2 paragraph anchors)" in (
+        result.output
+    )
+
+
+def test_row_one_status_rejects_missing_local_article_section_anchor(
+    tmp_path: Path,
+) -> None:
+    story = _render_status_site_with_local_article(tmp_path)
+    article_path = tmp_path / "articles" / f"{story['id']}.html"
+    article_html = article_path.read_text(encoding="utf-8")
+    article_path.write_text(
+        article_html.replace('id="local-article"', 'data-id="local-article"', 1),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "local article section is missing" in result.output
+    assert "#local-article" in result.output
+
+
+def test_row_one_status_rejects_missing_local_article_body_container_anchor(
+    tmp_path: Path,
+) -> None:
+    story = _render_status_site_with_local_article(tmp_path)
+    article_path = tmp_path / "articles" / f"{story['id']}.html"
+    article_html = article_path.read_text(encoding="utf-8")
+    article_path.write_text(
+        article_html.replace('id="local-article-body"', 'data-id="local-article-body"', 1),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "body container is missing" in result.output
+    assert "#local-article-body" in result.output
+
+
+def test_row_one_status_rejects_missing_local_article_paragraph_anchor(
+    tmp_path: Path,
+) -> None:
+    story = _render_status_site_with_local_article(tmp_path)
+    article_path = tmp_path / "articles" / f"{story['id']}.html"
+    article_html = article_path.read_text(encoding="utf-8")
+    article_path.write_text(
+        article_html.replace(
+            'id="local-article-paragraph-2"',
+            'data-id="local-article-paragraph-2"',
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "paragraph anchor is missing" in result.output
+    assert "#local-article-paragraph-2" in result.output
+
+
+def test_row_one_status_rejects_missing_local_article_content_section_anchor(
+    tmp_path: Path,
+) -> None:
+    story = _render_status_site_with_local_article(tmp_path)
+    article_path = tmp_path / "articles" / f"{story['id']}.html"
+    article_html = article_path.read_text(encoding="utf-8")
+    article_path.write_text(
+        article_html.replace(
+            'id="local-article-content-section-2"',
+            'data-id="local-article-content-section-2"',
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["row-one", "status", "--site-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "content-section anchor is missing" in result.output
+    assert "#local-article-content-section-2" in result.output
 
 
 def test_row_one_article_readiness_prints_config_and_site_counts(tmp_path: Path) -> None:

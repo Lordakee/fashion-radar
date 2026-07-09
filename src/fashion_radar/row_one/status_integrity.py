@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from html.parser import HTMLParser
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from urllib.parse import urldefrag
 
@@ -9,6 +9,16 @@ from pydantic import ValidationError
 
 from fashion_radar.row_one.articles import safe_local_article_story_id
 from fashion_radar.row_one.display import safe_story_image_src
+from fashion_radar.row_one.local_article_anchors import (
+    LOCAL_ARTICLE_PARAGRAPH_ANCHOR_PREFIX,
+    LOCAL_ARTICLE_SECTION_ANCHOR,
+    parse_html_ids,
+)
+from fashion_radar.row_one.local_article_content_health import (
+    RowOneLocalArticleContentHealth,
+    build_row_one_local_article_content_health,
+    validate_row_one_local_article_content_health,
+)
 from fashion_radar.row_one.local_article_route_health import (
     RowOneLocalArticleRouteHealth,
     build_row_one_local_article_route_health,
@@ -21,8 +31,6 @@ from fashion_radar.row_one.models import (
     RowOneLocalArticle,
 )
 
-_LOCAL_ARTICLE_FRAGMENT = "local-article"
-_LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_PREFIX = "local-article-paragraph-"
 _REQUIRED_GENERATED_FILES = (
     "index.html",
     "data/edition.json",
@@ -33,11 +41,17 @@ _REQUIRED_GENERATED_FILES = (
 )
 
 
+@dataclass(frozen=True)
+class RowOneGeneratedSiteHealth:
+    local_article_routes: RowOneLocalArticleRouteHealth
+    local_article_content: RowOneLocalArticleContentHealth
+
+
 def validate_row_one_generated_site_integrity(
     *,
     site_dir: Path,
     edition: dict[str, object],
-) -> RowOneLocalArticleRouteHealth:
+) -> RowOneGeneratedSiteHealth:
     """Validate generated ROW ONE files that schemas cannot express."""
     for relative_path in _REQUIRED_GENERATED_FILES:
         _require_file(site_dir, relative_path)
@@ -90,7 +104,15 @@ def validate_row_one_generated_site_integrity(
         detail_to_story_id=detail_to_story_id,
         article_sidecars=article_sidecars,
     )
-    return route_health
+    content_health = build_row_one_local_article_content_health(
+        site_dir,
+        articles=article_sidecars,
+    )
+    validate_row_one_local_article_content_health(content_health)
+    return RowOneGeneratedSiteHealth(
+        local_article_routes=route_health,
+        local_article_content=content_health,
+    )
 
 
 def _require_file(site_dir: Path, relative_path: str) -> Path:
@@ -171,10 +193,10 @@ def _validate_local_intelligence_href(value: object, *, label: str) -> tuple[str
         raise ValueError(f"row-one {label} must be a non-empty local-intelligence detail_path")
     base, fragment = urldefrag(value)
     detail_path = _validate_detail_path(base, label=label)
-    if fragment in {"", _LOCAL_ARTICLE_FRAGMENT}:
+    if fragment in {"", LOCAL_ARTICLE_SECTION_ANCHOR}:
         return detail_path, fragment
-    if fragment.startswith(_LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_PREFIX):
-        paragraph_number = fragment.removeprefix(_LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_PREFIX)
+    if fragment.startswith(LOCAL_ARTICLE_PARAGRAPH_ANCHOR_PREFIX):
+        paragraph_number = fragment.removeprefix(LOCAL_ARTICLE_PARAGRAPH_ANCHOR_PREFIX)
         if (
             paragraph_number.isdecimal()
             and paragraph_number == str(int(paragraph_number))
@@ -424,8 +446,8 @@ def _validate_article_fragment(
         detail_html = (site_dir / detail_path).read_text(encoding="utf-8")
         html_cache[detail_path] = detail_html
 
-    if fragment == _LOCAL_ARTICLE_FRAGMENT:
-        _require_html_anchor(detail_html, _LOCAL_ARTICLE_FRAGMENT, label=label)
+    if fragment == LOCAL_ARTICLE_SECTION_ANCHOR:
+        _require_html_anchor(detail_html, LOCAL_ARTICLE_SECTION_ANCHOR, label=label)
         return
 
     paragraph_index = _paragraph_index_from_fragment(fragment, label=label)
@@ -436,7 +458,7 @@ def _validate_article_fragment(
     )
     _require_html_anchor(
         detail_html,
-        f"{_LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_PREFIX}{paragraph_index + 1}",
+        f"{LOCAL_ARTICLE_PARAGRAPH_ANCHOR_PREFIX}{paragraph_index + 1}",
         label=label,
     )
 
@@ -456,15 +478,15 @@ def _validate_paragraph_anchors(
     for index in paragraph_indices:
         _require_html_anchor(
             detail_html,
-            f"{_LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_PREFIX}{index + 1}",
+            f"{LOCAL_ARTICLE_PARAGRAPH_ANCHOR_PREFIX}{index + 1}",
             label=label,
         )
 
 
 def _paragraph_index_from_fragment(fragment: str, *, label: str) -> int:
-    if not fragment.startswith(_LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_PREFIX):
+    if not fragment.startswith(LOCAL_ARTICLE_PARAGRAPH_ANCHOR_PREFIX):
         raise ValueError(f"row-one {label} has unsupported local article fragment: {fragment}")
-    number = fragment.removeprefix(_LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_PREFIX)
+    number = fragment.removeprefix(LOCAL_ARTICLE_PARAGRAPH_ANCHOR_PREFIX)
     if not number.isdecimal() or int(number) < 1:
         raise ValueError(f"row-one {label} has invalid paragraph fragment: {fragment}")
     return int(number) - 1
@@ -488,23 +510,5 @@ def _rendered_paragraph_indices(article: RowOneLocalArticle) -> set[int]:
 
 
 def _require_html_anchor(detail_html: str, anchor: str, *, label: str) -> None:
-    if anchor not in _html_ids(detail_html):
+    if anchor not in parse_html_ids(detail_html):
         raise ValueError(f"row-one {label} target anchor is missing from detail HTML: {anchor}")
-
-
-def _html_ids(detail_html: str) -> set[str]:
-    parser = _IdCollectingHTMLParser()
-    parser.feed(detail_html)
-    return parser.ids
-
-
-class _IdCollectingHTMLParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.ids: set[str] = set()
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        del tag
-        for name, value in attrs:
-            if name == "id" and value is not None:
-                self.ids.add(value)

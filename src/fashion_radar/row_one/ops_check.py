@@ -9,6 +9,10 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
+from fashion_radar.row_one.local_article_content_health import (
+    build_row_one_local_article_content_health,
+    row_one_local_article_content_health_payload,
+)
 from fashion_radar.row_one.local_article_route_health import (
     build_row_one_local_article_route_health,
     row_one_local_article_route_health_payload,
@@ -60,8 +64,26 @@ def build_row_one_ops_check_payload(
     local_article_routes = row_one_local_article_route_health_payload(
         build_row_one_local_article_route_health(site_dir),
     )
-    actions = _actions(site, freshness, probe, systemd, local_article_routes, site_dir)
-    status = _overall_status(site, freshness, probe, systemd, local_article_routes)
+    local_article_content = row_one_local_article_content_health_payload(
+        build_row_one_local_article_content_health(site_dir),
+    )
+    actions = _actions(
+        site,
+        freshness,
+        probe,
+        systemd,
+        local_article_routes,
+        local_article_content,
+        site_dir,
+    )
+    status = _overall_status(
+        site,
+        freshness,
+        probe,
+        systemd,
+        local_article_routes,
+        local_article_content,
+    )
     return {
         "ok": True,
         "status": status,
@@ -79,6 +101,7 @@ def build_row_one_ops_check_payload(
         },
         "systemd": systemd,
         "local_article_routes": local_article_routes,
+        "local_article_content": local_article_content,
         "actions": actions,
     }
 
@@ -222,6 +245,7 @@ def _actions(
     server: RowOneServerProbeResult,
     systemd: dict[str, object],
     local_article_routes: dict[str, object],
+    local_article_content: dict[str, object],
     site_dir: Path,
 ) -> list[str]:
     actions: list[str] = []
@@ -248,6 +272,10 @@ def _actions(
         action = f"Run `fashion-radar row-one refresh --output-dir {site_dir}`."
         if action not in actions:
             actions.append(action)
+    if local_article_content.get("status") == "missing":
+        action = f"Run `fashion-radar row-one refresh --output-dir {site_dir}`."
+        if action not in actions:
+            actions.append(action)
     return actions
 
 
@@ -257,6 +285,7 @@ def _overall_status(
     server: RowOneServerProbeResult,
     systemd: dict[str, object],
     local_article_routes: dict[str, object],
+    local_article_content: dict[str, object],
 ) -> str:
     if site.get("status") != "present" or freshness.get("status") == "unknown":
         return "unknown"
@@ -265,6 +294,7 @@ def _overall_status(
         and server.status == "serving_row_one"
         and systemd.get("status") == "present"
         and local_article_routes.get("status") != "missing"
+        and local_article_content.get("status") != "missing"
     ):
         return "ready"
     return "attention"

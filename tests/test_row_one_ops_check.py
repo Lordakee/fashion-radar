@@ -64,6 +64,67 @@ def _write_saved_article_route_fixture(site_dir: Path, *, complete: bool = True)
         )
 
 
+def _write_saved_article_content_fixture(site_dir: Path, *, complete: bool = True) -> None:
+    _write_site(site_dir, edition_date="2026-07-07T04:00:00Z")
+    story_id = "the-row-content-1234567890"
+    (site_dir / "index.html").write_text(
+        '<h1>ROW ONE</h1><a href="articles/index.html">Saved article library</a>',
+        encoding="utf-8",
+    )
+    articles_data = site_dir / "data" / "articles"
+    articles_data.mkdir(parents=True, exist_ok=True)
+    (articles_data / f"{story_id}.json").write_text(
+        json.dumps(
+            {
+                "story_id": story_id,
+                "url": "https://example.com/content",
+                "title": "The Row content",
+                "source_name": "Example",
+                "extracted_at": "2026-07-07T04:00:00Z",
+                "paragraphs": ["First paragraph.", "Second paragraph."],
+                "paragraphs_zh": ["第一段。", "第二段。"],
+                "brief_sections": [],
+                "content_sections": [
+                    {
+                        "key": "brand_signals",
+                        "title": {"en": "Brand Signals", "zh": "品牌信号"},
+                        "items": [
+                            {
+                                "label": {"en": "The Row", "zh": "The Row"},
+                                "paragraph_indices": [0],
+                            }
+                        ],
+                    }
+                ],
+                "body_source": "extracted",
+                "skipped": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+    articles_dir = site_dir / "articles"
+    articles_dir.mkdir(parents=True, exist_ok=True)
+    (articles_dir / "index.html").write_text(
+        f'<a href="{story_id}.html">Read local article</a>',
+        encoding="utf-8",
+    )
+    article_html = (
+        '<section id="local-article">'
+        '<div id="local-article-body">'
+        '<p id="local-article-paragraph-1">First paragraph.</p>'
+        '<p id="local-article-paragraph-2">Second paragraph.</p>'
+        "</div>"
+        '<article id="local-article-content-section-1">Brand Signals</article>'
+        "</section>"
+    )
+    if not complete:
+        article_html = article_html.replace(
+            'id="local-article-paragraph-2"',
+            'data-id="local-article-paragraph-2"',
+        )
+    (articles_dir / f"{story_id}.html").write_text(article_html, encoding="utf-8")
+
+
 def _probe(status: str) -> RowOneServerProbeResult:
     return RowOneServerProbeResult(
         status=status,
@@ -238,6 +299,77 @@ def test_ops_check_reports_attention_for_missing_local_article_routes(
     assert payload["status"] == "attention"
     assert payload["local_article_routes"]["status"] == "missing"
     assert any("row-one refresh" in action for action in payload["actions"])
+
+
+def test_ops_check_reports_local_article_content_health_ready(tmp_path: Path) -> None:
+    site_dir = tmp_path / "site"
+    unit_dir = tmp_path / "units"
+    _write_saved_article_content_fixture(site_dir, complete=True)
+    unit_dir.mkdir()
+    for unit in ROW_ONE_SYSTEMD_UNITS:
+        (unit_dir / unit).write_text("[Unit]\n", encoding="utf-8")
+
+    payload = build_row_one_ops_check_payload(
+        site_dir=site_dir,
+        host="127.0.0.1",
+        port=8787,
+        unit_dir=unit_dir,
+        as_of=datetime(2026, 7, 7, 8, 0, tzinfo=UTC),
+        server_probe=lambda host, port, timeout: _probe("serving_row_one"),
+    )
+
+    assert payload["status"] == "ready"
+    assert payload["local_article_content"]["status"] == "ready"
+    assert payload["local_article_content"]["article_count"] == 1
+    assert payload["local_article_content"]["paragraph_anchor_count"] == 2
+    assert payload["local_article_content"]["content_section_anchor_count"] == 1
+    assert payload["actions"] == []
+
+
+def test_ops_check_reports_attention_for_missing_local_article_content(
+    tmp_path: Path,
+) -> None:
+    site_dir = tmp_path / "site"
+    unit_dir = tmp_path / "units"
+    _write_saved_article_content_fixture(site_dir, complete=False)
+    unit_dir.mkdir()
+    for unit in ROW_ONE_SYSTEMD_UNITS:
+        (unit_dir / unit).write_text("[Unit]\n", encoding="utf-8")
+
+    payload = build_row_one_ops_check_payload(
+        site_dir=site_dir,
+        host="127.0.0.1",
+        port=8787,
+        unit_dir=unit_dir,
+        as_of=datetime(2026, 7, 7, 8, 0, tzinfo=UTC),
+        server_probe=lambda host, port, timeout: _probe("serving_row_one"),
+    )
+
+    assert payload["status"] == "attention"
+    assert payload["local_article_content"]["status"] == "missing"
+    assert payload["local_article_content"]["missing_paragraph_anchors"] == [
+        "articles/the-row-content-1234567890.html#local-article-paragraph-2"
+    ]
+    assert any("row-one refresh" in action for action in payload["actions"])
+
+
+def test_ops_check_text_includes_local_article_content_health() -> None:
+    from fashion_radar.cli import _render_row_one_ops_check_text
+
+    text = _render_row_one_ops_check_text(
+        {
+            "status": "attention",
+            "freshness": {"status": "fresh"},
+            "server": {"status": "serving_row_one"},
+            "systemd": {"status": "present"},
+            "local_article_routes": {"status": "ready"},
+            "local_article_content": {"status": "missing"},
+            "access": {},
+            "actions": [],
+        }
+    )
+
+    assert "Local article content: missing" in text
 
 
 def test_ops_check_reports_missing_site_without_writing_files(tmp_path: Path) -> None:
