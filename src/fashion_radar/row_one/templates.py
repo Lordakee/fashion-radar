@@ -122,6 +122,10 @@ from fashion_radar.row_one.saved_article_local_reading_companion import (
     RowOneSavedArticleLocalReadingCompanion,
     RowOneSavedArticleLocalReadingCompanionItem,
 )
+from fashion_radar.row_one.saved_article_local_related_reads import (
+    RowOneSavedArticleLocalRelatedReadCard,
+    RowOneSavedArticleLocalRelatedReads,
+)
 from fashion_radar.row_one.saved_article_local_section_binder import (
     RowOneSavedArticleLocalSectionBinder,
     RowOneSavedArticleLocalSectionBinderParagraph,
@@ -834,6 +838,7 @@ def render_local_article_page_html(
     saved_article_local_reading_companion: (RowOneSavedArticleLocalReadingCompanion | None) = None,
     saved_article_local_section_binder: (RowOneSavedArticleLocalSectionBinder | None) = None,
     saved_article_key_signals: RowOneSavedArticleKeySignals | None = None,
+    saved_article_local_related_reads: RowOneSavedArticleLocalRelatedReads | None = None,
 ) -> str:
     body_section_markers = build_row_one_local_article_body_section_markers(
         story=story,
@@ -877,6 +882,9 @@ def render_local_article_page_html(
             story=story,
             local_article=local_article,
         )
+    )
+    local_related_reads = _render_saved_article_local_related_reads(
+        saved_article_local_related_reads
     )
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -934,6 +942,7 @@ def render_local_article_page_html(
 {local_article_body_organizer}
 {local_article_intelligence_brief}
     {local_article_section}
+{local_related_reads}
     </div>
   </article>
 </main>
@@ -2573,6 +2582,76 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   font-size: 0.95rem;
 }
 .saved-article-local-reading-companion-action {
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.saved-article-local-related-reads {
+  border: 1px solid var(--ink);
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 18px;
+}
+.saved-article-local-related-reads-header {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(170px, 0.32fr) minmax(0, 1fr);
+}
+.saved-article-local-related-reads-header h2,
+.saved-article-local-related-reads-header p,
+.saved-article-local-related-read-card h3,
+.saved-article-local-related-read-card p {
+  margin: 0;
+}
+.saved-article-local-related-reads-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.6rem, 3.6vw, 3.2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.98;
+}
+.saved-article-local-related-reads-header p,
+.saved-article-local-related-read-card p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.saved-article-local-related-reads-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.saved-article-local-related-read-card {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+.saved-article-local-related-read-card h3 {
+  font-size: 0.95rem;
+}
+.saved-article-local-related-read-meta,
+.saved-article-local-related-read-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.saved-article-local-related-read-meta span,
+.saved-article-local-related-read-reference {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.75rem;
+  padding: 7px 9px;
+}
+.saved-article-local-related-read-reference span {
+  display: block;
+}
+.saved-article-local-related-read-reference span:last-child {
+  color: var(--muted);
+}
+.saved-article-local-related-read-action {
+  color: var(--accent);
+  font-weight: 800;
   letter-spacing: 0.08em;
   text-decoration: none;
   text-transform: uppercase;
@@ -9228,6 +9307,114 @@ def _saved_article_local_reading_companion_href(href: str) -> str | None:
             return href
         return None
     return _saved_article_read_next_cluster_href(href)
+
+
+def _render_saved_article_local_related_reads(
+    related_reads: RowOneSavedArticleLocalRelatedReads | None,
+) -> str:
+    if related_reads is None or not related_reads.cards:
+        return ""
+    cards = [
+        card_html
+        for card in related_reads.cards
+        if (card_html := _render_saved_article_local_related_read_card(card))
+    ]
+    if not cards:
+        return ""
+    cards_html = "\n".join(cards)
+    return f"""    <section class="saved-article-local-related-reads"
+      aria-labelledby="saved-article-local-related-reads-title">
+      <div class="saved-article-local-related-reads-header">
+        <h2 id="saved-article-local-related-reads-title">
+          <span data-lang="en">{_esc(related_reads.title.en)}</span>
+          <span data-lang="zh">{_esc(related_reads.title.zh)}</span>
+        </h2>
+        <p>
+          <span data-lang="en">{_esc(related_reads.dek.en)}</span>
+          <span data-lang="zh">{_esc(related_reads.dek.zh)}</span>
+        </p>
+      </div>
+      <div class="saved-article-local-related-reads-grid">
+{cards_html}
+      </div>
+    </section>"""
+
+
+def _render_saved_article_local_related_read_card(
+    card: RowOneSavedArticleLocalRelatedReadCard,
+) -> str:
+    href = _safe_saved_article_local_related_read_href(
+        card.candidate_story_id,
+        card.href,
+    )
+    if href is None:
+        return ""
+    references = _render_saved_article_local_related_read_references(card)
+    return f"""        <article class="saved-article-local-related-read-card">
+          <div class="saved-article-local-related-read-meta">
+            <span>{_esc(card.source_name)}</span>
+            <span>
+              <span data-lang="en">{_esc(card.reason.en)}</span>
+              <span data-lang="zh">{_esc(card.reason.zh)}</span>
+            </span>
+          </div>
+          <h3>
+            <span data-lang="en">{_esc(card.title.en)}</span>
+            <span data-lang="zh">{_esc(card.title.zh)}</span>
+          </h3>
+          <p>
+            <span data-lang="en">{_esc(card.excerpt.en)}</span>
+            <span data-lang="zh">{_esc(card.excerpt.zh)}</span>
+          </p>
+{references}
+          <a class="saved-article-local-related-read-action" href="{_esc(href)}">
+            <span data-lang="en">Read next locally</span>
+            <span data-lang="zh">继续本地阅读</span>
+          </a>
+        </article>"""
+
+
+def _render_saved_article_local_related_read_references(
+    card: RowOneSavedArticleLocalRelatedReadCard,
+) -> str:
+    chips = [
+        (
+            '            <span class="saved-article-local-related-read-reference">'
+            f"<span>{_esc(reference.name)}</span>"
+            f"<span>{_esc(reference.label)}</span>"
+            "</span>"
+        )
+        for reference in card.references
+        if reference.name.strip()
+    ]
+    if not chips:
+        return ""
+    return (
+        '          <div class="saved-article-local-related-read-references">\n'
+        + "\n".join(chips)
+        + "\n          </div>"
+    )
+
+
+def _safe_saved_article_local_related_read_href(story_id: str, href: str) -> str | None:
+    if not isinstance(story_id, str) or not isinstance(href, str):
+        return None
+    if not safe_local_article_story_id(story_id):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if "://" in href or href.startswith(("http:", "https:", "//", "/", ".", "javascript:")):
+        return None
+    if "/" in href or "\\" in href or ".." in href:
+        return None
+    page_href, separator, fragment = href.partition("#")
+    if not separator or page_href != f"{story_id}.html":
+        return None
+    if fragment == "local-article-digest":
+        return href
+    if _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is not None:
+        return href
+    return None
 
 
 def _render_saved_article_local_section_binder(

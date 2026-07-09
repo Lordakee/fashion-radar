@@ -112,6 +112,7 @@ except ModuleNotFoundError:  # pragma: no cover - Stage 373 renderer TDD red
 
 
 from fashion_radar.row_one.render import (
+    _companion_related_story_ids,
     _editorial_brief_payload,
     _story_directory_route_payload,
     clean_row_one_site_children,
@@ -165,6 +166,11 @@ from fashion_radar.row_one.saved_article_local_reading_companion import (
     RowOneSavedArticleLocalReadingCompanion,
     RowOneSavedArticleLocalReadingCompanionItem,
     RowOneSavedArticleLocalReadingCompanionLink,
+)
+from fashion_radar.row_one.saved_article_local_related_reads import (
+    RowOneSavedArticleLocalRelatedReadCard,
+    RowOneSavedArticleLocalRelatedReadReference,
+    RowOneSavedArticleLocalRelatedReads,
 )
 from fashion_radar.row_one.saved_article_local_section_binder import (
     RowOneSavedArticleLocalSectionBinder,
@@ -3486,6 +3492,200 @@ def test_render_local_article_page_includes_saved_article_local_reading_companio
     )
 
 
+def _related_read_card(
+    *,
+    candidate_story_id: str = "related-row-2222222222",
+    title: str = "Related saved read",
+    source_name: str = "Vogue Business",
+    reason: LocalizedText | None = None,
+    excerpt: LocalizedText | None = None,
+    href: str = "related-row-2222222222.html#local-article-paragraph-1",
+    references: tuple[RowOneSavedArticleLocalRelatedReadReference, ...] = (
+        RowOneSavedArticleLocalRelatedReadReference(name="The Row", label="Brand"),
+    ),
+) -> RowOneSavedArticleLocalRelatedReadCard:
+    return RowOneSavedArticleLocalRelatedReadCard(
+        candidate_story_id=candidate_story_id,
+        title=LocalizedText(en=title, zh=title),
+        source_name=source_name,
+        reason=reason or LocalizedText(en="Shared signal: The Row", zh="共同信号：The Row"),
+        excerpt=excerpt or LocalizedText(en="A concise saved excerpt.", zh="一段简短的保存正文。"),
+        href=href,
+        references=references,
+    )
+
+
+def _related_reads_model(
+    *cards: RowOneSavedArticleLocalRelatedReadCard,
+) -> RowOneSavedArticleLocalRelatedReads:
+    return RowOneSavedArticleLocalRelatedReads(
+        title=LocalizedText(en="Related Saved Local Reads", zh="相关本地保存阅读"),
+        dek=LocalizedText(en="Same-edition next reads.", zh="同日相关阅读。"),
+        current_story_id="the-row-signal-1234567890",
+        card_count=len(cards),
+        cards=cards,
+    )
+
+
+def test_render_local_article_page_includes_related_reads_after_local_article_body() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(_related_read_card()),
+    )
+
+    assert '<section class="saved-article-local-related-reads"' in html
+    article_body = html.split('<div class="local-article-page-article">', 1)[1]
+    local_article_start = article_body.index('<section id="local-article"')
+    related_reads_start = article_body.index('class="saved-article-local-related-reads"')
+    depth = 0
+    local_article_end = -1
+    for match in re.finditer(r"<(/?)section\b[^>]*>", article_body[local_article_start:]):
+        depth += -1 if match.group(1) else 1
+        if depth == 0:
+            local_article_end = local_article_start + match.end()
+            break
+    assert local_article_end > local_article_start
+    assert local_article_start < local_article_end < related_reads_start
+    assert related_reads_start < article_body.rindex("</div>")
+    assert 'href="related-row-2222222222.html#local-article-paragraph-1"' in html
+    assert "articles/related-row-2222222222.html" not in html
+    assert "Related Saved Local Reads" in html
+    assert "相关本地保存阅读" in html
+
+
+def test_render_local_article_page_escapes_related_reads_content() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(
+            _related_read_card(
+                title="Related <script>",
+                source_name="Source <Desk>",
+                reason=LocalizedText(en="Shared <reason>", zh="共同 <原因>"),
+                excerpt=LocalizedText(en="Saved <excerpt>", zh="保存 <摘录>"),
+                references=(
+                    RowOneSavedArticleLocalRelatedReadReference(
+                        name="The Row <brand>",
+                        label="Brand <signal>",
+                    ),
+                ),
+            )
+        ),
+    )
+
+    section_html = _html_between(
+        html,
+        '<section class="saved-article-local-related-reads"',
+        "</section>",
+    )
+
+    assert "Related &lt;script&gt;" in section_html
+    assert "Source &lt;Desk&gt;" in section_html
+    assert "Shared &lt;reason&gt;" in section_html
+    assert "Saved &lt;excerpt&gt;" in section_html
+    assert "The Row &lt;brand&gt;" in section_html
+    assert "Brand &lt;signal&gt;" in section_html
+
+
+def test_render_local_article_page_omits_empty_related_reads() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(),
+    )
+
+    assert "saved-article-local-related-reads" not in html
+
+
+def test_render_local_article_page_drops_related_read_with_mismatched_story_id_href() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(
+            _related_read_card(
+                candidate_story_id="related-row-2222222222",
+                title="Valid related read",
+                href="related-row-2222222222.html#local-article-paragraph-1",
+            ),
+            _related_read_card(
+                candidate_story_id="related-row-3333333333",
+                title="Mismatched related read",
+                href="other-row-4444444444.html#local-article-paragraph-1",
+            ),
+        ),
+    )
+
+    assert "Valid related read" in html
+    assert "Mismatched related read" not in html
+    assert "other-row-4444444444.html" not in html
+
+
+def _companion_with_hrefs(*hrefs: str) -> RowOneSavedArticleLocalReadingCompanion:
+    return RowOneSavedArticleLocalReadingCompanion(
+        current_title=LocalizedText(en="Current", zh="当前"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        group_title=LocalizedText(en="Group", zh="分组"),
+        group_dek=LocalizedText(en="Group dek", zh="分组说明"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        body_source_label=LocalizedText(en="Extracted article text", zh="已提取文章正文"),
+        lead=LocalizedText(en="Current lead", zh="当前导语"),
+        saved_paragraph_count=1,
+        organized_section_count=1,
+        evidence_count=1,
+        detail_path="details/current-row-0000000000.html",
+        local_links=(),
+        related_items=tuple(
+            RowOneSavedArticleLocalReadingCompanionItem(
+                title=LocalizedText(en=f"Related {index}", zh=f"相关 {index}"),
+                source_name="Vogue Business",
+                section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                body_source_label=LocalizedText(
+                    en="Extracted article text",
+                    zh="已提取文章正文",
+                ),
+                lead=LocalizedText(en="Related lead", zh="相关导语"),
+                saved_paragraph_count=1,
+                organized_section_count=1,
+                evidence_count=1,
+                href=href,
+                detail_path=f"details/related-{index:010d}.html",
+            )
+            for index, href in enumerate(hrefs, start=1)
+        ),
+    )
+
+
+def test_companion_related_story_ids_accepts_only_safe_sibling_hrefs() -> None:
+    assert _companion_related_story_ids(None) == ()
+    assert _companion_related_story_ids(
+        _companion_with_hrefs(
+            "safe-row-1111111111.html#local-article-digest",
+            "safe-row-1111111111.html#local-article-paragraph-1",
+            "section-row-3333333333.html#local-article-content-section-3",
+            "second-row-2222222222.html#local-article-paragraph-2",
+        )
+    ) == ("safe-row-1111111111", "section-row-3333333333", "second-row-2222222222")
+    assert (
+        _companion_related_story_ids(
+            _companion_with_hrefs(
+                "articles/safe-row-1111111111.html#local-article-digest",
+                "https://example.com/safe-row-1111111111.html#local-article-digest",
+                "/safe-row-1111111111.html#local-article-digest",
+                "../details/safe-row-1111111111.html#local-article-digest",
+                "bad story.html#local-article-digest",
+                "safe-row-1111111111.html#local-article-paragraph-0",
+            )
+        )
+        == ()
+    )
+
+
 def test_render_local_article_page_includes_saved_article_local_section_binder() -> None:
     edition = _edition()
     story = edition.stories[0]
@@ -4935,6 +5135,60 @@ def test_render_row_one_site_writes_local_article_reading_companion_with_peer_li
     assert "saved-article-local-reading-companion" not in generated_contract_payload
     assert not (tmp_path / "data" / "saved-article-local-reading-companion.json").exists()
     assert not (tmp_path / "data" / "article-local-reading-companion.json").exists()
+
+
+def test_render_row_one_site_excludes_companion_related_story_from_post_body_related_reads(
+    tmp_path,
+) -> None:
+    current_story = _edition().stories[0]
+    peer_story = _detail_story("alaia-signal-1234567890", "Alaia flats signal")
+    edition = _edition_with_stories(current_story, peer_story)
+    peer_article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "story_id": peer_story.id,
+            "title": "Alaia local article",
+            "paragraphs": ["Alaia flats lead the saved source."],
+            "paragraphs_zh": ["Alaia 平底鞋是保存正文重点。"],
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="entities",
+                    title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="Alaia", zh="Alaia"),
+                            body=LocalizedText(en="Alaia appears locally.", zh="Alaia 出现。"),
+                            references=[
+                                RowOneReference(name="Alaia", type="brand", label="tracked")
+                            ],
+                            paragraph_indices=[0],
+                        )
+                    ],
+                )
+            ],
+        },
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={
+            current_story.id: _signal_briefing_local_article(),
+            peer_story.id: peer_article,
+        },
+    )
+
+    current_html = (tmp_path / "articles" / f"{current_story.id}.html").read_text(encoding="utf-8")
+    companion_html = _html_between(
+        current_html,
+        '<section class="saved-article-local-reading-companion"',
+        'id="local-article"',
+    )
+    after_body_html = current_html.split('id="local-article"', 1)[1]
+
+    assert f'href="{peer_story.id}.html#local-article-digest"' in companion_html
+    assert f"{peer_story.id}.html#local-article-paragraph-1" not in after_body_html
+    assert '<section class="saved-article-local-related-reads"' not in after_body_html
 
 
 def test_render_row_one_site_writes_local_article_section_binder_only_on_article_pages(
@@ -17112,6 +17366,21 @@ def test_row_one_css_includes_saved_article_local_reading_companion_styles() -> 
         ".saved-article-local-reading-companion-meta",
         ".saved-article-local-reading-companion-refs",
         ".saved-article-local-reading-companion-action",
+    ):
+        assert selector in css
+
+
+def test_row_one_css_includes_saved_article_local_related_reads_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".saved-article-local-related-reads",
+        ".saved-article-local-related-reads-header",
+        ".saved-article-local-related-reads-grid",
+        ".saved-article-local-related-read-card",
+        ".saved-article-local-related-read-meta",
+        ".saved-article-local-related-read-references",
+        ".saved-article-local-related-read-reference",
     ):
         assert selector in css
 

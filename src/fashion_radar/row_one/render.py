@@ -69,7 +69,11 @@ from fashion_radar.row_one.saved_article_library import (
     build_row_one_saved_article_library,
 )
 from fashion_radar.row_one.saved_article_local_reading_companion import (
+    RowOneSavedArticleLocalReadingCompanion,
     build_row_one_saved_article_local_reading_companion,
+)
+from fashion_radar.row_one.saved_article_local_related_reads import (
+    build_row_one_saved_article_local_related_reads,
 )
 from fashion_radar.row_one.saved_article_local_section_binder import (
     build_row_one_saved_article_local_section_binder,
@@ -460,6 +464,61 @@ def _local_article_page_hrefs_by_story_id(
     }
 
 
+def _companion_related_story_ids(
+    companion: RowOneSavedArticleLocalReadingCompanion | None,
+) -> tuple[str, ...]:
+    if companion is None:
+        return ()
+    story_ids: list[str] = []
+    seen: set[str] = set()
+    for item in companion.related_items:
+        story_id = _companion_related_story_id_from_href(item.href)
+        if story_id is None or story_id in seen:
+            continue
+        seen.add(story_id)
+        story_ids.append(story_id)
+    return tuple(story_ids)
+
+
+def _companion_related_story_id_from_href(href: str) -> str | None:
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if "://" in href or href.startswith(("http:", "https:", "//", "/", ".", "javascript:")):
+        return None
+    if "/" in href or "\\" in href or ".." in href:
+        return None
+    page_href, separator, fragment = href.partition("#")
+    if not separator or not page_href.endswith(".html"):
+        return None
+    if (
+        fragment != "local-article-digest"
+        and not _local_article_paragraph_fragment(fragment)
+        and not _local_article_content_section_fragment(fragment)
+    ):
+        return None
+    story_id = page_href.removesuffix(".html")
+    if not safe_local_article_story_id(story_id):
+        return None
+    return story_id
+
+
+def _local_article_paragraph_fragment(fragment: str) -> bool:
+    prefix = "local-article-paragraph-"
+    return _positive_local_article_fragment_number(fragment, prefix)
+
+
+def _local_article_content_section_fragment(fragment: str) -> bool:
+    prefix = "local-article-content-section-"
+    return _positive_local_article_fragment_number(fragment, prefix)
+
+
+def _positive_local_article_fragment_number(fragment: str, prefix: str) -> bool:
+    if not fragment.startswith(prefix):
+        return False
+    number = fragment.removeprefix(prefix)
+    return number.isdecimal() and not number.startswith("0") and int(number) > 0
+
+
 def _write_local_article_pages(
     edition: RowOneEdition,
     articles_dir: Path,
@@ -488,6 +547,7 @@ def _write_local_article_pages(
         if local_article_page_hrefs_by_detail_path is not None
         else _local_article_page_hrefs_by_detail_path(page_specs)
     )
+    hrefs_by_story_id = _local_article_page_hrefs_by_story_id(page_specs)
     for story, article, article_page_href, _detail_path in page_specs:
         companion = build_row_one_saved_article_local_reading_companion(
             story=story,
@@ -504,6 +564,13 @@ def _write_local_article_pages(
             story=story,
             local_article=article,
         )
+        related_reads = build_row_one_saved_article_local_related_reads(
+            current_story=story,
+            edition=edition,
+            local_articles_by_story_id=local_articles_by_story_id,
+            local_article_page_hrefs_by_story_id=hrefs_by_story_id,
+            excluded_story_ids=_companion_related_story_ids(companion),
+        )
         html = render_local_article_page_html(
             edition,
             story,
@@ -511,6 +578,7 @@ def _write_local_article_pages(
             saved_article_local_reading_companion=companion,
             saved_article_local_section_binder=binder,
             saved_article_key_signals=key_signals,
+            saved_article_local_related_reads=related_reads,
         )
         if not html:
             continue

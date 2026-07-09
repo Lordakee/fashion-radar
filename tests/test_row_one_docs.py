@@ -4825,6 +4825,62 @@ def test_row_one_docs_describe_stage_376_daily_local_news_timeline_boundary() ->
         assert text.index(paragraph) < text.index("Stage 375 adds")
 
 
+def test_row_one_docs_describe_stage_377_saved_local_article_related_reads_boundary() -> None:
+    paragraph = (
+        "Stage 377 adds generated-site only Saved Local Article Related Reads inside "
+        "`articles/<story-id>.html` after the saved local article body; it reuses "
+        "current-edition stories, current-edition saved local article sidecars, "
+        "content-section references, generated local article page routes, existing "
+        "paragraph anchors, and existing local reading companion related-item hrefs to "
+        "show post-body same-site next reads while excluding articles already recommended "
+        "by the pre-body companion; it does not create "
+        "`data/saved-local-article-related-reads.json`, does not create "
+        "`data/local-article-related-reads.json`, does not create "
+        "`data/related-reads.json`, does not create "
+        "`saved-local-article-related-reads.html`, does not create "
+        "`local-article-related-reads.html`, does not create `related-reads.html`, does "
+        "not create new article-source sidecars, does not create new route families, "
+        "does not alter `index.html`, `articles/index.html`, or detail pages, does not "
+        "publish full related articles outside existing local article pages, does not "
+        "add outbound article URLs as primary navigation, and does not change "
+        "row-one-app/v7, row-one-manifest/v1, row-one-runtime/v1, schemas, generated "
+        "JSON artifacts, source collection, fetching, matching, extraction, scoring, "
+        "ranking, LLM, connector, scheduling, deployment, market grouping, "
+        "domestic/international classification, analytics, personalization, "
+        "recommendation, or compliance-review behavior."
+    )
+    readme = _read(README)
+    docs = _read(ROW_ONE_DOC)
+
+    for text in (readme, docs):
+        assert paragraph in text
+        assert text.index(paragraph) < text.index("Stage 376 adds")
+        normalized = text.casefold()
+        for stale_phrase in (
+            "creates data/saved-local-article-related-reads.json",
+            "writes data/saved-local-article-related-reads.json",
+            "creates saved-local-article-related-reads.html",
+            "creates new article-source sidecars",
+            "creates new route families",
+            "alters index.html",
+            "alters articles/index.html",
+            "alters detail pages",
+            "changes row-one-app/v7",
+            "adds source collection",
+            "adds fetching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds analytics",
+            "adds recommendation",
+            "adds compliance-review",
+        ):
+            assert stale_phrase not in normalized
+
+
 def test_row_one_docs_describe_stage_374_saved_local_article_route_health_boundary() -> None:
     paragraph = (
         "Stage 374 adds read-only generated-site Saved Local Article Route Health to "

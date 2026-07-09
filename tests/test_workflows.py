@@ -688,6 +688,18 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "local-news-timeline" not in generated_contract_payload
     assert "news-timeline" not in generated_contract_payload
     assert "每日本地新闻时间线" not in generated_contract_payload
+    assert "saved_article_local_related_reads" not in generated_contract_payload
+    assert "local_article_related_reads" not in generated_contract_payload
+    assert "article_related_reads" not in generated_contract_payload
+    assert "related_reads" not in generated_contract_payload
+    assert "RowOneSavedArticleLocalRelatedReads" not in generated_contract_payload
+    assert "Saved Local Article Related Reads" not in generated_contract_payload
+    assert "Related Saved Local Reads" not in generated_contract_payload
+    assert "saved-article-local-related-reads" not in generated_contract_payload
+    assert "local-article-related-reads" not in generated_contract_payload
+    assert "article-related-reads" not in generated_contract_payload
+    assert "related-reads" not in generated_contract_payload
+    assert "相关本地保存阅读" not in generated_contract_payload
     assert "daily_local_saved_article_organizer" not in generated_contract_payload
     assert "local_saved_article_organizer" not in generated_contract_payload
     assert "saved_article_organizer" not in generated_contract_payload
@@ -1308,6 +1320,14 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "daily_local_news_timeline",
         "local_news_timeline",
         "news_timeline",
+        "saved-local-article-related-reads",
+        "local-article-related-reads",
+        "article-related-reads",
+        "related-reads",
+        "saved_local_article_related_reads",
+        "local_article_related_reads",
+        "article_related_reads",
+        "related_reads",
         "daily-local-saved-article-organizer",
         "local-saved-article-organizer",
         "saved-article-organizer",
@@ -1567,6 +1587,21 @@ def test_stage_376_daily_local_news_timeline_stays_generated_site_only(
     monkeypatch.setattr(
         row_one_templates,
         "_render_daily_local_news_timeline",
+        lambda *_args, **_kwargs: "",
+        raising=True,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_377_saved_local_article_related_reads_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_saved_article_local_related_reads",
         lambda *_args, **_kwargs: "",
         raising=True,
     )
