@@ -66,6 +66,11 @@ from fashion_radar.row_one.saved_article_evidence_board import (
     RowOneSavedArticleEvidenceBoardCard,
     RowOneSavedArticleEvidenceBoardGroup,
 )
+from fashion_radar.row_one.saved_article_filing_inbox import (
+    RowOneSavedArticleFilingInbox,
+    RowOneSavedArticleFilingInboxItem,
+    RowOneSavedArticleFilingInboxParagraph,
+)
 from fashion_radar.row_one.saved_article_key_signals import (
     RowOneSavedArticleKeySignalEvidence,
     RowOneSavedArticleKeySignalGroup,
@@ -5714,6 +5719,81 @@ def test_render_row_one_site_includes_saved_article_reading_queue_in_library(
     assert 'class="saved-article-reading-queue"' not in detail_html
 
 
+def test_render_row_one_site_writes_saved_article_filing_inbox_only_in_library(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    local_article_html = (tmp_path / "articles" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    section_html = _saved_article_filing_inbox_section_html(library_html)
+    generated_contract_payload = json.dumps(
+        {
+            "edition": json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8")),
+            "manifest": json.loads(
+                (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8")
+            ),
+            "runtime": json.loads((tmp_path / "data" / "runtime.json").read_text(encoding="utf-8")),
+        },
+        sort_keys=True,
+    )
+
+    assert 'class="saved-article-filing-inbox"' in section_html
+    assert "Saved Article Filing Inbox" in section_html
+    assert "保存文章归档收件箱" in section_html
+    assert "Signal source article" in section_html
+    assert "Vogue Business" in section_html
+    assert "1 unfiled paragraph" in section_html
+    assert "3 saved paragraphs" in section_html
+    assert "2 organized sections" in section_html
+    assert "A third saved paragraph carries styling context." in section_html
+    assert 'href="the-row-signal-1234567890.html#local-article-paragraph-3"' in (section_html)
+    assert library_html.index('class="saved-article-organization-jump-index"') < (
+        library_html.index('class="saved-article-filing-inbox"')
+    )
+    assert library_html.index('class="saved-article-filing-inbox"') < library_html.index(
+        'class="saved-article-reading-queue"'
+    )
+    assert 'class="saved-article-filing-inbox"' not in homepage_html
+    assert 'class="saved-article-filing-inbox"' not in local_article_html
+    assert 'class="saved-article-filing-inbox"' not in detail_html
+    for forbidden in (
+        "saved_article_filing_inbox",
+        "article_filing_inbox",
+        "filing_inbox",
+        "saved-article-filing-inbox",
+        "article-filing-inbox",
+        "Saved Article Filing Inbox",
+    ):
+        assert forbidden not in generated_contract_payload
+    for artifact_path in (
+        tmp_path / "saved-article-filing-inbox.json",
+        tmp_path / "saved-article-filing-inbox.html",
+        tmp_path / "articles" / "saved-article-filing-inbox.json",
+        tmp_path / "articles" / "saved-article-filing-inbox.html",
+        tmp_path / "data" / "saved-article-filing-inbox.json",
+        tmp_path / "data" / "saved-article-filing-inbox.html",
+        tmp_path / "article-filing-inbox.json",
+        tmp_path / "article-filing-inbox.html",
+        tmp_path / "data" / "filing-inbox.json",
+        tmp_path / "data" / "filing-inbox.html",
+    ):
+        assert not artifact_path.exists()
+
+
 def test_render_row_one_site_includes_saved_article_read_next_clusters_in_library(
     tmp_path,
 ) -> None:
@@ -5844,6 +5924,91 @@ def test_render_saved_article_library_html_omits_empty_reading_queue_shell() -> 
         assert "Saved Article Reading Queue" not in html
         assert "Unsafe traversal" not in html
         assert "Whitespace link" not in html
+
+
+def test_render_saved_article_library_html_includes_filing_inbox() -> None:
+    inbox = RowOneSavedArticleFilingInbox(
+        items=(
+            RowOneSavedArticleFilingInboxItem(
+                title=LocalizedText(en="Unsafe <Article>", zh="不安全 <文章>"),
+                source_name="Vogue <Business>",
+                body_source_label=LocalizedText(en="Extracted <Text>", zh="已提取 <正文>"),
+                saved_paragraph_count=3,
+                organized_section_count=1,
+                unfiled_paragraph_count=2,
+                paragraphs=(
+                    RowOneSavedArticleFilingInboxParagraph(
+                        index=1,
+                        label=LocalizedText(en="Paragraph <2>", zh="第 <2> 段"),
+                        href="the-row-signal-1234567890.html#local-article-paragraph-2",
+                        excerpt=LocalizedText(
+                            en="Escaped <script>paragraph</script> excerpt.",
+                            zh="已转义 <script>段落</script> 摘要。",
+                        ),
+                    ),
+                    RowOneSavedArticleFilingInboxParagraph(
+                        index=2,
+                        label=LocalizedText(en="Bad", zh="坏"),
+                        href="javascript:alert(1)",
+                        excerpt=LocalizedText(en="Bad href excerpt", zh="坏链接摘要"),
+                    ),
+                    RowOneSavedArticleFilingInboxParagraph(
+                        index=3,
+                        label=LocalizedText(en="Bad leading zero", zh="坏前导零"),
+                        href="the-row-signal-1234567890.html#local-article-paragraph-01",
+                        excerpt=LocalizedText(
+                            en="Malformed paragraph anchor excerpt",
+                            zh="错误段落锚点摘要",
+                        ),
+                    ),
+                ),
+            ),
+        )
+    )
+
+    html = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_filing_inbox=inbox,
+    )
+    section_html = _saved_article_filing_inbox_section_html(html)
+
+    assert "Saved Article Filing Inbox" in section_html
+    assert "保存文章归档收件箱" in section_html
+    assert "Unsafe &lt;Article&gt;" in section_html
+    assert "不安全 &lt;文章&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "Extracted &lt;Text&gt;" in section_html
+    assert "已提取 &lt;正文&gt;" in section_html
+    assert "Paragraph &lt;2&gt;" in section_html
+    assert "Escaped &lt;script&gt;paragraph&lt;/script&gt; excerpt." in section_html
+    assert "Unsafe <Article>" not in section_html
+    assert "Vogue <Business>" not in section_html
+    assert "javascript:" not in section_html
+    assert "Bad href excerpt" not in section_html
+    assert "Malformed paragraph anchor excerpt" not in section_html
+    assert "#local-article-paragraph-01" not in section_html
+    assert 'href="the-row-signal-1234567890.html#local-article-paragraph-2"' in (section_html)
+
+
+def test_render_saved_article_library_html_omits_empty_filing_inbox_shell() -> None:
+    html_without_inbox = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_filing_inbox=None,
+    )
+    html_with_empty_inbox = render_saved_article_library_html(
+        _edition(),
+        _saved_article_library_fixture(),
+        saved_article_filing_inbox=RowOneSavedArticleFilingInbox(items=()),
+    )
+
+    for html in (html_without_inbox, html_with_empty_inbox):
+        assert 'class="saved-article-filing-inbox"' not in html
+        assert "Saved Article Filing Inbox" not in html
+        assert "保存文章归档收件箱" not in html
+        assert 'class="saved-article-library-hero"' in html
+        assert 'class="saved-article-library-grid"' in html
 
 
 def test_render_saved_article_library_html_escapes_read_next_clusters_and_revalidates_links() -> (
@@ -8091,6 +8256,25 @@ def _saved_article_organization_jump_index_section_html(index_html: str) -> str:
 
 def _saved_article_reading_queue_section_html(index_html: str) -> str:
     marker = '<section class="saved-article-reading-queue"'
+    assert marker in index_html
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    boundary_offsets: list[int] = []
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is not None:
+        boundary_offsets.append(next_section.start())
+    library_grid = tail.find('<div class="saved-article-library-grid"')
+    if library_grid >= 0:
+        boundary_offsets.append(library_grid)
+    if not boundary_offsets:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + min(boundary_offsets)
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
+def _saved_article_filing_inbox_section_html(index_html: str) -> str:
+    marker = '<section class="saved-article-filing-inbox"'
     assert marker in index_html
     section_start = index_html.index(marker)
     tail = index_html[section_start + len(marker) :]
@@ -15643,6 +15827,15 @@ def test_row_one_css_includes_saved_article_library_styles(tmp_path) -> None:
         ".saved-article-reading-queue-title",
         ".saved-article-reading-queue-meta",
         ".saved-article-reading-queue-action",
+        ".saved-article-filing-inbox",
+        ".saved-article-filing-inbox-header",
+        ".saved-article-filing-inbox-metrics",
+        ".saved-article-filing-inbox-list",
+        ".saved-article-filing-inbox-item",
+        ".saved-article-filing-inbox-meta",
+        ".saved-article-filing-inbox-paragraphs",
+        ".saved-article-filing-inbox-paragraph",
+        ".saved-article-filing-inbox-link",
         ".saved-article-read-next-clusters",
         ".saved-article-read-next-clusters-header",
         ".saved-article-read-next-clusters-metrics",
@@ -15677,6 +15870,10 @@ def test_row_one_css_includes_saved_article_library_styles(tmp_path) -> None:
         ".saved-article-daily-summary-link",
     ):
         assert re.search(rf"(^|[}}\n,])\s*{re.escape(selector)}\s*({{|,)", css_text)
+    mobile_block = css_text[css_text.index("@media (max-width: 760px)") :]
+    assert ".saved-article-filing-inbox-header" in mobile_block
+    assert ".saved-article-filing-inbox-list" in mobile_block
+    assert ".saved-article-filing-inbox-item" in mobile_block
 
 
 def test_row_one_css_includes_saved_signal_index_styles(tmp_path) -> None:

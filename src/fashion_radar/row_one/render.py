@@ -46,6 +46,9 @@ from fashion_radar.row_one.saved_article_evidence_board import (
     RowOneSavedArticleEvidenceBoard,
     build_row_one_saved_article_evidence_board,
 )
+from fashion_radar.row_one.saved_article_filing_inbox import (
+    build_row_one_saved_article_filing_inbox,
+)
 from fashion_radar.row_one.saved_article_key_signals import (
     build_row_one_saved_article_key_signals,
 )
@@ -373,6 +376,11 @@ def _write_saved_article_library_page(
         local_article_page_specs=local_article_page_specs,
         local_article_page_hrefs_by_detail_path=local_article_page_hrefs_by_detail_path,
     )
+    saved_article_filing_inbox = build_row_one_saved_article_filing_inbox(
+        edition,
+        local_articles_by_story_id,
+        local_article_page_hrefs_by_detail_path=article_page_hrefs_by_detail_path,
+    )
     (articles_dir / "index.html").write_text(
         render_saved_article_library_html(
             edition,
@@ -385,6 +393,7 @@ def _write_saved_article_library_page(
             saved_article_signal_facets=saved_article_signal_facets,
             saved_article_daily_signal_leaderboard=saved_article_daily_signal_leaderboard,
             saved_article_evidence_board=saved_article_evidence_board,
+            saved_article_filing_inbox=saved_article_filing_inbox,
             local_article_page_hrefs_by_detail_path=article_page_hrefs_by_detail_path,
         ),
         encoding="utf-8",

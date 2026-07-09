@@ -2251,6 +2251,94 @@ def test_row_one_docs_describe_stage_366_local_article_body_filing_cues_boundary
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_367_saved_article_filing_inbox_boundary() -> None:
+    expected = _normalized(
+        "Stage 367 adds generated-site only Saved Article Filing Inbox inside "
+        "`articles/index.html`; it reuses current-edition saved local article "
+        "sidecars, existing local article page routes, existing saved local "
+        "paragraphs, existing item-level content-section paragraph indices, "
+        "existing body-source labels, and existing paragraph anchors to "
+        "aggregate unfiled saved paragraphs across the article library without "
+        "changing app-facing contracts; it does not create "
+        "`data/saved-article-filing-inbox.json`, does not create "
+        "`data/article-filing-inbox.json`, does not create "
+        "`data/filing-inbox.json`, does not create "
+        "`saved-article-filing-inbox.html`, does not create "
+        "`article-filing-inbox.html`, does not create `filing-inbox.html`, "
+        "does not create new article-source sidecars, does not create new "
+        "route families, does not alter `index.html`, "
+        "`articles/<story-id>.html`, or detail pages, does not publish full "
+        "articles on the homepage or library index, does not add outbound "
+        "article URLs as primary navigation, and does not change row-one-app/v7, "
+        "row-one-manifest/v1, row-one-runtime/v1, schemas, JSON artifacts, "
+        "source collection, fetching, matching, extraction, scoring, ranking, "
+        "LLM, connector, scheduling, deployment, market grouping, "
+        "domestic/international classification, analytics, personalization, "
+        "recommendation, or compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_367_pos = normalized.index(
+            "stage 367 adds generated-site only saved article filing inbox"
+        )
+        stage_366_pos = normalized.index(
+            "stage 366 adds generated-site only local article body filing cues"
+        )
+        assert stage_367_pos < stage_366_pos
+        stage = normalized[stage_367_pos:stage_366_pos]
+        for stale_phrase in (
+            "creates data/saved-article-filing-inbox.json",
+            "writes data/saved-article-filing-inbox.json",
+            "creates data/article-filing-inbox.json",
+            "writes data/article-filing-inbox.json",
+            "creates data/filing-inbox.json",
+            "writes data/filing-inbox.json",
+            "creates saved-article-filing-inbox.html",
+            "writes saved-article-filing-inbox.html",
+            "creates article-filing-inbox.html",
+            "writes article-filing-inbox.html",
+            "creates filing-inbox.html",
+            "writes filing-inbox.html",
+            "creates `data/saved-article-filing-inbox.json`",
+            "writes `data/saved-article-filing-inbox.json`",
+            "creates `data/article-filing-inbox.json`",
+            "writes `data/article-filing-inbox.json`",
+            "creates `data/filing-inbox.json`",
+            "writes `data/filing-inbox.json`",
+            "writes a new json artifact",
+            "creates new article-source sidecars",
+            "creates new route families",
+            "adds new routes",
+            "adds routes",
+            "changes routes",
+            "alters index.html",
+            "alters articles/<story-id>.html",
+            "alters detail pages",
+            "publishes full articles on the homepage",
+            "publishes full articles on the library index",
+            "adds outbound article urls as primary navigation",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+            "adds compliance-review",
+            "adds compliance-review behavior",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_361_daily_local_article_reading_brief_boundary() -> None:
     expected = _normalized(
         "Stage 361 adds generated-site only Daily Local Article Reading Brief "

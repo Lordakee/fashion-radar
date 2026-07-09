@@ -60,6 +60,11 @@ from fashion_radar.row_one.saved_article_evidence_board import (
     RowOneSavedArticleEvidenceBoardCard,
     RowOneSavedArticleEvidenceBoardGroup,
 )
+from fashion_radar.row_one.saved_article_filing_inbox import (
+    RowOneSavedArticleFilingInbox,
+    RowOneSavedArticleFilingInboxItem,
+    RowOneSavedArticleFilingInboxParagraph,
+)
 from fashion_radar.row_one.saved_article_key_signals import (
     RowOneSavedArticleKeySignalEvidence,
     RowOneSavedArticleKeySignalGroup,
@@ -598,6 +603,7 @@ def render_saved_article_library_html(
     saved_article_organization_jump_index: RowOneSavedArticleOrganizationJumpIndex | None = None,
     saved_article_reading_queue: RowOneSavedArticleReadingQueue | None = None,
     saved_article_read_next_clusters: RowOneSavedArticleReadNextClusters | None = None,
+    saved_article_filing_inbox: RowOneSavedArticleFilingInbox | None = None,
     saved_article_evidence_board: RowOneSavedArticleEvidenceBoard | None = None,
     local_article_page_hrefs_by_detail_path: Mapping[str, str] | None = None,
 ) -> str:
@@ -677,6 +683,7 @@ def render_saved_article_library_html(
         )
     )
     reading_queue = _render_saved_article_reading_queue(reading_queue_model)
+    filing_inbox = _render_saved_article_filing_inbox(saved_article_filing_inbox)
     read_next_clusters_model = (
         saved_article_read_next_clusters
         if saved_article_read_next_clusters is not None
@@ -741,6 +748,7 @@ def render_saved_article_library_html(
   </section>
   {daily_summary}
   {organization_jump_index}
+  {filing_inbox}
   {reading_queue}
   {read_next_clusters}
   {signal_facets}
@@ -2646,6 +2654,99 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   padding: 8px 10px;
   text-decoration: none;
   text-transform: uppercase;
+}
+.saved-article-filing-inbox {
+  border-bottom: 1px solid var(--ink);
+  display: grid;
+  gap: 18px;
+  padding-bottom: 28px;
+}
+.saved-article-filing-inbox-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.36fr) minmax(0, 1fr);
+}
+.saved-article-filing-inbox-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 5vw, 5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.95;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-filing-inbox-header p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-filing-inbox-metrics {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  gap: 6px 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-filing-inbox-list {
+  display: grid;
+  gap: 14px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.saved-article-filing-inbox-item {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr);
+  padding-top: 14px;
+}
+.saved-article-filing-inbox-item h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: 1.2rem;
+  line-height: 1.15;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.saved-article-filing-inbox-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  gap: 6px 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-filing-inbox-paragraphs {
+  display: grid;
+  gap: 8px;
+}
+.saved-article-filing-inbox-paragraph {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  text-decoration: none;
+}
+.saved-article-filing-inbox-link {
+  color: var(--ink);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-filing-inbox-paragraph p {
+  color: var(--muted);
+  line-height: 1.42;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .saved-article-read-next-clusters {
   border-bottom: 1px solid var(--ink);
@@ -6241,6 +6342,9 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .saved-article-briefs-grid { grid-template-columns: 1fr; }
   .saved-article-content-organization-header { grid-template-columns: 1fr; }
   .saved-article-content-organization-grid { grid-template-columns: 1fr; }
+  .saved-article-filing-inbox-header { grid-template-columns: 1fr; }
+  .saved-article-filing-inbox-list { grid-template-columns: 1fr; }
+  .saved-article-filing-inbox-item { grid-template-columns: 1fr; }
   .saved-article-evidence-board-header { grid-template-columns: 1fr; }
   .saved-article-evidence-board-cards { grid-template-columns: 1fr; }
   .editorial-brief-header { grid-template-columns: 1fr; }
@@ -7757,6 +7861,164 @@ def _saved_article_reading_queue_href(href: str) -> str | None:
         return None
     page_href, separator, fragment = href.partition("#")
     if not separator or fragment != "local-article-digest":
+        return None
+    if not page_href.endswith(".html"):
+        return None
+    if not safe_local_article_story_id(page_href.removesuffix(".html")):
+        return None
+    return href
+
+
+def _render_saved_article_filing_inbox(
+    inbox: RowOneSavedArticleFilingInbox | None,
+) -> str:
+    if inbox is None or not inbox.items:
+        return ""
+    rendered_items = tuple(
+        item_html
+        for item in inbox.items
+        if (item_html := _render_saved_article_filing_inbox_item(item))
+    )
+    if not rendered_items:
+        return ""
+    article_count = len(rendered_items)
+    total_unfiled = sum(item.unfiled_paragraph_count for item in inbox.items)
+    article_count_en = _count_label(article_count, "article", "articles")
+    unfiled_count_en = _count_label(
+        total_unfiled,
+        "unfiled paragraph",
+        "unfiled paragraphs",
+    )
+    summary_en = (
+        f"{_esc(article_count_en)} with {_esc(unfiled_count_en)} still outside "
+        "organized content sections."
+    )
+    summary_zh = (
+        f"{_esc(str(article_count))} 篇保存文章中有 {_esc(str(total_unfiled))} "
+        "个段落尚未归入整理分区。"
+    )
+    return f"""<section class="saved-article-filing-inbox"
+  id="saved-article-filing-inbox"
+  aria-label="Saved article filing inbox">
+  <div class="saved-article-filing-inbox-header">
+    <p class="eyebrow">Filing Inbox</p>
+    <h2>
+      <span data-lang="en">Saved Article Filing Inbox</span>
+      <span data-lang="zh">保存文章归档收件箱</span>
+    </h2>
+    <p>
+      <span data-lang="en">{summary_en}</span>
+      <span data-lang="zh">{summary_zh}</span>
+    </p>
+  </div>
+  <div class="saved-article-filing-inbox-metrics">
+    <span>
+      <span data-lang="en">{_esc(article_count_en)}</span>
+      <span data-lang="zh">{_esc(str(article_count))} 篇文章</span>
+    </span>
+    <span>
+      <span data-lang="en">{_esc(unfiled_count_en)}</span>
+      <span data-lang="zh">{_esc(str(total_unfiled))} 个未归档段落</span>
+    </span>
+  </div>
+  <ol class="saved-article-filing-inbox-list">
+{chr(10).join(rendered_items)}
+  </ol>
+</section>"""
+
+
+def _render_saved_article_filing_inbox_item(
+    item: RowOneSavedArticleFilingInboxItem,
+) -> str:
+    rendered_paragraphs = tuple(
+        paragraph_html
+        for paragraph in item.paragraphs
+        if (paragraph_html := _render_saved_article_filing_inbox_paragraph(paragraph))
+    )
+    if not rendered_paragraphs:
+        return ""
+    paragraph_count_en = _count_label(
+        item.saved_paragraph_count,
+        "saved paragraph",
+        "saved paragraphs",
+    )
+    section_count_en = _count_label(
+        item.organized_section_count,
+        "organized section",
+        "organized sections",
+    )
+    unfiled_count_en = _count_label(
+        item.unfiled_paragraph_count,
+        "unfiled paragraph",
+        "unfiled paragraphs",
+    )
+    return f"""    <li class="saved-article-filing-inbox-item">
+      <div>
+        <h3>
+          <span data-lang="en">{_esc(item.title.en)}</span>
+          <span data-lang="zh">{_esc(item.title.zh)}</span>
+        </h3>
+        <div class="saved-article-filing-inbox-meta">
+          <span>{_esc(item.source_name)}</span>
+          <span>
+            <span data-lang="en">{_esc(item.body_source_label.en)}</span>
+            <span data-lang="zh">{_esc(item.body_source_label.zh)}</span>
+          </span>
+          <span>
+            <span data-lang="en">{_esc(paragraph_count_en)}</span>
+            <span data-lang="zh">{_esc(str(item.saved_paragraph_count))} 个保存段落</span>
+          </span>
+          <span>
+            <span data-lang="en">{_esc(section_count_en)}</span>
+            <span data-lang="zh">{_esc(str(item.organized_section_count))} 个整理分区</span>
+          </span>
+          <span>
+            <span data-lang="en">{_esc(unfiled_count_en)}</span>
+            <span data-lang="zh">{_esc(str(item.unfiled_paragraph_count))} 个未归档段落</span>
+          </span>
+        </div>
+      </div>
+      <div class="saved-article-filing-inbox-paragraphs">
+{chr(10).join(rendered_paragraphs)}
+      </div>
+    </li>"""
+
+
+def _render_saved_article_filing_inbox_paragraph(
+    paragraph: RowOneSavedArticleFilingInboxParagraph,
+) -> str:
+    href = _saved_article_filing_inbox_href(paragraph.href)
+    if href is None:
+        return ""
+    return f"""        <a class="saved-article-filing-inbox-paragraph" href="{_esc(href)}">
+          <span class="saved-article-filing-inbox-link">
+            <span data-lang="en">{_esc(paragraph.label.en)}</span>
+            <span data-lang="zh">{_esc(paragraph.label.zh)}</span>
+          </span>
+          <p>
+            <span data-lang="en">{_esc(paragraph.excerpt.en)}</span>
+            <span data-lang="zh">{_esc(paragraph.excerpt.zh)}</span>
+          </p>
+        </a>"""
+
+
+def _saved_article_filing_inbox_href(href: str) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if href.startswith(("http:", "https:", "//", "javascript:", ".", "/")):
+        return None
+    if "/" in href or "\\" in href:
+        return None
+    page_href, separator, fragment = href.partition("#")
+    if not separator:
+        return None
+    fragment_prefix = "local-article-paragraph-"
+    if not fragment.startswith(fragment_prefix):
+        return None
+    paragraph_number = fragment.removeprefix(fragment_prefix)
+    if not re.fullmatch(r"[1-9][0-9]*", paragraph_number):
         return None
     if not page_href.endswith(".html"):
         return None

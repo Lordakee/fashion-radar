@@ -645,6 +645,14 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "article-body-filing-cues" not in generated_contract_payload
     assert "body-filing-cues" not in generated_contract_payload
     assert "paragraph-filing-cues" not in generated_contract_payload
+    assert "saved_article_filing_inbox" not in generated_contract_payload
+    assert "article_filing_inbox" not in generated_contract_payload
+    assert "filing_inbox" not in generated_contract_payload
+    assert "Saved Article Filing Inbox" not in generated_contract_payload
+    assert "Article Filing Inbox" not in generated_contract_payload
+    assert "saved-article-filing-inbox" not in generated_contract_payload
+    assert "article-filing-inbox" not in generated_contract_payload
+    assert "filing-inbox" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -978,6 +986,24 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "article-reading-queue.html",
         output_dir / "articles" / "article-reading-queue.html",
         output_dir / "data" / "article-reading-queue.html",
+        output_dir / "saved-article-filing-inbox.json",
+        output_dir / "articles" / "saved-article-filing-inbox.json",
+        output_dir / "data" / "saved-article-filing-inbox.json",
+        output_dir / "saved-article-filing-inbox.html",
+        output_dir / "articles" / "saved-article-filing-inbox.html",
+        output_dir / "data" / "saved-article-filing-inbox.html",
+        output_dir / "article-filing-inbox.json",
+        output_dir / "articles" / "article-filing-inbox.json",
+        output_dir / "data" / "article-filing-inbox.json",
+        output_dir / "article-filing-inbox.html",
+        output_dir / "articles" / "article-filing-inbox.html",
+        output_dir / "data" / "article-filing-inbox.html",
+        output_dir / "filing-inbox.json",
+        output_dir / "articles" / "filing-inbox.json",
+        output_dir / "data" / "filing-inbox.json",
+        output_dir / "filing-inbox.html",
+        output_dir / "articles" / "filing-inbox.html",
+        output_dir / "data" / "filing-inbox.html",
         output_dir / "saved-article-read-next-clusters.json",
         output_dir / "articles" / "saved-article-read-next-clusters.json",
         output_dir / "data" / "saved-article-read-next-clusters.json",
@@ -1147,6 +1173,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "local_article_content_segment_deck",
         "article_content_segment_deck",
         "content_segment_deck",
+        "saved-article-filing-inbox",
+        "article-filing-inbox",
+        "filing-inbox",
+        "saved_article_filing_inbox",
+        "article_filing_inbox",
+        "filing_inbox",
     ):
         for artifact_dir in (output_dir, output_dir / "articles", output_dir / "data"):
             for suffix in (".json", ".html"):
@@ -1263,6 +1295,21 @@ def test_stage_366_local_article_body_filing_cues_stays_generated_site_only(
         row_one_templates,
         "_render_local_article_body_filing_cue",
         lambda _entries: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_367_saved_article_filing_inbox_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_saved_article_filing_inbox",
+        lambda _inbox: "",
         raising=False,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
