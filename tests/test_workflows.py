@@ -653,6 +653,17 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "saved-article-filing-inbox" not in generated_contract_payload
     assert "article-filing-inbox" not in generated_contract_payload
     assert "filing-inbox" not in generated_contract_payload
+    assert "local_article_body_organizer" not in generated_contract_payload
+    assert "article_body_organizer" not in generated_contract_payload
+    assert "body_organizer" not in generated_contract_payload
+    assert "RowOneSavedArticleBodyOrganizer" not in generated_contract_payload
+    assert "BodyOrganizer" not in generated_contract_payload
+    assert "Local Article Body Organizer" not in generated_contract_payload
+    assert "Article Body Organizer" not in generated_contract_payload
+    assert "本地正文整理器" not in generated_contract_payload
+    assert "local-article-body-organizer" not in generated_contract_payload
+    assert "article-body-organizer" not in generated_contract_payload
+    assert "body-organizer" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -1179,8 +1190,19 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "saved_article_filing_inbox",
         "article_filing_inbox",
         "filing_inbox",
+        "local-article-body-organizer",
+        "article-body-organizer",
+        "body-organizer",
+        "local_article_body_organizer",
+        "article_body_organizer",
+        "body_organizer",
     ):
-        for artifact_dir in (output_dir, output_dir / "articles", output_dir / "data"):
+        for artifact_dir in (
+            output_dir,
+            output_dir / "articles",
+            output_dir / "data",
+            output_dir / "data" / "articles",
+        ):
             for suffix in (".json", ".html"):
                 assert not (artifact_dir / f"{artifact_stem}{suffix}").exists()
     assert stored == stored_before
@@ -1310,6 +1332,21 @@ def test_stage_367_saved_article_filing_inbox_stays_generated_site_only(
         row_one_templates,
         "_render_saved_article_filing_inbox",
         lambda _inbox: "",
+        raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_368_local_article_body_organizer_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_local_article_body_organizer",
+        lambda _organizer: "",
         raising=False,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)

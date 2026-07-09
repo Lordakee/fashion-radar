@@ -138,6 +138,8 @@ def _filed_paragraph_indices(article: RowOneLocalArticle, rendered_indices: set[
 def _strict_valid_paragraph_indices(
     indices: Sequence[object], rendered_indices: set[int]
 ) -> tuple[int, ...]:
+    # Keep validation semantics aligned with saved_article_body_organizer; the
+    # filing inbox uses the same index safety rules for article-library links.
     valid: list[int] = []
     seen: set[int] = set()
     for index in indices:

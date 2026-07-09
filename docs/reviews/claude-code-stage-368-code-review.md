@@ -1,0 +1,1 @@
+Claude Code Stage 368 code review was attempted with --effort max, but the local Claude Code CLI returned: Error: Exceeded USD budget (1). Per the Stage 368 plan, opencode fallback review with GLM 5.2 max was used instead; see docs/reviews/opencode-stage-368-code-review.md.

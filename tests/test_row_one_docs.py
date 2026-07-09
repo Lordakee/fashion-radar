@@ -2251,6 +2251,97 @@ def test_row_one_docs_describe_stage_366_local_article_body_filing_cues_boundary
             assert stale_phrase not in stage
 
 
+def test_row_one_docs_describe_stage_368_local_article_body_organizer_boundary() -> None:
+    expected = _normalized(
+        "Stage 368 adds generated-site only Local Article Body Organizer inside "
+        "`articles/<story-id>.html` between the Local Article Content Segment "
+        "Deck and the saved local article body, after Saved Article Key Signals "
+        "in the current template order; it reuses current-edition saved local "
+        "article sidecars, existing saved local paragraphs, existing local "
+        "article content sections, existing item-level content-section paragraph "
+        "indices, existing content-section anchors, and existing paragraph "
+        "anchors to summarize each saved article body into filed section rows, "
+        "an unfiled paragraph queue, and a read-first paragraph route without "
+        "changing app-facing contracts; it does not create "
+        "`data/local-article-body-organizer.json`, does not create "
+        "`data/article-body-organizer.json`, does not create "
+        "`data/body-organizer.json`, does not create "
+        "`local-article-body-organizer.html`, does not create "
+        "`article-body-organizer.html`, does not create `body-organizer.html`, "
+        "does not create new article-source sidecars, does not create new route "
+        "families, does not alter `index.html`, `articles/index.html`, or "
+        "detail pages, does not publish full articles on the homepage or "
+        "library index, does not add outbound article URLs as primary "
+        "navigation, and does not change row-one-app/v7, row-one-manifest/v1, "
+        "row-one-runtime/v1, schemas, JSON artifacts, source collection, "
+        "fetching, matching, extraction, scoring, ranking, LLM, connector, "
+        "scheduling, deployment, market grouping, domestic/international "
+        "classification, analytics, personalization, recommendation, or "
+        "compliance-review behavior."
+    )
+
+    for path in (README, ROW_ONE_DOC):
+        normalized = _normalized(_read(path))
+        assert expected in normalized
+        stage_368_pos = normalized.index(
+            "stage 368 adds generated-site only local article body organizer"
+        )
+        stage_367_pos = normalized.index(
+            "stage 367 adds generated-site only saved article filing inbox"
+        )
+        assert stage_368_pos < stage_367_pos
+        stage = normalized[stage_368_pos:stage_367_pos]
+        for stale_phrase in (
+            "creates data/local-article-body-organizer.json",
+            "writes data/local-article-body-organizer.json",
+            "creates data/article-body-organizer.json",
+            "writes data/article-body-organizer.json",
+            "creates data/body-organizer.json",
+            "writes data/body-organizer.json",
+            "creates local-article-body-organizer.html",
+            "writes local-article-body-organizer.html",
+            "creates article-body-organizer.html",
+            "writes article-body-organizer.html",
+            "creates body-organizer.html",
+            "writes body-organizer.html",
+            "creates `data/local-article-body-organizer.json`",
+            "writes `data/local-article-body-organizer.json`",
+            "creates `data/article-body-organizer.json`",
+            "writes `data/article-body-organizer.json`",
+            "creates `data/body-organizer.json`",
+            "writes `data/body-organizer.json`",
+            "writes a new json artifact",
+            "creates new article-source sidecars",
+            "creates new route families",
+            "adds new routes",
+            "adds routes",
+            "changes routes",
+            "alters index.html",
+            "alters articles/index.html",
+            "alters detail pages",
+            "publishes full articles on the homepage",
+            "publishes full articles on the library index",
+            "adds outbound article urls as primary navigation",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance review",
+            "adds compliance-review",
+            "adds compliance-review behavior",
+        ):
+            assert stale_phrase not in stage
+
+
 def test_row_one_docs_describe_stage_367_saved_article_filing_inbox_boundary() -> None:
     expected = _normalized(
         "Stage 367 adds generated-site only Saved Article Filing Inbox inside "

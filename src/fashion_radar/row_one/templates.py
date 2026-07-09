@@ -36,6 +36,12 @@ from fashion_radar.row_one.models import (
     RowOneStory,
 )
 from fashion_radar.row_one.readiness import RowOneReadiness, build_row_one_readiness
+from fashion_radar.row_one.saved_article_body_organizer import (
+    RowOneLocalArticleBodyOrganizerParagraph,
+    RowOneLocalArticleBodyOrganizerSectionRow,
+    RowOneSavedArticleBodyOrganizer,
+    build_row_one_saved_article_body_organizer,
+)
 from fashion_radar.row_one.saved_article_briefs import (
     RowOneSavedArticleBriefItem,
     RowOneSavedArticleBriefs,
@@ -800,6 +806,12 @@ def render_local_article_page_html(
     )
     key_signals = _render_saved_article_key_signals(saved_article_key_signals)
     content_segment_deck = _render_local_article_content_segment_deck(local_article)
+    local_article_body_organizer = _render_local_article_body_organizer(
+        build_row_one_saved_article_body_organizer(
+            story=story,
+            local_article=local_article,
+        )
+    )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -853,6 +865,7 @@ def render_local_article_page_html(
 {local_section_binder}
 {key_signals}
 {content_segment_deck}
+{local_article_body_organizer}
     {local_article_section}
     </div>
   </article>
@@ -2249,6 +2262,81 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .local-article-content-segment-deck-action {
   color: var(--accent);
   font-weight: 800;
+}
+.local-article-body-organizer {
+  border: 1px solid var(--ink);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+.local-article-body-organizer-header {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr);
+}
+.local-article-body-organizer-header h2,
+.local-article-body-organizer-header p,
+.local-article-body-organizer-row h3,
+.local-article-body-organizer-row p,
+.local-article-body-organizer-unfiled h3,
+.local-article-body-organizer-unfiled p {
+  margin: 0;
+}
+.local-article-body-organizer-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.7rem, 4vw, 3.6rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.96;
+}
+.local-article-body-organizer-header p,
+.local-article-body-organizer-row p,
+.local-article-body-organizer-unfiled p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.local-article-body-organizer-metrics,
+.local-article-body-organizer-route,
+.local-article-body-organizer-labels,
+.local-article-body-organizer-paragraphs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.local-article-body-organizer-metrics span,
+.local-article-body-organizer-route a,
+.local-article-body-organizer-label,
+.local-article-body-organizer-paragraphs a {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.75rem;
+  padding: 7px 9px;
+  text-decoration: none;
+}
+.local-article-body-organizer-route a,
+.local-article-body-organizer-paragraphs a {
+  color: var(--accent);
+  font-weight: 800;
+}
+.local-article-body-organizer-sections {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.local-article-body-organizer-row,
+.local-article-body-organizer-unfiled {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+.local-article-body-organizer-row h3,
+.local-article-body-organizer-unfiled h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.25rem, 2.4vw, 2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
 }
 .saved-article-local-reading-companion {
   border: 1px solid var(--ink);
@@ -6334,6 +6422,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-theme-summary-strip-grid { grid-template-columns: 1fr; }
   .local-article-content-segment-deck-header { grid-template-columns: 1fr; }
   .local-article-content-segment-deck-grid { grid-template-columns: 1fr; }
+  .local-article-body-organizer-header { grid-template-columns: 1fr; }
+  .local-article-body-organizer-sections { grid-template-columns: 1fr; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
   .saved-article-library-entry-header { grid-template-columns: 1fr; }
@@ -15116,6 +15206,203 @@ def _local_article_content_segment_deck_excerpt(text: str) -> str:
         normalize_row_one_paragraph(text),
         limit=LOCAL_ARTICLE_CONTENT_SEGMENT_DECK_EXCERPT_CHARS,
     )
+
+
+def _render_local_article_body_organizer(
+    organizer: RowOneSavedArticleBodyOrganizer | None,
+) -> str:
+    if organizer is None or (not organizer.section_rows and not organizer.unfiled_paragraphs):
+        return ""
+    metrics = "".join(
+        _render_local_article_body_organizer_metric(label)
+        for label in (
+            _count_label(
+                organizer.saved_paragraph_count,
+                "saved paragraph",
+                "saved paragraphs",
+            ),
+            _count_label(
+                organizer.filed_paragraph_count,
+                "filed paragraph",
+                "filed paragraphs",
+            ),
+            _count_label(
+                organizer.unfiled_paragraph_count,
+                "unfiled paragraph",
+                "unfiled paragraphs",
+            ),
+            _count_label(
+                organizer.organized_section_count,
+                "organized section",
+                "organized sections",
+            ),
+        )
+    )
+    route = _render_local_article_body_organizer_route(organizer.read_first_route)
+    section_rows = "\n".join(
+        _render_local_article_body_organizer_row(row) for row in organizer.section_rows
+    )
+    has_section_rows = bool(section_rows.strip())
+    sections = (
+        f"""      <div class="local-article-body-organizer-sections">
+{section_rows}
+      </div>
+"""
+        if has_section_rows
+        else ""
+    )
+    unfiled = _render_local_article_body_organizer_unfiled(organizer.unfiled_paragraphs)
+    return f"""    <section class="local-article-body-organizer"
+      aria-labelledby="local-article-body-organizer-title">
+      <div class="local-article-body-organizer-header">
+        <h2 id="local-article-body-organizer-title">
+          <span data-lang="en">Local Article Body Organizer</span>
+          <span data-lang="zh">本地正文整理器</span>
+        </h2>
+        <p>
+          <span data-lang="en">
+            Filed and unfiled saved text from {_esc(organizer.source_name)}.
+          </span>
+          <span data-lang="zh">
+            来自 {_esc(organizer.source_name)} 的已归档与未归档保存正文。
+          </span>
+        </p>
+      </div>
+      <div class="local-article-body-organizer-metrics">{metrics}</div>
+      <p class="local-article-body-organizer-title">
+        <span data-lang="en">{_esc(organizer.title.en)}</span>
+        <span data-lang="zh">{_esc(organizer.title.zh)}</span>
+      </p>
+{route}{sections}{unfiled}
+    </section>"""
+
+
+def _render_local_article_body_organizer_metric(label: str) -> str:
+    return f"<span>{_esc(label)}</span>"
+
+
+def _render_local_article_body_organizer_route(
+    paragraphs: Sequence[RowOneLocalArticleBodyOrganizerParagraph],
+) -> str:
+    links = "\n".join(
+        rendered
+        for paragraph in paragraphs
+        if (rendered := _render_local_article_body_organizer_paragraph_chip(paragraph, indent=8))
+    )
+    if not links:
+        return ""
+    return f"""      <div class="local-article-body-organizer-route"
+        aria-label="Body read-first route">
+{links}
+      </div>
+"""
+
+
+def _render_local_article_body_organizer_row(
+    row: RowOneLocalArticleBodyOrganizerSectionRow,
+) -> str:
+    section_href = _safe_local_article_body_organizer_href(row.section_href)
+    if section_href is None:
+        return ""
+    labels = "".join(
+        f'          <span class="local-article-body-organizer-label">'
+        f'<span data-lang="en">{_esc(label.en)}</span>'
+        f'<span data-lang="zh">{_esc(label.zh)}</span></span>\n'
+        for label in row.item_labels
+    )
+    label_block = (
+        f"""        <div class="local-article-body-organizer-labels">
+{labels}        </div>
+"""
+        if labels
+        else ""
+    )
+    support = (
+        f"""        <p>
+          <span data-lang="en">{_esc(row.support.en)}</span>
+          <span data-lang="zh">{_esc(row.support.zh)}</span>
+        </p>
+"""
+        if row.support is not None
+        else ""
+    )
+    paragraph_links = "\n".join(
+        rendered
+        for paragraph in row.paragraphs
+        if (rendered := _render_local_article_body_organizer_paragraph_chip(paragraph, indent=10))
+    )
+    paragraphs = (
+        f"""        <div class="local-article-body-organizer-paragraphs">
+{paragraph_links}
+        </div>
+"""
+        if paragraph_links
+        else ""
+    )
+    return f"""        <article class="local-article-body-organizer-row">
+          <h3>
+            <a href="{_esc(section_href)}">
+              <span data-lang="en">{_esc(row.title.en)}</span>
+              <span data-lang="zh">{_esc(row.title.zh)}</span>
+            </a>
+          </h3>
+{support}{label_block}{paragraphs}
+        </article>"""
+
+
+def _render_local_article_body_organizer_unfiled(
+    paragraphs: Sequence[RowOneLocalArticleBodyOrganizerParagraph],
+) -> str:
+    links = "\n".join(
+        rendered
+        for paragraph in paragraphs
+        if (rendered := _render_local_article_body_organizer_paragraph_chip(paragraph, indent=8))
+    )
+    if not links:
+        return ""
+    return f"""      <div class="local-article-body-organizer-unfiled">
+        <h3>
+          <span data-lang="en">Unfiled Paragraph Queue</span>
+          <span data-lang="zh">未归档段落队列</span>
+        </h3>
+        <p>
+          <span data-lang="en">Saved text not yet cited by an organized section.</span>
+          <span data-lang="zh">尚未被整理栏目引用的保存正文。</span>
+        </p>
+        <div class="local-article-body-organizer-paragraphs">
+{links}
+        </div>
+      </div>
+"""
+
+
+def _render_local_article_body_organizer_paragraph_chip(
+    paragraph: RowOneLocalArticleBodyOrganizerParagraph,
+    *,
+    indent: int,
+) -> str:
+    href = _safe_local_article_body_organizer_href(paragraph.href)
+    if href is None:
+        return ""
+    prefix = " " * indent
+    return (
+        f'{prefix}<a href="{_esc(href)}">'
+        f'<span data-lang="en">{_esc(paragraph.label.en)}: {_esc(paragraph.excerpt.en)}</span>'
+        f'<span data-lang="zh">{_esc(paragraph.label.zh)}：{_esc(paragraph.excerpt.zh)}</span></a>'
+    )
+
+
+def _safe_local_article_body_organizer_href(href: object) -> str | None:
+    if not isinstance(href, str) or href != href.strip() or not href.startswith("#"):
+        return None
+    if any(character.isspace() for character in href):
+        return None
+    fragment = href[1:]
+    if _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is not None:
+        return href
+    if _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is not None:
+        return href
+    return None
 
 
 def _format_datetime(value: datetime) -> str:

@@ -3109,10 +3109,26 @@ def _html_between(html: str, start: str, end: str) -> str:
     return html[start_index:end_index]
 
 
+def _local_article_information_html(html: str) -> str:
+    return _html_between(
+        html,
+        '<section class="local-article-information"',
+        '<section class="local-article-content-segment-deck"',
+    )
+
+
 def _local_article_content_segment_deck_html(html: str) -> str:
     return _html_between(
         html,
         '<section class="local-article-content-segment-deck"',
+        '<section class="local-article-body-organizer"',
+    )
+
+
+def _local_article_body_organizer_html(html: str) -> str:
+    return _html_between(
+        html,
+        '<section class="local-article-body-organizer"',
         'id="local-article"',
     )
 
@@ -3146,7 +3162,7 @@ def test_render_local_article_information_panel_uses_local_anchors() -> None:
         story,
         local_article=_signal_briefing_local_article(),
     )
-    panel = _html_between(html, '<section class="local-article-information"', 'id="local-article"')
+    panel = _local_article_information_html(html)
 
     assert 'href="#local-article-reader"' in panel
     assert 'href="#local-article-digest"' in panel
@@ -3190,7 +3206,7 @@ def test_render_local_article_information_panel_shows_saved_paragraph_context_cu
         }
     )
     html = render_local_article_page_html(_edition(), _edition().stories[0], local_article=article)
-    panel = _html_between(html, '<section class="local-article-information"', 'id="local-article"')
+    panel = _local_article_information_html(html)
 
     assert 'href="#local-article-paragraph-1"' in panel
     assert 'href="#local-article-paragraph-2"' in panel
@@ -3236,7 +3252,7 @@ def test_render_local_article_information_panel_dedupes_caps_and_escapes_refs() 
     )
 
     html = render_local_article_page_html(edition, story, local_article=local_article)
-    panel = _html_between(html, '<section class="local-article-information"', 'id="local-article"')
+    panel = _local_article_information_html(html)
 
     assert "<script>" not in panel
     assert "&lt;script&gt;" in panel
@@ -3266,7 +3282,7 @@ def test_render_local_article_information_panel_filters_invalid_paragraph_indice
     )
 
     html = render_local_article_page_html(edition, story, local_article=local_article)
-    panel = _html_between(html, '<section class="local-article-information"', 'id="local-article"')
+    panel = _local_article_information_html(html)
 
     assert 'href="#local-article-paragraph-1"' in panel
     assert 'href="#local-article-paragraph-2"' not in panel
@@ -3821,6 +3837,162 @@ def test_render_local_article_page_content_segment_deck_filters_invalid_links() 
     assert "<script>" not in section_html
     assert "javascript:" not in section_html
     assert "../" not in section_html
+
+
+def test_render_row_one_site_writes_local_article_body_organizer_only_on_local_article_page(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "paragraphs": [
+                "The Row filed paragraph should appear in the body organizer.",
+                "Alaia flats filed paragraph should appear after the first row.",
+                "A third saved paragraph carries styling context.",
+                "Unfiled saved paragraph remains ready for organizer review.",
+            ],
+            "paragraphs_zh": [
+                "The Row 已归档段落应出现在正文整理器中。",
+                "Alaia 平底鞋已归档段落应排在第一行之后。",
+                "第三个保存段落提供造型背景。",
+                "未归档保存段落等待整理器复核。",
+            ],
+            "content_sections": [
+                RowOneLocalArticleContentSection(
+                    key="entities",
+                    title=LocalizedText(en="People & <Brands>", zh="品牌与 <人物>"),
+                    body=LocalizedText(
+                        en="Escaped <section> support text.",
+                        zh="转义的 <栏目> 支撑文本。",
+                    ),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="The Row <signal>", zh="The Row <信号>"),
+                            body=LocalizedText(
+                                en="The Row item <body> summarizes paragraph one.",
+                                zh="The Row 条目 <正文> 总结第一段。",
+                            ),
+                            paragraph_indices=[0, 2],
+                        ),
+                    ],
+                ),
+                RowOneLocalArticleContentSection(
+                    key="product_signals",
+                    title=LocalizedText(en="Products", zh="单品"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=LocalizedText(en="Alaia flats", zh="Alaia 平底鞋"),
+                            paragraph_indices=[1],
+                        ),
+                    ],
+                ),
+            ],
+        },
+    )
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: article},
+    )
+
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    local_article_html = (tmp_path / "articles" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    section_html = _local_article_body_organizer_html(local_article_html)
+
+    assert 'class="local-article-body-organizer"' in section_html
+    assert "Local Article Body Organizer" in section_html
+    assert "本地正文整理器" in section_html
+    assert "Signal source article" in section_html
+    assert "Vogue Business" in section_html
+    assert "4 saved paragraphs" in section_html
+    assert "3 filed paragraphs" in section_html
+    assert "1 unfiled paragraph" in section_html
+    assert "2 organized sections" in section_html
+    assert "People &amp; &lt;Brands&gt;" in section_html
+    assert "The Row &lt;signal&gt;" in section_html
+    assert "Escaped &lt;section&gt; support text." in section_html
+    assert "Unfiled saved paragraph remains ready for organizer review." in section_html
+    assert 'href="#local-article-content-section-1"' in section_html
+    assert 'href="#local-article-content-section-2"' in section_html
+    assert 'href="#local-article-paragraph-1"' in section_html
+    assert 'href="#local-article-paragraph-4"' in section_html
+    assert 'class="local-article-body-organizer-route"' in section_html
+    route_html = _html_between(
+        section_html,
+        'class="local-article-body-organizer-route"',
+        'class="local-article-body-organizer-sections"',
+    )
+    assert "local-article-digest-card" not in route_html
+    assert local_article_html.index('class="local-article-content-segment-deck"') < (
+        local_article_html.index('class="local-article-body-organizer"')
+    )
+    assert local_article_html.index('class="local-article-body-organizer"') < (
+        local_article_html.index('id="local-article"')
+    )
+    for outside_html in (homepage_html, library_html, detail_html):
+        assert 'class="local-article-body-organizer"' not in outside_html
+        assert "Local Article Body Organizer" not in outside_html
+        assert "本地正文整理器" not in outside_html
+        assert "#local-article-body-organizer" not in outside_html
+
+
+def test_render_row_one_site_local_article_body_organizer_does_not_leak_contracts_or_artifacts(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    generated_contract_payload = json.dumps(
+        {
+            "edition": json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8")),
+            "manifest": json.loads(
+                (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8")
+            ),
+            "runtime": json.loads((tmp_path / "data" / "runtime.json").read_text(encoding="utf-8")),
+        },
+        sort_keys=True,
+    )
+
+    for forbidden in (
+        "local_article_body_organizer",
+        "article_body_organizer",
+        "body_organizer",
+        "RowOneSavedArticleBodyOrganizer",
+        "BodyOrganizer",
+        "Local Article Body Organizer",
+        "Article Body Organizer",
+        "local-article-body-organizer",
+        "article-body-organizer",
+        "body-organizer",
+    ):
+        assert forbidden not in generated_contract_payload
+
+    for artifact_dir in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+        for artifact_stem in (
+            "local-article-body-organizer",
+            "article-body-organizer",
+            "body-organizer",
+            "local_article_body_organizer",
+            "article_body_organizer",
+            "body_organizer",
+        ):
+            for suffix in (".json", ".html"):
+                assert not (artifact_dir / f"{artifact_stem}{suffix}").exists()
 
 
 def test_render_local_article_page_includes_body_filing_cues() -> None:
@@ -15525,6 +15697,25 @@ def test_row_one_css_includes_local_article_body_filing_cue_styles() -> None:
         ".local-article-body-filing-cue a",
     ):
         assert selector in css
+
+
+def test_row_one_css_includes_local_article_body_organizer_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".local-article-body-organizer",
+        ".local-article-body-organizer-header",
+        ".local-article-body-organizer-metrics",
+        ".local-article-body-organizer-route",
+        ".local-article-body-organizer-sections",
+        ".local-article-body-organizer-row",
+        ".local-article-body-organizer-unfiled",
+    ):
+        assert selector in css
+    assert re.search(
+        r"\.local-article-body-organizer-sections\s*\{[^}]*grid-template-columns:\s*1fr",
+        css,
+    )
 
 
 def test_row_one_css_includes_daily_local_key_signals_digest_styles() -> None:
