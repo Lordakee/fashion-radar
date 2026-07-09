@@ -4881,6 +4881,82 @@ def test_row_one_docs_describe_stage_377_saved_local_article_related_reads_bound
             assert stale_phrase not in normalized
 
 
+def test_row_one_docs_describe_stage_379_cross_surface_organization_trail_boundary() -> None:
+    paragraph = (
+        "Stage 379 adds generated-site only Saved Local Article Cross-Surface "
+        "Organization Trail links inside the existing Saved Article Local Reading "
+        "Companion on `articles/<story-id>.html`; it reuses existing saved article "
+        "library groups, existing saved article content organization groups, generated "
+        "local article page routes, existing article library cards, and existing saved "
+        "article library organization groups to link each local article back to its "
+        "Filed In / 内容归档 context; it does not create "
+        "`data/saved-local-article-cross-surface-organization-trail.json`, does not "
+        "create `data/local-article-cross-surface-organization-trail.json`, does not "
+        "create `data/cross-surface-organization-trail.json`, does not create "
+        "`saved-local-article-cross-surface-organization-trail.html`, does not create "
+        "`local-article-cross-surface-organization-trail.html`, does not create "
+        "`cross-surface-organization-trail.html`, does not create source shelf links, "
+        "does not create new article-source sidecars, does not create new route families, "
+        "does not alter `details/<story-id>.html`, does not publish full articles outside "
+        "existing local article pages, does not add outbound article URLs as primary "
+        "navigation, and does not change row-one-app/v7, row-one-manifest/v1, "
+        "row-one-runtime/v1, schemas, generated JSON artifacts, source collection, "
+        "fetching, matching, extraction, scoring, ranking, LLM, connector, scheduling, "
+        "deployment, market grouping, domestic/international classification, analytics, "
+        "personalization, recommendation, or compliance-review behavior."
+    )
+    readme = _read(README)
+    docs = _read(ROW_ONE_DOC)
+
+    for text in (readme, docs):
+        assert paragraph in text
+        assert text.index(paragraph) < text.index("Stage 378 adds")
+
+        stage_379_slice = text[text.index(paragraph) : text.index("Stage 378 adds")]
+        normalized = _normalized(stage_379_slice)
+        for stale_phrase in (
+            "creates data/saved-local-article-cross-surface-organization-trail.json",
+            "writes data/saved-local-article-cross-surface-organization-trail.json",
+            "creates data/local-article-cross-surface-organization-trail.json",
+            "writes data/local-article-cross-surface-organization-trail.json",
+            "creates data/cross-surface-organization-trail.json",
+            "writes data/cross-surface-organization-trail.json",
+            "creates saved-local-article-cross-surface-organization-trail.html",
+            "writes saved-local-article-cross-surface-organization-trail.html",
+            "creates local-article-cross-surface-organization-trail.html",
+            "writes local-article-cross-surface-organization-trail.html",
+            "creates cross-surface-organization-trail.html",
+            "writes cross-surface-organization-trail.html",
+            "creates source shelf links",
+            "adds source shelf links",
+            "creates new article-source sidecars",
+            "creates new route families",
+            "adds new routes",
+            "alters details/<story-id>.html",
+            "publishes full articles outside existing local article pages",
+            "adds outbound article urls as primary navigation",
+            "changes row-one-app/v7",
+            "changes row-one-manifest/v1",
+            "changes row-one-runtime/v1",
+            "adds generated json artifacts",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance-review",
+        ):
+            assert stale_phrase not in normalized
+
+
 def test_row_one_docs_describe_stage_378_saved_local_article_related_read_lanes_boundary() -> None:
     paragraph = (
         "Stage 378 adds generated-site only Saved Local Article Related Read Lanes "

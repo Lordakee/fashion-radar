@@ -22,6 +22,7 @@ from fashion_radar.row_one.saved_article_library import (
 )
 from fashion_radar.row_one.saved_article_local_reading_companion import (
     SAVED_ARTICLE_LOCAL_READING_COMPANION_RELATED_LIMIT,
+    RowOneSavedArticleLocalReadingCompanionTrailLink,
     build_row_one_saved_article_local_reading_companion,
 )
 
@@ -184,6 +185,113 @@ def test_build_local_reading_companion_matches_current_article_and_related_local
     assert companion.related_items[0].title.en == f"Article {peer_id}"
     assert companion.related_items[0].href == f"{peer_id}.html#local-article-digest"
     assert all(current_id not in item.href for item in companion.related_items)
+
+
+def test_build_local_reading_companion_adds_cross_surface_organization_trail_links() -> None:
+    current_id = "the-row-signal-1234567890"
+    peer_id = "alaia-signal-1234567890"
+
+    companion = build_row_one_saved_article_local_reading_companion(
+        story=_story(current_id),
+        local_article=_local_article(current_id),
+        library=_library(_entry(current_id, title="The Row signal"), _entry(peer_id)),
+        organization=_organization(_card(current_id, title="The Row card"), _card(peer_id)),
+        local_article_page_hrefs_by_detail_path={
+            f"details/{current_id}.html": f"{current_id}.html",
+            f"details/{peer_id}.html": f"{peer_id}.html",
+        },
+    )
+
+    assert companion is not None
+    assert [(link.label.en, link.href) for link in companion.filing_links] == [
+        ("Library organization group", "index.html#saved-article-organization-group-entities"),
+        ("Saved article library card", f"index.html#saved-article-library-card-{current_id}"),
+    ]
+    assert [link.label.zh for link in companion.filing_links] == [
+        "文章库整理分组",
+        "文章库卡片",
+    ]
+
+
+def test_build_local_reading_companion_omits_unsafe_organization_group_trail_link() -> None:
+    current_id = "the-row-signal-1234567890"
+    companion = build_row_one_saved_article_local_reading_companion(
+        story=_story(current_id),
+        local_article=_local_article(current_id),
+        library=_library(_entry(current_id)),
+        organization=RowOneSavedArticleContentOrganization(
+            groups=[
+                RowOneSavedArticleContentOrganizationGroup(
+                    key="../bad",
+                    title=_lt("Bad", "坏"),
+                    dek=_lt("Bad", "坏"),
+                    cards=[_card(current_id)],
+                )
+            ]
+        ),
+        local_article_page_hrefs_by_detail_path={
+            f"details/{current_id}.html": f"{current_id}.html"
+        },
+    )
+
+    assert companion is not None
+    assert [link.href for link in companion.filing_links] == [
+        f"index.html#saved-article-library-card-{current_id}"
+    ]
+
+
+def test_build_local_reading_companion_filters_cross_surface_group_key_boundaries() -> None:
+    current_id = "the-row-signal-1234567890"
+    accepted = build_row_one_saved_article_local_reading_companion(
+        story=_story(current_id),
+        local_article=_local_article(current_id),
+        library=_library(_entry(current_id)),
+        organization=RowOneSavedArticleContentOrganization(
+            groups=[
+                RowOneSavedArticleContentOrganizationGroup(
+                    key="top_stories",
+                    title=_lt("Top Stories", "今日重点"),
+                    dek=_lt("Top context", "重点上下文"),
+                    cards=[_card(current_id)],
+                )
+            ]
+        ),
+        local_article_page_hrefs_by_detail_path={
+            f"details/{current_id}.html": f"{current_id}.html"
+        },
+    )
+
+    assert accepted is not None
+    assert accepted.filing_links[0].href == (
+        "index.html#saved-article-organization-group-top_stories"
+    )
+
+    for unsafe_key in ("1bad", "-bad"):
+        rejected = build_row_one_saved_article_local_reading_companion(
+            story=_story(current_id),
+            local_article=_local_article(current_id),
+            library=_library(_entry(current_id)),
+            organization=RowOneSavedArticleContentOrganization(
+                groups=[
+                    RowOneSavedArticleContentOrganizationGroup(
+                        key=unsafe_key,
+                        title=_lt("Bad", "坏"),
+                        dek=_lt("Bad", "坏"),
+                        cards=[_card(current_id)],
+                    )
+                ]
+            ),
+            local_article_page_hrefs_by_detail_path={
+                f"details/{current_id}.html": f"{current_id}.html"
+            },
+        )
+        assert rejected is not None
+        assert rejected.filing_links == (
+            RowOneSavedArticleLocalReadingCompanionTrailLink(
+                label=LocalizedText(en="Saved article library card", zh="文章库卡片"),
+                href=f"index.html#saved-article-library-card-{current_id}",
+            ),
+        )
 
 
 def test_build_local_reading_companion_falls_back_to_safe_detail_content_anchor() -> None:

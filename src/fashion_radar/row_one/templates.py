@@ -121,6 +121,7 @@ from fashion_radar.row_one.saved_article_library import (
 from fashion_radar.row_one.saved_article_local_reading_companion import (
     RowOneSavedArticleLocalReadingCompanion,
     RowOneSavedArticleLocalReadingCompanionItem,
+    RowOneSavedArticleLocalReadingCompanionTrailLink,
 )
 from fashion_radar.row_one.saved_article_local_related_reads import (
     RowOneSavedArticleLocalRelatedReadCard,
@@ -191,6 +192,9 @@ _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE = re.compile(r"local-article-paragraph-[1-9
 _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE = re.compile(
     r"local-article-content-section-[1-9][0-9]*$"
 )
+_SAVED_ARTICLE_ORGANIZATION_GROUP_KEY_RE = re.compile(r"[a-z][a-z0-9_]{0,63}$")
+_SAVED_ARTICLE_LIBRARY_CARD_PREFIX = "saved-article-library-card-"
+_SAVED_ARTICLE_ORGANIZATION_GROUP_PREFIX = "saved-article-organization-group-"
 LOCAL_ARTICLE_DIGEST_EXCERPT_CHARS = 160
 LOCAL_ARTICLE_DIGEST_MAX_REFERENCES = 4
 LOCAL_ARTICLE_CONTENT_PREVIEW_EXCERPT_CHARS = 140
@@ -2540,6 +2544,7 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   line-height: 1.45;
 }
 .saved-article-local-reading-companion-metrics,
+.saved-article-local-reading-companion-filing-trail,
 .saved-article-local-reading-companion-links,
 .saved-article-local-reading-companion-meta,
 .saved-article-local-reading-companion-refs {
@@ -2548,16 +2553,31 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   gap: 8px;
 }
 .saved-article-local-reading-companion-metrics span,
+.saved-article-local-reading-companion-filing-trail strong,
+.saved-article-local-reading-companion-filing-trail a,
 .saved-article-local-reading-companion-links a,
 .saved-article-local-reading-companion-meta span,
 .saved-article-local-reading-companion-refs span {
   border: 1px solid var(--line);
-  color: var(--ink);
   font-size: 0.75rem;
   padding: 7px 9px;
   text-decoration: none;
 }
+.saved-article-local-reading-companion-metrics span,
+.saved-article-local-reading-companion-filing-trail strong,
+.saved-article-local-reading-companion-meta span,
+.saved-article-local-reading-companion-refs span {
+  color: var(--ink);
+}
+.saved-article-local-reading-companion-filing-trail {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.saved-article-local-reading-companion-filing-trail strong {
+  font-weight: 800;
+}
 .saved-article-local-reading-companion-links a,
+.saved-article-local-reading-companion-filing-trail a,
 .saved-article-local-reading-companion-action {
   color: var(--accent);
   font-weight: 800;
@@ -9184,6 +9204,9 @@ def _render_saved_article_local_reading_companion_current(
     companion: RowOneSavedArticleLocalReadingCompanion,
 ) -> str:
     links = _render_saved_article_local_reading_companion_links(companion)
+    filing_trail = _render_saved_article_local_reading_companion_filing_trail(
+        companion.filing_links
+    )
     refs = _render_saved_article_local_reading_companion_refs(companion.references)
     return f"""      <article class="saved-article-local-reading-companion-current">
         <div class="saved-article-local-reading-companion-meta">
@@ -9205,7 +9228,7 @@ def _render_saved_article_local_reading_companion_current(
           <span data-lang="en">{_esc(companion.lead.en)}</span>
           <span data-lang="zh">{_esc(companion.lead.zh)}</span>
         </p>
-{links}{refs}
+{links}{filing_trail}{refs}
       </article>"""
 
 
@@ -9229,6 +9252,32 @@ def _render_saved_article_local_reading_companion_links(
         '        <div class="saved-article-local-reading-companion-links">\n'
         + "\n".join(links)
         + "\n        </div>\n"
+    )
+
+
+def _render_saved_article_local_reading_companion_filing_trail(
+    links: Sequence[RowOneSavedArticleLocalReadingCompanionTrailLink],
+) -> str:
+    rendered: list[str] = []
+    for link in links:
+        href = _saved_article_local_reading_companion_href(link.href)
+        if href is None or not href.startswith("index.html#"):
+            continue
+        rendered.append(
+            f"""          <a href="{_esc(href)}">
+            <span data-lang="en">{_esc(link.label.en)}</span>
+            <span data-lang="zh">{_esc(link.label.zh)}</span>
+          </a>"""
+        )
+    if not rendered:
+        return ""
+    return (
+        '        <div class="saved-article-local-reading-companion-filing-trail" '
+        'aria-label="Saved article filing trail">\n'
+        "          <strong>\n"
+        '            <span data-lang="en">Filed In</span>\n'
+        '            <span data-lang="zh">内容归档</span>\n'
+        "          </strong>\n" + "\n".join(rendered) + "\n        </div>\n"
     )
 
 
@@ -9335,7 +9384,26 @@ def _saved_article_local_reading_companion_href(href: str) -> str | None:
         if _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is not None:
             return href
         return None
+    cross_surface_href = _saved_article_local_reading_companion_cross_surface_href(href)
+    if cross_surface_href is not None:
+        return cross_surface_href
     return _saved_article_read_next_cluster_href(href)
+
+
+def _saved_article_local_reading_companion_cross_surface_href(href: str) -> str | None:
+    page_href, separator, fragment = href.partition("#")
+    if page_href != "index.html" or not separator or not fragment:
+        return None
+    if fragment.startswith(_SAVED_ARTICLE_LIBRARY_CARD_PREFIX):
+        story_id = fragment.removeprefix(_SAVED_ARTICLE_LIBRARY_CARD_PREFIX)
+        if safe_local_article_story_id(story_id):
+            return href
+        return None
+    if fragment.startswith(_SAVED_ARTICLE_ORGANIZATION_GROUP_PREFIX):
+        group_key = fragment.removeprefix(_SAVED_ARTICLE_ORGANIZATION_GROUP_PREFIX)
+        if _SAVED_ARTICLE_ORGANIZATION_GROUP_KEY_RE.fullmatch(group_key) is not None:
+            return href
+    return None
 
 
 def _render_saved_article_local_related_reads(
@@ -9976,7 +10044,9 @@ def _render_saved_article_library_card(
         "organized section",
         "organized sections",
     )
-    return f"""        <article class="saved-article-library-card">
+    card_anchor_id = _saved_article_library_card_anchor_id(entry)
+    card_id_attr = f' id="{_esc(card_anchor_id)}"' if card_anchor_id else ""
+    return f"""        <article class="saved-article-library-card"{card_id_attr}>
           <div class="saved-article-library-card-meta">
             <span>{_esc(entry.source_name)}</span>
             <span>
@@ -10004,6 +10074,25 @@ def _render_saved_article_library_card(
           {paragraphs}
           {actions}
         </article>"""
+
+
+def _saved_article_library_card_anchor_id(
+    entry: RowOneSavedArticleLibraryEntry,
+) -> str | None:
+    safe_href = safe_row_one_detail_fragment_href(
+        entry.digest_path,
+        "local-article-digest",
+    )
+    if safe_href is None:
+        return None
+    path, _separator, _fragment = safe_href.partition("#")
+    safe_path = validated_row_one_detail_relative_path(path)
+    if safe_path is None:
+        return None
+    story_id = safe_path.stem
+    if not safe_local_article_story_id(story_id):
+        return None
+    return f"{_SAVED_ARTICLE_LIBRARY_CARD_PREFIX}{story_id}"
 
 
 def _saved_article_library_snippets_by_detail_path(
@@ -14984,7 +15073,9 @@ def _render_saved_article_content_organization_group(
     cards = [card for card in cards if card]
     if not cards:
         return ""
-    return f"""    <article class="saved-article-content-organization-group">
+    group_anchor_id = _saved_article_content_organization_group_anchor_id(group.key)
+    group_id_attr = f' id="{_esc(group_anchor_id)}"' if group_anchor_id else ""
+    return f"""    <article class="saved-article-content-organization-group"{group_id_attr}>
       <div class="saved-article-content-organization-group-header">
         <h3>
           <span data-lang="en">{_esc(group.title.en)}</span>
@@ -14998,6 +15089,14 @@ def _render_saved_article_content_organization_group(
 {summary}
       <div class="saved-article-content-organization-grid">{"".join(cards)}</div>
     </article>"""
+
+
+def _saved_article_content_organization_group_anchor_id(group_key: str) -> str | None:
+    if not isinstance(group_key, str):
+        return None
+    if _SAVED_ARTICLE_ORGANIZATION_GROUP_KEY_RE.fullmatch(group_key) is None:
+        return None
+    return f"{_SAVED_ARTICLE_ORGANIZATION_GROUP_PREFIX}{group_key}"
 
 
 def _render_saved_article_content_organization_group_summary(

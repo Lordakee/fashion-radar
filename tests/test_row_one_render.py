@@ -166,6 +166,8 @@ from fashion_radar.row_one.saved_article_local_reading_companion import (
     RowOneSavedArticleLocalReadingCompanion,
     RowOneSavedArticleLocalReadingCompanionItem,
     RowOneSavedArticleLocalReadingCompanionLink,
+    RowOneSavedArticleLocalReadingCompanionTrailLink,
+    build_row_one_saved_article_local_reading_companion,
 )
 from fashion_radar.row_one.saved_article_local_related_reads import (
     RowOneSavedArticleLocalRelatedReadCard,
@@ -226,6 +228,7 @@ from fashion_radar.row_one.templates import (
     _EditorialBriefItem,
     _render_saved_signal_index_support_row,
     _safe_daily_local_intelligence_href,
+    _saved_article_library_card_anchor_id,
     _strict_valid_local_article_paragraph_indices,
     render_detail_html,
     render_index_html,
@@ -3490,6 +3493,227 @@ def test_render_local_article_page_includes_saved_article_local_reading_companio
     assert html.index('class="saved-article-local-reading-companion"') < html.index(
         'id="local-article"'
     )
+
+
+def test_render_local_article_page_includes_cross_surface_organization_trail() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    companion = RowOneSavedArticleLocalReadingCompanion(
+        current_title=LocalizedText(en="The Row signal", zh="The Row signal"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        group_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        group_dek=LocalizedText(en="Brand context", zh="品牌上下文"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        body_source_label=LocalizedText(en="Extracted article text", zh="提取正文"),
+        lead=LocalizedText(en="Lead", zh="导语"),
+        saved_paragraph_count=2,
+        organized_section_count=1,
+        evidence_count=1,
+        detail_path=story.detail_path,
+        local_links=(),
+        related_items=(),
+        filing_links=(
+            RowOneSavedArticleLocalReadingCompanionTrailLink(
+                label=LocalizedText(en="Library organization group", zh="文章库整理分组"),
+                href="index.html#saved-article-organization-group-entities",
+            ),
+            RowOneSavedArticleLocalReadingCompanionTrailLink(
+                label=LocalizedText(en="Saved article library card", zh="文章库卡片"),
+                href=f"index.html#saved-article-library-card-{story.id}",
+            ),
+        ),
+    )
+
+    html = render_local_article_page_html(
+        edition,
+        story,
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_reading_companion=companion,
+    )
+    section_html = _html_between(
+        html,
+        '<section class="saved-article-local-reading-companion"',
+        'id="local-article"',
+    )
+
+    assert "saved-article-local-reading-companion-filing-trail" in section_html
+    assert 'href="index.html#saved-article-organization-group-entities"' in section_html
+    assert f'href="index.html#saved-article-library-card-{story.id}"' in section_html
+    assert "Filed In" in section_html
+    assert "内容归档" in section_html
+
+
+def test_render_local_article_page_filters_unsafe_cross_surface_organization_trail_links() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    companion = RowOneSavedArticleLocalReadingCompanion(
+        current_title=LocalizedText(en="The Row signal", zh="The Row signal"),
+        source_name="Vogue Business",
+        section_title=LocalizedText(en="Top Stories", zh="今日重点"),
+        group_title=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        group_dek=LocalizedText(en="Brand context", zh="品牌上下文"),
+        section_label=LocalizedText(en="People & Brands", zh="品牌与人物"),
+        body_source_label=LocalizedText(en="Extracted article text", zh="提取正文"),
+        lead=LocalizedText(en="Lead", zh="导语"),
+        saved_paragraph_count=2,
+        organized_section_count=1,
+        evidence_count=1,
+        detail_path=story.detail_path,
+        local_links=(),
+        related_items=(),
+        filing_links=(
+            RowOneSavedArticleLocalReadingCompanionTrailLink(
+                label=LocalizedText(en="Unsafe", zh="不安全"),
+                href="https://evil.example/path",
+            ),
+            RowOneSavedArticleLocalReadingCompanionTrailLink(
+                label=LocalizedText(en="Unsafe", zh="不安全"),
+                href="index.html#unknown-anchor",
+            ),
+            RowOneSavedArticleLocalReadingCompanionTrailLink(
+                label=LocalizedText(en="Safe", zh="安全"),
+                href=f"index.html#saved-article-library-card-{story.id}",
+            ),
+        ),
+    )
+
+    html = render_local_article_page_html(
+        edition,
+        story,
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_reading_companion=companion,
+    )
+
+    assert "https://evil.example" not in html
+    assert "unknown-anchor" not in html
+    assert f'href="index.html#saved-article-library-card-{story.id}"' in html
+
+
+def test_saved_article_library_card_anchor_id_uses_validated_detail_story_id() -> None:
+    story_id = "the-row-signal-1234567890"
+    entry = _saved_article_library_fixture().groups[0].entries[0]
+    assert _saved_article_library_card_anchor_id(entry) == f"saved-article-library-card-{story_id}"
+    assert (
+        _saved_article_library_card_anchor_id(
+            replace(
+                entry,
+                digest_path="../bad.html#local-article-digest",
+            )
+        )
+        is None
+    )
+
+
+def test_saved_article_cross_surface_card_href_matches_library_card_anchor() -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_article = _signal_briefing_local_article()
+    library = _saved_article_library_fixture()
+    organization = build_row_one_saved_article_content_organization(
+        edition,
+        {story.id: local_article},
+    )
+
+    companion = build_row_one_saved_article_local_reading_companion(
+        story=story,
+        local_article=local_article,
+        library=library,
+        organization=organization,
+        local_article_page_hrefs_by_detail_path={
+            "details/the-row-signal-1234567890.html": "the-row-signal-1234567890.html",
+        },
+    )
+
+    entry = library.groups[0].entries[0]
+    card_anchor = _saved_article_library_card_anchor_id(entry)
+
+    assert companion is not None
+    assert card_anchor == "saved-article-library-card-the-row-signal-1234567890"
+    assert f"index.html#{card_anchor}" in {link.href for link in companion.filing_links}
+
+
+def test_render_row_one_site_writes_saved_article_cross_surface_organization_trail_targets(
+    tmp_path: Path,
+) -> None:
+    current = _edition().stories[0]
+    peer = _detail_story("alaia-signal-1234567890", "Alaia signal")
+    edition = _edition_with_stories(current, peer)
+    peer_article = _signal_briefing_local_article().model_copy(
+        deep=True,
+        update={
+            "story_id": peer.id,
+            "title": "Alaia source article",
+            "source_name": "Alaia Desk",
+            "url": "https://example.com/alaia",
+        },
+    )
+    articles = {
+        current.id: _signal_briefing_local_article(),
+        peer.id: peer_article,
+    }
+
+    render_row_one_site(edition, tmp_path, local_articles_by_story_id=articles)
+
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    article_html = (tmp_path / "articles" / f"{current.id}.html").read_text(encoding="utf-8")
+    detail_html = (tmp_path / "details" / f"{current.id}.html").read_text(encoding="utf-8")
+
+    assert 'id="saved-article-organization-group-entities"' in library_html
+    assert f'id="saved-article-library-card-{current.id}"' in library_html
+    assert 'href="index.html#saved-article-organization-group-entities"' in article_html
+    assert f'href="index.html#saved-article-library-card-{current.id}"' in article_html
+    assert "saved-article-local-reading-companion-filing-trail" not in detail_html
+
+
+def test_render_row_one_site_cross_surface_organization_trail_does_not_leak_contracts_or_artifacts(
+    tmp_path: Path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    generated_contract_payload = json.dumps(
+        {
+            "edition": json.loads((tmp_path / "data" / "edition.json").read_text()),
+            "manifest": json.loads((tmp_path / "data" / "manifest.json").read_text()),
+            "runtime": json.loads((tmp_path / "data" / "runtime.json").read_text()),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+
+    for forbidden in (
+        "saved_local_article_cross_surface_organization_trail",
+        "local_article_cross_surface_organization_trail",
+        "cross_surface_organization_trail",
+        "saved-local-article-cross-surface-organization-trail",
+        "Saved Local Article Cross-Surface Organization Trail",
+        "内容归档",
+    ):
+        assert forbidden not in generated_contract_payload
+
+    for artifact_dir in (
+        tmp_path,
+        tmp_path / "articles",
+        tmp_path / "data",
+        tmp_path / "data" / "articles",
+    ):
+        for artifact_stem in (
+            "saved-local-article-cross-surface-organization-trail",
+            "local-article-cross-surface-organization-trail",
+            "cross-surface-organization-trail",
+            "saved_local_article_cross_surface_organization_trail",
+            "local_article_cross_surface_organization_trail",
+            "cross_surface_organization_trail",
+        ):
+            for suffix in (".json", ".html"):
+                assert not (artifact_dir / f"{artifact_stem}{suffix}").exists()
 
 
 def _related_read_card(
@@ -9393,7 +9617,7 @@ def _saved_article_signal_facets_column_html(section_html: str, label: str) -> s
 
 
 def _saved_article_library_first_card_html(index_html: str) -> str:
-    marker = '<article class="saved-article-library-card">'
+    marker = '<article class="saved-article-library-card"'
     assert marker in index_html
     card_start = index_html.index(marker)
     next_card = index_html.find(marker, card_start + len(marker))
@@ -17461,6 +17685,7 @@ def test_row_one_css_includes_saved_article_local_reading_companion_styles() -> 
         ".saved-article-local-reading-companion",
         ".saved-article-local-reading-companion-header",
         ".saved-article-local-reading-companion-metrics",
+        ".saved-article-local-reading-companion-filing-trail",
         ".saved-article-local-reading-companion-links",
         ".saved-article-local-reading-companion-current",
         ".saved-article-local-reading-companion-related",

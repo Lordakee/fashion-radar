@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -32,10 +33,19 @@ _LOCAL_ARTICLE_DIGEST_FRAGMENT = "local-article-digest"
 _LOCAL_ARTICLE_READER_FRAGMENT = "local-article-reader"
 _LOCAL_ARTICLE_PARAGRAPH_EVIDENCE_FRAGMENT = "local-article-paragraph-evidence"
 _LOCAL_ARTICLE_CONTENT_SECTION_PREFIX = "local-article-content-section-"
+_ORGANIZATION_GROUP_PREFIX = "saved-article-organization-group-"
+_LIBRARY_CARD_PREFIX = "saved-article-library-card-"
+_ORGANIZATION_GROUP_KEY_RE = re.compile(r"[a-z][a-z0-9_]{0,63}")
 
 
 @dataclass(frozen=True)
 class RowOneSavedArticleLocalReadingCompanionLink:
+    label: LocalizedText
+    href: str
+
+
+@dataclass(frozen=True)
+class RowOneSavedArticleLocalReadingCompanionTrailLink:
     label: LocalizedText
     href: str
 
@@ -71,6 +81,7 @@ class RowOneSavedArticleLocalReadingCompanion:
     detail_path: str
     local_links: tuple[RowOneSavedArticleLocalReadingCompanionLink, ...]
     related_items: tuple[RowOneSavedArticleLocalReadingCompanionItem, ...]
+    filing_links: tuple[RowOneSavedArticleLocalReadingCompanionTrailLink, ...] = ()
     references: tuple[RowOneReference, ...] = ()
 
 
@@ -138,10 +149,54 @@ def build_row_one_saved_article_local_reading_companion(
         detail_path=current_detail_path,
         local_links=tuple(local_links),
         related_items=tuple(related_items),
+        filing_links=_filing_links(current_detail_path=current_detail_path, group=group),
         references=tuple(
             current_card.references[:SAVED_ARTICLE_LOCAL_READING_COMPANION_REFERENCE_LIMIT]
         ),
     )
+
+
+def _filing_links(
+    *,
+    current_detail_path: str,
+    group: RowOneSavedArticleContentOrganizationGroup,
+) -> tuple[RowOneSavedArticleLocalReadingCompanionTrailLink, ...]:
+    links: list[RowOneSavedArticleLocalReadingCompanionTrailLink] = []
+    group_href = _organization_group_href(group.key)
+    if group_href is not None:
+        links.append(
+            RowOneSavedArticleLocalReadingCompanionTrailLink(
+                label=LocalizedText(en="Library organization group", zh="文章库整理分组"),
+                href=group_href,
+            )
+        )
+    card_href = _library_card_href_from_detail_path(current_detail_path)
+    if card_href is not None:
+        links.append(
+            RowOneSavedArticleLocalReadingCompanionTrailLink(
+                label=LocalizedText(en="Saved article library card", zh="文章库卡片"),
+                href=card_href,
+            )
+        )
+    return tuple(links)
+
+
+def _organization_group_href(group_key: str) -> str | None:
+    if not isinstance(group_key, str):
+        return None
+    if _ORGANIZATION_GROUP_KEY_RE.fullmatch(group_key) is None:
+        return None
+    return f"index.html#{_ORGANIZATION_GROUP_PREFIX}{group_key}"
+
+
+def _library_card_href_from_detail_path(detail_path: str) -> str | None:
+    pure_path = validated_row_one_detail_relative_path(detail_path)
+    if pure_path is None or pure_path.parent.name != "details" or pure_path.suffix != ".html":
+        return None
+    story_id = pure_path.stem
+    if not safe_local_article_story_id(story_id):
+        return None
+    return f"index.html#{_LIBRARY_CARD_PREFIX}{story_id}"
 
 
 def _story_detail_path(story: RowOneStory) -> str | None:

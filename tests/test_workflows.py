@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+
+import pytest
 
 from fashion_radar.collectors.article import ArticleExtractionResult
 from fashion_radar.collectors.gdelt import GdeltCollector
@@ -700,6 +703,11 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "article-related-reads" not in generated_contract_payload
     assert "related-reads" not in generated_contract_payload
     assert "相关本地保存阅读" not in generated_contract_payload
+    assert "saved_local_article_cross_surface_organization_trail" not in generated_contract_payload
+    assert "local_article_cross_surface_organization_trail" not in generated_contract_payload
+    assert "cross_surface_organization_trail" not in generated_contract_payload
+    assert "saved-local-article-cross-surface-organization-trail" not in generated_contract_payload
+    assert "Saved Local Article Cross-Surface Organization Trail" not in generated_contract_payload
     assert "saved_article_local_related_read_lanes" not in generated_contract_payload
     assert "local_article_related_read_lanes" not in generated_contract_payload
     assert "related_read_lanes" not in generated_contract_payload
@@ -1336,6 +1344,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "local_article_related_reads",
         "article_related_reads",
         "related_reads",
+        "saved-local-article-cross-surface-organization-trail",
+        "local-article-cross-surface-organization-trail",
+        "cross-surface-organization-trail",
+        "saved_local_article_cross_surface_organization_trail",
+        "local_article_cross_surface_organization_trail",
+        "cross_surface_organization_trail",
         "saved-local-article-related-read-lanes",
         "local-article-related-read-lanes",
         "related-read-lanes",
@@ -1619,6 +1633,30 @@ def test_stage_377_saved_local_article_related_reads_stays_generated_site_only(
         lambda *_args, **_kwargs: "",
         raising=True,
     )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_379_saved_local_article_cross_surface_organization_trail_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fashion_radar.row_one import render as row_one_render
+
+    original_builder = row_one_render.build_row_one_saved_article_local_reading_companion
+
+    def _without_filing_links(**kwargs):
+        companion = original_builder(**kwargs)
+        if companion is None:
+            return None
+        return replace(companion, filing_links=())
+
+    monkeypatch.setattr(
+        row_one_render,
+        "build_row_one_saved_article_local_reading_companion",
+        _without_filing_links,
+        raising=True,
+    )
+
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
 
 
