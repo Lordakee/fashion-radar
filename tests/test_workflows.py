@@ -699,6 +699,13 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "daily-local-reading-itinerary" not in generated_contract_payload
     assert "local-reading-itinerary" not in generated_contract_payload
     assert "reading-itinerary" not in generated_contract_payload
+    assert "local_article_body_section_markers" not in generated_contract_payload
+    assert "body_section_markers" not in generated_contract_payload
+    assert "article_body_section_markers" not in generated_contract_payload
+    assert "Local Article Body Section Markers" not in generated_contract_payload
+    assert "local-article-body-section-markers" not in generated_contract_payload
+    assert "body-section-markers" not in generated_contract_payload
+    assert "article-body-section-markers" not in generated_contract_payload
     assert "saved_paragraph_context_cues" not in generated_contract_payload
     assert "local_article_paragraph_contexts" not in generated_contract_payload
     assert "local_article_context_cues" not in generated_contract_payload
@@ -885,6 +892,30 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         output_dir / "paragraph_filing_cues.html",
         output_dir / "articles" / "paragraph_filing_cues.html",
         output_dir / "data" / "paragraph_filing_cues.html",
+        output_dir / "data" / "local-article-body-section-markers.json",
+        output_dir / "data" / "article-body-section-markers.json",
+        output_dir / "data" / "body-section-markers.json",
+        output_dir / "local-article-body-section-markers.html",
+        output_dir / "article-body-section-markers.html",
+        output_dir / "body-section-markers.html",
+        output_dir / "articles" / "local-article-body-section-markers.html",
+        output_dir / "articles" / "article-body-section-markers.html",
+        output_dir / "articles" / "body-section-markers.html",
+        output_dir / "data" / "local-article-body-section-markers.html",
+        output_dir / "data" / "article-body-section-markers.html",
+        output_dir / "data" / "body-section-markers.html",
+        output_dir / "data" / "local_article_body_section_markers.json",
+        output_dir / "data" / "article_body_section_markers.json",
+        output_dir / "data" / "body_section_markers.json",
+        output_dir / "local_article_body_section_markers.html",
+        output_dir / "article_body_section_markers.html",
+        output_dir / "body_section_markers.html",
+        output_dir / "articles" / "local_article_body_section_markers.html",
+        output_dir / "articles" / "article_body_section_markers.html",
+        output_dir / "articles" / "body_section_markers.html",
+        output_dir / "data" / "local_article_body_section_markers.html",
+        output_dir / "data" / "article_body_section_markers.html",
+        output_dir / "data" / "body_section_markers.html",
         output_dir / "saved-paragraph-context-cues.json",
         output_dir / "articles" / "saved-paragraph-context-cues.json",
         output_dir / "data" / "saved-paragraph-context-cues.json",
@@ -1251,6 +1282,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "daily_local_reading_itinerary",
         "local_reading_itinerary",
         "reading_itinerary",
+        "local-article-body-section-markers",
+        "article-body-section-markers",
+        "body-section-markers",
+        "local_article_body_section_markers",
+        "article_body_section_markers",
+        "body_section_markers",
     ):
         for artifact_dir in (
             output_dir,
@@ -1463,6 +1500,21 @@ def test_stage_372_daily_local_reading_itinerary_stays_generated_site_only(
         "_render_daily_local_reading_itinerary",
         lambda _itinerary: "",
         raising=False,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_373_local_article_body_section_markers_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "build_row_one_local_article_body_section_markers",
+        lambda *_args, **_kwargs: (),
+        raising=True,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
 

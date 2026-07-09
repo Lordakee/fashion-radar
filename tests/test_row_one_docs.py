@@ -4664,3 +4664,55 @@ def test_row_one_docs_describe_stage_372_daily_local_reading_itinerary_boundary(
             "adds compliance-review",
         ):
             assert stale_phrase not in normalized
+
+
+def test_row_one_docs_describe_stage_373_local_article_body_section_markers_boundary() -> None:
+    paragraph = (
+        "Stage 373 adds generated-site only Local Article Body Section Markers inside the saved "
+        "body of `articles/<story-id>.html`; it reuses current-edition saved local article "
+        "sidecars, existing saved local paragraphs, existing local article content sections, "
+        "existing content-section item bodies, existing item labels, existing item references, "
+        "existing item-level paragraph indices, existing content-section anchors, and existing "
+        "paragraph anchors to insert compact section-start markers before the first rendered "
+        "saved paragraph filed under each existing content section without changing app-facing "
+        "contracts; it does not create `data/local-article-body-section-markers.json`, does not "
+        "create `data/article-body-section-markers.json`, does not create "
+        "`data/body-section-markers.json`, does not create "
+        "`local-article-body-section-markers.html`, does not create "
+        "`article-body-section-markers.html`, does not create `body-section-markers.html`, "
+        "does not create new article-source sidecars, does not create new route families, does "
+        "not alter `index.html`, `articles/index.html`, or detail pages, does not publish full "
+        "articles outside existing local article pages, does not add outbound article URLs as "
+        "primary navigation, and does not change row-one-app/v7, row-one-manifest/v1, "
+        "row-one-runtime/v1, schemas, JSON artifacts, source collection, fetching, matching, "
+        "extraction, scoring, ranking, LLM, connector, scheduling, deployment, market grouping, "
+        "domestic/international classification, analytics, personalization, recommendation, or "
+        "compliance-review behavior."
+    )
+    readme = _read(README)
+    docs = _read(ROW_ONE_DOC)
+
+    for text in (readme, docs):
+        assert paragraph in text
+        assert text.index(paragraph) < text.index("Stage 372 adds")
+
+        stage_373_slice = text[text.index(paragraph) : text.index("Stage 372 adds")]
+        normalized = _normalized(stage_373_slice)
+        for stale_phrase in (
+            "creates data/local-article-body-section-markers.json",
+            "writes data/local-article-body-section-markers.json",
+            "creates data/article-body-section-markers.json",
+            "writes data/article-body-section-markers.json",
+            "creates data/body-section-markers.json",
+            "writes data/body-section-markers.json",
+            "creates local-article-body-section-markers.html",
+            "writes local-article-body-section-markers.html",
+            "creates article-body-section-markers.html",
+            "writes article-body-section-markers.html",
+            "creates body-section-markers.html",
+            "writes body-section-markers.html",
+            "changes row-one-app/v7",
+            "adds recommendation",
+            "adds compliance-review",
+        ):
+            assert stale_phrase not in normalized

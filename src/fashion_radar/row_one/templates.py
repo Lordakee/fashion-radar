@@ -37,6 +37,10 @@ from fashion_radar.row_one.detail_routes import (
     validated_row_one_detail_relative_path,
 )
 from fashion_radar.row_one.display import display_for_story, safe_story_image_src
+from fashion_radar.row_one.local_article_body_section_markers import (
+    RowOneLocalArticleBodySectionMarker,
+    build_row_one_local_article_body_section_markers,
+)
 from fashion_radar.row_one.local_article_intelligence_brief import (
     RowOneLocalArticleIntelligenceBrief,
     RowOneLocalArticleIntelligenceChip,
@@ -824,7 +828,15 @@ def render_local_article_page_html(
     saved_article_local_section_binder: (RowOneSavedArticleLocalSectionBinder | None) = None,
     saved_article_key_signals: RowOneSavedArticleKeySignals | None = None,
 ) -> str:
-    local_article_section = _render_local_article(local_article, include_body_filing_cues=True)
+    body_section_markers = build_row_one_local_article_body_section_markers(
+        story=story,
+        local_article=local_article,
+    )
+    local_article_section = _render_local_article(
+        local_article,
+        include_body_filing_cues=True,
+        body_section_markers=body_section_markers,
+    )
     if not local_article_section:
         return ""
     section_title = _section_title(edition, story.section_key)
@@ -6278,6 +6290,62 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   color: var(--accent);
   text-decoration: none;
 }
+.local-article-body-section-marker {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  display: grid;
+  gap: 10px;
+  margin: 22px 0 12px;
+  padding: 14px 16px;
+}
+.local-article-body-section-marker-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+.local-article-body-section-marker-header span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.local-article-body-section-marker-title {
+  font-size: 1rem;
+  margin: 0;
+}
+.local-article-body-section-marker-support {
+  color: var(--muted);
+  margin: 0;
+}
+.local-article-body-section-marker-chips,
+.local-article-body-section-marker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.local-article-body-section-marker-chip,
+.local-article-body-section-marker-ref,
+.local-article-body-section-marker-actions a {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 6px 8px;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.local-article-body-section-marker-ref span {
+  color: var(--muted);
+  margin-left: 6px;
+}
+.local-article-body-section-marker-actions a {
+  color: var(--accent);
+}
 .local-article-paragraph-evidence {
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -6945,6 +7013,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .local-article-body-organizer-sections { grid-template-columns: 1fr; }
   .local-article-intelligence-brief-header { grid-template-columns: 1fr; }
   .local-article-intelligence-brief-lanes { grid-template-columns: 1fr; }
+  .local-article-body-section-marker { margin: 18px 0 10px; }
+  .local-article-body-section-marker-header { align-items: flex-start; flex-direction: column; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
   .saved-article-coverage-grid { grid-template-columns: 1fr; }
   .saved-article-library-entry-header { grid-template-columns: 1fr; }
@@ -15612,12 +15682,14 @@ def _render_local_article(
     article: RowOneLocalArticle | None,
     *,
     include_body_filing_cues: bool = False,
+    body_section_markers: tuple[RowOneLocalArticleBodySectionMarker, ...] = (),
 ) -> str:
     if article is None:
         return ""
     paragraphs = _render_local_article_paragraphs(
         article,
         include_body_filing_cues=include_body_filing_cues,
+        body_section_markers=body_section_markers,
     )
     if not paragraphs:
         return ""
@@ -17453,6 +17525,99 @@ def _render_local_article_body_filing_cue(
     )
 
 
+def _render_local_article_body_section_marker(
+    marker: RowOneLocalArticleBodySectionMarker,
+) -> str:
+    section_href = _safe_local_article_body_section_marker_href(marker.section_href)
+    paragraph_href = _safe_local_article_body_section_marker_href(marker.paragraph_href)
+    labels = "".join(
+        f'<span class="local-article-body-section-marker-chip">'
+        f'<span data-lang="en">{_esc(label.en or label.zh)}</span>'
+        f'<span data-lang="zh">{_esc(label.zh or label.en)}</span>'
+        "</span>"
+        for label in marker.item_labels
+        if label.en or label.zh
+    )
+    refs = "".join(
+        rendered
+        for reference in marker.references
+        if (rendered := _render_local_article_body_section_marker_ref(reference))
+    )
+    chips = ""
+    if labels or refs:
+        chips = (
+            f'        <div class="local-article-body-section-marker-chips">{labels}{refs}</div>\n'
+        )
+    actions: list[str] = []
+    if section_href is not None:
+        actions.append(
+            f'<a href="{_esc(section_href)}">'
+            '<span data-lang="en">View content segment</span>'
+            '<span data-lang="zh">查看内容段</span></a>'
+        )
+    if paragraph_href is not None:
+        actions.append(
+            f'<a href="{_esc(paragraph_href)}">'
+            '<span data-lang="en">Continue paragraph</span>'
+            '<span data-lang="zh">继续阅读本段</span></a>'
+        )
+    actions_html = (
+        f'        <div class="local-article-body-section-marker-actions">{"".join(actions)}</div>\n'
+        if actions
+        else ""
+    )
+    return f"""      <aside class="local-article-body-section-marker">
+        <div class="local-article-body-section-marker-header">
+          <span>
+            <span data-lang="en">Section starts here</span>
+            <span data-lang="zh">本节从这里开始</span>
+          </span>
+          <span>{_esc(str(marker.section_position).zfill(2))}</span>
+        </div>
+        <h4 class="local-article-body-section-marker-title">
+          <span data-lang="en">{_esc(marker.title.en or marker.title.zh)}</span>
+          <span data-lang="zh">{_esc(marker.title.zh or marker.title.en)}</span>
+        </h4>
+        <p class="local-article-body-section-marker-support">
+          <span data-lang="en">{_esc(marker.support.en or marker.support.zh)}</span>
+          <span data-lang="zh">{_esc(marker.support.zh or marker.support.en)}</span>
+        </p>
+{chips}{actions_html}      </aside>"""
+
+
+def _render_local_article_body_section_marker_ref(ref: RowOneReference) -> str:
+    name = normalize_row_one_paragraph(ref.name)
+    if not name:
+        return ""
+    meta = " / ".join(
+        value
+        for value in (
+            normalize_row_one_paragraph(ref.type),
+            normalize_row_one_paragraph(ref.label),
+        )
+        if value
+    )
+    meta_html = f"<span>{_esc(meta)}</span>" if meta else ""
+    return f'<span class="local-article-body-section-marker-ref">{_esc(name)}{meta_html}</span>'
+
+
+def _safe_local_article_body_section_marker_href(href: object) -> str | None:
+    if (
+        not isinstance(href, str)
+        or href != href.strip()
+        or not href.startswith("#")
+        or any(character.isspace() for character in href)
+    ):
+        return None
+    fragment = href[1:]
+    if (
+        _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is None
+        and _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is None
+    ):
+        return None
+    return href
+
+
 def _local_article_rendered_paragraph_indices(article: RowOneLocalArticle) -> set[int]:
     return {index for index, paragraph in enumerate(article.paragraphs) if paragraph.strip()}
 
@@ -17750,6 +17915,7 @@ def _render_local_article_paragraphs(
     article: RowOneLocalArticle,
     *,
     include_body_filing_cues: bool = False,
+    body_section_markers: tuple[RowOneLocalArticleBodySectionMarker, ...] = (),
 ) -> list[str]:
     source_paragraphs = [paragraph for paragraph in article.paragraphs if paragraph.strip()]
     if not source_paragraphs:
@@ -17763,6 +17929,14 @@ def _render_local_article_paragraphs(
         if include_body_filing_cues
         else {}
     )
+    markers_by_index: dict[int, list[str]] = {}
+    if include_body_filing_cues:
+        for marker in body_section_markers:
+            if marker.paragraph_index not in rendered_indices:
+                continue
+            rendered_marker = _render_local_article_body_section_marker(marker)
+            if rendered_marker:
+                markers_by_index.setdefault(marker.paragraph_index, []).append(rendered_marker)
     if len(article.paragraphs_zh) != len(article.paragraphs):
         rendered: list[str] = []
         for index, paragraph in enumerate(article.paragraphs):
@@ -17771,9 +17945,10 @@ def _render_local_article_paragraphs(
             anchor = _local_article_paragraph_anchor(index)
             filing_cue = (
                 _render_local_article_body_filing_cue(body_filing_contexts.get(index, []))
-                if include_body_filing_cues
+                if include_body_filing_cues and index not in markers_by_index
                 else ""
             )
+            rendered.extend(markers_by_index.get(index, []))
             rendered.append(f'      <p id="{_esc(anchor)}">{filing_cue}{_esc(paragraph)}</p>')
         return rendered
     paragraph_contexts = _local_article_paragraph_contexts(
@@ -17790,10 +17965,11 @@ def _render_local_article_paragraphs(
         anchor = _local_article_paragraph_anchor(index)
         filing_cue = (
             _render_local_article_body_filing_cue(body_filing_contexts.get(index, []))
-            if include_body_filing_cues
+            if include_body_filing_cues and index not in markers_by_index
             else ""
         )
         context = _render_local_article_paragraph_context(paragraph_contexts.get(index, []))
+        rendered.extend(markers_by_index.get(index, []))
         rendered.append(
             f'      <p id="{_esc(anchor)}">'
             f"{filing_cue}"

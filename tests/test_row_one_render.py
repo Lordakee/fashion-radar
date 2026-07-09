@@ -88,6 +88,25 @@ from fashion_radar.row_one.models import (
     RowOneStoryDisplay,
     RowOneStoryImage,
 )
+
+try:
+    from fashion_radar.row_one.local_article_body_section_markers import (
+        RowOneLocalArticleBodySectionMarker,
+    )
+except ModuleNotFoundError:  # pragma: no cover - Stage 373 renderer TDD red
+
+    @dataclass(frozen=True)
+    class RowOneLocalArticleBodySectionMarker:  # type: ignore[no-redef]
+        paragraph_index: int
+        paragraph_href: str
+        section_position: int
+        section_href: str
+        title: LocalizedText
+        support: LocalizedText
+        item_labels: tuple[LocalizedText, ...]
+        references: tuple[RowOneReference, ...]
+
+
 from fashion_radar.row_one.render import (
     _editorial_brief_payload,
     _story_directory_route_payload,
@@ -3195,6 +3214,10 @@ def _local_article_intelligence_brief_html(html: str) -> str:
     )
 
 
+def _local_article_body_html(html: str) -> str:
+    return _html_between(html, 'id="local-article-body"', "</section>")
+
+
 def test_render_local_article_information_panel_is_included() -> None:
     edition = _edition()
     story = edition.stories[0]
@@ -4269,6 +4292,199 @@ def test_render_row_one_site_intelligence_brief_does_not_leak_contracts_or_artif
                 assert not (artifact_dir / f"{artifact_stem}{suffix}").exists()
 
 
+def test_render_local_article_page_includes_body_section_markers_inside_body() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+    )
+    body_html = _local_article_body_html(html)
+    paragraph_one_html = _html_between(body_html, '<p id="local-article-paragraph-1"', "</p>")
+    paragraph_two_html = _html_between(body_html, '<p id="local-article-paragraph-2"', "</p>")
+    paragraph_three_html = _html_between(body_html, '<p id="local-article-paragraph-3"', "</p>")
+
+    assert 'class="local-article-body-section-marker"' in body_html
+    assert "Section starts here" in body_html
+    assert "本节从这里开始" in body_html
+    assert "People &amp; Brands" in body_html
+    assert "Brand context from saved text." in body_html
+    assert "The Row" in body_html
+    assert "Products" in body_html
+    assert "Alaia flats" in body_html
+    assert 'href="#local-article-content-section-1"' in body_html
+    assert 'href="#local-article-content-section-2"' in body_html
+    assert 'href="#local-article-paragraph-1"' in body_html
+    assert 'href="#local-article-paragraph-2"' in body_html
+    assert 'id="local-article-content-section-1"' in html
+    assert html.index('id="local-article-content-section-1"') < html.index(
+        'id="local-article-body"'
+    )
+    assert html.index('class="local-article-intelligence-brief"') < html.index(
+        'class="local-article-body-section-marker"'
+    )
+    assert body_html.index('class="local-article-body-section-marker"') < body_html.index(
+        'id="local-article-paragraph-1"'
+    )
+    assert body_html.index('id="local-article-paragraph-1"') < body_html.index(
+        'id="local-article-paragraph-2"'
+    )
+    assert body_html.index('id="local-article-paragraph-2"') < body_html.index(
+        'id="local-article-paragraph-3"'
+    )
+    assert 'class="local-article-body-filing-cue"' not in paragraph_one_html
+    assert 'class="local-article-body-filing-cue"' not in paragraph_two_html
+    assert 'class="local-article-body-filing-cue"' in paragraph_three_html
+
+
+def test_render_local_article_body_section_markers_escape_text_and_filter_links(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import fashion_radar.row_one.templates as row_one_templates
+
+    def fake_builder(**_: object) -> tuple[RowOneLocalArticleBodySectionMarker, ...]:
+        return (
+            RowOneLocalArticleBodySectionMarker(
+                paragraph_index=0,
+                paragraph_href="#local-article-paragraph-0",
+                section_position=1,
+                section_href="javascript:alert(1)#local-article-content-section-1",
+                title=LocalizedText(en="Marker <script>", zh="标记 <script>"),
+                support=LocalizedText(en="Support <script>", zh="支撑 <script>"),
+                item_labels=(LocalizedText(en="Label <script>", zh="标签 <script>"),),
+                references=(
+                    RowOneReference(
+                        name="<script>",
+                        type="brand<script>",
+                        label="tracked<script>",
+                    ),
+                ),
+            ),
+            RowOneLocalArticleBodySectionMarker(
+                paragraph_index=0,
+                paragraph_href="../secret.html#local-article-paragraph-1",
+                section_position=2,
+                section_href="#local-article-content-section-01",
+                title=LocalizedText(en="Unsafe href marker", zh="不安全链接标记"),
+                support=LocalizedText(en="Second support", zh="第二条支撑"),
+                item_labels=(),
+                references=(),
+            ),
+        )
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "build_row_one_local_article_body_section_markers",
+        fake_builder,
+        raising=False,
+    )
+
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+    )
+    body_html = _local_article_body_html(html)
+
+    assert 'class="local-article-body-section-marker"' in body_html
+    assert "<script>" not in body_html
+    assert "Marker &lt;script&gt;" in body_html
+    assert "Support &lt;script&gt;" in body_html
+    assert "Label &lt;script&gt;" in body_html
+    assert "&lt;script&gt;" in body_html
+    assert "brand&lt;script&gt;" in body_html
+    assert "tracked&lt;script&gt;" in body_html
+    assert "javascript:" not in body_html
+    assert "../secret.html" not in body_html
+    assert 'href="#local-article-paragraph-0"' not in body_html
+    assert 'href="#local-article-content-section-01"' not in body_html
+
+
+def test_render_row_one_site_writes_body_section_markers_only_on_local_article_pages(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    local_article_html = (tmp_path / "articles" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    detail_html = (tmp_path / "details" / "the-row-signal-1234567890.html").read_text(
+        encoding="utf-8"
+    )
+    body_html = _local_article_body_html(local_article_html)
+
+    assert 'class="local-article-body-section-marker"' in body_html
+    assert "Section starts here" in body_html
+    assert "本节从这里开始" in body_html
+    for outside_html in (homepage_html, library_html, detail_html):
+        assert 'class="local-article-body-section-marker"' not in outside_html
+        assert "Section starts here" not in outside_html
+        assert "本节从这里开始" not in outside_html
+
+
+def test_render_row_one_site_body_section_markers_do_not_leak_contracts_or_artifacts(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    generated_contract_payload = json.dumps(
+        {
+            "edition": json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8")),
+            "manifest": json.loads(
+                (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8")
+            ),
+            "runtime": json.loads((tmp_path / "data" / "runtime.json").read_text(encoding="utf-8")),
+        },
+        sort_keys=True,
+    )
+
+    for forbidden in (
+        "local_article_body_section_markers",
+        "article_body_section_markers",
+        "body_section_markers",
+        "RowOneLocalArticleBodySectionMarker",
+        "Local Article Body Section Markers",
+        "Article Body Section Markers",
+        "local-article-body-section-marker",
+        "local-article-body-section-markers",
+        "article-body-section-markers",
+        "body-section-markers",
+    ):
+        assert forbidden not in generated_contract_payload
+
+    for artifact_dir in (
+        tmp_path,
+        tmp_path / "articles",
+        tmp_path / "data",
+        tmp_path / "data" / "articles",
+    ):
+        for artifact_stem in (
+            "local-article-body-section-markers",
+            "article-body-section-markers",
+            "body-section-markers",
+            "local_article_body_section_markers",
+            "article_body_section_markers",
+            "body_section_markers",
+        ):
+            for suffix in (".json", ".html"):
+                assert not (artifact_dir / f"{artifact_stem}{suffix}").exists()
+
+
 def test_render_local_article_page_includes_body_filing_cues() -> None:
     article = _signal_briefing_local_article().model_copy(
         deep=True,
@@ -4303,10 +4519,13 @@ def test_render_local_article_page_includes_body_filing_cues() -> None:
     )
 
     html = render_local_article_page_html(_edition(), _edition().stories[0], local_article=article)
-    body_html = _html_between(html, 'id="local-article-body"', "</section>")
+    body_html = _local_article_body_html(html)
+    paragraph_one_html = _html_between(body_html, '<p id="local-article-paragraph-1"', "</p>")
+    paragraph_two_html = _html_between(body_html, '<p id="local-article-paragraph-2"', "</p>")
+    paragraph_three_html = _html_between(body_html, '<p id="local-article-paragraph-3"', "</p>")
 
     assert 'class="local-article-body-filing-cue"' in body_html
-    assert body_html.count('class="local-article-body-filing-cue"') == 3
+    assert body_html.count('class="local-article-body-filing-cue"') == 2
     assert '<span data-lang="en">Filed under</span>' in body_html
     assert '<span data-lang="zh">已归档到</span>' in body_html
     assert '<span data-lang="en">Unfiled saved paragraph</span>' in body_html
@@ -4321,8 +4540,12 @@ def test_render_local_article_page_includes_body_filing_cues() -> None:
     assert 'id="local-article-paragraph-3"' in body_html
     assert "The Row filed paragraph should carry a body filing cue." in body_html
     assert "Unfiled paragraph remains saved local text." in body_html
-    assert body_html.index('class="local-article-body-filing-cue"') < body_html.index(
-        "The Row filed paragraph should carry a body filing cue."
+    assert 'class="local-article-body-section-marker"' in body_html
+    assert 'class="local-article-body-filing-cue"' not in paragraph_one_html
+    assert 'class="local-article-body-filing-cue"' in paragraph_two_html
+    assert 'class="local-article-body-filing-cue"' in paragraph_three_html
+    assert body_html.index('class="local-article-body-section-marker"') < body_html.index(
+        'id="local-article-paragraph-1"'
     )
     assert html.index('class="local-article-content-segment-deck"') < html.index(
         'id="local-article"'
@@ -4366,7 +4589,10 @@ def test_render_local_article_page_body_filing_cues_filter_invalid_links() -> No
     )
 
     html = render_local_article_page_html(_edition(), _edition().stories[0], local_article=article)
-    body_html = _html_between(html, 'id="local-article-body"', "</section>")
+    body_html = _local_article_body_html(html)
+    paragraph_one_html = _html_between(body_html, '<p id="local-article-paragraph-1"', "</p>")
+    paragraph_three_html = _html_between(body_html, '<p id="local-article-paragraph-3"', "</p>")
+    paragraph_four_html = _html_between(body_html, '<p id="local-article-paragraph-4"', "</p>")
     filing_links_html = "".join(
         re.findall(
             r'<span class="local-article-body-filing-cue-links">(?P<links>.*?)</span></span>',
@@ -4375,8 +4601,12 @@ def test_render_local_article_page_body_filing_cues_filter_invalid_links() -> No
         )
     )
 
-    assert body_html.count('class="local-article-body-filing-cue"') == 3
-    assert filing_links_html.count('href="#local-article-content-section-1"') == 2
+    assert body_html.count('class="local-article-body-section-marker"') == 1
+    assert body_html.count('class="local-article-body-filing-cue"') == 2
+    assert filing_links_html.count('href="#local-article-content-section-1"') == 1
+    assert 'class="local-article-body-filing-cue"' not in paragraph_one_html
+    assert 'class="local-article-body-filing-cue"' in paragraph_three_html
+    assert 'class="local-article-body-filing-cue"' in paragraph_four_html
     assert 'id="local-article-paragraph-1"' in body_html
     assert 'id="local-article-paragraph-3"' in body_html
     assert 'id="local-article-paragraph-4"' in body_html
@@ -4884,7 +5114,8 @@ def test_render_row_one_site_writes_body_filing_cues_only_on_local_article_pages
 
     body_html = _html_between(article_html, 'id="local-article-body"', "</section>")
     assert 'class="local-article-body-filing-cue"' in body_html
-    assert '<span data-lang="en">Filed under</span>' in body_html
+    assert 'class="local-article-body-section-marker"' in body_html
+    assert '<span data-lang="en">Unfiled saved paragraph</span>' in body_html
     assert 'href="#local-article-content-section-1"' in body_html
     assert 'class="local-article-body-filing-cue"' not in library_html
     assert 'class="local-article-body-filing-cue"' not in homepage_html
@@ -17052,6 +17283,23 @@ def test_row_one_css_includes_local_article_paragraph_context_styles() -> None:
         ".local-article-paragraph-context a",
     ):
         assert selector in css
+
+
+def test_row_one_css_includes_local_article_body_section_marker_rules() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".local-article-body-section-marker",
+        ".local-article-body-section-marker-header",
+        ".local-article-body-section-marker-title",
+        ".local-article-body-section-marker-support",
+        ".local-article-body-section-marker-chips",
+        ".local-article-body-section-marker-ref",
+        ".local-article-body-section-marker-actions",
+    ):
+        assert selector in css
+    mobile_block = css[css.index("@media (max-width: 760px)") :]
+    assert ".local-article-body-section-marker" in mobile_block
 
 
 def test_row_one_css_includes_local_article_map_styles(tmp_path) -> None:
