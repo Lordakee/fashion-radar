@@ -171,6 +171,7 @@ from fashion_radar.row_one.saved_article_local_reading_companion import (
 )
 from fashion_radar.row_one.saved_article_local_related_reads import (
     RowOneSavedArticleLocalRelatedReadCard,
+    RowOneSavedArticleLocalRelatedReadEvidenceBridge,
     RowOneSavedArticleLocalRelatedReadReference,
     RowOneSavedArticleLocalRelatedReads,
 )
@@ -3727,6 +3728,7 @@ def _related_read_card(
     references: tuple[RowOneSavedArticleLocalRelatedReadReference, ...] = (
         RowOneSavedArticleLocalRelatedReadReference(name="The Row", label="Brand"),
     ),
+    evidence_bridges: tuple[RowOneSavedArticleLocalRelatedReadEvidenceBridge, ...] = (),
 ) -> RowOneSavedArticleLocalRelatedReadCard:
     return RowOneSavedArticleLocalRelatedReadCard(
         candidate_story_id=candidate_story_id,
@@ -3736,6 +3738,26 @@ def _related_read_card(
         excerpt=excerpt or LocalizedText(en="A concise saved excerpt.", zh="一段简短的保存正文。"),
         href=href,
         references=references,
+        evidence_bridges=evidence_bridges,
+    )
+
+
+def _related_read_bridge(
+    *,
+    reference_name: str = "The Row",
+    reference_label: str = "Brand",
+    current_href: str = "#local-article-paragraph-1",
+    candidate_href: str = "related-row-2222222222.html#local-article-paragraph-1",
+) -> RowOneSavedArticleLocalRelatedReadEvidenceBridge:
+    return RowOneSavedArticleLocalRelatedReadEvidenceBridge(
+        reference=RowOneSavedArticleLocalRelatedReadReference(
+            name=reference_name,
+            label=reference_label,
+        ),
+        current_label=LocalizedText(en="Here ¶1", zh="本文 ¶1"),
+        current_href=current_href,
+        candidate_label=LocalizedText(en="Next read ¶1", zh="下一篇 ¶1"),
+        candidate_href=candidate_href,
     )
 
 
@@ -3914,6 +3936,110 @@ def test_render_local_article_page_escapes_related_reads_content() -> None:
     assert "Saved &lt;excerpt&gt;" in section_html
     assert "The Row &lt;brand&gt;" in section_html
     assert "Brand &lt;signal&gt;" in section_html
+
+
+def test_render_local_article_page_includes_related_read_evidence_bridge() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(
+            _related_read_card(evidence_bridges=(_related_read_bridge(),))
+        ),
+    )
+
+    section_html = _html_between(
+        html,
+        '<section class="saved-article-local-related-reads"',
+        "</section>",
+    )
+
+    assert 'class="saved-article-local-related-read-evidence-bridge"' in section_html
+    assert "The Row" in section_html
+    assert "Brand" in section_html
+    assert 'href="#local-article-paragraph-1"' in section_html
+    assert 'href="related-row-2222222222.html#local-article-paragraph-1"' in section_html
+    assert "Here ¶1" in section_html
+    assert "Next read ¶1" in section_html
+    assert "本文 ¶1" in section_html
+    assert "下一篇 ¶1" in section_html
+
+
+def test_render_local_article_page_filters_unsafe_related_read_evidence_bridge_links() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(
+            _related_read_card(
+                evidence_bridges=(
+                    _related_read_bridge(current_href="../bad"),
+                    _related_read_bridge(candidate_href="https://example.com/article"),
+                )
+            )
+        ),
+    )
+
+    section_html = _html_between(
+        html,
+        '<section class="saved-article-local-related-reads"',
+        "</section>",
+    )
+
+    assert "saved-article-local-related-read-evidence-bridge" not in section_html
+    assert "../bad" not in section_html
+    assert "https://example.com/article" not in section_html
+
+
+def test_render_local_article_page_escapes_related_read_evidence_bridge() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(
+            _related_read_card(
+                evidence_bridges=(
+                    _related_read_bridge(
+                        reference_name="The Row <brand>",
+                        reference_label="Brand <signal>",
+                    ),
+                )
+            )
+        ),
+    )
+
+    section_html = _html_between(
+        html,
+        '<section class="saved-article-local-related-reads"',
+        "</section>",
+    )
+
+    assert "The Row &lt;brand&gt;" in section_html
+    assert "Brand &lt;signal&gt;" in section_html
+    assert "The Row <brand>" not in section_html
+
+
+def test_render_local_article_page_includes_related_read_evidence_bridge_inside_lanes() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(
+            _related_read_card(
+                reason=LocalizedText(en="Shared signal: The Row", zh="共同信号：The Row"),
+                evidence_bridges=(_related_read_bridge(),),
+            )
+        ),
+    )
+
+    section_html = _html_between(
+        html,
+        '<section class="saved-article-local-related-reads"',
+        "</section>",
+    )
+
+    assert 'class="saved-article-local-related-read-lanes"' in section_html
+    assert 'class="saved-article-local-related-read-evidence-bridge"' in section_html
 
 
 def test_render_local_article_page_omits_empty_related_reads() -> None:
@@ -17711,6 +17837,11 @@ def test_row_one_css_includes_saved_article_local_related_reads_styles() -> None
         ".saved-article-local-related-read-meta",
         ".saved-article-local-related-read-references",
         ".saved-article-local-related-read-reference",
+        ".saved-article-local-related-read-evidence-bridge",
+        ".saved-article-local-related-read-evidence-bridge-label",
+        ".saved-article-local-related-read-evidence-bridge-row",
+        ".saved-article-local-related-read-evidence-bridge-ref",
+        ".saved-article-local-related-read-evidence-bridge-links",
     ):
         assert selector in css
 

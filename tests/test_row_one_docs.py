@@ -4957,6 +4957,80 @@ def test_row_one_docs_describe_stage_379_cross_surface_organization_trail_bounda
             assert stale_phrase not in normalized
 
 
+def test_row_one_docs_describe_stage_380_related_read_evidence_bridge_boundary() -> None:
+    paragraph = (
+        "Stage 380 adds generated-site only Saved Local Article Related-Read "
+        "Evidence Bridge rows inside existing related saved local read cards on "
+        "`articles/<story-id>.html`; it reuses Stage 377/378 related-read cards "
+        "and lanes, current-edition saved local article sidecars, existing shared "
+        "reference keys, existing item-level paragraph indices, generated local article "
+        "page routes, and existing paragraph anchors to show a compact current-paragraph "
+        "to next-read-paragraph evidence bridge without changing app-facing contracts; "
+        "it does not create `data/saved-local-article-related-read-evidence-bridge.json`, "
+        "does not create `data/local-article-related-read-evidence-bridge.json`, does "
+        "not create `data/related-read-evidence-bridge.json`, does not create "
+        "`saved-local-article-related-read-evidence-bridge.html`, does not create "
+        "`local-article-related-read-evidence-bridge.html`, does not create "
+        "`related-read-evidence-bridge.html`, does not create new article-source sidecars, "
+        "does not create new route families, does not alter `index.html`, "
+        "`articles/index.html`, or detail pages, does not publish full related articles "
+        "outside existing local article pages, does not add outbound article URLs as "
+        "primary navigation, and does not change row-one-app/v7, row-one-manifest/v1, "
+        "row-one-runtime/v1, schemas, generated JSON artifacts, source collection, "
+        "fetching, matching, extraction, scoring, ranking, LLM, connector, scheduling, "
+        "deployment, market grouping, domestic/international classification, analytics, "
+        "personalization, recommendation, demand proof, coverage verification, or "
+        "compliance-review behavior."
+    )
+    readme = _read(README)
+    docs = _read(ROW_ONE_DOC)
+
+    for text in (readme, docs):
+        assert paragraph in text
+        assert text.index(paragraph) < text.index("Stage 379 adds")
+
+        stage_380_slice = text[text.index(paragraph) : text.index("Stage 379 adds")]
+        normalized = _normalized(stage_380_slice)
+        for stale_phrase in (
+            "creates data/saved-local-article-related-read-evidence-bridge.json",
+            "writes data/saved-local-article-related-read-evidence-bridge.json",
+            "creates data/local-article-related-read-evidence-bridge.json",
+            "writes data/local-article-related-read-evidence-bridge.json",
+            "creates data/related-read-evidence-bridge.json",
+            "writes data/related-read-evidence-bridge.json",
+            "creates saved-local-article-related-read-evidence-bridge.html",
+            "writes saved-local-article-related-read-evidence-bridge.html",
+            "creates local-article-related-read-evidence-bridge.html",
+            "writes local-article-related-read-evidence-bridge.html",
+            "creates related-read-evidence-bridge.html",
+            "writes related-read-evidence-bridge.html",
+            "creates new article-source sidecars",
+            "creates new route families",
+            "adds new routes",
+            "publishes full related articles outside existing local article pages",
+            "adds outbound article urls as primary navigation",
+            "changes row-one-app/v7",
+            "changes row-one-manifest/v1",
+            "changes row-one-runtime/v1",
+            "adds generated json artifacts",
+            "adds source collection",
+            "adds fetching",
+            "adds matching",
+            "adds extraction",
+            "adds scoring",
+            "adds ranking",
+            "adds llm",
+            "adds connector",
+            "adds scheduling",
+            "adds deployment",
+            "adds analytics",
+            "adds personalization",
+            "adds recommendation",
+            "adds compliance-review",
+        ):
+            assert stale_phrase not in normalized
+
+
 def test_row_one_docs_describe_stage_378_saved_local_article_related_read_lanes_boundary() -> None:
     paragraph = (
         "Stage 378 adds generated-site only Saved Local Article Related Read Lanes "

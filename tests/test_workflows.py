@@ -703,6 +703,20 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "article-related-reads" not in generated_contract_payload
     assert "related-reads" not in generated_contract_payload
     assert "相关本地保存阅读" not in generated_contract_payload
+    assert "saved_article_local_related_read_evidence_bridge" not in generated_contract_payload
+    assert "local_article_related_read_evidence_bridge" not in generated_contract_payload
+    assert "related_read_evidence_bridge" not in generated_contract_payload
+    assert "RowOneSavedArticleLocalRelatedReadEvidenceBridge" not in generated_contract_payload
+    assert "Saved Local Article Related-Read Evidence Bridge" not in generated_contract_payload
+    assert "Evidence bridge" not in generated_contract_payload
+    assert "证据连接" not in generated_contract_payload
+    assert "Here ¶" not in generated_contract_payload
+    assert "Next read ¶" not in generated_contract_payload
+    assert "本文 ¶" not in generated_contract_payload
+    assert "下一篇 ¶" not in generated_contract_payload
+    assert "saved-article-local-related-read-evidence-bridge" not in generated_contract_payload
+    assert "local-article-related-read-evidence-bridge" not in generated_contract_payload
+    assert "related-read-evidence-bridge" not in generated_contract_payload
     assert "saved_local_article_cross_surface_organization_trail" not in generated_contract_payload
     assert "local_article_cross_surface_organization_trail" not in generated_contract_payload
     assert "cross_surface_organization_trail" not in generated_contract_payload
@@ -1344,6 +1358,14 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "local_article_related_reads",
         "article_related_reads",
         "related_reads",
+        "saved-local-article-related-read-evidence-bridge",
+        "local-article-related-read-evidence-bridge",
+        "related-read-evidence-bridge",
+        "saved_local_article_related_read_evidence_bridge",
+        "local_article_related_read_evidence_bridge",
+        "related_read_evidence_bridge",
+        "RowOneSavedArticleLocalRelatedReadEvidenceBridge",
+        "Saved Local Article Related-Read Evidence Bridge",
         "saved-local-article-cross-surface-organization-trail",
         "local-article-cross-surface-organization-trail",
         "cross-surface-organization-trail",
@@ -1630,6 +1652,21 @@ def test_stage_377_saved_local_article_related_reads_stays_generated_site_only(
     monkeypatch.setattr(
         row_one_templates,
         "_render_saved_article_local_related_reads",
+        lambda *_args, **_kwargs: "",
+        raising=True,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_380_saved_local_article_related_read_evidence_bridge_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_saved_article_local_related_read_evidence_bridge",
         lambda *_args, **_kwargs: "",
         raising=True,
     )

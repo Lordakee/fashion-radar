@@ -125,6 +125,7 @@ from fashion_radar.row_one.saved_article_local_reading_companion import (
 )
 from fashion_radar.row_one.saved_article_local_related_reads import (
     RowOneSavedArticleLocalRelatedReadCard,
+    RowOneSavedArticleLocalRelatedReadEvidenceBridge,
     RowOneSavedArticleLocalRelatedReadLane,
     RowOneSavedArticleLocalRelatedReads,
     build_row_one_saved_article_local_related_read_lanes,
@@ -2697,6 +2698,36 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 }
 .saved-article-local-related-read-reference span:last-child {
   color: var(--muted);
+}
+.saved-article-local-related-read-evidence-bridge {
+  border-top: 1px solid rgba(26, 24, 20, 0.1);
+  display: grid;
+  gap: 0.45rem;
+  padding-top: 0.75rem;
+}
+.saved-article-local-related-read-evidence-bridge-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+.saved-article-local-related-read-evidence-bridge-row {
+  display: grid;
+  gap: 0.4rem;
+}
+.saved-article-local-related-read-evidence-bridge-ref,
+.saved-article-local-related-read-evidence-bridge-links {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.saved-article-local-related-read-evidence-bridge-ref span,
+.saved-article-local-related-read-evidence-bridge-links a {
+  border: 1px solid rgba(26, 24, 20, 0.12);
+  border-radius: 999px;
+  color: var(--ink);
+  padding: 0.22rem 0.55rem;
+  text-decoration: none;
 }
 .saved-article-local-related-read-action {
   color: var(--accent);
@@ -9522,6 +9553,7 @@ def _render_saved_article_local_related_read_card(
     if href is None:
         return ""
     references = _render_saved_article_local_related_read_references(card)
+    evidence_bridge = _render_saved_article_local_related_read_evidence_bridge(card)
     return f"""        <article class="saved-article-local-related-read-card">
           <div class="saved-article-local-related-read-meta">
             <span>{_esc(card.source_name)}</span>
@@ -9539,6 +9571,7 @@ def _render_saved_article_local_related_read_card(
             <span data-lang="zh">{_esc(card.excerpt.zh)}</span>
           </p>
 {references}
+{evidence_bridge}
           <a class="saved-article-local-related-read-action" href="{_esc(href)}">
             <span data-lang="en">Read next locally</span>
             <span data-lang="zh">继续本地阅读</span>
@@ -9566,6 +9599,66 @@ def _render_saved_article_local_related_read_references(
         + "\n".join(chips)
         + "\n          </div>"
     )
+
+
+def _render_saved_article_local_related_read_evidence_bridge(
+    card: RowOneSavedArticleLocalRelatedReadCard,
+) -> str:
+    rows = [
+        row
+        for bridge in card.evidence_bridges
+        if (row := _render_saved_article_local_related_read_evidence_bridge_row(card, bridge))
+    ]
+    if not rows:
+        return ""
+    return (
+        '          <div class="saved-article-local-related-read-evidence-bridge">\n'
+        '            <span class="saved-article-local-related-read-evidence-bridge-label">\n'
+        '              <span data-lang="en">Evidence bridge</span>\n'
+        '              <span data-lang="zh">证据连接</span>\n'
+        "            </span>\n" + "\n".join(rows) + "\n          </div>"
+    )
+
+
+def _render_saved_article_local_related_read_evidence_bridge_row(
+    card: RowOneSavedArticleLocalRelatedReadCard,
+    bridge: RowOneSavedArticleLocalRelatedReadEvidenceBridge,
+) -> str:
+    current_href = _safe_saved_article_local_related_read_current_href(bridge.current_href)
+    candidate_href = _safe_saved_article_local_related_read_href(
+        card.candidate_story_id,
+        bridge.candidate_href,
+    )
+    if current_href is None or candidate_href is None:
+        return ""
+    return f"""            <div class="saved-article-local-related-read-evidence-bridge-row">
+              <span class="saved-article-local-related-read-evidence-bridge-ref">
+                <span>{_esc(bridge.reference.name)}</span>
+                <span>{_esc(bridge.reference.label)}</span>
+              </span>
+              <span class="saved-article-local-related-read-evidence-bridge-links">
+                <a href="{_esc(current_href)}">
+                  <span data-lang="en">{_esc(bridge.current_label.en)}</span>
+                  <span data-lang="zh">{_esc(bridge.current_label.zh)}</span>
+                </a>
+                <span aria-hidden="true">-&gt;</span>
+                <a href="{_esc(candidate_href)}">
+                  <span data-lang="en">{_esc(bridge.candidate_label.en)}</span>
+                  <span data-lang="zh">{_esc(bridge.candidate_label.zh)}</span>
+                </a>
+              </span>
+            </div>"""
+
+
+def _safe_saved_article_local_related_read_current_href(href: str) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if not href.startswith("#"):
+        return None
+    fragment = href.removeprefix("#")
+    if _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is None:
+        return None
+    return href
 
 
 def _safe_saved_article_local_related_read_href(story_id: str, href: str) -> str | None:

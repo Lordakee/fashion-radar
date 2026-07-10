@@ -27,6 +27,15 @@ class RowOneSavedArticleLocalRelatedReadReference:
 
 
 @dataclass(frozen=True)
+class RowOneSavedArticleLocalRelatedReadEvidenceBridge:
+    reference: RowOneSavedArticleLocalRelatedReadReference
+    current_label: LocalizedText
+    current_href: str
+    candidate_label: LocalizedText
+    candidate_href: str
+
+
+@dataclass(frozen=True)
 class RowOneSavedArticleLocalRelatedReadCard:
     candidate_story_id: str
     title: LocalizedText
@@ -35,6 +44,7 @@ class RowOneSavedArticleLocalRelatedReadCard:
     excerpt: LocalizedText
     href: str
     references: tuple[RowOneSavedArticleLocalRelatedReadReference, ...] = ()
+    evidence_bridges: tuple[RowOneSavedArticleLocalRelatedReadEvidenceBridge, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -72,6 +82,7 @@ class _Candidate:
     score: int
     href: str
     references: tuple[RowOneSavedArticleLocalRelatedReadReference, ...]
+    evidence_bridges: tuple[RowOneSavedArticleLocalRelatedReadEvidenceBridge, ...]
 
 
 _LANE_COPY = {
@@ -146,6 +157,7 @@ def build_row_one_saved_article_local_related_reads(
 
     current_refs = _article_reference_entries(current_article)
     current_ref_keys = {entry.key for entry in current_refs}
+    current_ref_entries_by_key = _reference_entries_by_key(current_refs, current_article)
     excluded = {
         story_id
         for story_id in excluded_story_ids
@@ -159,7 +171,9 @@ def build_row_one_saved_article_local_related_reads(
         candidate = _candidate(
             story_order=story_order,
             current_story=current_story,
+            current_article=current_article,
             current_ref_keys=current_ref_keys,
+            current_ref_entries_by_key=current_ref_entries_by_key,
             current_has_content_sections=bool(current_article.content_sections),
             candidate_story=candidate_story,
             local_articles_by_story_id=local_articles_by_story_id,
@@ -230,7 +244,9 @@ def _candidate(
     *,
     story_order: int,
     current_story: RowOneStory,
+    current_article: RowOneLocalArticle,
     current_ref_keys: set[str],
+    current_ref_entries_by_key: Mapping[str, _ReferenceEntry],
     current_has_content_sections: bool,
     candidate_story: RowOneStory,
     local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
@@ -286,6 +302,14 @@ def _candidate(
         score=score,
         href=href,
         references=_reference_chips(entries, shared_keys),
+        evidence_bridges=_evidence_bridges(
+            current_article=current_article,
+            candidate_article=article,
+            candidate_base_href=base_href,
+            current_entries_by_key=current_ref_entries_by_key,
+            candidate_entries=entries,
+            shared_keys=shared_keys,
+        ),
     )
 
 
@@ -299,6 +323,7 @@ def _card(candidate: _Candidate) -> RowOneSavedArticleLocalRelatedReadCard:
         excerpt=_localized_excerpt(candidate.article),
         href=candidate.href,
         references=candidate.references,
+        evidence_bridges=candidate.evidence_bridges,
     )
 
 
@@ -350,6 +375,21 @@ def _article_reference_entries(article: RowOneLocalArticle) -> tuple[_ReferenceE
                     )
                 )
     return tuple(entries)
+
+
+def _reference_entries_by_key(
+    entries: tuple[_ReferenceEntry, ...],
+    article: RowOneLocalArticle,
+) -> dict[str, _ReferenceEntry]:
+    by_key: dict[str, _ReferenceEntry] = {}
+    for entry in entries:
+        if (
+            entry.key
+            and entry.key not in by_key
+            and _first_valid_entry_paragraph(entry, article) is not None
+        ):
+            by_key[entry.key] = entry
+    return by_key
 
 
 def _reference_key(reference: RowOneReference) -> str:
@@ -419,6 +459,58 @@ def _shared_reference_paragraph(
         for index in entry.paragraph_indices:
             if _valid_paragraph_index(index, article) is not None:
                 return index
+    return None
+
+
+def _evidence_bridges(
+    *,
+    current_article: RowOneLocalArticle,
+    candidate_article: RowOneLocalArticle,
+    candidate_base_href: str,
+    current_entries_by_key: Mapping[str, _ReferenceEntry],
+    candidate_entries: tuple[_ReferenceEntry, ...],
+    shared_keys: tuple[str, ...],
+) -> tuple[RowOneSavedArticleLocalRelatedReadEvidenceBridge, ...]:
+    bridges: list[RowOneSavedArticleLocalRelatedReadEvidenceBridge] = []
+    candidate_entries_by_key = _reference_entries_by_key(candidate_entries, candidate_article)
+    for shared_key in shared_keys:
+        if len(bridges) >= SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_REFS:
+            break
+        current_entry = current_entries_by_key.get(shared_key)
+        candidate_entry = candidate_entries_by_key.get(shared_key)
+        if current_entry is None or candidate_entry is None:
+            continue
+        current_index = _first_valid_entry_paragraph(current_entry, current_article)
+        candidate_index = _first_valid_entry_paragraph(candidate_entry, candidate_article)
+        if current_index is None or candidate_index is None:
+            continue
+        bridges.append(
+            RowOneSavedArticleLocalRelatedReadEvidenceBridge(
+                reference=candidate_entry.reference,
+                current_label=LocalizedText(
+                    en=f"Here ¶{current_index + 1}",
+                    zh=f"本文 ¶{current_index + 1}",
+                ),
+                current_href=f"#{local_article_paragraph_anchor(current_index)}",
+                candidate_label=LocalizedText(
+                    en=f"Next read ¶{candidate_index + 1}",
+                    zh=f"下一篇 ¶{candidate_index + 1}",
+                ),
+                candidate_href=(
+                    f"{candidate_base_href}#{local_article_paragraph_anchor(candidate_index)}"
+                ),
+            )
+        )
+    return tuple(bridges)
+
+
+def _first_valid_entry_paragraph(
+    entry: _ReferenceEntry,
+    article: RowOneLocalArticle,
+) -> int | None:
+    for index in entry.paragraph_indices:
+        if _valid_paragraph_index(index, article) is not None:
+            return index
     return None
 
 

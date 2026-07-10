@@ -195,6 +195,135 @@ def test_saved_article_local_related_reads_scores_shared_refs_section_source() -
     assert related.card_count == len(related.cards)
 
 
+def test_saved_article_local_related_reads_adds_shared_reference_evidence_bridge() -> None:
+    current = _story("current-row-0000000000")
+    shared = _story("shared-row-2222222222", headline="Shared The Row signal")
+    edition = _edition(current, shared)
+    articles = {
+        current.id: _article(
+            current.id,
+            paragraphs=["Current opening.", "Current The Row paragraph."],
+            content_sections=[
+                _content_section("Current refs", refs=[_ref("The Row")], paragraph_indices=[1])
+            ],
+        ),
+        shared.id: _article(
+            shared.id,
+            paragraphs=["Shared opening.", "Shared The Row paragraph."],
+            content_sections=[
+                _content_section("Shared refs", refs=[_ref("The Row")], paragraph_indices=[1])
+            ],
+        ),
+    }
+
+    related = build_row_one_saved_article_local_related_reads(
+        current_story=current,
+        edition=edition,
+        local_articles_by_story_id=articles,
+        local_article_page_hrefs_by_story_id=_hrefs(current, shared),
+    )
+
+    assert related is not None
+    assert len(related.cards) == 1
+    bridge = related.cards[0].evidence_bridges[0]
+    assert bridge.reference.name == "The Row"
+    assert bridge.current_label.en == "Here ¶2"
+    assert bridge.current_label.zh == "本文 ¶2"
+    assert bridge.current_href == "#local-article-paragraph-2"
+    assert bridge.candidate_label.en == "Next read ¶2"
+    assert bridge.candidate_label.zh == "下一篇 ¶2"
+    assert bridge.candidate_href == "shared-row-2222222222.html#local-article-paragraph-2"
+
+
+def test_saved_article_local_related_reads_omits_bridge_when_current_paragraph_invalid() -> None:
+    current = _story("current-row-0000000000")
+    shared = _story("shared-row-2222222222", headline="Shared The Row signal")
+
+    related = build_row_one_saved_article_local_related_reads(
+        current_story=current,
+        edition=_edition(current, shared),
+        local_articles_by_story_id={
+            current.id: _article(
+                current.id,
+                paragraphs=["Current opening."],
+                content_sections=[
+                    _content_section("Current refs", refs=[_ref("The Row")], paragraph_indices=[9])
+                ],
+            ),
+            shared.id: _article(
+                shared.id,
+                content_sections=[
+                    _content_section("Shared refs", refs=[_ref("The Row")], paragraph_indices=[0])
+                ],
+            ),
+        },
+        local_article_page_hrefs_by_story_id=_hrefs(current, shared),
+    )
+
+    assert related is not None
+    assert related.cards[0].reason.en == "Shared signal: The Row"
+    assert related.cards[0].evidence_bridges == ()
+
+
+def test_saved_article_local_related_reads_omits_bridge_when_candidate_paragraph_invalid() -> None:
+    current = _story("current-row-0000000000")
+    shared = _story("shared-row-2222222222", headline="Shared The Row signal")
+
+    related = build_row_one_saved_article_local_related_reads(
+        current_story=current,
+        edition=_edition(current, shared),
+        local_articles_by_story_id={
+            current.id: _article(
+                current.id,
+                content_sections=[
+                    _content_section("Current refs", refs=[_ref("The Row")], paragraph_indices=[0])
+                ],
+            ),
+            shared.id: _article(
+                shared.id,
+                paragraphs=["Shared opening."],
+                content_sections=[
+                    _content_section("Shared refs", refs=[_ref("The Row")], paragraph_indices=[9])
+                ],
+            ),
+        },
+        local_article_page_hrefs_by_story_id=_hrefs(current, shared),
+    )
+
+    assert related is not None
+    assert related.cards[0].reason.en == "Shared signal: The Row"
+    assert related.cards[0].evidence_bridges == ()
+
+
+def test_saved_article_local_related_reads_same_section_card_has_no_evidence_bridge() -> None:
+    current = _story("current-row-0000000000")
+    same_section = _story("same-section-3333333333", headline="Same section read")
+
+    related = build_row_one_saved_article_local_related_reads(
+        current_story=current,
+        edition=_edition(current, same_section),
+        local_articles_by_story_id={
+            current.id: _article(
+                current.id,
+                content_sections=[
+                    _content_section("Current refs", refs=[_ref("The Row")], paragraph_indices=[0])
+                ],
+            ),
+            same_section.id: _article(
+                same_section.id,
+                content_sections=[
+                    _content_section("Other refs", refs=[_ref("Alaia")], paragraph_indices=[0])
+                ],
+            ),
+        },
+        local_article_page_hrefs_by_story_id=_hrefs(current, same_section),
+    )
+
+    assert related is not None
+    assert related.cards[0].reason.en == "Same ROW ONE section"
+    assert related.cards[0].evidence_bridges == ()
+
+
 def test_saved_article_local_related_reads_filters_unrelated_and_current_article() -> None:
     current = _story("current-row-0000000000")
     unrelated = _story(
@@ -425,6 +554,45 @@ def test_saved_article_local_related_reads_caps_cards_and_reference_chips() -> N
         "Alaia",
         "Margaux",
     ]
+
+
+def test_saved_article_local_related_reads_caps_evidence_bridges() -> None:
+    current = _story("current-row-0000000000")
+    shared = _story("shared-row-2222222222", headline="Shared signal read")
+    refs = [_ref("The Row"), _ref("Alaia"), _ref("Tabi"), _ref("Phoebe Philo")]
+
+    related = build_row_one_saved_article_local_related_reads(
+        current_story=current,
+        edition=_edition(current, shared),
+        local_articles_by_story_id={
+            current.id: _article(
+                current.id,
+                paragraphs=["Current A.", "Current B.", "Current C.", "Current D."],
+                content_sections=[
+                    _content_section(
+                        "Current refs",
+                        refs=refs,
+                        paragraph_indices=[0, 1, 2, 3],
+                    )
+                ],
+            ),
+            shared.id: _article(
+                shared.id,
+                paragraphs=["Shared A.", "Shared B.", "Shared C.", "Shared D."],
+                content_sections=[
+                    _content_section(
+                        "Shared refs",
+                        refs=refs,
+                        paragraph_indices=[0, 1, 2, 3],
+                    )
+                ],
+            ),
+        },
+        local_article_page_hrefs_by_story_id=_hrefs(current, shared),
+    )
+
+    assert related is not None
+    assert len(related.cards[0].evidence_bridges) == SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_REFS
 
 
 def test_saved_article_local_related_reads_returns_none_without_related_cards() -> None:
