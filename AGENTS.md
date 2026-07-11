@@ -27,7 +27,7 @@ default.
 ## Agent Runtime Settings
 
 - When spawning Codex subagents for this project, set the subagent reasoning
-  effort to `xhigh`.
+  effort to `max`.
 - Claude Code is the primary reviewer. Use `--effort max`, read-only plan mode,
   and no session persistence for plan, code, and release reviews:
 

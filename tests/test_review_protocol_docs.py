@@ -111,7 +111,7 @@ def test_active_review_protocol_documents_opencode_gate_and_claude_primary() -> 
     normalized_checklist = _normalized_text(checklist_text)
 
     assert ACTIVE_OPENCODE_COMMAND in _normalized_text(agents_text)
-    assert "reasoning effort to `xhigh`" in _normalized_text(agents_text)
+    assert "reasoning effort to `max`" in _normalized_text(agents_text)
     assert ACTIVE_OPENCODE_COMMAND in normalized_protocol
     assert ACTIVE_OPENCODE_COMMAND in normalized_checklist
     assert PRIMARY_CLAUDE_CODE_COMMAND in normalized_checklist
