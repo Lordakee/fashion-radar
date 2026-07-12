@@ -3837,6 +3837,180 @@ def test_render_local_article_page_groups_related_reads_into_lanes() -> None:
     assert "articles/related-row-2222222222.html" not in html
 
 
+def test_render_local_article_page_includes_related_read_connection_brief_before_lanes() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(
+            _related_read_card(
+                candidate_story_id="related-row-2222222222",
+                title="Shared signal read",
+                source_name="WWD",
+                reason=LocalizedText(en="Shared signal: The Row", zh="共同信号：The Row"),
+                href="related-row-2222222222.html#local-article-paragraph-1",
+                references=(
+                    RowOneSavedArticleLocalRelatedReadReference(
+                        name="The Row",
+                        label="Brand",
+                    ),
+                ),
+                evidence_bridges=(_related_read_bridge(),),
+            ),
+            _related_read_card(
+                candidate_story_id="source-row-3333333333",
+                title="Same source read",
+                source_name="Vogue Business",
+                reason=LocalizedText(en="Same source desk", zh="同一来源"),
+                href="source-row-3333333333.html#local-article-paragraph-1",
+                references=(),
+            ),
+        ),
+    )
+    section_html = _html_between(
+        html,
+        '<section class="saved-article-local-related-reads"',
+        "</section>",
+    )
+    brief_start = section_html.index(
+        '<div class="saved-article-local-related-read-connection-brief">'
+    )
+    brief_end = section_html.index(
+        '<div class="saved-article-local-related-read-lanes">',
+        brief_start,
+    )
+    brief_html = section_html[brief_start:brief_end]
+    metrics_start = brief_html.index(
+        '<div class="saved-article-local-related-read-connection-brief-metrics">'
+    )
+    metrics_end = brief_html.index(
+        '<div class="saved-article-local-related-read-connection-brief-tags">',
+        metrics_start,
+    )
+    metrics_html = brief_html[metrics_start:metrics_end]
+
+    assert 'class="saved-article-local-related-read-connection-brief"' in brief_html
+    assert "Connection Brief" in brief_html
+    assert "关联阅读简报" in brief_html
+    assert "2 local reads" in brief_html
+    assert "2 篇本地阅读" in brief_html
+    assert "2 sources" in brief_html
+    assert "1 signal" in brief_html
+    assert "1 bridge" in brief_html
+    assert "2 个来源" in metrics_html
+    assert "1 个信号" in metrics_html
+    assert "1 条证据连接" in metrics_html
+    assert 'class="saved-article-local-related-read-connection-brief-tags"' in brief_html
+    assert "Shared signals" in brief_html
+    assert "Same source desk" in brief_html
+    assert "The Row" in brief_html
+    assert "WWD" in brief_html
+    assert "Vogue Business" in brief_html
+    assert section_html.index("saved-article-local-related-read-connection-brief") < (
+        section_html.index("saved-article-local-related-read-lanes")
+    )
+
+
+def test_render_local_article_page_related_read_connection_brief_uses_only_safe_cards() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(
+            _related_read_card(
+                candidate_story_id="related-row-2222222222",
+                title="Safe read",
+                source_name="WWD",
+                href="related-row-2222222222.html#local-article-paragraph-1",
+            ),
+            _related_read_card(
+                candidate_story_id="unsafe-row-3333333333",
+                title="Unsafe read",
+                source_name="Unsafe Source",
+                href="articles/unsafe-row-3333333333.html#local-article-paragraph-1",
+            ),
+        ),
+    )
+    section_html = _html_between(
+        html,
+        '<section class="saved-article-local-related-reads"',
+        "</section>",
+    )
+    brief_start = section_html.index(
+        '<div class="saved-article-local-related-read-connection-brief">'
+    )
+    brief_end = section_html.index(
+        '<div class="saved-article-local-related-read-lanes">',
+        brief_start,
+    )
+    brief_html = section_html[brief_start:brief_end]
+
+    assert "Safe read" in section_html
+    assert "Unsafe read" not in section_html
+    assert "Unsafe Source" not in brief_html
+    assert "1 local read" in brief_html
+    assert "1 source" in brief_html
+
+
+def test_render_local_article_page_escapes_related_read_connection_brief_values() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(
+            _related_read_card(
+                candidate_story_id="related-row-2222222222",
+                source_name='WWD <script>alert("x")</script>',
+                reason=LocalizedText(en="Shared signal: The Row", zh="共同信号：The Row"),
+                href="related-row-2222222222.html#local-article-paragraph-1",
+                references=(
+                    RowOneSavedArticleLocalRelatedReadReference(
+                        name='The Row <script>alert("x")</script>',
+                        label='Brand <script>alert("label")</script>',
+                    ),
+                ),
+            ),
+        ),
+    )
+    section_html = _html_between(
+        html,
+        '<section class="saved-article-local-related-reads"',
+        "</section>",
+    )
+    brief_start = section_html.index(
+        '<div class="saved-article-local-related-read-connection-brief">'
+    )
+    brief_end = section_html.index(
+        '<div class="saved-article-local-related-read-lanes">',
+        brief_start,
+    )
+    brief_html = section_html[brief_start:brief_end]
+
+    assert "<script>" not in brief_html
+    assert "WWD &lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;" in brief_html
+    assert "The Row &lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;" in brief_html
+    assert "Brand &lt;script&gt;alert(&quot;label&quot;)&lt;/script&gt;" in brief_html
+
+
+def test_render_local_article_page_omits_related_read_connection_brief_without_safe_cards() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+        saved_article_local_related_reads=_related_reads_model(
+            _related_read_card(
+                candidate_story_id="unsafe-row-3333333333",
+                title="Unsafe read",
+                source_name="Unsafe Source",
+                href="articles/unsafe-row-3333333333.html#local-article-paragraph-1",
+            ),
+        ),
+    )
+
+    assert "saved-article-local-related-read-connection-brief" not in html
+    assert '<section class="saved-article-local-related-reads"' not in html
+
+
 def test_render_local_article_page_related_read_lanes_drop_unsafe_hrefs() -> None:
     html = render_local_article_page_html(
         _edition(),
@@ -3899,6 +4073,10 @@ def test_render_local_article_page_related_read_lanes_fallback_when_reason_unkno
 
     assert 'class="saved-article-local-related-read-lanes"' not in related_html
     assert 'class="saved-article-local-related-reads-grid"' in related_html
+    assert 'class="saved-article-local-related-read-connection-brief"' in related_html
+    assert related_html.index("saved-article-local-related-read-connection-brief") < (
+        related_html.index("saved-article-local-related-reads-grid")
+    )
     assert "Classified lane read" in related_html
     assert "Unknown reason read" in related_html
 
@@ -3985,8 +4163,18 @@ def test_render_local_article_page_filters_unsafe_related_read_evidence_bridge_l
         '<section class="saved-article-local-related-reads"',
         "</section>",
     )
+    brief_start = section_html.index(
+        '<div class="saved-article-local-related-read-connection-brief">'
+    )
+    brief_end = section_html.index(
+        '<div class="saved-article-local-related-read-lanes">',
+        brief_start,
+    )
+    brief_html = section_html[brief_start:brief_end]
 
     assert "saved-article-local-related-read-evidence-bridge" not in section_html
+    assert "0 bridges" in brief_html
+    assert "0 条证据连接" in brief_html
     assert "../bad" not in section_html
     assert "https://example.com/article" not in section_html
 
@@ -17833,6 +18021,11 @@ def test_row_one_css_includes_saved_article_local_related_reads_styles() -> None
         ".saved-article-local-related-read-lanes",
         ".saved-article-local-related-read-lane",
         ".saved-article-local-related-read-lane-header",
+        ".saved-article-local-related-read-connection-brief",
+        ".saved-article-local-related-read-connection-brief-copy",
+        ".saved-article-local-related-read-connection-brief-metrics",
+        ".saved-article-local-related-read-connection-brief-tags",
+        ".saved-article-local-related-read-connection-chip",
         ".saved-article-local-related-read-card",
         ".saved-article-local-related-read-meta",
         ".saved-article-local-related-read-references",

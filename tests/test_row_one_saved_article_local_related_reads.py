@@ -19,7 +19,9 @@ from fashion_radar.row_one.saved_article_local_related_reads import (
     SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_CARDS,
     SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_REFS,
     RowOneSavedArticleLocalRelatedReadCard,
+    RowOneSavedArticleLocalRelatedReadEvidenceBridge,
     RowOneSavedArticleLocalRelatedReadReference,
+    build_row_one_saved_article_local_related_read_connection_brief,
     build_row_one_saved_article_local_related_read_lanes,
     build_row_one_saved_article_local_related_reads,
 )
@@ -699,6 +701,148 @@ def test_saved_article_local_related_read_lanes_dedupe_and_omit_unknown_reasons(
     assert len(lanes) == 1
     assert lanes[0].key == "shared_signal"
     assert [card.candidate_story_id for card in lanes[0].cards] == ["safe-row-1111111111"]
+
+
+def test_saved_article_local_related_read_connection_brief_summarizes_cards() -> None:
+    card = RowOneSavedArticleLocalRelatedReadCard(
+        candidate_story_id="shared-row-1111111111",
+        title=_text("Shared read"),
+        source_name="WWD",
+        reason=LocalizedText(en="Shared signal: The Row", zh="共同信号：The Row"),
+        excerpt=_text("Saved excerpt"),
+        href="shared-row-1111111111.html#local-article-paragraph-1",
+        references=(RowOneSavedArticleLocalRelatedReadReference(name="The Row", label="Brand"),),
+        evidence_bridges=(
+            RowOneSavedArticleLocalRelatedReadEvidenceBridge(
+                reference=RowOneSavedArticleLocalRelatedReadReference(
+                    name="The Row",
+                    label="Brand",
+                ),
+                current_label=LocalizedText(en="Here ¶1", zh="本文 ¶1"),
+                current_href="#local-article-paragraph-1",
+                candidate_label=LocalizedText(en="Next read ¶1", zh="下一篇 ¶1"),
+                candidate_href="shared-row-1111111111.html#local-article-paragraph-1",
+            ),
+        ),
+    )
+    same_source = replace(
+        card,
+        candidate_story_id="source-row-2222222222",
+        source_name="Vogue Business",
+        reason=LocalizedText(en="Same source desk", zh="同一来源"),
+        href="source-row-2222222222.html#local-article-paragraph-1",
+        evidence_bridges=(),
+    )
+    same_section = replace(
+        card,
+        candidate_story_id="section-row-3333333333",
+        source_name="Harper's Bazaar",
+        reason=LocalizedText(en="Same ROW ONE section", zh="同一 ROW ONE 栏目"),
+        href="section-row-3333333333.html#local-article-paragraph-1",
+        evidence_bridges=(),
+    )
+
+    brief = build_row_one_saved_article_local_related_read_connection_brief(
+        (card, same_source, same_section)
+    )
+
+    assert brief is not None
+    assert not hasattr(brief, "dek")
+    assert brief.title.en == "Connection Brief"
+    assert brief.title.zh == "关联阅读简报"
+    assert brief.card_count == 3
+    assert brief.source_count == len(brief.source_names) == 3
+    assert brief.signal_count == len(brief.signal_references) == 1
+    assert brief.evidence_bridge_count == 1
+    assert [label.en for label in brief.lane_labels] == [
+        "Shared signals",
+        "Same ROW ONE section",
+        "Same source desk",
+    ]
+    assert [label.zh for label in brief.lane_labels] == [
+        "共同信号",
+        "同一 ROW ONE 栏目",
+        "同一来源台",
+    ]
+    assert [reference.name for reference in brief.signal_references] == ["The Row"]
+    assert brief.source_names == ("WWD", "Vogue Business", "Harper's Bazaar")
+    assert brief.lead.en == (
+        "This path connects 3 local reads through shared signals, source context, "
+        "and paragraph evidence already saved in ROW ONE."
+    )
+    assert brief.lead.zh == (
+        "这条路径用 ROW ONE 已保存的共同信号、来源语境与段落证据串联 3 篇本地阅读。"
+    )
+
+
+def test_saved_article_local_related_read_connection_brief_returns_none_without_cards() -> None:
+    assert build_row_one_saved_article_local_related_read_connection_brief(()) is None
+
+
+def test_saved_article_local_related_read_connection_brief_dedupes_and_caps_values() -> None:
+    references = (
+        RowOneSavedArticleLocalRelatedReadReference(name=" The   Row ", label=" Brand "),
+        RowOneSavedArticleLocalRelatedReadReference(name="the row", label="brand"),
+        RowOneSavedArticleLocalRelatedReadReference(name=" Alaia ", label=" Brand "),
+        RowOneSavedArticleLocalRelatedReadReference(name="Margaux", label="Brand"),
+        RowOneSavedArticleLocalRelatedReadReference(name="Tabi", label="Product"),
+    )
+    source_names = (
+        " WWD ",
+        "wwd",
+        " Vogue   Business ",
+        "Business of Fashion",
+    )
+    cards = tuple(
+        RowOneSavedArticleLocalRelatedReadCard(
+            candidate_story_id=f"shared-row-{index:010d}",
+            title=_text(f"Shared read {index}"),
+            source_name=source_name,
+            reason=LocalizedText(en="Shared signal: The Row", zh="共同信号：The Row"),
+            excerpt=_text("Saved excerpt"),
+            href=f"shared-row-{index:010d}.html#local-article-paragraph-1",
+            references=references,
+        )
+        for index, source_name in enumerate(source_names, start=1)
+    )
+
+    brief = build_row_one_saved_article_local_related_read_connection_brief(cards)
+
+    assert brief is not None
+    assert brief.signal_count == len(brief.signal_references)
+    assert brief.signal_count == SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_REFS
+    assert [(reference.name, reference.label) for reference in brief.signal_references] == [
+        ("The Row", "Brand"),
+        ("Alaia", "Brand"),
+        ("Margaux", "Brand"),
+    ]
+    assert brief.source_count == len(brief.source_names)
+    assert brief.source_count == SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_REFS
+    assert brief.source_names == ("WWD", "Vogue Business", "Business of Fashion")
+
+
+def test_saved_article_local_related_read_connection_brief_uses_context_lead_without_signals() -> (
+    None
+):
+    card = RowOneSavedArticleLocalRelatedReadCard(
+        candidate_story_id="section-row-1111111111",
+        title=_text("Section read"),
+        source_name="WWD",
+        reason=LocalizedText(en="Same ROW ONE section", zh="同一 ROW ONE 栏目"),
+        excerpt=_text("Saved excerpt"),
+        href="section-row-1111111111.html#local-article-paragraph-1",
+    )
+
+    brief = build_row_one_saved_article_local_related_read_connection_brief((card,))
+
+    assert brief is not None
+    assert brief.signal_references == ()
+    assert brief.signal_count == 0
+    assert brief.lead.en == (
+        "This path connects 1 local read through section or source context already "
+        "saved in ROW ONE."
+    )
+    assert brief.lead.zh == "这条路径用 ROW ONE 已保存的栏目或来源语境串联 1 篇本地阅读。"
 
 
 def test_saved_article_local_related_read_lanes_returns_empty_for_empty_input() -> None:

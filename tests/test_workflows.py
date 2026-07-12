@@ -373,7 +373,8 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         path for path in (output_dir / "articles").glob("*.html") if path.name != "index.html"
     ]
     assert article_pages
-    article_html = article_pages[0].read_text(encoding="utf-8")
+    article_htmls = [path.read_text(encoding="utf-8") for path in article_pages]
+    article_html = article_htmls[0]
     assert 'class="local-article-paragraph-context"' in article_html
     assert 'id="local-article-paragraph-1"' in article_html
     article_files = list((output_dir / "data" / "articles").glob("*.json"))
@@ -717,6 +718,17 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "saved-article-local-related-read-evidence-bridge" not in generated_contract_payload
     assert "local-article-related-read-evidence-bridge" not in generated_contract_payload
     assert "related-read-evidence-bridge" not in generated_contract_payload
+    assert "saved_article_local_related_read_connection_brief" not in generated_contract_payload
+    assert "local_article_related_read_connection_brief" not in generated_contract_payload
+    assert "related_read_connection_brief" not in generated_contract_payload
+    assert "RowOneSavedArticleLocalRelatedReadConnectionBrief" not in generated_contract_payload
+    assert "Saved Local Article Related-Read Connection Brief" not in generated_contract_payload
+    assert "Related-Read Connection Brief" not in generated_contract_payload
+    assert "Connection Brief" not in generated_contract_payload
+    assert "saved-article-local-related-read-connection-brief" not in generated_contract_payload
+    assert "local-article-related-read-connection-brief" not in generated_contract_payload
+    assert "related-read-connection-brief" not in generated_contract_payload
+    assert "关联阅读简报" not in generated_contract_payload
     assert "saved_local_article_cross_surface_organization_trail" not in generated_contract_payload
     assert "local_article_cross_surface_organization_trail" not in generated_contract_payload
     assert "cross_surface_organization_trail" not in generated_contract_payload
@@ -1366,6 +1378,14 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "related_read_evidence_bridge",
         "RowOneSavedArticleLocalRelatedReadEvidenceBridge",
         "Saved Local Article Related-Read Evidence Bridge",
+        "saved-local-article-related-read-connection-brief",
+        "local-article-related-read-connection-brief",
+        "related-read-connection-brief",
+        "saved_article_local_related_read_connection_brief",
+        "local_article_related_read_connection_brief",
+        "related_read_connection_brief",
+        "RowOneSavedArticleLocalRelatedReadConnectionBrief",
+        "Saved Local Article Related-Read Connection Brief",
         "saved-local-article-cross-surface-organization-trail",
         "local-article-cross-surface-organization-trail",
         "cross-surface-organization-trail",
@@ -1671,6 +1691,99 @@ def test_stage_380_saved_local_article_related_read_evidence_bridge_stays_genera
         raising=True,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_381_saved_local_article_related_read_connection_brief_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fashion_radar.row_one import render as row_one_render
+    from fashion_radar.row_one import templates as row_one_templates
+    from fashion_radar.row_one.models import LocalizedText
+    from fashion_radar.row_one.saved_article_local_related_reads import (
+        RowOneSavedArticleLocalRelatedReadCard,
+        RowOneSavedArticleLocalRelatedReads,
+    )
+
+    calls = []
+    original_renderer = row_one_templates._render_saved_article_local_related_read_connection_brief
+
+    def _forced_related_reads(
+        *,
+        current_story,
+        edition,
+        local_article_page_hrefs_by_story_id,
+        **_kwargs,
+    ):
+        candidate = next(
+            (
+                story
+                for story in edition.stories
+                if story.id != current_story.id and story.id in local_article_page_hrefs_by_story_id
+            ),
+            None,
+        )
+        if candidate is None:
+            return None
+        return RowOneSavedArticleLocalRelatedReads(
+            title=LocalizedText(en="Related Saved Local Reads", zh="相关本地保存阅读"),
+            dek=LocalizedText(en="Same-edition next reads.", zh="同日相关阅读。"),
+            current_story_id=current_story.id,
+            card_count=1,
+            cards=(
+                RowOneSavedArticleLocalRelatedReadCard(
+                    candidate_story_id=candidate.id,
+                    title=LocalizedText(en=candidate.headline, zh=candidate.headline),
+                    source_name=candidate.source_name,
+                    reason=LocalizedText(en="Same source desk", zh="同一来源"),
+                    excerpt=LocalizedText(en="Saved local excerpt.", zh="本地保存摘录。"),
+                    href=(
+                        f"{local_article_page_hrefs_by_story_id[candidate.id]}"
+                        "#local-article-paragraph-1"
+                    ),
+                ),
+            ),
+        )
+
+    def _recording_renderer(*args, **kwargs):
+        calls.append((args, kwargs))
+        return original_renderer(*args, **kwargs)
+
+    monkeypatch.setattr(
+        row_one_render,
+        "build_row_one_saved_article_local_related_reads",
+        _forced_related_reads,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_saved_article_local_related_read_connection_brief",
+        _recording_renderer,
+        raising=True,
+    )
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+    output_dir = tmp_path / "row-one"
+    connection_brief_selector = 'class="saved-article-local-related-read-connection-brief"'
+    article_htmls = [
+        path.read_text(encoding="utf-8")
+        for path in (output_dir / "articles").glob("*.html")
+        if path.name != "index.html"
+    ]
+    index_html = (output_dir / "index.html").read_text(encoding="utf-8")
+    detail_htmls = [
+        path.read_text(encoding="utf-8") for path in (output_dir / "details").glob("*.html")
+    ]
+    cached_article_payloads = [
+        path.read_text(encoding="utf-8")
+        for path in (output_dir / "data" / "articles").glob("*.json")
+    ]
+
+    assert calls
+    assert any(connection_brief_selector in html for html in article_htmls)
+    assert connection_brief_selector not in index_html
+    assert all(connection_brief_selector not in html for html in detail_htmls)
+    assert all(connection_brief_selector not in payload for payload in cached_article_payloads)
 
 
 def test_stage_379_saved_local_article_cross_surface_organization_trail_stays_generated_site_only(

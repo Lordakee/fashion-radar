@@ -56,6 +56,19 @@ class RowOneSavedArticleLocalRelatedReadLane:
 
 
 @dataclass(frozen=True)
+class RowOneSavedArticleLocalRelatedReadConnectionBrief:
+    title: LocalizedText
+    lead: LocalizedText
+    card_count: int
+    source_count: int
+    signal_count: int
+    evidence_bridge_count: int
+    lane_labels: tuple[LocalizedText, ...]
+    signal_references: tuple[RowOneSavedArticleLocalRelatedReadReference, ...]
+    source_names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class RowOneSavedArticleLocalRelatedReads:
     title: LocalizedText
     dek: LocalizedText
@@ -136,6 +149,108 @@ def build_row_one_saved_article_local_related_read_lanes(
         if (lane := _related_read_lane(key, tuple(deduped_by_lane[key]))) is not None
     ]
     return tuple(lanes)
+
+
+def build_row_one_saved_article_local_related_read_connection_brief(
+    cards: Sequence[RowOneSavedArticleLocalRelatedReadCard],
+) -> RowOneSavedArticleLocalRelatedReadConnectionBrief | None:
+    clean_cards = tuple(cards)
+    if not clean_cards:
+        return None
+    signal_references = _related_read_connection_signal_references(clean_cards)
+    source_names = _related_read_connection_sources(clean_cards)
+    lane_labels = _related_read_connection_lane_labels(clean_cards)
+    evidence_bridge_count = sum(len(card.evidence_bridges) for card in clean_cards)
+    card_count = len(clean_cards)
+    local_read_count = f"{card_count} local {'read' if card_count == 1 else 'reads'}"
+    if signal_references:
+        lead = LocalizedText(
+            en=(
+                f"This path connects {local_read_count} through shared signals, "
+                "source context, and paragraph evidence already saved in ROW ONE."
+            ),
+            zh=(
+                "这条路径用 ROW ONE 已保存的共同信号、来源语境与段落证据串联 "
+                f"{card_count} 篇本地阅读。"
+            ),
+        )
+    else:
+        lead = LocalizedText(
+            en=(
+                f"This path connects {local_read_count} through section or source "
+                "context already saved in ROW ONE."
+            ),
+            zh=(f"这条路径用 ROW ONE 已保存的栏目或来源语境串联 {card_count} 篇本地阅读。"),
+        )
+    return RowOneSavedArticleLocalRelatedReadConnectionBrief(
+        title=LocalizedText(en="Connection Brief", zh="关联阅读简报"),
+        lead=lead,
+        card_count=card_count,
+        source_count=len(source_names),
+        signal_count=len(signal_references),
+        evidence_bridge_count=evidence_bridge_count,
+        lane_labels=lane_labels,
+        signal_references=signal_references,
+        source_names=source_names,
+    )
+
+
+def _related_read_connection_signal_references(
+    cards: Sequence[RowOneSavedArticleLocalRelatedReadCard],
+) -> tuple[RowOneSavedArticleLocalRelatedReadReference, ...]:
+    references: list[RowOneSavedArticleLocalRelatedReadReference] = []
+    seen: set[tuple[str, str]] = set()
+    for card in cards:
+        for reference in card.references:
+            if len(references) >= SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_REFS:
+                return tuple(references)
+            name = normalize_row_one_paragraph(reference.name)
+            label = normalize_row_one_paragraph(reference.label)
+            if not name:
+                continue
+            key = (name.casefold(), label.casefold())
+            if key in seen:
+                continue
+            seen.add(key)
+            references.append(RowOneSavedArticleLocalRelatedReadReference(name=name, label=label))
+    return tuple(references)
+
+
+def _related_read_connection_sources(
+    cards: Sequence[RowOneSavedArticleLocalRelatedReadCard],
+) -> tuple[str, ...]:
+    sources: list[str] = []
+    seen: set[str] = set()
+    for card in cards:
+        if len(sources) >= SAVED_ARTICLE_LOCAL_RELATED_READS_MAX_REFS:
+            break
+        source_name = normalize_row_one_paragraph(card.source_name)
+        if not source_name:
+            continue
+        key = source_name.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        sources.append(source_name)
+    return tuple(sources)
+
+
+def _related_read_connection_lane_labels(
+    cards: Sequence[RowOneSavedArticleLocalRelatedReadCard],
+) -> tuple[LocalizedText, ...]:
+    labels_by_key: dict[str, LocalizedText] = {}
+    for card in cards:
+        lane_key = _related_read_lane_key(card)
+        if lane_key is None or lane_key in labels_by_key:
+            continue
+        copy = _LANE_COPY.get(lane_key)
+        if copy is not None:
+            labels_by_key[lane_key] = copy[0]
+    return tuple(
+        labels_by_key[key]
+        for key in ("shared_signal", "same_section", "same_source")
+        if key in labels_by_key
+    )
 
 
 def build_row_one_saved_article_local_related_reads(

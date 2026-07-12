@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from html import escape
 from pathlib import PurePosixPath
@@ -125,9 +125,11 @@ from fashion_radar.row_one.saved_article_local_reading_companion import (
 )
 from fashion_radar.row_one.saved_article_local_related_reads import (
     RowOneSavedArticleLocalRelatedReadCard,
+    RowOneSavedArticleLocalRelatedReadConnectionBrief,
     RowOneSavedArticleLocalRelatedReadEvidenceBridge,
     RowOneSavedArticleLocalRelatedReadLane,
     RowOneSavedArticleLocalRelatedReads,
+    build_row_one_saved_article_local_related_read_connection_brief,
     build_row_one_saved_article_local_related_read_lanes,
 )
 from fashion_radar.row_one.saved_article_local_section_binder import (
@@ -2670,6 +2672,42 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .saved-article-local-related-read-lane-header p {
   color: var(--muted);
   line-height: 1.45;
+}
+.saved-article-local-related-read-connection-brief {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+.saved-article-local-related-read-connection-brief-copy {
+  display: grid;
+  gap: 6px;
+}
+.saved-article-local-related-read-connection-brief-copy h3,
+.saved-article-local-related-read-connection-brief-copy p {
+  margin: 0;
+}
+.saved-article-local-related-read-connection-brief-copy h3 {
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.saved-article-local-related-read-connection-brief-metrics,
+.saved-article-local-related-read-connection-brief-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.saved-article-local-related-read-connection-brief-metrics > span,
+.saved-article-local-related-read-connection-chip {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.75rem;
+  padding: 7px 9px;
+}
+.saved-article-local-related-read-connection-brief-metrics strong,
+.saved-article-local-related-read-connection-chip span {
+  display: block;
 }
 .saved-article-local-related-read-card {
   border: 1px solid var(--line);
@@ -9442,15 +9480,21 @@ def _render_saved_article_local_related_reads(
 ) -> str:
     if related_reads is None or not related_reads.cards:
         return ""
-    cards = [
-        card_html
+    rendered_cards = [
+        (card, card_html)
         for card in related_reads.cards
         if (card_html := _render_saved_article_local_related_read_card(card))
     ]
-    if not cards:
+    if not rendered_cards:
         return ""
-    cards_html = "\n".join(cards)
-    renderable_cards = _renderable_saved_article_local_related_read_cards(related_reads.cards)
+    renderable_cards = tuple(card for card, _card_html in rendered_cards)
+    cards_html = "\n".join(card_html for _card, card_html in rendered_cards)
+    connection_brief_cards = _saved_article_local_related_read_connection_brief_cards(
+        renderable_cards
+    )
+    connection_brief = _render_saved_article_local_related_read_connection_brief(
+        build_row_one_saved_article_local_related_read_connection_brief(connection_brief_cards)
+    )
     lanes = build_row_one_saved_article_local_related_read_lanes(renderable_cards)
     lanes_html = _render_saved_article_local_related_read_lanes(lanes)
     if _saved_article_local_related_read_lane_card_count(lanes) != len(renderable_cards):
@@ -9473,21 +9517,139 @@ def _render_saved_article_local_related_reads(
           <span data-lang="zh">{_esc(related_reads.dek.zh)}</span>
         </p>
       </div>
+{connection_brief}
 {body_html}
     </section>"""
 
 
-def _renderable_saved_article_local_related_read_cards(
+def _saved_article_local_related_read_connection_brief_cards(
     cards: Sequence[RowOneSavedArticleLocalRelatedReadCard],
 ) -> tuple[RowOneSavedArticleLocalRelatedReadCard, ...]:
     return tuple(
-        card
-        for card in cards
-        if _safe_saved_article_local_related_read_href(
-            card.candidate_story_id,
-            card.href,
+        replace(
+            card,
+            evidence_bridges=tuple(
+                bridge
+                for bridge in card.evidence_bridges
+                if _safe_saved_article_local_related_read_current_href(bridge.current_href)
+                is not None
+                and _safe_saved_article_local_related_read_href(
+                    card.candidate_story_id,
+                    bridge.candidate_href,
+                )
+                is not None
+            ),
         )
-        is not None
+        for card in cards
+    )
+
+
+def _render_saved_article_local_related_read_connection_brief(
+    brief: RowOneSavedArticleLocalRelatedReadConnectionBrief | None,
+) -> str:
+    if brief is None:
+        return ""
+    metrics = "\n".join(
+        (
+            _render_saved_article_local_related_read_connection_metric(
+                LocalizedText(
+                    en=_count_label(brief.card_count, "local read", "local reads"),
+                    zh=f"{brief.card_count} 篇本地阅读",
+                ),
+                LocalizedText(en="Next reads", zh="后续阅读"),
+            ),
+            _render_saved_article_local_related_read_connection_metric(
+                LocalizedText(
+                    en=_count_label(brief.source_count, "source", "sources"),
+                    zh=f"{brief.source_count} 个来源",
+                ),
+                LocalizedText(en="Sources", zh="来源"),
+            ),
+            _render_saved_article_local_related_read_connection_metric(
+                LocalizedText(
+                    en=_count_label(brief.signal_count, "signal", "signals"),
+                    zh=f"{brief.signal_count} 个信号",
+                ),
+                LocalizedText(en="Signals", zh="信号"),
+            ),
+            _render_saved_article_local_related_read_connection_metric(
+                LocalizedText(
+                    en=_count_label(
+                        brief.evidence_bridge_count,
+                        "bridge",
+                        "bridges",
+                    ),
+                    zh=f"{brief.evidence_bridge_count} 条证据连接",
+                ),
+                LocalizedText(en="Evidence", zh="证据"),
+            ),
+        )
+    )
+    tags = _render_saved_article_local_related_read_connection_tags(brief)
+    return f"""      <div class="saved-article-local-related-read-connection-brief">
+        <div class="saved-article-local-related-read-connection-brief-copy">
+          <h3>
+            <span data-lang="en">{_esc(brief.title.en)}</span>
+            <span data-lang="zh">{_esc(brief.title.zh)}</span>
+          </h3>
+          <p>
+            <span data-lang="en">{_esc(brief.lead.en)}</span>
+            <span data-lang="zh">{_esc(brief.lead.zh)}</span>
+          </p>
+        </div>
+        <div class="saved-article-local-related-read-connection-brief-metrics">
+{metrics}
+        </div>
+{tags}
+      </div>"""
+
+
+def _render_saved_article_local_related_read_connection_metric(
+    value: LocalizedText,
+    label: LocalizedText,
+) -> str:
+    return f"""          <span>
+            <strong>
+              <span data-lang="en">{_esc(value.en)}</span>
+              <span data-lang="zh">{_esc(value.zh)}</span>
+            </strong>
+            <span data-lang="en">{_esc(label.en)}</span>
+            <span data-lang="zh">{_esc(label.zh)}</span>
+          </span>"""
+
+
+def _render_saved_article_local_related_read_connection_tags(
+    brief: RowOneSavedArticleLocalRelatedReadConnectionBrief,
+) -> str:
+    chips: list[str] = []
+    for label in brief.lane_labels:
+        chips.append(
+            f"""          <span class="saved-article-local-related-read-connection-chip">
+            <span data-lang="en">{_esc(label.en)}</span>
+            <span data-lang="zh">{_esc(label.zh)}</span>
+          </span>"""
+        )
+    for reference in brief.signal_references:
+        if reference.name.strip():
+            chips.append(
+                f"""          <span class="saved-article-local-related-read-connection-chip">
+            <span>{_esc(reference.name)}</span>
+            <span>{_esc(reference.label)}</span>
+          </span>"""
+            )
+    for source_name in brief.source_names:
+        if source_name.strip():
+            chips.append(
+                f"""          <span class="saved-article-local-related-read-connection-chip">
+            <span>{_esc(source_name)}</span>
+          </span>"""
+            )
+    if not chips:
+        return ""
+    return (
+        '        <div class="saved-article-local-related-read-connection-brief-tags">\n'
+        + "\n".join(chips)
+        + "\n        </div>"
     )
 
 
