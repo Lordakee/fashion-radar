@@ -1691,7 +1691,7 @@ def test_stage_383_daily_local_synthesis_brief_stays_homepage_only(
         row_one_templates,
         "_render_daily_local_synthesis_brief",
         lambda _brief: sentinel,
-        raising=False,
+        raising=True,
     )
 
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)

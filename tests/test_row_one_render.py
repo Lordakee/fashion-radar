@@ -16162,6 +16162,35 @@ def test_render_index_html_daily_local_synthesis_brief_between_intelligence_and_
     )
 
 
+def test_render_daily_local_synthesis_brief_omits_blank_thesis_paragraph() -> None:
+    brief = replace(
+        _daily_local_synthesis_brief_fixture(),
+        thesis=LocalizedText(en="   ", zh=""),
+    )
+
+    html = render_index_html(_edition(), daily_local_synthesis_brief=brief)
+    section_html = _daily_local_synthesis_brief_section_html(html)
+
+    assert 'class="daily-local-synthesis-brief"' in section_html
+    assert 'class="daily-local-synthesis-brief-opening"' in section_html
+    assert 'class="daily-local-synthesis-brief-card"' in section_html
+    assert 'class="daily-local-synthesis-brief-basis"' in section_html
+    assert 'class="daily-local-synthesis-brief-thesis"' not in section_html
+
+
+def test_render_daily_local_synthesis_brief_keeps_single_language_thesis() -> None:
+    brief = replace(
+        _daily_local_synthesis_brief_fixture(),
+        thesis=LocalizedText(en=" ", zh="单语判断仍应显示。"),
+    )
+
+    html = render_index_html(_edition(), daily_local_synthesis_brief=brief)
+    section_html = _daily_local_synthesis_brief_section_html(html)
+
+    assert 'class="daily-local-synthesis-brief-thesis"' in section_html
+    assert section_html.count("单语判断仍应显示。") == 2
+
+
 def test_render_daily_local_synthesis_brief_escapes_and_filters_hrefs() -> None:
     story_id = "the-row-signal-1234567890"
     unsafe_hrefs = (
@@ -18844,6 +18873,26 @@ def test_row_one_css_includes_daily_local_synthesis_brief_styles() -> None:
     assert "@media (max-width: 760px)" in css
     assert re.search(
         r"\.daily-local-synthesis-brief-grid\s*\{[^}]*grid-template-columns:\s*1fr",
+        css,
+    )
+    assert re.search(
+        r"\.daily-local-synthesis-brief-card\s*\{[^}]*min-width:\s*0",
+        css,
+    )
+    assert re.search(
+        r"\.daily-local-synthesis-brief-card h3\s*\{[^}]*overflow-wrap:\s*anywhere",
+        css,
+    )
+    assert re.search(
+        r"\.daily-local-synthesis-brief-card-meta\s*\{[^}]*min-width:\s*0",
+        css,
+    )
+    assert re.search(
+        r"\.daily-local-synthesis-brief-card-meta span\s*\{[^}]*overflow-wrap:\s*anywhere",
+        css,
+    )
+    assert re.search(
+        r"\.daily-local-synthesis-brief-route\s*\{[^}]*overflow-wrap:\s*anywhere",
         css,
     )
 

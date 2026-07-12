@@ -5544,6 +5544,7 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   font-weight: 500;
   letter-spacing: 0;
   line-height: 1.02;
+  overflow-wrap: anywhere;
   text-transform: none;
 }
 .daily-local-synthesis-brief-card p {
@@ -5555,9 +5556,14 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
+}
+.daily-local-synthesis-brief-card-meta span {
+  overflow-wrap: anywhere;
 }
 .daily-local-synthesis-brief-route {
   color: var(--panel);
+  overflow-wrap: anywhere;
   text-decoration: none;
 }
 .daily-local-synthesis-brief-route:hover,
@@ -14293,6 +14299,15 @@ def _render_daily_local_synthesis_brief(
     thesis_zh = normalize_row_one_paragraph(brief.thesis.zh)
     basis_en = normalize_row_one_paragraph(brief.basis_note.en)
     basis_zh = normalize_row_one_paragraph(brief.basis_note.zh)
+    thesis_html = (
+        f"""  <p class="daily-local-synthesis-brief-thesis">
+    <span data-lang="en">{_esc(thesis_en or thesis_zh)}</span>
+    <span data-lang="zh">{_esc(thesis_zh or thesis_en)}</span>
+  </p>
+"""
+        if thesis_en or thesis_zh
+        else ""
+    )
     return (
         '<section class="daily-local-synthesis-brief" '
         'aria-labelledby="daily-local-synthesis-brief-title">'
@@ -14324,10 +14339,7 @@ def _render_daily_local_synthesis_brief(
     <span data-lang="en">{_esc(opening_en or opening_zh)}</span>
     <span data-lang="zh">{_esc(opening_zh or opening_en)}</span>
   </p>
-  <p class="daily-local-synthesis-brief-thesis">
-    <span data-lang="en">{_esc(thesis_en or thesis_zh)}</span>
-    <span data-lang="zh">{_esc(thesis_zh or thesis_en)}</span>
-  </p>
+{thesis_html}\
   <div class="daily-local-synthesis-brief-grid">
 {"".join(rendered_cards)}
   </div>
