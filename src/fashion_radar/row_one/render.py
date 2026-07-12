@@ -24,6 +24,9 @@ from fashion_radar.row_one.daily_local_reading_itinerary import (
 from fashion_radar.row_one.daily_local_saved_article_organizer import (
     build_row_one_daily_local_saved_article_organizer,
 )
+from fashion_radar.row_one.daily_local_saved_text_takeaways import (
+    build_row_one_daily_local_saved_text_takeaways,
+)
 from fashion_radar.row_one.daily_local_synthesis_brief import (
     build_row_one_daily_local_synthesis_brief,
 )
@@ -232,6 +235,11 @@ def render_row_one_site(
         local_articles_by_story_id,
         local_article_page_hrefs_by_story_id,
     )
+    daily_local_saved_text_takeaways = build_row_one_daily_local_saved_text_takeaways(
+        edition,
+        local_articles_by_story_id,
+        local_article_page_hrefs_by_story_id,
+    )
     daily_local_reading_itinerary = build_row_one_daily_local_reading_itinerary(
         edition,
         local_articles_by_story_id,
@@ -277,6 +285,7 @@ def render_row_one_site(
             daily_local_news_timeline=daily_local_news_timeline,
             daily_local_article_intelligence_brief=daily_local_article_intelligence_brief,
             daily_local_synthesis_brief=daily_local_synthesis_brief,
+            daily_local_saved_text_takeaways=daily_local_saved_text_takeaways,
             daily_local_saved_article_organizer=daily_local_saved_article_organizer,
             daily_local_reading_itinerary=daily_local_reading_itinerary,
             saved_article_content_organization=saved_article_content_organization,

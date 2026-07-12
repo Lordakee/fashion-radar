@@ -36,6 +36,11 @@ from fashion_radar.row_one.daily_local_saved_article_organizer import (
     RowOneDailyLocalSavedArticleOrganizerLane,
     RowOneDailyLocalSavedArticleOrganizerReference,
 )
+from fashion_radar.row_one.daily_local_saved_text_takeaways import (
+    RowOneDailyLocalSavedTextTakeawayCard,
+    RowOneDailyLocalSavedTextTakeawayLane,
+    RowOneDailyLocalSavedTextTakeaways,
+)
 from fashion_radar.row_one.daily_local_synthesis_brief import (
     RowOneDailyLocalSynthesisBrief,
     RowOneDailyLocalSynthesisBriefCard,
@@ -483,6 +488,7 @@ def render_index_html(
     daily_local_news_timeline: RowOneDailyLocalNewsTimeline | None = None,
     daily_local_article_intelligence_brief: RowOneDailyLocalArticleIntelligenceBrief | None = None,
     daily_local_synthesis_brief: RowOneDailyLocalSynthesisBrief | None = None,
+    daily_local_saved_text_takeaways: RowOneDailyLocalSavedTextTakeaways | None = None,
     daily_local_saved_article_organizer: RowOneDailyLocalSavedArticleOrganizer | None = None,
     daily_local_reading_itinerary: RowOneDailyLocalReadingItinerary | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
@@ -550,6 +556,9 @@ def render_index_html(
     )
     daily_local_synthesis_brief_section = _render_daily_local_synthesis_brief(
         daily_local_synthesis_brief
+    )
+    daily_local_saved_text_takeaways_section = _render_daily_local_saved_text_takeaways(
+        daily_local_saved_text_takeaways
     )
     daily_local_saved_article_organizer_section = _render_daily_local_saved_article_organizer(
         daily_local_saved_article_organizer
@@ -659,6 +668,7 @@ def render_index_html(
 {daily_local_news_timeline_section}
 {daily_local_article_intelligence_brief_section}
 {daily_local_synthesis_brief_section}
+{daily_local_saved_text_takeaways_section}
 {daily_local_saved_article_organizer_section}
 {daily_local_reading_itinerary_section}
 {saved_article_content_organization_section}
@@ -5609,6 +5619,123 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   margin: 18px 0 0;
   padding-top: 14px;
 }
+.daily-local-saved-text-takeaways {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-local-saved-text-takeaways-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.44fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-local-saved-text-takeaways-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 4.6vw, 5.2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.94;
+  margin: 0;
+}
+.daily-local-saved-text-takeaways-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.daily-local-saved-text-takeaways-metrics,
+.daily-local-saved-text-takeaways-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.daily-local-saved-text-takeaways-metrics {
+  margin: 0 0 18px;
+}
+.daily-local-saved-text-takeaways-metrics span,
+.daily-local-saved-text-takeaways-card-meta span,
+.daily-local-saved-text-takeaways-lane-count,
+.daily-local-saved-text-takeaways-card-link {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-saved-text-takeaways-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.daily-local-saved-text-takeaways-lane {
+  background: var(--panel);
+  display: grid;
+  gap: 14px;
+  min-height: 300px;
+  min-width: 0;
+  padding: 16px;
+}
+.daily-local-saved-text-takeaways-lane-header {
+  display: grid;
+  gap: 8px;
+}
+.daily-local-saved-text-takeaways-lane-header h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.3rem, 2vw, 2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+.daily-local-saved-text-takeaways-lane-header p {
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+}
+.daily-local-saved-text-takeaways-cards {
+  display: grid;
+  gap: 12px;
+}
+.daily-local-saved-text-takeaways-card {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 12px;
+}
+.daily-local-saved-text-takeaways-card h4 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.12rem, 1.7vw, 1.75rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.daily-local-saved-text-takeaways-card p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.daily-local-saved-text-takeaways-card-link {
+  color: var(--accent);
+  text-decoration: none;
+  width: fit-content;
+}
+.daily-local-saved-text-takeaways-card-link:hover,
+.daily-local-saved-text-takeaways-card-link:focus-visible {
+  opacity: 0.75;
+}
 .daily-local-saved-article-organizer {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -7547,6 +7674,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-article-intelligence-brief-grid { grid-template-columns: 1fr; }
   .daily-local-synthesis-brief-header { grid-template-columns: 1fr; }
   .daily-local-synthesis-brief-grid { grid-template-columns: 1fr; }
+  .daily-local-saved-text-takeaways-header { grid-template-columns: 1fr; }
+  .daily-local-saved-text-takeaways-grid { grid-template-columns: 1fr; }
   .daily-local-saved-article-organizer-header { grid-template-columns: 1fr; }
   .daily-local-saved-article-organizer-lanes { grid-template-columns: 1fr; }
   .daily-local-reading-itinerary-header { grid-template-columns: 1fr; }
@@ -14513,6 +14642,171 @@ def _safe_daily_local_synthesis_brief_href(href: object) -> str | None:
     if not safe_local_article_story_id(story_id):
         return None
     return f"articles/{story_id}.html"
+
+
+def _render_daily_local_saved_text_takeaways(
+    takeaways: RowOneDailyLocalSavedTextTakeaways | None,
+) -> str:
+    if takeaways is None or not takeaways.lanes:
+        return ""
+    lanes = [
+        lane_html
+        for lane in takeaways.lanes
+        if (lane_html := _render_daily_local_saved_text_takeaway_lane(lane))
+    ]
+    if not lanes:
+        return ""
+    title_en = normalize_row_one_paragraph(takeaways.title.en) or "Daily Saved Text Takeaways"
+    title_zh = normalize_row_one_paragraph(takeaways.title.zh) or "每日保存正文要点"
+    dek_en = normalize_row_one_paragraph(takeaways.dek.en)
+    dek_zh = normalize_row_one_paragraph(takeaways.dek.zh)
+    metrics = (
+        _render_daily_local_saved_text_takeaway_metric(
+            _count_label(takeaways.article_count, "article", "articles"),
+            f"{takeaways.article_count} 篇文章",
+        )
+        + _render_daily_local_saved_text_takeaway_metric(
+            _count_label(takeaways.source_count, "source", "sources"),
+            f"{takeaways.source_count} 个来源",
+        )
+        + _render_daily_local_saved_text_takeaway_metric(
+            _count_label(takeaways.card_count, "excerpt", "excerpts"),
+            f"{takeaways.card_count} 条短摘",
+        )
+    )
+    return f"""<section class="daily-local-saved-text-takeaways"
+  aria-labelledby="daily-local-saved-text-takeaways-title">
+  <div class="daily-local-saved-text-takeaways-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">{_esc(title_en)}</span>
+        <span data-lang="zh">{_esc(title_zh)}</span>
+      </p>
+      <h2 id="daily-local-saved-text-takeaways-title">
+        <span data-lang="en">Saved article text, sorted into daily takeaways</span>
+        <span data-lang="zh">保存正文已整理成今日要点</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">{_esc(dek_en or dek_zh)}</span>
+      <span data-lang="zh">{_esc(dek_zh or dek_en)}</span>
+    </p>
+  </div>
+  <div class="daily-local-saved-text-takeaways-metrics">{metrics}</div>
+  <div class="daily-local-saved-text-takeaways-grid">{"".join(lanes)}</div>
+</section>"""
+
+
+def _render_daily_local_saved_text_takeaway_metric(value_en: str, value_zh: str) -> str:
+    return (
+        "<span>"
+        f'<span data-lang="en">{_esc(value_en)}</span>'
+        f'<span data-lang="zh">{_esc(value_zh)}</span>'
+        "</span>"
+    )
+
+
+def _render_daily_local_saved_text_takeaway_lane(
+    lane: RowOneDailyLocalSavedTextTakeawayLane,
+) -> str:
+    cards = [
+        card_html
+        for card in lane.cards
+        if (card_html := _render_daily_local_saved_text_takeaway_card(card))
+    ]
+    if not cards:
+        return ""
+    title_en = normalize_row_one_paragraph(lane.title.en)
+    title_zh = normalize_row_one_paragraph(lane.title.zh)
+    dek_en = normalize_row_one_paragraph(lane.dek.en)
+    dek_zh = normalize_row_one_paragraph(lane.dek.zh)
+    total_count = lane.total_count if lane.total_count > 0 else len(cards)
+    return f"""    <article class="daily-local-saved-text-takeaways-lane">
+      <div class="daily-local-saved-text-takeaways-lane-header">
+        <h3>
+          <span data-lang="en">{_esc(title_en or title_zh)}</span>
+          <span data-lang="zh">{_esc(title_zh or title_en)}</span>
+        </h3>
+        <span class="daily-local-saved-text-takeaways-lane-count">
+          <span data-lang="en">{_esc(_count_label(total_count, "excerpt", "excerpts"))}</span>
+          <span data-lang="zh">{_esc(f"{total_count} 条短摘")}</span>
+        </span>
+        <p>
+          <span data-lang="en">{_esc(dek_en or dek_zh)}</span>
+          <span data-lang="zh">{_esc(dek_zh or dek_en)}</span>
+        </p>
+      </div>
+      <div class="daily-local-saved-text-takeaways-cards">{"".join(cards)}</div>
+    </article>"""
+
+
+def _render_daily_local_saved_text_takeaway_card(
+    card: RowOneDailyLocalSavedTextTakeawayCard,
+) -> str:
+    href = _safe_daily_local_saved_text_takeaway_href(card.href)
+    if href is None:
+        return ""
+    title_en = normalize_row_one_paragraph(card.title.en)
+    title_zh = normalize_row_one_paragraph(card.title.zh)
+    source_name = normalize_row_one_paragraph(card.source_name)
+    label_en = normalize_row_one_paragraph(card.label.en)
+    label_zh = normalize_row_one_paragraph(card.label.zh)
+    excerpt_en = normalize_row_one_paragraph(card.excerpt.en)
+    excerpt_zh = normalize_row_one_paragraph(card.excerpt.zh)
+    if not (title_en or title_zh) or not (excerpt_en or excerpt_zh):
+        return ""
+    return f"""        <article class="daily-local-saved-text-takeaways-card">
+          <div class="daily-local-saved-text-takeaways-card-meta">
+            <span>{_esc(source_name)}</span>
+            <span>
+              <span data-lang="en">{_esc(label_en or label_zh)}</span>
+              <span data-lang="zh">{_esc(label_zh or label_en)}</span>
+            </span>
+          </div>
+          <h4>
+            <span data-lang="en">{_esc(title_en or title_zh)}</span>
+            <span data-lang="zh">{_esc(title_zh or title_en)}</span>
+          </h4>
+          <p>
+            <span data-lang="en">{_esc(excerpt_en or excerpt_zh)}</span>
+            <span data-lang="zh">{_esc(excerpt_zh or excerpt_en)}</span>
+          </p>
+          <a class="daily-local-saved-text-takeaways-card-link" href="{_esc(href)}">
+            <span data-lang="en">Open saved-text anchor</span>
+            <span data-lang="zh">打开保存正文锚点</span>
+          </a>
+        </article>"""
+
+
+def _safe_daily_local_saved_text_takeaway_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if "://" in href or "//" in href or "?" in href or href.startswith((".", "/", "//")):
+        return None
+    path, separator, fragment = href.partition("#")
+    if not separator or not fragment:
+        return None
+    route_path = PurePosixPath(path)
+    if (
+        route_path.is_absolute()
+        or len(route_path.parts) != 2
+        or route_path.parts[0] != "articles"
+        or route_path.name in ("", ".", "..")
+        or ".." in route_path.parts
+        or not route_path.name.endswith(".html")
+    ):
+        return None
+    story_id = route_path.name.removesuffix(".html")
+    if not safe_local_article_story_id(story_id):
+        return None
+    if (
+        _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is None
+        and _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is None
+    ):
+        return None
+    return f"articles/{story_id}.html#{fragment}"
 
 
 def _render_daily_local_saved_article_organizer(

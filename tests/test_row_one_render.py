@@ -75,6 +75,11 @@ from fashion_radar.row_one.daily_local_news_timeline import (
     RowOneDailyLocalNewsTimeline,
     RowOneDailyLocalNewsTimelineItem,
 )
+from fashion_radar.row_one.daily_local_saved_text_takeaways import (
+    RowOneDailyLocalSavedTextTakeawayCard,
+    RowOneDailyLocalSavedTextTakeawayLane,
+    RowOneDailyLocalSavedTextTakeaways,
+)
 from fashion_radar.row_one.daily_local_synthesis_brief import (
     RowOneDailyLocalSynthesisBrief,
     RowOneDailyLocalSynthesisBriefCard,
@@ -15795,6 +15800,100 @@ def _daily_local_synthesis_brief_fixture(
             zh="基于当前版本 ROW ONE 故事与文章页已生成的本地文章综合简报整理。",
         ),
     )
+
+
+def _daily_local_saved_text_takeaways_fixture(
+    *,
+    first_href: str = "articles/the-row-signal-1234567890.html#local-article-paragraph-1",
+    second_href: str = "articles/margaux-signal-1234567890.html#local-article-content-section-1",
+    title_en: str = "Daily Saved Text Takeaways",
+    first_title_en: str = 'The Row <signals> "quiet" demand',
+    source_name: str = "Vogue Business",
+    excerpt_en: str = "The saved article explains why the item is gaining attention in stores.",
+) -> RowOneDailyLocalSavedTextTakeaways:
+    return RowOneDailyLocalSavedTextTakeaways(
+        title=LocalizedText(en=title_en, zh="每日保存正文要点"),
+        dek=LocalizedText(
+            en="Short saved-text excerpts grouped for fast homepage reading.",
+            zh="把保存正文短摘按阅读意图整理到首页。",
+        ),
+        article_count=2,
+        source_count=2,
+        card_count=3,
+        lanes=(
+            RowOneDailyLocalSavedTextTakeawayLane(
+                key="what_article_says",
+                title=LocalizedText(en="What the article says", zh="文章说了什么"),
+                dek=LocalizedText(
+                    en="A direct saved-text read from today's local article bodies.",
+                    zh="直接读取今日保存本地正文。",
+                ),
+                cards=(
+                    RowOneDailyLocalSavedTextTakeawayCard(
+                        title=LocalizedText(en=first_title_en, zh=first_title_en),
+                        source_name=source_name,
+                        label=LocalizedText(en="What the article says", zh="文章说了什么"),
+                        excerpt=LocalizedText(
+                            en=excerpt_en,
+                            zh="保存正文解释该单品为何在门店获得关注。",
+                        ),
+                        href=first_href,
+                    ),
+                    RowOneDailyLocalSavedTextTakeawayCard(
+                        title=LocalizedText(en="Margaux demand", zh="Margaux 需求"),
+                        source_name="WWD",
+                        label=LocalizedText(en="What the article says", zh="文章说了什么"),
+                        excerpt=LocalizedText(
+                            en="A second saved article adds a product-backed local read.",
+                            zh="第二篇保存文章补充单品证据。",
+                        ),
+                        href="articles/margaux-signal-1234567890.html#local-article-paragraph-1",
+                    ),
+                ),
+                total_count=2,
+            ),
+            RowOneDailyLocalSavedTextTakeawayLane(
+                key="brand_product_context",
+                title=LocalizedText(en="Brand / product context", zh="品牌与单品语境"),
+                dek=LocalizedText(
+                    en="Brand, product, and people context already structured in saved text.",
+                    zh="保存正文中已经结构化的品牌、单品与人物语境。",
+                ),
+                cards=(
+                    RowOneDailyLocalSavedTextTakeawayCard(
+                        title=LocalizedText(en="Margaux demand", zh="Margaux 需求"),
+                        source_name="WWD",
+                        label=LocalizedText(en="Margaux bag", zh="Margaux 手袋"),
+                        excerpt=LocalizedText(
+                            en="Margaux bag evidence appears in saved local text.",
+                            zh="Margaux 手袋证据出现在保存本地正文中。",
+                        ),
+                        href=second_href,
+                    ),
+                ),
+                total_count=1,
+            ),
+        ),
+    )
+
+
+def _daily_local_saved_text_takeaways_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-saved-text-takeaways"'
+    start = index_html.index(marker)
+    tail = index_html[start:]
+    next_markers = [
+        marker_index
+        for marker_index in (
+            tail.find('<section class="daily-local-saved-article-organizer"'),
+            tail.find('<section class="daily-local-reading-itinerary"'),
+            tail.find('<section class="saved-article-content-organization"'),
+        )
+        if marker_index > 0
+    ]
+    if next_markers:
+        return tail[: min(next_markers)]
+    end = tail.index("</section>") + len("</section>")
+    return tail[:end]
 
 
 def _require_daily_local_saved_article_organizer_models() -> None:

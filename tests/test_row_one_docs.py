@@ -5301,6 +5301,98 @@ def test_row_one_docs_describe_stage_385_daily_local_synthesis_evidence_trail_bo
             assert stale_phrase not in normalized
 
 
+def test_row_one_docs_describe_stage_386_daily_saved_text_takeaways_boundary() -> None:
+    paragraph = (
+        "Stage 386 adds a generated-site-only Daily Saved Text Takeaways section "
+        "on the ROW ONE homepage in `index.html`; it reuses current-edition ROW ONE "
+        "stories, current-edition saved local article sidecars, existing generated "
+        "local article page routes, saved paragraphs, content sections, and local "
+        "article anchors to show short capped saved-text snippets grouped for reading "
+        "without changing app-facing contracts; it does not create "
+        "`data/daily-local-saved-text-takeaways.json`, does not create "
+        "`data/daily-saved-text-takeaways.json`, does not create "
+        "`daily-local-saved-text-takeaways.html`, does not create "
+        "`daily-saved-text-takeaways.html`, does not create new article-source "
+        "sidecars, does not create new route families, does not alter "
+        "`articles/index.html`, `articles/<story-id>.html`, detail pages, "
+        "`data/edition.json`, `data/manifest.json`, or `data/runtime.json`, does not "
+        "publish full article bodies on the homepage, and does not change "
+        "row-one-app/v7, row-one-manifest/v1, row-one-runtime/v1, schemas, generated "
+        "JSON artifacts, source collection, fetching, scraping, matching, extraction, "
+        "scoring, ranking, LLM, connector, scheduling, deployment, analytics, "
+        "personalization, recommendation, demand proof, coverage verification, or "
+        "compliance-review behavior."
+    )
+    readme = _read(README)
+    docs = _read(ROW_ONE_DOC)
+
+    for text in (readme, docs):
+        assert paragraph in text
+        assert text.index(paragraph) < text.index(
+            "Stage 385 adds a generated-site-only Daily Local Synthesis Evidence Trail"
+        )
+
+        stage_386_slice = text[
+            text.index(paragraph) : text.index(
+                "Stage 385 adds a generated-site-only Daily Local Synthesis Evidence Trail"
+            )
+        ]
+        normalized = _normalized(stage_386_slice)
+        for stale_phrase in (
+            "creates data/daily-local-saved-text-takeaways.json",
+            "writes data/daily-local-saved-text-takeaways.json",
+            "creates data/daily-saved-text-takeaways.json",
+            "writes data/daily-saved-text-takeaways.json",
+            "creates daily-local-saved-text-takeaways.html",
+            "writes daily-local-saved-text-takeaways.html",
+            "creates daily-saved-text-takeaways.html",
+            "writes daily-saved-text-takeaways.html",
+            "creates new article-source sidecars",
+            "writes new article-source sidecars",
+            "creates new route families",
+            "writes new route families",
+            "adds new routes",
+            "creates new routes",
+            "writes new routes",
+            "adds routes",
+            "changes routes",
+            "changes app-facing contracts",
+            "adds app-facing contracts",
+            "changes row-one-app/v7",
+            "changes row-one-manifest/v1",
+            "changes row-one-runtime/v1",
+            "changes schemas",
+            "adds schemas",
+            "changes schema behavior",
+            "adds generated json artifacts",
+            "changes generated json artifacts",
+            "adds source collection",
+            "changes source collection",
+            "adds scraping",
+            "changes scraping",
+            "adds scraping behavior",
+            "adds social",
+            "adds social-platform",
+            "adds llm",
+            "changes llm",
+            "adds scheduling",
+            "changes scheduling",
+            "adds analytics",
+            "changes analytics",
+            "adds personalization",
+            "changes personalization",
+            "adds recommendation",
+            "changes recommendation",
+            "adds demand proof",
+            "adds coverage verification",
+            "adds compliance-review",
+            "changes compliance-review",
+            "adds compliance-review behavior",
+            "changes compliance-review behavior",
+        ):
+            assert stale_phrase not in normalized
+
+
 def test_row_one_docs_describe_stage_384_daily_local_synthesis_quality_boundary() -> None:
     paragraph = (
         "Stage 384 hardens the generated-site-only Daily Local Synthesis Brief "
