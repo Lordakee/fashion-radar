@@ -75,6 +75,10 @@ from fashion_radar.row_one.daily_local_news_timeline import (
     RowOneDailyLocalNewsTimeline,
     RowOneDailyLocalNewsTimelineItem,
 )
+from fashion_radar.row_one.daily_local_synthesis_brief import (
+    RowOneDailyLocalSynthesisBrief,
+    RowOneDailyLocalSynthesisBriefCard,
+)
 from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneDailyLocalIntelligenceItem,
@@ -9954,6 +9958,18 @@ def _daily_local_article_intelligence_brief_section_html(index_html: str) -> str
     return index_html[section_start:section_end]
 
 
+def _daily_local_synthesis_brief_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-synthesis-brief"'
+    section_start = index_html.index(marker)
+    tail = index_html[section_start + len(marker) :]
+    next_section = re.search(r"\n\s*<section class=", tail)
+    if next_section is None:
+        return index_html[section_start:]
+    section_end = section_start + len(marker) + next_section.start()
+    assert section_end > section_start
+    return index_html[section_start:section_end]
+
+
 def _daily_local_news_timeline_section_html(index_html: str) -> str:
     marker = '<section class="daily-local-news-timeline"'
     section_start = index_html.index(marker)
@@ -15715,6 +15731,71 @@ def _daily_local_news_timeline_fixture(
     )
 
 
+def _daily_local_synthesis_brief_fixture(
+    *,
+    first_href: str = "the-row-signal-1234567890.html",
+    second_href: str = "margaux-signal-1234567890.html",
+    title_en: str = "Daily Local Synthesis Brief",
+    first_title_en: str = 'The Row <signals> "quiet" demand',
+    source_name: str = "Vogue Business",
+) -> RowOneDailyLocalSynthesisBrief:
+    return RowOneDailyLocalSynthesisBrief(
+        title=LocalizedText(en=title_en, zh="每日本地综合简报"),
+        dek=LocalizedText(
+            en="A cross-article read assembled from today's saved local text.",
+            zh="基于今日已保存本地正文整理出的跨文章判断。",
+        ),
+        opening_read=LocalizedText(
+            en="Today's local read connects The Row with Margaux.",
+            zh="今日本地阅读把《The Row》与《Margaux》连接起来。",
+        ),
+        thesis=LocalizedText(
+            en="The local read suggests a quiet-luxury signal moving through bags and flats.",
+            zh="本地阅读显示静奢信号正在通过手袋和平底鞋扩散。",
+        ),
+        article_count=2,
+        source_count=2,
+        card_count=2,
+        cards=(
+            RowOneDailyLocalSynthesisBriefCard(
+                title=LocalizedText(en=first_title_en, zh=first_title_en),
+                source_name=source_name,
+                href=first_href,
+                read=LocalizedText(
+                    en="The Row local article adds a first article-backed read.",
+                    zh="The Row 本地文章补充第一条文章证据。",
+                ),
+                adds=LocalizedText(
+                    en="It adds saved text around quiet demand.",
+                    zh="它补充了围绕安静需求的保存正文。",
+                ),
+                route_label=LocalizedText(en="Read the saved article", zh="阅读保存文章"),
+            ),
+            RowOneDailyLocalSynthesisBriefCard(
+                title=LocalizedText(en="Margaux demand", zh="Margaux 需求"),
+                source_name="WWD",
+                href=second_href,
+                read=LocalizedText(
+                    en="The Margaux local article adds product evidence.",
+                    zh="Margaux 本地文章补充单品证据。",
+                ),
+                adds=LocalizedText(
+                    en="It adds saved text around product pull.",
+                    zh="它补充了围绕单品拉力的保存正文。",
+                ),
+                route_label=LocalizedText(en="Read the saved article", zh="阅读保存文章"),
+            ),
+        ),
+        basis_note=LocalizedText(
+            en=(
+                "Built from current-edition ROW ONE stories and saved local article synthesis "
+                "already generated for article pages."
+            ),
+            zh="基于当前版本 ROW ONE 故事与文章页已生成的本地文章综合简报整理。",
+        ),
+    )
+
+
 def _require_daily_local_saved_article_organizer_models() -> None:
     if RowOneDailyLocalSavedArticleOrganizer is None:
         pytest.skip("Stage 371 builder module has not landed yet.")
@@ -16044,6 +16125,193 @@ def test_render_row_one_site_writes_daily_local_article_intelligence_brief_homep
         "daily_local_article_intelligence_brief",
         "local_article_intelligence_brief",
         "article_intelligence_brief",
+    ):
+        for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
+            assert not (directory / f"{stem}.json").exists()
+            assert not (directory / f"{stem}.html").exists()
+
+
+def test_render_index_html_daily_local_synthesis_brief_between_intelligence_and_organizer() -> None:
+    html = render_index_html(
+        _edition(),
+        daily_local_article_intelligence_brief=_daily_local_article_intelligence_brief_fixture(),
+        daily_local_synthesis_brief=_daily_local_synthesis_brief_fixture(),
+        daily_local_saved_article_organizer=_daily_local_saved_article_organizer_fixture(),
+    )
+    section_html = _daily_local_synthesis_brief_section_html(html)
+
+    assert (
+        '<section class="daily-local-synthesis-brief" '
+        'aria-labelledby="daily-local-synthesis-brief-title"'
+    ) in section_html
+    assert 'id="daily-local-synthesis-brief-title"' in section_html
+    assert "Daily Local Synthesis Brief" in section_html
+    assert "每日本地综合简报" in section_html
+    assert "A cross-article read assembled from today&#x27;s saved local text." in section_html
+    assert "Today&#x27;s local read connects The Row with Margaux." in section_html
+    assert "2 local articles" in section_html
+    assert "2 sources" in section_html
+    assert "2 cards" in section_html
+    assert 'href="articles/the-row-signal-1234567890.html"' in section_html
+    assert 'href="articles/margaux-signal-1234567890.html"' in section_html
+    assert html.index('class="daily-local-article-intelligence-brief"') < html.index(
+        'class="daily-local-synthesis-brief"'
+    )
+    assert html.index('class="daily-local-synthesis-brief"') < html.index(
+        'class="daily-local-saved-article-organizer"'
+    )
+
+
+def test_render_daily_local_synthesis_brief_escapes_and_filters_hrefs() -> None:
+    story_id = "the-row-signal-1234567890"
+    unsafe_hrefs = (
+        f"articles/{story_id}.html",
+        f"{story_id}.html?x=1",
+        f"{story_id}.html#local-article-paragraph-1",
+        f" {story_id}.html",
+        f"{story_id}.html ",
+        f"../articles/{story_id}.html",
+        "/articles/the-row-signal-1234567890.html",
+        "//example.com/articles/the-row-signal-1234567890.html",
+        "https://example.com/the-row-signal-1234567890.html",
+        "articles/index.html",
+        "index.html",
+        "bad story.html",
+    )
+    safe_card = RowOneDailyLocalSynthesisBriefCard(
+        title=LocalizedText(en="<script>Safe title</script>", zh="<script>安全标题</script>"),
+        source_name="Vogue <Business>",
+        href=f"{story_id}.html",
+        read=LocalizedText(en="Local <read> survives.", zh="本地 <阅读> 保留。"),
+        adds=LocalizedText(en="Adds <evidence> safely.", zh="安全补充 <证据>。"),
+        route_label=LocalizedText(en="Read <saved> article", zh="阅读 <保存> 文章"),
+    )
+    unsafe_cards = tuple(
+        RowOneDailyLocalSynthesisBriefCard(
+            title=LocalizedText(en=f"Unsafe {index}", zh=f"不安全 {index}"),
+            source_name="Bad Source",
+            href=href,
+            read=LocalizedText(en="Should not render.", zh="不应渲染。"),
+            adds=LocalizedText(en="Unsafe adds.", zh="不安全补充。"),
+            route_label=LocalizedText(en="Bad route", zh="坏路线"),
+        )
+        for index, href in enumerate(unsafe_hrefs, start=1)
+    )
+    brief = replace(
+        _daily_local_synthesis_brief_fixture(),
+        title=LocalizedText(
+            en="<script>Daily Local Synthesis Brief</script>",
+            zh="<script>简报</script>",
+        ),
+        dek=LocalizedText(en="Dek with <script> text.", zh="说明含 <script>。"),
+        opening_read=LocalizedText(en="Opening <read> text.", zh="开场 <阅读> 文本。"),
+        thesis=LocalizedText(en="Thesis <signal> text.", zh="判断 <信号> 文本。"),
+        cards=(safe_card, *unsafe_cards),
+    )
+
+    html = render_index_html(_edition(), daily_local_synthesis_brief=brief)
+    section_html = _daily_local_synthesis_brief_section_html(html)
+
+    assert "<script>" not in section_html
+    assert "&lt;script&gt;Daily Local Synthesis Brief&lt;/script&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "Local &lt;read&gt; survives." in section_html
+    assert "Adds &lt;evidence&gt; safely." in section_html
+    assert "Read &lt;saved&gt; article" in section_html
+    assert 'href="articles/the-row-signal-1234567890.html"' in section_html
+    assert "Should not render" not in section_html
+    assert "Bad Source" not in section_html
+    assert "https://example.com" not in section_html
+    assert "../" not in section_html
+    assert "articles/index.html" not in section_html
+    assert "?x=1" not in section_html
+    assert "#local-article-paragraph-1" not in section_html
+
+
+def test_render_row_one_site_writes_daily_local_synthesis_brief_homepage_only(tmp_path) -> None:
+    first_story = _edition().stories[0]
+    second_story = first_story.model_copy(
+        deep=True,
+        update={
+            "id": "margaux-signal-1234567890",
+            "headline": "Margaux bag demand",
+            "source_name": "WWD",
+            "detail_path": "details/margaux-signal-1234567890.html",
+            "editorial_takeaway": LocalizedText(
+                en="Margaux gives the daily read a second local signal.",
+                zh="Margaux 给今日阅读第二条本地信号。",
+            ),
+            "signal_context": LocalizedText(
+                en="Margaux signal context stays article-backed.",
+                zh="Margaux 信号背景保持文章证据。",
+            ),
+        },
+    )
+    edition = _edition_with_stories(first_story, second_story)
+    local_articles = {
+        first_story.id: _signal_briefing_local_article(),
+        second_story.id: _signal_briefing_local_article().model_copy(
+            deep=True,
+            update={
+                "story_id": second_story.id,
+                "title": "Margaux saved source",
+                "source_name": "WWD",
+                "paragraphs": [
+                    "Margaux saved paragraph one keeps synthesis grounded.",
+                    "Margaux saved paragraph two adds product pull.",
+                ],
+                "paragraphs_zh": [
+                    "Margaux 保存段落一保持综合有据。",
+                    "Margaux 保存段落二补充单品拉力。",
+                ],
+            },
+        ),
+    }
+
+    render_row_one_site(edition, tmp_path, local_articles_by_story_id=local_articles)
+
+    homepage_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    library_html = (tmp_path / "articles" / "index.html").read_text(encoding="utf-8")
+    first_article_html = (tmp_path / "articles" / f"{first_story.id}.html").read_text(
+        encoding="utf-8"
+    )
+    second_article_html = (tmp_path / "articles" / f"{second_story.id}.html").read_text(
+        encoding="utf-8"
+    )
+    first_detail_html = (tmp_path / "details" / f"{first_story.id}.html").read_text(
+        encoding="utf-8"
+    )
+    second_detail_html = (tmp_path / "details" / f"{second_story.id}.html").read_text(
+        encoding="utf-8"
+    )
+    generated_contract_payload = "\n".join(
+        [
+            (tmp_path / "data" / "edition.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8"),
+            (tmp_path / "data" / "runtime.json").read_text(encoding="utf-8"),
+        ]
+    )
+    section_html = _daily_local_synthesis_brief_section_html(homepage_html)
+
+    assert "Daily Local Synthesis Brief" in section_html
+    assert "每日本地综合简报" in section_html
+    assert 'href="articles/the-row-signal-1234567890.html"' in section_html
+    assert 'href="articles/margaux-signal-1234567890.html"' in section_html
+    assert 'class="daily-local-synthesis-brief"' not in library_html
+    assert 'class="daily-local-synthesis-brief"' not in first_article_html
+    assert 'class="daily-local-synthesis-brief"' not in second_article_html
+    assert 'class="daily-local-synthesis-brief"' not in first_detail_html
+    assert 'class="daily-local-synthesis-brief"' not in second_detail_html
+    assert "daily_local_synthesis_brief" not in generated_contract_payload
+    assert "daily-local-synthesis-brief" not in generated_contract_payload
+    assert "Daily Local Synthesis Brief" not in generated_contract_payload
+    for stem in (
+        "daily-local-synthesis-brief",
+        "local-synthesis-brief",
+        "synthesis-brief",
+        "daily_local_synthesis_brief",
+        "local_synthesis_brief",
+        "synthesis_brief",
     ):
         for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
             assert not (directory / f"{stem}.json").exists()
@@ -18555,6 +18823,27 @@ def test_row_one_css_includes_daily_local_article_intelligence_brief_styles() ->
     assert "@media (max-width: 760px)" in css
     assert re.search(
         r"\.daily-local-article-intelligence-brief-grid\s*\{[^}]*grid-template-columns:\s*1fr",
+        css,
+    )
+
+
+def test_row_one_css_includes_daily_local_synthesis_brief_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-synthesis-brief",
+        ".daily-local-synthesis-brief-header",
+        ".daily-local-synthesis-brief-metrics",
+        ".daily-local-synthesis-brief-opening",
+        ".daily-local-synthesis-brief-thesis",
+        ".daily-local-synthesis-brief-grid",
+        ".daily-local-synthesis-brief-card",
+        ".daily-local-synthesis-brief-basis",
+    ):
+        assert selector in css
+    assert "@media (max-width: 760px)" in css
+    assert re.search(
+        r"\.daily-local-synthesis-brief-grid\s*\{[^}]*grid-template-columns:\s*1fr",
         css,
     )
 

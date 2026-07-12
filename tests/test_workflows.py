@@ -695,6 +695,23 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "local-article-synthesis-brief" not in generated_contract_payload
     assert "article-synthesis-brief" not in generated_contract_payload
     assert "synthesis-brief" not in generated_contract_payload
+    assert "daily_local_synthesis_brief" not in generated_contract_payload
+    assert "daily_local_article_synthesis_brief" not in generated_contract_payload
+    assert "local_synthesis_brief" not in generated_contract_payload
+    assert "daily_synthesis_brief" not in generated_contract_payload
+    assert "homepage_synthesis_brief" not in generated_contract_payload
+    assert "RowOneDailyLocalSynthesisBrief" not in generated_contract_payload
+    assert "RowOneDailyLocalSynthesisBriefCard" not in generated_contract_payload
+    assert "Daily Local Synthesis Brief" not in generated_contract_payload
+    assert "Local Synthesis Brief" not in generated_contract_payload
+    assert "Daily Synthesis Brief" not in generated_contract_payload
+    assert "Homepage Synthesis Brief" not in generated_contract_payload
+    assert "每日本地综合简报" not in generated_contract_payload
+    assert "daily-local-synthesis-brief" not in generated_contract_payload
+    assert "daily-local-article-synthesis-brief" not in generated_contract_payload
+    assert "local-synthesis-brief" not in generated_contract_payload
+    assert "daily-synthesis-brief" not in generated_contract_payload
+    assert "homepage-synthesis-brief" not in generated_contract_payload
     assert "daily_local_news_timeline" not in generated_contract_payload
     assert "local_news_timeline" not in generated_contract_payload
     assert "news_timeline" not in generated_contract_payload
@@ -1369,11 +1386,23 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "article_intelligence_brief",
         "intelligence_brief",
         "local-article-synthesis-brief",
+        "saved-local-article-synthesis-brief",
         "article-synthesis-brief",
         "synthesis-brief",
         "local_article_synthesis_brief",
+        "saved_local_article_synthesis_brief",
         "article_synthesis_brief",
         "synthesis_brief",
+        "daily-local-synthesis-brief",
+        "daily-local-article-synthesis-brief",
+        "local-synthesis-brief",
+        "daily-synthesis-brief",
+        "homepage-synthesis-brief",
+        "daily_local_synthesis_brief",
+        "daily_local_article_synthesis_brief",
+        "local_synthesis_brief",
+        "daily_synthesis_brief",
+        "homepage_synthesis_brief",
         "daily-local-news-timeline",
         "local-news-timeline",
         "news-timeline",
@@ -1649,6 +1678,58 @@ def test_stage_371_daily_local_saved_article_organizer_stays_generated_site_only
         raising=False,
     )
     test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+
+def test_stage_383_daily_local_synthesis_brief_stays_homepage_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    sentinel = "STAGE_383_DAILY_LOCAL_SYNTHESIS_BRIEF_SENTINEL"
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_daily_local_synthesis_brief",
+        lambda _brief: sentinel,
+        raising=False,
+    )
+
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+    output_dir = tmp_path / "row-one"
+    generated_payloads = {
+        path.relative_to(output_dir).as_posix(): path.read_text(encoding="utf-8")
+        for path in sorted(output_dir.rglob("*"))
+        if path.suffix in {".html", ".json"}
+    }
+    sentinel_paths = [
+        relative_path
+        for relative_path, payload in generated_payloads.items()
+        if sentinel in payload
+    ]
+
+    assert sentinel_paths == ["index.html"]
+    assert sentinel not in generated_payloads.get("articles/index.html", "")
+    assert all(
+        sentinel not in payload
+        for relative_path, payload in generated_payloads.items()
+        if relative_path.startswith("articles/")
+        and relative_path.endswith(".html")
+        and relative_path != "articles/index.html"
+    )
+    assert all(
+        sentinel not in payload
+        for relative_path, payload in generated_payloads.items()
+        if relative_path.startswith("details/") and relative_path.endswith(".html")
+    )
+    assert sentinel not in generated_payloads["data/edition.json"]
+    assert sentinel not in generated_payloads["data/manifest.json"]
+    assert sentinel not in generated_payloads["data/runtime.json"]
+    assert all(
+        sentinel not in payload
+        for relative_path, payload in generated_payloads.items()
+        if relative_path.startswith("data/articles/") and relative_path.endswith(".json")
+    )
 
 
 def test_stage_372_daily_local_reading_itinerary_stays_generated_site_only(

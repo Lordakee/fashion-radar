@@ -36,6 +36,10 @@ from fashion_radar.row_one.daily_local_saved_article_organizer import (
     RowOneDailyLocalSavedArticleOrganizerLane,
     RowOneDailyLocalSavedArticleOrganizerReference,
 )
+from fashion_radar.row_one.daily_local_synthesis_brief import (
+    RowOneDailyLocalSynthesisBrief,
+    RowOneDailyLocalSynthesisBriefCard,
+)
 from fashion_radar.row_one.detail_routes import (
     safe_row_one_detail_fragment_href,
     validated_row_one_detail_relative_path,
@@ -477,6 +481,7 @@ def render_index_html(
     daily_local_theme_summary_strip_hrefs_by_detail_path: Mapping[str, str] | None = None,
     daily_local_news_timeline: RowOneDailyLocalNewsTimeline | None = None,
     daily_local_article_intelligence_brief: RowOneDailyLocalArticleIntelligenceBrief | None = None,
+    daily_local_synthesis_brief: RowOneDailyLocalSynthesisBrief | None = None,
     daily_local_saved_article_organizer: RowOneDailyLocalSavedArticleOrganizer | None = None,
     daily_local_reading_itinerary: RowOneDailyLocalReadingItinerary | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
@@ -541,6 +546,9 @@ def render_index_html(
     daily_local_news_timeline_section = _render_daily_local_news_timeline(daily_local_news_timeline)
     daily_local_article_intelligence_brief_section = _render_daily_local_article_intelligence_brief(
         daily_local_article_intelligence_brief
+    )
+    daily_local_synthesis_brief_section = _render_daily_local_synthesis_brief(
+        daily_local_synthesis_brief
     )
     daily_local_saved_article_organizer_section = _render_daily_local_saved_article_organizer(
         daily_local_saved_article_organizer
@@ -649,6 +657,7 @@ def render_index_html(
 {daily_local_theme_summary_strip_section}
 {daily_local_news_timeline_section}
 {daily_local_article_intelligence_brief_section}
+{daily_local_synthesis_brief_section}
 {daily_local_saved_article_organizer_section}
 {daily_local_reading_itinerary_section}
 {saved_article_content_organization_section}
@@ -5449,6 +5458,121 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .daily-local-article-intelligence-brief-route:focus-visible {
   opacity: 0.75;
 }
+.daily-local-synthesis-brief {
+  background: var(--ink);
+  color: var(--panel);
+  margin: 28px 0;
+  padding: 22px;
+}
+.daily-local-synthesis-brief-header {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr);
+  margin-bottom: 18px;
+}
+.daily-local-synthesis-brief-header h2,
+.daily-local-synthesis-brief-header p {
+  margin: 0;
+}
+.daily-local-synthesis-brief-header h2 {
+  color: var(--panel);
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 4vw, 4.6rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.96;
+  text-transform: none;
+}
+.daily-local-synthesis-brief-header p {
+  color: var(--steel);
+  line-height: 1.55;
+}
+.daily-local-synthesis-brief-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.daily-local-synthesis-brief-metrics span,
+.daily-local-synthesis-brief-card-meta span,
+.daily-local-synthesis-brief-route {
+  border: 1px solid rgba(244, 246, 248, 0.24);
+  color: var(--chrome);
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 6px 8px;
+  text-transform: uppercase;
+}
+.daily-local-synthesis-brief-opening,
+.daily-local-synthesis-brief-thesis {
+  margin: 0 0 14px;
+}
+.daily-local-synthesis-brief-opening {
+  color: var(--panel);
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.45rem, 2.5vw, 2.55rem);
+  line-height: 1.05;
+}
+.daily-local-synthesis-brief-thesis {
+  color: var(--steel);
+  line-height: 1.55;
+}
+.daily-local-synthesis-brief-grid {
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 18px;
+}
+.daily-local-synthesis-brief-card {
+  background: #15181d;
+  border: 1px solid rgba(244, 246, 248, 0.16);
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+}
+.daily-local-synthesis-brief-card h3,
+.daily-local-synthesis-brief-card p {
+  margin: 0;
+}
+.daily-local-synthesis-brief-card h3 {
+  color: var(--panel);
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.2rem, 1.8vw, 1.8rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.02;
+  text-transform: none;
+}
+.daily-local-synthesis-brief-card p {
+  color: var(--steel);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.daily-local-synthesis-brief-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.daily-local-synthesis-brief-route {
+  color: var(--panel);
+  text-decoration: none;
+}
+.daily-local-synthesis-brief-route:hover,
+.daily-local-synthesis-brief-route:focus-visible {
+  background: var(--panel);
+  color: var(--ink);
+}
+.daily-local-synthesis-brief-basis {
+  border-top: 1px solid rgba(244, 246, 248, 0.22);
+  color: var(--chrome);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin: 18px 0 0;
+  padding-top: 14px;
+}
 .daily-local-saved-article-organizer {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -7385,6 +7509,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-article-intelligence-brief-header { grid-template-columns: 1fr; }
   .daily-local-article-intelligence-brief-lanes { grid-template-columns: 1fr; }
   .daily-local-article-intelligence-brief-grid { grid-template-columns: 1fr; }
+  .daily-local-synthesis-brief-header { grid-template-columns: 1fr; }
+  .daily-local-synthesis-brief-grid { grid-template-columns: 1fr; }
   .daily-local-saved-article-organizer-header { grid-template-columns: 1fr; }
   .daily-local-saved-article-organizer-lanes { grid-template-columns: 1fr; }
   .daily-local-reading-itinerary-header { grid-template-columns: 1fr; }
@@ -14141,6 +14267,144 @@ def _safe_daily_local_article_intelligence_href(href: object) -> str | None:
     ):
         return None
     return f"articles/{story_id}.html#{fragment}"
+
+
+def _render_daily_local_synthesis_brief(
+    brief: RowOneDailyLocalSynthesisBrief | None,
+) -> str:
+    if brief is None or not brief.cards:
+        return ""
+    rendered_cards = [
+        card_html
+        for card in brief.cards
+        if (card_html := _render_daily_local_synthesis_brief_card(card))
+    ]
+    if not rendered_cards:
+        return ""
+    source_count = brief.source_count
+    card_count = len(rendered_cards)
+    title_en = normalize_row_one_paragraph(brief.title.en) or "Daily Local Synthesis Brief"
+    title_zh = normalize_row_one_paragraph(brief.title.zh) or "每日本地综合简报"
+    dek_en = normalize_row_one_paragraph(brief.dek.en)
+    dek_zh = normalize_row_one_paragraph(brief.dek.zh)
+    opening_en = normalize_row_one_paragraph(brief.opening_read.en)
+    opening_zh = normalize_row_one_paragraph(brief.opening_read.zh)
+    thesis_en = normalize_row_one_paragraph(brief.thesis.en)
+    thesis_zh = normalize_row_one_paragraph(brief.thesis.zh)
+    basis_en = normalize_row_one_paragraph(brief.basis_note.en)
+    basis_zh = normalize_row_one_paragraph(brief.basis_note.zh)
+    return (
+        '<section class="daily-local-synthesis-brief" '
+        'aria-labelledby="daily-local-synthesis-brief-title">'
+        f"""
+  <div class="daily-local-synthesis-brief-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">{_esc(title_en)}</span>
+        <span data-lang="zh">{_esc(title_zh)}</span>
+      </p>
+      <h2 id="daily-local-synthesis-brief-title">
+        <span data-lang="en">What today's saved articles add up to</span>
+        <span data-lang="zh">今日保存文章共同指向什么</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">{_esc(dek_en or dek_zh)}</span>
+      <span data-lang="zh">{_esc(dek_zh or dek_en)}</span>
+    </p>
+  </div>
+  <div class="daily-local-synthesis-brief-metrics">
+    <span>{_esc(_count_label(brief.article_count, "local article", "local articles"))}</span>
+    <span>{_esc(_count_label(source_count, "source", "sources"))}</span>
+    <span>{_esc(_count_label(card_count, "card", "cards"))}</span>
+    <span data-lang="en">Homepage only</span>
+    <span data-lang="zh">仅首页展示</span>
+  </div>
+  <p class="daily-local-synthesis-brief-opening">
+    <span data-lang="en">{_esc(opening_en or opening_zh)}</span>
+    <span data-lang="zh">{_esc(opening_zh or opening_en)}</span>
+  </p>
+  <p class="daily-local-synthesis-brief-thesis">
+    <span data-lang="en">{_esc(thesis_en or thesis_zh)}</span>
+    <span data-lang="zh">{_esc(thesis_zh or thesis_en)}</span>
+  </p>
+  <div class="daily-local-synthesis-brief-grid">
+{"".join(rendered_cards)}
+  </div>
+  <p class="daily-local-synthesis-brief-basis">
+    <span data-lang="en">{_esc(basis_en or basis_zh)}</span>
+    <span data-lang="zh">{_esc(basis_zh or basis_en)}</span>
+  </p>
+</section>"""
+    )
+
+
+def _render_daily_local_synthesis_brief_card(
+    card: RowOneDailyLocalSynthesisBriefCard,
+) -> str:
+    href = _safe_daily_local_synthesis_brief_href(card.href)
+    if href is None:
+        return ""
+    title_en = normalize_row_one_paragraph(card.title.en)
+    title_zh = normalize_row_one_paragraph(card.title.zh)
+    source_name = normalize_row_one_paragraph(card.source_name)
+    read_en = normalize_row_one_paragraph(card.read.en)
+    read_zh = normalize_row_one_paragraph(card.read.zh)
+    adds_en = normalize_row_one_paragraph(card.adds.en)
+    adds_zh = normalize_row_one_paragraph(card.adds.zh)
+    route_label_en = normalize_row_one_paragraph(card.route_label.en) or "Read the saved article"
+    route_label_zh = normalize_row_one_paragraph(card.route_label.zh) or "阅读保存文章"
+    return f"""    <article class="daily-local-synthesis-brief-card">
+      <div class="daily-local-synthesis-brief-card-meta">
+        <span>{_esc(source_name)}</span>
+        <span data-lang="en">Article-backed</span>
+        <span data-lang="zh">文章支持</span>
+      </div>
+      <h3>
+        <span data-lang="en">{_esc(title_en or title_zh)}</span>
+        <span data-lang="zh">{_esc(title_zh or title_en)}</span>
+      </h3>
+      <p>
+        <span data-lang="en">{_esc(read_en or read_zh)}</span>
+        <span data-lang="zh">{_esc(read_zh or read_en)}</span>
+      </p>
+      <p>
+        <span data-lang="en">{_esc(adds_en or adds_zh)}</span>
+        <span data-lang="zh">{_esc(adds_zh or adds_en)}</span>
+      </p>
+      <a class="daily-local-synthesis-brief-route" href="{_esc(href)}">
+        <span data-lang="en">{_esc(route_label_en)}</span>
+        <span data-lang="zh">{_esc(route_label_zh)}</span>
+      </a>
+    </article>"""
+
+
+def _safe_daily_local_synthesis_brief_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if (
+        "://" in href
+        or "//" in href
+        or "?" in href
+        or "#" in href
+        or href.startswith((".", "/", "//"))
+    ):
+        return None
+    path = PurePosixPath(href)
+    if (
+        path.is_absolute()
+        or len(path.parts) != 1
+        or path.name in ("", ".", "..", "index.html")
+        or ".." in path.parts
+        or not path.name.endswith(".html")
+    ):
+        return None
+    story_id = path.name.removesuffix(".html")
+    if not safe_local_article_story_id(story_id):
+        return None
+    return f"articles/{story_id}.html"
 
 
 def _render_daily_local_saved_article_organizer(
