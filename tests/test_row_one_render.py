@@ -11,6 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 import fashion_radar.row_one.render as row_one_render
+import fashion_radar.row_one.templates as row_one_templates
 from fashion_radar.row_one.daily_local_article_intelligence_brief import (
     RowOneDailyLocalArticleIntelligenceBrief,
     RowOneDailyLocalArticleIntelligenceBriefArticle,
@@ -111,6 +112,10 @@ except ModuleNotFoundError:  # pragma: no cover - Stage 373 renderer TDD red
         references: tuple[RowOneReference, ...]
 
 
+from fashion_radar.row_one.local_article_synthesis_brief import (
+    RowOneLocalArticleSynthesisAnchor,
+    RowOneLocalArticleSynthesisBrief,
+)
 from fashion_radar.row_one.render import (
     _companion_related_story_ids,
     _editorial_brief_payload,
@@ -3221,9 +3226,18 @@ def _local_article_body_organizer_html(html: str) -> str:
 
 
 def _local_article_intelligence_brief_html(html: str) -> str:
+    synthesis_marker = '<section class="local-article-synthesis-brief"'
     return _html_between(
         html,
         '<section class="local-article-intelligence-brief"',
+        synthesis_marker if synthesis_marker in html else 'id="local-article"',
+    )
+
+
+def _local_article_synthesis_brief_html(html: str) -> str:
+    return _html_between(
+        html,
+        '<section class="local-article-synthesis-brief"',
         'id="local-article"',
     )
 
@@ -5050,6 +5064,120 @@ def test_render_local_article_intelligence_brief_escapes_and_filters_links() -> 
     assert "../" not in section_html
 
 
+def test_render_local_article_synthesis_brief_is_included_between_intelligence_and_body() -> None:
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+    )
+    section_html = _local_article_synthesis_brief_html(html)
+
+    assert "Local Article Synthesis Brief" in section_html
+    assert "本地文章综合简报" in section_html
+    assert "The read" in section_html
+    assert "阅读判断" in section_html
+    assert "What it sharpens" in section_html
+    assert "它强化了什么" in section_html
+    assert "What the article adds" in section_html
+    assert "文章补充了什么" in section_html
+    assert "The Row is today&#x27;s priority signal." in section_html
+    assert "The signal context would normally occupy a third brief slot." in section_html
+    assert "Brand context from saved text." in section_html
+    assert "Read next through the saved body anchors" in section_html
+    assert "Built from saved ROW ONE story fields" in section_html
+    assert 'href="#local-article-content-section-1"' in section_html
+    assert 'href="#local-article-content-section-2"' in section_html
+    assert 'href="#local-article-paragraph-1"' in section_html
+    assert section_html.count('class="local-article-synthesis-brief-card"') == 3
+    assert html.index('class="local-article-intelligence-brief"') < html.index(
+        'class="local-article-synthesis-brief"'
+    )
+    assert html.index('class="local-article-synthesis-brief"') < html.index('id="local-article"')
+
+
+def test_render_local_article_synthesis_brief_escapes_and_filters_links(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    brief = RowOneLocalArticleSynthesisBrief(
+        title=LocalizedText(en="Local <Synthesis>", zh="本地 <综合>"),
+        source_name="Source <script>",
+        lead=LocalizedText(en="Lead <script> marker.", zh="导语 <script> 标记。"),
+        thesis=LocalizedText(en="Thesis <angle> copy.", zh="论点 <angle> 文案。"),
+        article_adds=LocalizedText(en="Adds <body> copy.", zh="补充 <body> 文案。"),
+        reader_move=LocalizedText(en="Follow <route> next.", zh="继续 <route> 阅读。"),
+        basis_note=LocalizedText(en="Basis <note>.", zh="依据 <note>。"),
+        anchors=(
+            RowOneLocalArticleSynthesisAnchor(
+                label=LocalizedText(en="Safe <Section>", zh="安全 <章节>"),
+                href="#local-article-content-section-1",
+                support=LocalizedText(en="Support <copy>.", zh="支持 <copy>。"),
+            ),
+            RowOneLocalArticleSynthesisAnchor(
+                label=LocalizedText(en="Script route", zh="脚本路径"),
+                href="javascript:alert(1)",
+                support=LocalizedText(en="Unsafe support.", zh="不安全支持。"),
+            ),
+            RowOneLocalArticleSynthesisAnchor(
+                label=LocalizedText(en="Traversal route", zh="穿越路径"),
+                href="../private.html",
+                support=LocalizedText(en="Traversal support.", zh="穿越支持。"),
+            ),
+            RowOneLocalArticleSynthesisAnchor(
+                label=LocalizedText(en="Bad fragment", zh="错误片段"),
+                href="#local-article-paragraph-0",
+                support=LocalizedText(en="Bad support.", zh="错误支持。"),
+            ),
+            RowOneLocalArticleSynthesisAnchor(
+                label=LocalizedText(en="Missing paragraph", zh="缺失段落"),
+                href="#local-article-paragraph-999",
+                support=LocalizedText(en="Missing paragraph support.", zh="缺失段落支持。"),
+            ),
+            RowOneLocalArticleSynthesisAnchor(
+                label=LocalizedText(en="Missing section", zh="缺失章节"),
+                href="#local-article-content-section-999",
+                support=LocalizedText(en="Missing section support.", zh="缺失章节支持。"),
+            ),
+            RowOneLocalArticleSynthesisAnchor(
+                label=LocalizedText(en="Whitespace fragment", zh="空格片段"),
+                href="#local-article-paragraph-1 ",
+                support=LocalizedText(en="Whitespace support.", zh="空格支持。"),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        row_one_templates,
+        "build_row_one_local_article_synthesis_brief",
+        lambda **_: brief,
+    )
+
+    html = render_local_article_page_html(
+        _edition(),
+        _edition().stories[0],
+        local_article=_signal_briefing_local_article(),
+    )
+    section_html = _local_article_synthesis_brief_html(html)
+
+    assert "<script>" not in section_html
+    assert "&lt;script&gt;" in section_html
+    assert "Local &lt;Synthesis&gt;" in section_html
+    assert "Source &lt;script&gt;" in section_html
+    assert "Safe &lt;Section&gt;" in section_html
+    assert "Support &lt;copy&gt;." in section_html
+    assert 'href="#local-article-content-section-1"' in section_html
+    assert "javascript:" not in section_html
+    assert "../private.html" not in section_html
+    assert "#local-article-paragraph-0" not in section_html
+    assert "#local-article-paragraph-999" not in section_html
+    assert "#local-article-content-section-999" not in section_html
+    assert "#local-article-paragraph-1 " not in section_html
+    assert "Script route" not in section_html
+    assert "Traversal route" not in section_html
+    assert "Bad fragment" not in section_html
+    assert "Missing paragraph" not in section_html
+    assert "Missing section" not in section_html
+    assert "Whitespace fragment" not in section_html
+
+
 def test_render_row_one_site_writes_local_article_intelligence_brief_only_on_local_article_page(
     tmp_path,
 ) -> None:
@@ -5134,6 +5262,67 @@ def test_render_row_one_site_intelligence_brief_does_not_leak_contracts_or_artif
         ):
             for suffix in (".json", ".html"):
                 assert not (artifact_dir / f"{artifact_stem}{suffix}").exists()
+
+
+def test_render_row_one_site_writes_local_article_synthesis_brief_only_on_article_pages(
+    tmp_path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+
+    render_row_one_site(
+        edition,
+        tmp_path,
+        local_articles_by_story_id={story.id: _signal_briefing_local_article()},
+    )
+
+    local_article_html = (tmp_path / "articles" / f"{story.id}.html").read_text(encoding="utf-8")
+    section_html = _local_article_synthesis_brief_html(local_article_html)
+
+    assert 'class="local-article-synthesis-brief"' in section_html
+    assert "Local Article Synthesis Brief" in section_html
+    assert local_article_html.index('class="local-article-intelligence-brief"') < (
+        local_article_html.index('class="local-article-synthesis-brief"')
+    )
+    assert local_article_html.index('class="local-article-synthesis-brief"') < (
+        local_article_html.index('id="local-article"')
+    )
+    for outside_path in (
+        tmp_path / "index.html",
+        tmp_path / "details" / f"{story.id}.html",
+        tmp_path / "articles" / "index.html",
+    ):
+        outside_html = outside_path.read_text(encoding="utf-8")
+        assert 'class="local-article-synthesis-brief"' not in outside_html
+        assert "local_article_synthesis_brief" not in outside_html
+
+    generated_contract_payload = json.dumps(
+        {
+            "edition": json.loads((tmp_path / "data" / "edition.json").read_text(encoding="utf-8")),
+            "manifest": json.loads(
+                (tmp_path / "data" / "manifest.json").read_text(encoding="utf-8")
+            ),
+            "runtime": json.loads((tmp_path / "data" / "runtime.json").read_text(encoding="utf-8")),
+            "article": json.loads(
+                (tmp_path / "data" / "articles" / f"{story.id}.json").read_text(encoding="utf-8")
+            ),
+        },
+        sort_keys=True,
+    )
+    for forbidden in (
+        "local_article_synthesis_brief",
+        "article_synthesis_brief",
+        "synthesis_brief",
+        "RowOneLocalArticleSynthesisBrief",
+        "Local Article Synthesis Brief",
+        "Article Synthesis Brief",
+        "本地文章综合简报",
+        "local-article-synthesis-brief",
+        "article-synthesis-brief",
+        "synthesis-brief",
+        "Built from saved ROW ONE story fields",
+    ):
+        assert forbidden not in generated_contract_payload
 
 
 def test_render_local_article_page_includes_body_section_markers_inside_body() -> None:
@@ -18145,6 +18334,31 @@ def test_row_one_css_includes_local_article_intelligence_brief_styles() -> None:
         assert selector in css
     assert re.search(
         r"\.local-article-intelligence-brief-lanes\s*\{[^}]*grid-template-columns:\s*1fr",
+        css,
+    )
+
+
+def test_row_one_css_includes_local_article_synthesis_brief_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".local-article-synthesis-brief",
+        ".local-article-synthesis-brief-header",
+        ".local-article-synthesis-brief-grid",
+        ".local-article-synthesis-brief-card",
+        ".local-article-synthesis-brief-route",
+        ".local-article-synthesis-brief-anchors",
+        ".local-article-synthesis-brief-anchor",
+        ".local-article-synthesis-brief-basis",
+    ):
+        assert selector in css
+    assert re.search(
+        r"\.local-article-synthesis-brief-grid\s*\{[^}]*grid-template-columns:\s*repeat",
+        css,
+    )
+    assert re.search(
+        r"@media \(max-width: 760px\)\s*\{[\s\S]*"
+        r"\.local-article-synthesis-brief-grid\s*\{[^}]*grid-template-columns:\s*1fr",
         css,
     )
 

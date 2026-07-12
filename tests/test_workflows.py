@@ -683,6 +683,18 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "local-article-intelligence-brief" not in generated_contract_payload
     assert "article-intelligence-brief" not in generated_contract_payload
     assert "intelligence-brief" not in generated_contract_payload
+    assert "local_article_synthesis_brief" not in generated_contract_payload
+    assert "article_synthesis_brief" not in generated_contract_payload
+    assert "synthesis_brief" not in generated_contract_payload
+    assert "RowOneLocalArticleSynthesisBrief" not in generated_contract_payload
+    assert "RowOneLocalArticleSynthesisAnchor" not in generated_contract_payload
+    assert "Local Article Synthesis Brief" not in generated_contract_payload
+    assert "Article Synthesis Brief" not in generated_contract_payload
+    assert "Synthesis Brief" not in generated_contract_payload
+    assert "本地文章综合简报" not in generated_contract_payload
+    assert "local-article-synthesis-brief" not in generated_contract_payload
+    assert "article-synthesis-brief" not in generated_contract_payload
+    assert "synthesis-brief" not in generated_contract_payload
     assert "daily_local_news_timeline" not in generated_contract_payload
     assert "local_news_timeline" not in generated_contract_payload
     assert "news_timeline" not in generated_contract_payload
@@ -1356,6 +1368,12 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "local_article_intelligence_brief",
         "article_intelligence_brief",
         "intelligence_brief",
+        "local-article-synthesis-brief",
+        "article-synthesis-brief",
+        "synthesis-brief",
+        "local_article_synthesis_brief",
+        "article_synthesis_brief",
+        "synthesis_brief",
         "daily-local-news-timeline",
         "local-news-timeline",
         "news-timeline",
@@ -1784,6 +1802,119 @@ def test_stage_381_saved_local_article_related_read_connection_brief_stays_gener
     assert connection_brief_selector not in index_html
     assert all(connection_brief_selector not in html for html in detail_htmls)
     assert all(connection_brief_selector not in payload for payload in cached_article_payloads)
+
+
+def test_stage_382_local_article_synthesis_brief_stays_generated_site_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    sentinel = "STAGE_382_LOCAL_ARTICLE_SYNTHESIS_BRIEF_SENTINEL"
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_local_article_synthesis_brief",
+        lambda *_args, **_kwargs: sentinel,
+        raising=True,
+    )
+
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one"
+    item_id = _store_item(data_dir)
+    engine = create_sqlite_engine(default_database_path(data_dir))
+    repository = ItemRepository(engine)
+    repository.replace_item_matches(
+        item_id,
+        [
+            {
+                "entity_name": "The Row",
+                "entity_type": "brand",
+                "alias": "The Row",
+                "confidence": 1.0,
+                "reason": "accepted",
+                "context_terms": [],
+            }
+        ],
+    )
+    source = SourceDefinition(
+        name="Vogue Business",
+        type=SourceType.RSS,
+        url="https://example.com/feed.xml",
+        article={"enabled": False},
+        row_one_article={"enabled": True, "max_chars": 200},
+    )
+
+    def extractor(url: str, *, source, html_fetcher, robots_checker):
+        return ArticleExtractionResult(
+            url=url,
+            title="The Row local source article",
+            text="Local article paragraph for the ROW ONE synthesis brief page.",
+            skipped=False,
+        )
+
+    write_row_one_site_files(
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        output_dir=output_dir,
+        scoring=ScoringSettings(),
+        as_of=datetime(2026, 6, 11, 12, 0, tzinfo=UTC),
+        sources=[source],
+        local_article_extractor=extractor,
+    )
+
+    generated_payloads = {
+        path.relative_to(output_dir).as_posix(): path.read_text(encoding="utf-8")
+        for path in sorted(output_dir.rglob("*"))
+        if path.suffix in {".html", ".json"}
+    }
+    sentinel_paths = [
+        relative_path
+        for relative_path, payload in generated_payloads.items()
+        if sentinel in payload
+    ]
+
+    assert sentinel_paths
+    assert all(
+        relative_path.startswith("articles/")
+        and relative_path.endswith(".html")
+        and relative_path != "articles/index.html"
+        for relative_path in sentinel_paths
+    )
+    assert sentinel not in generated_payloads["index.html"]
+    assert sentinel not in generated_payloads.get("articles/index.html", "")
+    assert all(
+        sentinel not in payload
+        for relative_path, payload in generated_payloads.items()
+        if relative_path.startswith("details/") and relative_path.endswith(".html")
+    )
+    assert sentinel not in generated_payloads["data/edition.json"]
+    assert sentinel not in generated_payloads["data/manifest.json"]
+    assert sentinel not in generated_payloads["data/runtime.json"]
+    assert all(
+        sentinel not in payload
+        for relative_path, payload in generated_payloads.items()
+        if relative_path.startswith("data/articles/") and relative_path.endswith(".json")
+    )
+
+    for artifact_stem in (
+        "local-article-synthesis-brief",
+        "saved-local-article-synthesis-brief",
+        "article-synthesis-brief",
+        "synthesis-brief",
+        "local_article_synthesis_brief",
+        "saved_local_article_synthesis_brief",
+        "article_synthesis_brief",
+        "synthesis_brief",
+    ):
+        for artifact_dir in (
+            output_dir,
+            output_dir / "articles",
+            output_dir / "data",
+            output_dir / "data" / "articles",
+        ):
+            for suffix in (".json", ".html"):
+                assert not (artifact_dir / f"{artifact_stem}{suffix}").exists()
 
 
 def test_stage_379_saved_local_article_cross_surface_organization_trail_stays_generated_site_only(

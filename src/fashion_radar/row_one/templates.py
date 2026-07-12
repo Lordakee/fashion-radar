@@ -53,6 +53,11 @@ from fashion_radar.row_one.local_article_intelligence_brief import (
     RowOneLocalArticleIntelligenceRoute,
     build_row_one_local_article_intelligence_brief,
 )
+from fashion_radar.row_one.local_article_synthesis_brief import (
+    RowOneLocalArticleSynthesisAnchor,
+    RowOneLocalArticleSynthesisBrief,
+    build_row_one_local_article_synthesis_brief,
+)
 from fashion_radar.row_one.models import (
     LocalizedText,
     RowOneDailyLocalIntelligenceItem,
@@ -892,6 +897,13 @@ def render_local_article_page_html(
             local_article=local_article,
         )
     )
+    local_article_synthesis_brief = _render_local_article_synthesis_brief(
+        build_row_one_local_article_synthesis_brief(
+            story=story,
+            local_article=local_article,
+        ),
+        local_article=local_article,
+    )
     local_related_reads = _render_saved_article_local_related_reads(
         saved_article_local_related_reads
     )
@@ -950,6 +962,7 @@ def render_local_article_page_html(
 {content_segment_deck}
 {local_article_body_organizer}
 {local_article_intelligence_brief}
+{local_article_synthesis_brief}
     {local_article_section}
 {local_related_reads}
     </div>
@@ -2512,6 +2525,85 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 }
 .local-article-intelligence-brief-evidence strong,
 .local-article-intelligence-brief-route strong {
+  color: var(--accent);
+}
+.local-article-synthesis-brief {
+  border: 1px solid var(--ink);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+.local-article-synthesis-brief-header {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr);
+}
+.local-article-synthesis-brief-header h2,
+.local-article-synthesis-brief-header p,
+.local-article-synthesis-brief-card h3,
+.local-article-synthesis-brief-card p,
+.local-article-synthesis-brief-route,
+.local-article-synthesis-brief-basis {
+  margin: 0;
+}
+.local-article-synthesis-brief-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.7rem, 4vw, 3.6rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.96;
+}
+.local-article-synthesis-brief-header p,
+.local-article-synthesis-brief-card p,
+.local-article-synthesis-brief-route,
+.local-article-synthesis-brief-anchor span,
+.local-article-synthesis-brief-basis {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.local-article-synthesis-brief-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.local-article-synthesis-brief-card {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+.local-article-synthesis-brief-card h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.25rem, 2.4vw, 2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+}
+.local-article-synthesis-brief-route,
+.local-article-synthesis-brief-basis {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.local-article-synthesis-brief-anchors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.local-article-synthesis-brief-anchor {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: grid;
+  font-size: 0.75rem;
+  gap: 5px;
+  max-width: 320px;
+  padding: 7px 9px;
+  text-decoration: none;
+}
+.local-article-synthesis-brief-anchor strong,
+.local-article-synthesis-brief-anchor span {
+  display: block;
+}
+.local-article-synthesis-brief-anchor strong {
   color: var(--accent);
 }
 .saved-article-local-reading-companion {
@@ -7303,6 +7395,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .local-article-body-organizer-sections { grid-template-columns: 1fr; }
   .local-article-intelligence-brief-header { grid-template-columns: 1fr; }
   .local-article-intelligence-brief-lanes { grid-template-columns: 1fr; }
+  .local-article-synthesis-brief-header { grid-template-columns: 1fr; }
+  .local-article-synthesis-brief-grid { grid-template-columns: 1fr; }
   .local-article-body-section-marker { margin: 18px 0 10px; }
   .local-article-body-section-marker-header { align-items: flex-start; flex-direction: column; }
   .saved-article-coverage-header { grid-template-columns: 1fr; }
@@ -17503,6 +17597,136 @@ def _safe_local_article_body_organizer_href(href: object) -> str | None:
         return href
     if _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is not None:
         return href
+    return None
+
+
+def _render_local_article_synthesis_brief(
+    brief: RowOneLocalArticleSynthesisBrief | None,
+    *,
+    local_article: RowOneLocalArticle,
+) -> str:
+    if brief is None:
+        return ""
+    cards = "\n".join(
+        (
+            _render_local_article_synthesis_card(
+                LocalizedText(en="The read", zh="阅读判断"),
+                brief.lead,
+            ),
+            _render_local_article_synthesis_card(
+                LocalizedText(en="What it sharpens", zh="它强化了什么"),
+                brief.thesis,
+            ),
+            _render_local_article_synthesis_card(
+                LocalizedText(en="What the article adds", zh="文章补充了什么"),
+                brief.article_adds,
+            ),
+        )
+    )
+    anchors = "\n".join(
+        rendered
+        for anchor in brief.anchors
+        if (
+            rendered := _render_local_article_synthesis_anchor(
+                anchor,
+                local_article=local_article,
+            )
+        )
+    )
+    anchors_block = (
+        f"""      <div class="local-article-synthesis-brief-anchors">
+{anchors}
+      </div>
+"""
+        if anchors
+        else ""
+    )
+    return f"""    <section class="local-article-synthesis-brief"
+      aria-labelledby="local-article-synthesis-brief-title">
+      <div class="local-article-synthesis-brief-header">
+        <h2 id="local-article-synthesis-brief-title">
+          <span data-lang="en">{_esc(brief.title.en)}</span>
+          <span data-lang="zh">{_esc(brief.title.zh)}</span>
+        </h2>
+        <p>
+          <span data-lang="en">A compact synthesis from {_esc(brief.source_name)}.</span>
+          <span data-lang="zh">来自 {_esc(brief.source_name)} 的综合判断。</span>
+        </p>
+      </div>
+      <div class="local-article-synthesis-brief-grid">
+{cards}
+      </div>
+      <p class="local-article-synthesis-brief-route">
+        <span data-lang="en">{_esc(brief.reader_move.en)}</span>
+        <span data-lang="zh">{_esc(brief.reader_move.zh)}</span>
+      </p>
+{anchors_block}      <p class="local-article-synthesis-brief-basis">
+        <span data-lang="en">{_esc(brief.basis_note.en)}</span>
+        <span data-lang="zh">{_esc(brief.basis_note.zh)}</span>
+      </p>
+    </section>"""
+
+
+def _render_local_article_synthesis_card(
+    title: LocalizedText,
+    body: LocalizedText,
+) -> str:
+    return f"""        <article class="local-article-synthesis-brief-card">
+          <h3>
+            <span data-lang="en">{_esc(title.en)}</span>
+            <span data-lang="zh">{_esc(title.zh)}</span>
+          </h3>
+          <p>
+            <span data-lang="en">{_esc(body.en)}</span>
+            <span data-lang="zh">{_esc(body.zh)}</span>
+          </p>
+        </article>"""
+
+
+def _render_local_article_synthesis_anchor(
+    anchor: RowOneLocalArticleSynthesisAnchor,
+    *,
+    local_article: RowOneLocalArticle,
+) -> str:
+    href = _safe_local_article_synthesis_href(anchor.href, local_article=local_article)
+    if href is None:
+        return ""
+    support = ""
+    if anchor.support is not None and (anchor.support.en or anchor.support.zh):
+        support = (
+            f'<span data-lang="en">{_esc(anchor.support.en)}</span>'
+            f'<span data-lang="zh">{_esc(anchor.support.zh)}</span>'
+        )
+    return f"""        <a class="local-article-synthesis-brief-anchor" href="{_esc(href)}">
+          <strong>
+            <span data-lang="en">{_esc(anchor.label.en)}</span>
+            <span data-lang="zh">{_esc(anchor.label.zh)}</span>
+          </strong>
+          {support}
+        </a>"""
+
+
+def _safe_local_article_synthesis_href(
+    href: object,
+    *,
+    local_article: RowOneLocalArticle,
+) -> str | None:
+    href = _safe_local_article_intelligence_href(href)
+    if href is None:
+        return None
+    fragment = href[1:]
+    paragraph_match = _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment)
+    if paragraph_match is not None:
+        paragraph_number = int(fragment.rsplit("-", 1)[1])
+        return (
+            href
+            if paragraph_number - 1 in _local_article_rendered_paragraph_indices(local_article)
+            else None
+        )
+    section_match = _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment)
+    if section_match is not None:
+        section_number = int(fragment.rsplit("-", 1)[1])
+        return href if 1 <= section_number <= len(local_article.content_sections) else None
     return None
 
 
