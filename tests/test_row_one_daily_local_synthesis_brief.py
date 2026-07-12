@@ -107,6 +107,9 @@ def _article(
     thesis_zh: str | None = None,
     adds: str | None = None,
     adds_zh: str | None = None,
+    paragraphs: list[str] | None = None,
+    paragraphs_zh: list[str] | None = None,
+    content_sections: list[RowOneLocalArticleContentSection] | None = None,
 ) -> RowOneLocalArticle:
     article_title = title if title is not None else story_id.replace("-", " ").title()
     return RowOneLocalArticle(
@@ -116,11 +119,15 @@ def _article(
         source_name=source_name,
         extracted_at=AS_OF,
         published_at=AS_OF,
-        paragraphs=[
+        paragraphs=paragraphs
+        if paragraphs is not None
+        else [
             f"{article_title} paragraph one keeps the article synthesis grounded.",
             f"{article_title} paragraph two gives the local read more texture.",
         ],
-        paragraphs_zh=[
+        paragraphs_zh=paragraphs_zh
+        if paragraphs_zh is not None
+        else [
             f"{article_title} 第一段让文章综合保持本地依据。",
             f"{article_title} 第二段补充本地阅读纹理。",
         ],
@@ -135,7 +142,9 @@ def _article(
                 f"{article_title} happened text is available as fallback.",
             ),
         ],
-        content_sections=[
+        content_sections=content_sections
+        if content_sections is not None
+        else [
             _section(
                 "Article Adds",
                 adds or f"{article_title} adds a concrete article-level evidence mix.",
@@ -174,6 +183,113 @@ def _blank_article(story_id: str) -> RowOneLocalArticle:
 
 def _hrefs(*story_ids: str) -> dict[str, str]:
     return {story_id: f"{story_id}.html" for story_id in story_ids}
+
+
+def test_build_daily_local_synthesis_brief_adds_evidence_trail_from_article_synthesis_anchors() -> (
+    None
+):
+    first_id = "runway-reset-1111111111"
+    second_id = "retail-shift-2222222222"
+    stories = [
+        _story(first_id, headline="Runway Reset"),
+        _story(second_id, headline="Retail Shift"),
+    ]
+    local_articles = {
+        first_id: _article(
+            first_id,
+            title="Runway Reset Article",
+            adds="Runway Reset article adds merchandising evidence.",
+        ),
+        second_id: _article(
+            second_id,
+            title="Retail Shift Article",
+            adds="Retail Shift article adds channel evidence.",
+        ),
+    }
+
+    brief = build_row_one_daily_local_synthesis_brief(
+        _edition(stories),
+        local_articles,
+        _hrefs(first_id, second_id),
+    )
+
+    assert brief is not None
+    first_links = brief.cards[0].evidence_links
+    assert [link.href for link in first_links] == [
+        "runway-reset-1111111111.html#local-article-content-section-1",
+        "runway-reset-1111111111.html#local-article-paragraph-1",
+    ]
+    assert first_links[0].label.en == "Article Adds"
+    assert "Runway Reset article adds merchandising evidence." in first_links[0].support.en
+    assert first_links[1].label.en == "Paragraph 1"
+
+
+def test_build_daily_local_synthesis_brief_caps_and_dedupes_evidence_links() -> None:
+    first_id = "runway-reset-1111111111"
+    second_id = "retail-shift-2222222222"
+    article = _article(
+        first_id,
+        title="Runway Reset Article",
+        content_sections=[
+            _section("Repeated", "Repeated support text.", key="brand_signals"),
+            _section("Repeated", "Repeated support text.", key="product_signals"),
+            _section("Third", "Third support text.", key="takeaways"),
+        ],
+    )
+
+    brief = build_row_one_daily_local_synthesis_brief(
+        _edition([_story(first_id), _story(second_id)]),
+        {first_id: article, second_id: _article(second_id)},
+        _hrefs(first_id, second_id),
+    )
+
+    assert brief is not None
+    assert len(brief.cards[0].evidence_links) == 2
+    assert [link.label.en for link in brief.cards[0].evidence_links] == ["Repeated", "Paragraph 1"]
+
+
+def test_build_daily_local_synthesis_brief_omits_empty_evidence_trails_without_dropping_cards() -> (
+    None
+):
+    first_id = "runway-reset-1111111111"
+    second_id = "retail-shift-2222222222"
+    first_article = _article(first_id, content_sections=[], paragraphs=[], paragraphs_zh=[])
+    second_article = _article(second_id, content_sections=[], paragraphs=[], paragraphs_zh=[])
+
+    brief = build_row_one_daily_local_synthesis_brief(
+        _edition([_story(first_id), _story(second_id)]),
+        {first_id: first_article, second_id: second_article},
+        _hrefs(first_id, second_id),
+    )
+
+    assert brief is not None
+    assert brief.card_count == 2
+    assert all(card.evidence_links == () for card in brief.cards)
+
+
+def test_build_daily_local_synthesis_brief_filters_unsafe_evidence_hrefs() -> None:
+    from fashion_radar.row_one.daily_local_synthesis_brief import _safe_evidence_href
+
+    safe_page = "runway-reset-1111111111.html"
+    unsafe_fragments = (
+        "#local-article-paragraph-0",
+        "#local-article-paragraph-01",
+        "#local-article-content-section-0",
+        "#local-article-content-section-01",
+        "#local-article-unknown-1",
+        "#local-article-paragraph-1 ",
+        "local-article-paragraph-1",
+        "#local-article-paragraph-1 2",
+    )
+
+    assert _safe_evidence_href(safe_page, "#local-article-paragraph-1") == (
+        "runway-reset-1111111111.html#local-article-paragraph-1"
+    )
+    assert _safe_evidence_href(safe_page, "#local-article-content-section-1") == (
+        "runway-reset-1111111111.html#local-article-content-section-1"
+    )
+    for fragment in unsafe_fragments:
+        assert _safe_evidence_href(safe_page, fragment) is None
 
 
 def test_build_daily_local_synthesis_brief_uses_current_edition_saved_articles() -> None:

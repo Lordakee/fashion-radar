@@ -78,6 +78,7 @@ from fashion_radar.row_one.daily_local_news_timeline import (
 from fashion_radar.row_one.daily_local_synthesis_brief import (
     RowOneDailyLocalSynthesisBrief,
     RowOneDailyLocalSynthesisBriefCard,
+    RowOneDailyLocalSynthesisEvidenceLink,
 )
 from fashion_radar.row_one.models import (
     LocalizedText,
@@ -16257,6 +16258,76 @@ def test_render_daily_local_synthesis_brief_escapes_and_filters_hrefs() -> None:
     assert "#local-article-paragraph-1" not in section_html
 
 
+def test_render_daily_local_synthesis_brief_evidence_trail_links_to_saved_articles() -> None:
+    long_support = "Evidence <support> " + ("verylongtoken" * 12)
+    card = replace(
+        _daily_local_synthesis_brief_fixture().cards[0],
+        evidence_links=(
+            RowOneDailyLocalSynthesisEvidenceLink(
+                label=LocalizedText(en="Brand <Signals>", zh="品牌 <信号>"),
+                href="the-row-signal-1234567890.html#local-article-content-section-1",
+                support=LocalizedText(en=long_support, zh="支持 <文本>"),
+            ),
+            RowOneDailyLocalSynthesisEvidenceLink(
+                label=LocalizedText(en="Paragraph 1", zh="第 1 段"),
+                href="the-row-signal-1234567890.html#local-article-paragraph-1",
+            ),
+        ),
+    )
+    brief = replace(_daily_local_synthesis_brief_fixture(), cards=(card,))
+
+    html = render_index_html(_edition(), daily_local_synthesis_brief=brief)
+    section_html = _daily_local_synthesis_brief_section_html(html)
+
+    assert 'class="daily-local-synthesis-brief-evidence-trail"' in section_html
+    assert "Evidence Trail" in section_html
+    assert "证据线索" in section_html
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-paragraph-1"' in section_html
+    )
+    assert "Brand &lt;Signals&gt;" in section_html
+    assert "Evidence &lt;support&gt;" in section_html
+    assert "支持 &lt;文本&gt;" in section_html
+    assert section_html.index('class="daily-local-synthesis-brief-evidence-trail"') < (
+        section_html.index('class="daily-local-synthesis-brief-route"')
+    )
+
+
+def test_render_daily_local_synthesis_brief_omits_empty_or_unsafe_evidence_trail() -> None:
+    unsafe_links = (
+        RowOneDailyLocalSynthesisEvidenceLink(
+            label=LocalizedText(en="External", zh="外链"),
+            href="https://example.com",
+        ),
+        RowOneDailyLocalSynthesisEvidenceLink(
+            label=LocalizedText(en="Prefixed", zh="前缀"),
+            href="articles/the-row-signal-1234567890.html#local-article-paragraph-1",
+        ),
+        RowOneDailyLocalSynthesisEvidenceLink(
+            label=LocalizedText(en="Query", zh="查询"),
+            href="the-row-signal-1234567890.html?x=1#local-article-paragraph-1",
+        ),
+        RowOneDailyLocalSynthesisEvidenceLink(
+            label=LocalizedText(en="", zh=""),
+            href="the-row-signal-1234567890.html#local-article-paragraph-1",
+        ),
+    )
+    card = replace(_daily_local_synthesis_brief_fixture().cards[0], evidence_links=unsafe_links)
+    brief = replace(_daily_local_synthesis_brief_fixture(), cards=(card,))
+
+    html = render_index_html(_edition(), daily_local_synthesis_brief=brief)
+    section_html = _daily_local_synthesis_brief_section_html(html)
+
+    assert 'class="daily-local-synthesis-brief-card"' in section_html
+    assert 'class="daily-local-synthesis-brief-evidence-trail"' not in section_html
+    assert "https://example.com" not in section_html
+    assert "?x=1" not in section_html
+
+
 def test_render_row_one_site_writes_daily_local_synthesis_brief_homepage_only(tmp_path) -> None:
     first_story = _edition().stories[0]
     second_story = first_story.model_copy(
@@ -16326,6 +16397,17 @@ def test_render_row_one_site_writes_daily_local_synthesis_brief_homepage_only(tm
     assert "每日本地综合简报" in section_html
     assert 'href="articles/the-row-signal-1234567890.html"' in section_html
     assert 'href="articles/margaux-signal-1234567890.html"' in section_html
+    assert 'class="daily-local-synthesis-brief-evidence-trail"' in section_html
+    assert "Evidence Trail" in section_html
+    assert "证据线索" in section_html
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-content-section-1"'
+        in section_html
+    )
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-content-section-2"'
+        in section_html
+    )
     assert 'class="daily-local-synthesis-brief"' not in library_html
     assert 'class="daily-local-synthesis-brief"' not in first_article_html
     assert 'class="daily-local-synthesis-brief"' not in second_article_html
@@ -16334,6 +16416,9 @@ def test_render_row_one_site_writes_daily_local_synthesis_brief_homepage_only(tm
     assert "daily_local_synthesis_brief" not in generated_contract_payload
     assert "daily-local-synthesis-brief" not in generated_contract_payload
     assert "Daily Local Synthesis Brief" not in generated_contract_payload
+    assert "daily_local_synthesis_evidence_trail" not in generated_contract_payload
+    assert "daily-local-synthesis-evidence-trail" not in generated_contract_payload
+    assert "Daily Local Synthesis Evidence Trail" not in generated_contract_payload
     for stem in (
         "daily-local-synthesis-brief",
         "local-synthesis-brief",
@@ -16341,6 +16426,14 @@ def test_render_row_one_site_writes_daily_local_synthesis_brief_homepage_only(tm
         "daily_local_synthesis_brief",
         "local_synthesis_brief",
         "synthesis_brief",
+        "daily-local-synthesis-evidence-trail",
+        "local-synthesis-evidence-trail",
+        "daily-synthesis-evidence-trail",
+        "synthesis-evidence-trail",
+        "daily_local_synthesis_evidence_trail",
+        "local_synthesis_evidence_trail",
+        "daily_synthesis_evidence_trail",
+        "synthesis_evidence_trail",
     ):
         for directory in (tmp_path, tmp_path / "articles", tmp_path / "data"):
             assert not (directory / f"{stem}.json").exists()
@@ -18867,6 +18960,9 @@ def test_row_one_css_includes_daily_local_synthesis_brief_styles() -> None:
         ".daily-local-synthesis-brief-thesis",
         ".daily-local-synthesis-brief-grid",
         ".daily-local-synthesis-brief-card",
+        ".daily-local-synthesis-brief-evidence-trail",
+        ".daily-local-synthesis-brief-evidence-link",
+        ".daily-local-synthesis-brief-evidence-support",
         ".daily-local-synthesis-brief-basis",
     ):
         assert selector in css
@@ -18893,6 +18989,18 @@ def test_row_one_css_includes_daily_local_synthesis_brief_styles() -> None:
     )
     assert re.search(
         r"\.daily-local-synthesis-brief-route\s*\{[^}]*overflow-wrap:\s*anywhere",
+        css,
+    )
+    assert re.search(
+        r"\.daily-local-synthesis-brief-evidence-trail\s*\{[^}]*min-width:\s*0",
+        css,
+    )
+    assert re.search(
+        r"\.daily-local-synthesis-brief-evidence-link\s*\{[^}]*overflow-wrap:\s*anywhere",
+        css,
+    )
+    assert re.search(
+        r"\.daily-local-synthesis-brief-evidence-support\s*\{[^}]*overflow-wrap:\s*anywhere",
         css,
     )
 

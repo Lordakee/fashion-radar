@@ -6,6 +6,7 @@ from pathlib import PurePosixPath
 
 from fashion_radar.row_one.articles import safe_local_article_story_id
 from fashion_radar.row_one.local_article_synthesis_brief import (
+    RowOneLocalArticleSynthesisAnchor,
     build_row_one_local_article_synthesis_brief,
 )
 from fashion_radar.row_one.models import LocalizedText, RowOneEdition, RowOneLocalArticle
@@ -14,9 +15,17 @@ from fashion_radar.row_one.text import normalize_row_one_paragraph
 DAILY_LOCAL_SYNTHESIS_BRIEF_MAX_CARDS = 3
 DAILY_LOCAL_SYNTHESIS_BRIEF_CARD_READ_CHARS = 150
 DAILY_LOCAL_SYNTHESIS_BRIEF_CARD_ADDS_CHARS = 140
+DAILY_LOCAL_SYNTHESIS_BRIEF_MAX_EVIDENCE_LINKS = 2
 DAILY_LOCAL_SYNTHESIS_BRIEF_OPENING_CHARS = 180
 DAILY_LOCAL_SYNTHESIS_BRIEF_OPENING_TITLE_CHARS = 56
 DAILY_LOCAL_SYNTHESIS_BRIEF_THESIS_CHARS = 160
+
+
+@dataclass(frozen=True)
+class RowOneDailyLocalSynthesisEvidenceLink:
+    label: LocalizedText
+    href: str
+    support: LocalizedText | None = None
 
 
 @dataclass(frozen=True)
@@ -27,6 +36,7 @@ class RowOneDailyLocalSynthesisBriefCard:
     read: LocalizedText
     adds: LocalizedText
     route_label: LocalizedText
+    evidence_links: tuple[RowOneDailyLocalSynthesisEvidenceLink, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -94,6 +104,10 @@ def build_row_one_daily_local_synthesis_brief(
             read=read,
             adds=adds,
             route_label=LocalizedText(en="Read the saved article", zh="阅读保存文章"),
+            evidence_links=_evidence_links(
+                page_href=page_href,
+                anchors=synthesis.anchors,
+            ),
         )
         candidates.append(
             _Candidate(
@@ -163,6 +177,61 @@ def _safe_article_page_href(story_id: str, href: object) -> str | None:
     if mapped_story_id != story_id or not safe_local_article_story_id(mapped_story_id):
         return None
     return path.name
+
+
+def _evidence_links(
+    *,
+    page_href: str,
+    anchors: tuple[RowOneLocalArticleSynthesisAnchor, ...],
+) -> tuple[RowOneDailyLocalSynthesisEvidenceLink, ...]:
+    links: list[RowOneDailyLocalSynthesisEvidenceLink] = []
+    seen_labels: set[str] = set()
+    for anchor in anchors:
+        href = _safe_evidence_href(page_href, anchor.href)
+        label = _clean_localized(anchor.label, DAILY_LOCAL_SYNTHESIS_BRIEF_CARD_ADDS_CHARS)
+        label_key = _localized_key(label)
+        if href is None or not label_key:
+            continue
+        if label_key in seen_labels:
+            continue
+        support = (
+            _clean_localized(anchor.support, DAILY_LOCAL_SYNTHESIS_BRIEF_CARD_ADDS_CHARS)
+            if anchor.support is not None
+            else None
+        )
+        links.append(
+            RowOneDailyLocalSynthesisEvidenceLink(
+                label=label,
+                href=href,
+                support=support,
+            )
+        )
+        seen_labels.add(label_key)
+        if len(links) >= DAILY_LOCAL_SYNTHESIS_BRIEF_MAX_EVIDENCE_LINKS:
+            break
+    return tuple(links)
+
+
+def _safe_evidence_href(page_href: str, fragment_href: object) -> str | None:
+    if not isinstance(fragment_href, str):
+        return None
+    if fragment_href != fragment_href.strip() or not fragment_href.startswith("#"):
+        return None
+    fragment = fragment_href[1:]
+    if not fragment or any(character.isspace() for character in fragment):
+        return None
+    if fragment.startswith("local-article-content-section-"):
+        suffix = fragment.removeprefix("local-article-content-section-")
+    elif fragment.startswith("local-article-paragraph-"):
+        suffix = fragment.removeprefix("local-article-paragraph-")
+    else:
+        return None
+    if not suffix.isdigit() or suffix != str(int(suffix)) or int(suffix) < 1:
+        return None
+    story_id = page_href.removesuffix(".html")
+    if _safe_article_page_href(story_id, page_href) is None:
+        return None
+    return f"{page_href}#{fragment}"
 
 
 def _opening_read(cards: tuple[RowOneDailyLocalSynthesisBriefCard, ...]) -> LocalizedText:

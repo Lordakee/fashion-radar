@@ -39,6 +39,7 @@ from fashion_radar.row_one.daily_local_saved_article_organizer import (
 from fashion_radar.row_one.daily_local_synthesis_brief import (
     RowOneDailyLocalSynthesisBrief,
     RowOneDailyLocalSynthesisBriefCard,
+    RowOneDailyLocalSynthesisEvidenceLink,
 )
 from fashion_radar.row_one.detail_routes import (
     safe_row_one_detail_fragment_href,
@@ -5565,6 +5566,35 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
   color: var(--panel);
   overflow-wrap: anywhere;
   text-decoration: none;
+}
+.daily-local-synthesis-brief-evidence-trail {
+  border-top: 1px solid rgba(244, 246, 248, 0.14);
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 10px;
+}
+.daily-local-synthesis-brief-evidence-trail p {
+  color: var(--chrome);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+.daily-local-synthesis-brief-evidence-link {
+  color: var(--panel);
+  display: grid;
+  gap: 3px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  text-decoration-color: rgba(244, 246, 248, 0.26);
+  text-underline-offset: 3px;
+}
+.daily-local-synthesis-brief-evidence-support {
+  color: var(--steel);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
 }
 .daily-local-synthesis-brief-route:hover,
 .daily-local-synthesis-brief-route:focus-visible {
@@ -14366,6 +14396,22 @@ def _render_daily_local_synthesis_brief_card(
     adds_zh = normalize_row_one_paragraph(card.adds.zh)
     route_label_en = normalize_row_one_paragraph(card.route_label.en) or "Read the saved article"
     route_label_zh = normalize_row_one_paragraph(card.route_label.zh) or "阅读保存文章"
+    evidence_links = [
+        link_html
+        for link in card.evidence_links
+        if (link_html := _render_daily_local_synthesis_evidence_link(link))
+    ]
+    evidence_html = (
+        f"""      <div class="daily-local-synthesis-brief-evidence-trail">
+        <p>
+          <span data-lang="en">Evidence Trail</span>
+          <span data-lang="zh">证据线索</span>
+        </p>
+{"".join(evidence_links)}      </div>
+"""
+        if evidence_links
+        else ""
+    )
     return f"""    <article class="daily-local-synthesis-brief-card">
       <div class="daily-local-synthesis-brief-card-meta">
         <span>{_esc(source_name)}</span>
@@ -14384,11 +14430,61 @@ def _render_daily_local_synthesis_brief_card(
         <span data-lang="en">{_esc(adds_en or adds_zh)}</span>
         <span data-lang="zh">{_esc(adds_zh or adds_en)}</span>
       </p>
+{evidence_html}\
       <a class="daily-local-synthesis-brief-route" href="{_esc(href)}">
         <span data-lang="en">{_esc(route_label_en)}</span>
         <span data-lang="zh">{_esc(route_label_zh)}</span>
       </a>
     </article>"""
+
+
+def _render_daily_local_synthesis_evidence_link(
+    link: RowOneDailyLocalSynthesisEvidenceLink,
+) -> str:
+    href = _safe_daily_local_synthesis_evidence_href(link.href)
+    label_en = normalize_row_one_paragraph(link.label.en)
+    label_zh = normalize_row_one_paragraph(link.label.zh)
+    if href is None or not (label_en or label_zh):
+        return ""
+    support_en = normalize_row_one_paragraph(link.support.en) if link.support else ""
+    support_zh = normalize_row_one_paragraph(link.support.zh) if link.support else ""
+    support_html = (
+        f"""        <span class="daily-local-synthesis-brief-evidence-support">
+          <span data-lang="en">{_esc(support_en or support_zh)}</span>
+          <span data-lang="zh">{_esc(support_zh or support_en)}</span>
+        </span>
+"""
+        if support_en or support_zh
+        else ""
+    )
+    return f"""      <a class="daily-local-synthesis-brief-evidence-link" href="{_esc(href)}">
+        <span class="daily-local-synthesis-brief-evidence-label">
+          <span data-lang="en">{_esc(label_en or label_zh)}</span>
+          <span data-lang="zh">{_esc(label_zh or label_en)}</span>
+        </span>
+{support_html}      </a>
+"""
+
+
+def _safe_daily_local_synthesis_evidence_href(href: object) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if "://" in href or "//" in href or "?" in href or href.startswith((".", "/", "//")):
+        return None
+    path_text, separator, fragment = href.partition("#")
+    if separator != "#":
+        return None
+    page_href = _safe_daily_local_synthesis_brief_href(path_text)
+    if page_href is None:
+        return None
+    if (
+        _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is None
+        and _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is None
+    ):
+        return None
+    return f"{page_href}#{fragment}"
 
 
 def _safe_daily_local_synthesis_brief_href(href: object) -> str | None:
