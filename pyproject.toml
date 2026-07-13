@@ -85,6 +85,7 @@ packages = ["src/fashion_radar"]
 
 [tool.hatch.build.targets.sdist]
 exclude = [
+  "/.codegraph/**",
   "/docs/reviews/**",
   "/docs/superpowers/**",
 ]

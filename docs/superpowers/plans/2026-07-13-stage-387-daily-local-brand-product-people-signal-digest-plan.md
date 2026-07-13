@@ -15,7 +15,10 @@
 - Add the homepage-only Daily Local Brand, Product & People Signal Digest section.
 - Reuse current-edition stories, current-edition saved local article sidecars, existing generated local article page routes, content-section items, references, and existing local-article-content-section-N anchors.
 - Keep presentation in current edition / section / item / reference first-seen order. Counts are saved-coverage facts only; do not score, rank, infer trend heat, or call an external service.
-- Show at most three buckets, five merged entities per bucket, and three supports per entity.
+- Render only the fixed Brands, Products, and People buckets, with at most five
+  safe merged entities per bucket, three safe supports per entity, and
+  170-character localized excerpts. The template repeats these bounds for
+  manually constructed payloads.
 - Omit the digest unless at least two valid current-edition saved local articles contribute usable allowed references.
 - Render only in existing index.html, after Daily Saved Text Takeaways and before Daily Local Saved Article Organizer.
 - Do not add JSON artifacts, standalone pages, route families, app/runtime/manifest/schema fields, article sidecars, source collection, fetching, scraping, matching, extraction, scoring, ranking, LLM calls, connectors, scheduling, deployment, analytics, personalization, recommendation, demand proof, coverage verification, or compliance-review behavior.
@@ -139,8 +142,18 @@ assert build_row_one_daily_local_brand_product_people_signal_digest(
 
 Assert that unsupported event references produce no bucket, repeated references in
 one content section create one support, and the configured item/support caps keep
-the first-seen entries. Assert a label and excerpt with only one language uses
-the available language for both output values.
+the first-seen entries. Add a fixture set with two valid contributing stories and
+a third sidecar whose article.story_id differs from its current-edition story ID;
+assert that the mismatched story produces neither an item nor a support. Assert a
+label and excerpt with only one language uses the available language for both
+output values. Add two otherwise valid contributing articles with blank article
+and story source names; assert that their article/entity evidence remains, their
+supports display Saved local source, and digest and entity source counts are zero.
+
+Add a mapped conflict case where type is product and label is brand; assert it
+lands in Brands. Add a hyphenated creative-director type case; assert it lands
+in People. This keeps Stage 387 aligned with the existing reference atlas rather
+than the narrower Stage 386 takeaways matcher.
 
 - [ ] **Step 4: Run the RED command.**
 
@@ -206,21 +219,46 @@ def build_row_one_daily_local_brand_product_people_signal_digest(
         )
         if article is None or page_href is None:
             continue
-        if _add_article_references(drafts, story, article, page_href):
+        source_name = _source_name(article.source_name, story.source_name)
+        source_key = _source_key(article.source_name) or _source_key(story.source_name)
+        if _add_article_references(
+            drafts, story, article, source_name, source_key, page_href
+        ):
             contributing_story_ids.add(story.id)
-            contributing_source_keys.add(_source_key(article.source_name or story.source_name))
+            if source_key is not None:
+                contributing_source_keys.add(source_key)
 
     if len(contributing_story_ids) < 2:
         return None
     return _build_digest(drafts, contributing_story_ids, contributing_source_keys)
 ~~~
 
-The article walker must preserve story, section, item, and reference order; only
-map existing allowed type terms to the three buckets; deduplicate one entity per
-story/section; use item body then section body as evidence text; create only
+The article walker must preserve story, section, item, and reference order;
+normalize reference.type and reference.label by casefolding, collapsing
+whitespace, and treating underscores/hyphens as spaces. It must map the same
+conservative terms as saved_article_reference_atlas.py, resolving a conflicting
+match in Brands, then People, then Products order; ignore source-context and
+unrecognized values. Deduplicate one entity per story/section; use item body
+then section body as evidence text; create only
 articles/<safe-story-id>.html#local-article-content-section-N supports; and
 retain at most three supports per entity. _build_digest() keeps dictionary
 insertion order and must not calculate a score or sort by coverage counts.
+
+Define the local-sidecar guard explicitly and test it directly through the
+public builder:
+
+~~~python
+def _valid_article(
+    story_id: str,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+) -> RowOneLocalArticle | None:
+    if not safe_local_article_story_id(story_id):
+        return None
+    article = local_articles_by_story_id.get(story_id)
+    if article is None or article.story_id != story_id:
+        return None
+    return article
+~~~
 
 - [ ] **Step 3: Add local text and href guards.**
 
@@ -237,9 +275,12 @@ def _safe_article_page_href(story_id: str, value: object) -> str | None:
 ~~~
 
 Use normalize_row_one_paragraph(), bilingual fallback, and a bounded
-_truncate(). Reject blank labels/references/text, invalid source identities,
-malformed story IDs, traversal, URLs, whitespace, query strings, and invalid
-fragments.
+_truncate(). Reject blank labels/references/text, malformed story IDs,
+traversal, URLs, whitespace, query strings, and invalid fragments. Exclude
+malformed or synthetic values from source identity sets/counts, but do not treat
+absent source metadata as an invalid article: retain its article/entity evidence,
+use Saved local source only as its display fallback, and keep factual source
+counts at zero when no normalized article or story source exists.
 
 - [ ] **Step 4: Run the builder tests until green.**
 
@@ -292,7 +333,7 @@ assert 'href="articles/the-row-signal-1234567890.html#local-article-content-sect
 assert "&lt;entity&gt;" in html
 ~~~
 
-- [ ] **Step 3: Add failing href-rejection and omission tests.**
+- [ ] **Step 3: Add failing href-rejection, direct-payload boundary, and omission tests.**
 
 ~~~python
 assert "https://unsafe.example/" not in html
@@ -303,6 +344,14 @@ assert _daily_local_brand_product_people_signal_digest_section_html(
     )
 ) == ""
 ~~~
+
+Construct a manual payload with an unsupported bucket, six safe items in a
+Brands bucket, four safe supports per item, and English and Chinese excerpts
+longer than 170 characters. Assert that the unsupported bucket is omitted, only
+five safe items and three safe supports per item render, and each localized
+excerpt is truncated to 170 characters. Assert that the renderer derives its
+displayed entity count from safe rendered items rather than a supplied aggregate
+count, preserving homepage-only short evidence rather than full article bodies.
 
 - [ ] **Step 4: Run the RED selection.**
 
@@ -365,30 +414,37 @@ def _render_daily_local_brand_product_people_signal_digest(
 ) -> str:
     if digest is None or not digest.buckets:
         return ""
-    buckets = [
-        html
-        for bucket in digest.buckets
-        if (
-            html := _render_daily_local_brand_product_people_signal_digest_bucket(
+    rendered_buckets = []
+    for bucket_key in ("brands", "products", "people"):
+        for bucket in digest.buckets:
+            if bucket.key != bucket_key:
+                continue
+            rendered = _render_daily_local_brand_product_people_signal_digest_bucket(
                 bucket
             )
-        )
-    ]
-    if not buckets:
+            if rendered is not None:
+                rendered_buckets.append(rendered)
+                break
+    if not rendered_buckets:
         return ""
     return (
         '<section class="daily-local-brand-product-people-signal-digest" '
         'aria-labelledby="daily-local-brand-product-people-signal-digest-title">'
-        + "".join(buckets)
+        + "".join(rendered_buckets)
         + "</section>"
     )
 ~~~
 
 Revalidate every support in a dedicated safe-href helper that accepts exactly
-articles/<safe-story-id>.html#local-article-content-section-N. Escape every
-interpolated value with _esc. Add a bounded grid using existing ROW ONE
-typography/color conventions and collapse it to one column at the existing
-mobile breakpoint.
+articles/<safe-story-id>.html#local-article-content-section-N. The helper must
+use templates.py's existing _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE, and it
+must reject the paragraph regex and every other fragment. Escape every
+interpolated value with _esc. Independently enforce the fixed bucket order, at
+most five safe items per bucket, at most three safe supports per item, and a
+170-character cap for each localized excerpt, including for manually constructed
+payloads. This preserves homepage-only short evidence and never renders a full
+article body. Add a bounded grid using existing ROW ONE typography/color
+conventions and collapse it to one column at the existing mobile breakpoint.
 
 - [ ] **Step 4: Run focused renderer tests until green.**
 
@@ -509,16 +565,19 @@ Expected: pass.
 - Create: docs/reviews/claude-code-stage-387-plan-review.md
 - Create: docs/reviews/opencode-stage-387-plan-review.md
 - Create: docs/reviews/claude-code-stage-387-code-review.md
-- Create: docs/reviews/opencode-stage-387-code-review.md
+- Create: docs/reviews/claude-code-stage-387-release-review.md
 - Modify: only files required by confirmed review findings.
 
 - [ ] **Step 1: Submit the written plan before product-code changes.**
 
-Use Claude Code with --effort max and OpenCode with
---model zhipuai-coding-plan/glm-5.2. Ask both reviewers to assess architecture,
-safety boundaries, data semantics, test coverage, and conflicts with existing
-ROW ONE surfaces. Record concise, credential-free review summaries. If a tool
-times out, record the timeout and independent checks instead of raw logs.
+Use Claude Code with --effort max as the primary plan reviewer. Ask it to assess
+architecture, safety boundaries, data semantics, test coverage, and conflicts
+with existing ROW ONE surfaces. Then use OpenCode with
+--model zhipuai-coding-plan/glm-5.2 --variant max to revise the plan against
+the Claude findings and its own judgment. Record one concise, credential-free,
+completed review body for each. OpenCode is the fallback for code or release
+review only when Claude Code is unavailable; do not require a parallel OpenCode
+code review when Claude Code completes its primary review.
 
 - [ ] **Step 2: Run related tests after implementation.**
 
@@ -528,26 +587,70 @@ UV_NO_CONFIG=1 uv --no-config run --frozen pytest tests/test_row_one_daily_local
 
 Expected: all selected tests pass.
 
-- [ ] **Step 3: Submit the completed diff to both reviewers.**
+- [ ] **Step 3: Submit the completed diff to Claude Code.**
 
 Apply only specific, technically valid findings, then rerun the affected test
-group and revise the review note.
+group and request a Claude Code rereview only when the reviewed diff changes.
 
 - [ ] **Step 4: Run full release gates.**
 
 ~~~bash
-UV_NO_CONFIG=1 uv --no-config run --frozen pytest
-UV_NO_CONFIG=1 uv --no-config run --frozen ruff check .
-UV_NO_CONFIG=1 uv --no-config run --frozen ruff format --check .
-UV_NO_CONFIG=1 uv --no-config run --frozen python scripts/check_release_hygiene.py
-UV_NO_CONFIG=1 uv --no-config lock --check
+set -euo pipefail
+public_uv() {
+  env -u UV_DEFAULT_INDEX -u UV_INDEX -u UV_INDEX_URL -u UV_EXTRA_INDEX_URL \
+    -u UV_FIND_LINKS \
+    UV_NO_CONFIG=1 uv "$@"
+}
+mirror_uv() {
+  env -u UV_INDEX -u UV_INDEX_URL -u UV_EXTRA_INDEX_URL -u UV_FIND_LINKS \
+    UV_NO_CONFIG=1 \
+    UV_DEFAULT_INDEX="${UV_DEFAULT_INDEX:?set to the approved package mirror}" \
+    uv "$@"
+}
+public_uv --no-config run --frozen pytest
+public_uv --no-config run --frozen ruff check .
+public_uv --no-config run --frozen ruff format --check .
+# Set UV_DEFAULT_INDEX to the approved package mirror before mirror-backed installs.
+mirror_uv sync --frozen --dev
+mirror_uv sync --frozen --dev --check
+public_uv sync --locked --dev
+public_uv sync --locked --dev --check
+public_uv --no-config run --frozen python scripts/check_release_hygiene.py --repo-root .
+public_uv --no-config run --frozen python scripts/check_first_run_smoke.py --repo-root .
+tmp_build="$(mktemp -d)"
+public_uv --no-config build --out-dir "$tmp_build"
+public_uv --no-config run --frozen python scripts/check_package_archives.py "$tmp_build"
+tmp_env="$(mktemp -d)"
+public_uv venv "$tmp_env/venv"
+# This isolated wheel install uses the approved mirror but never updates uv.lock.
+mirror_uv pip install --python "$tmp_env/venv/bin/python" "$tmp_build"/*.whl
+tmp_run="$(mktemp -d)"
+"$tmp_env/venv/bin/fashion-radar" --help
+"$tmp_env/venv/bin/python" -m fashion_radar --help
+"$tmp_env/venv/bin/fashion-radar" init --config-dir "$tmp_run/config" --data-dir "$tmp_run/data" --reports-dir "$tmp_run/reports"
+"$tmp_env/venv/bin/fashion-radar" doctor --config-dir "$tmp_run/config" --data-dir "$tmp_run/data" --reports-dir "$tmp_run/reports"
+"$tmp_env/venv/bin/python" scripts/check_first_run_smoke.py --repo-root . --python "$tmp_env/venv/bin/python" --installed
+"$tmp_env/venv/bin/python" -c "from importlib import resources; text = resources.files('fashion_radar.templates').joinpath('daily_report.md').read_text(encoding='utf-8'); assert 'Fashion Radar Daily Report' in text"
+tmp_dash="$(mktemp -d)"
+public_uv venv "$tmp_dash/venv"
+wheel_path="$(ls "$tmp_build"/*.whl | head -n 1)"
+mirror_uv pip install --python "$tmp_dash/venv/bin/python" "${wheel_path}[dashboard]"
+"$tmp_dash/venv/bin/python" -c "import fashion_radar.dashboard.app; import fashion_radar.dashboard.queries"
+public_uv --no-config lock --check
 git diff --check
 git diff --cached --check
 ~~~
 
 Expected: every command exits 0.
 
-- [ ] **Step 5: Inspect, commit, and push.**
+- [ ] **Step 5: Submit the post-gate code and documentation diff to Claude Code
+for release review.**
+
+Record the completed release review. Fix every critical or important finding;
+if the reviewed diff changes, rerun the affected verification and request a
+Claude Code release rereview before continuing.
+
+- [ ] **Step 6: Inspect, commit, and push.**
 
 ~~~bash
 git status --short
