@@ -728,6 +728,17 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
     assert "daily-local-saved-text-takeaways" not in generated_contract_payload
     assert "daily-saved-text-takeaways" not in generated_contract_payload
     assert "saved-text-takeaways" not in generated_contract_payload
+    assert "daily_local_brand_product_people_signal_digest" not in generated_contract_payload
+    assert "daily_brand_product_people_signal_digest" not in generated_contract_payload
+    assert "brand_product_people_signal_digest" not in generated_contract_payload
+    assert "Daily Local Brand Product People Signal Digest" not in generated_contract_payload
+    assert "Daily Local Brand, Product & People Signal Digest" not in generated_contract_payload
+    assert "Brand Product People Signal Digest" not in generated_contract_payload
+    assert "daily-local-brand-product-people-signal-digest" not in generated_contract_payload
+    assert "daily-brand-product-people-signal-digest" not in generated_contract_payload
+    assert "brand-product-people-signal-digest" not in generated_contract_payload
+    assert "daily-local-brand-product-people-signals" not in generated_contract_payload
+    assert "brand-product-people-signals" not in generated_contract_payload
     assert "daily_local_news_timeline" not in generated_contract_payload
     assert "local_news_timeline" not in generated_contract_payload
     assert "news_timeline" not in generated_contract_payload
@@ -1433,6 +1444,16 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         "daily_local_saved_text_takeaways",
         "daily_saved_text_takeaways",
         "saved_text_takeaways",
+        "daily-local-brand-product-people-signal-digest",
+        "daily-brand-product-people-signal-digest",
+        "brand-product-people-signal-digest",
+        "daily_local_brand_product_people_signal_digest",
+        "daily_brand_product_people_signal_digest",
+        "brand_product_people_signal_digest",
+        "Daily Local Brand Product People Signal Digest",
+        "Brand Product People Signal Digest",
+        "daily-local-brand-product-people-signals",
+        "brand-product-people-signals",
         "daily-local-news-timeline",
         "local-news-timeline",
         "news-timeline",
@@ -1513,6 +1534,7 @@ def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(
         for artifact_dir in (
             output_dir,
             output_dir / "articles",
+            output_dir / "details",
             output_dir / "data",
             output_dir / "data" / "articles",
         ):
@@ -1863,6 +1885,227 @@ def test_stage_386_daily_local_saved_text_takeaways_stays_homepage_only(
         sentinel not in payload
         for relative_path, payload in generated_payloads.items()
         if relative_path.startswith("data/articles/") and relative_path.endswith(".json")
+    )
+
+
+def test_stage_387_daily_local_brand_product_people_signal_digest_stays_homepage_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from fashion_radar.row_one import templates as row_one_templates
+
+    sentinel = "STAGE_387_DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_SENTINEL"
+    monkeypatch.setattr(
+        row_one_templates,
+        "_render_daily_local_brand_product_people_signal_digest",
+        lambda _digest: sentinel,
+        raising=True,
+    )
+
+    test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(tmp_path)
+
+    output_dir = tmp_path / "row-one"
+    generated_payloads = {
+        path.relative_to(output_dir).as_posix(): path.read_text(encoding="utf-8")
+        for path in sorted(output_dir.rglob("*"))
+        if path.suffix in {".html", ".json"}
+    }
+    sentinel_paths = [
+        relative_path
+        for relative_path, payload in generated_payloads.items()
+        if sentinel in payload
+    ]
+
+    assert sentinel_paths == ["index.html"]
+    assert sentinel not in generated_payloads.get("articles/index.html", "")
+    assert all(
+        sentinel not in payload
+        for relative_path, payload in generated_payloads.items()
+        if relative_path.startswith("articles/")
+        and relative_path.endswith(".html")
+        and relative_path != "articles/index.html"
+    )
+    assert all(
+        sentinel not in payload
+        for relative_path, payload in generated_payloads.items()
+        if relative_path.startswith("details/") and relative_path.endswith(".html")
+    )
+    assert sentinel not in generated_payloads["data/edition.json"]
+    assert sentinel not in generated_payloads["data/manifest.json"]
+    assert sentinel not in generated_payloads["data/runtime.json"]
+    assert all(
+        sentinel not in payload
+        for relative_path, payload in generated_payloads.items()
+        if relative_path.startswith("data/articles/") and relative_path.endswith(".json")
+    )
+
+
+def test_stage_387_daily_local_brand_product_people_signal_digest_renders_safe_saved_evidence(
+    tmp_path: Path,
+) -> None:
+    import re
+
+    from fashion_radar.row_one.articles import safe_local_article_story_id
+    from fashion_radar.row_one.models import (
+        LocalizedText,
+        RowOneEdition,
+        RowOneLocalArticle,
+        RowOneLocalArticleContentItem,
+        RowOneLocalArticleContentSection,
+        RowOneReference,
+        RowOneSection,
+        RowOneStory,
+    )
+    from fashion_radar.row_one.render import render_row_one_site
+
+    as_of = datetime(2026, 7, 13, 4, 0, tzinfo=UTC)
+
+    def localized(en: str, zh: str) -> LocalizedText:
+        return LocalizedText(en=en, zh=zh)
+
+    def story(
+        story_id: str,
+        headline: str,
+        source_name: str,
+        source_url: str,
+    ) -> RowOneStory:
+        return RowOneStory(
+            id=story_id,
+            section_key="top_stories",
+            story_type="tracked_entity",
+            headline=headline,
+            summary=localized(f"{headline} summary.", f"{headline} 摘要。"),
+            why_it_matters=localized(
+                "The saved article adds verifiable context.",
+                "保存文章提供可验证的背景。",
+            ),
+            editorial_takeaway=localized(
+                "The local evidence supports a factual read.",
+                "本地证据支持事实性解读。",
+            ),
+            signal_context=localized(
+                "The signal comes from saved local text.",
+                "该信号来自保存的本地正文。",
+            ),
+            reader_path=localized(
+                "Open the saved local article.",
+                "打开保存的本地文章。",
+            ),
+            source_name=source_name,
+            source_url=source_url,
+            published_at=as_of,
+            detail_path=f"details/{story_id}.html",
+        )
+
+    def local_article(
+        item_story: RowOneStory,
+        reference_name: str,
+        reference_type: str,
+        label: str,
+    ) -> RowOneLocalArticle:
+        return RowOneLocalArticle(
+            story_id=item_story.id,
+            title=item_story.headline,
+            url=item_story.source_url or "https://example.com/saved-local-source",
+            source_name=item_story.source_name,
+            extracted_at=as_of,
+            published_at=as_of,
+            paragraphs=[f"{reference_name} appears in this saved local article."],
+            paragraphs_zh=[f"{reference_name} 出现在这篇保存的本地文章中。"],
+            content_sections=[
+                RowOneLocalArticleContentSection(
+                    key="entities",
+                    title=localized("Saved evidence", "保存证据"),
+                    items=[
+                        RowOneLocalArticleContentItem(
+                            label=localized(label, label),
+                            body=localized(
+                                f"{reference_name} is supported by saved local text.",
+                                f"{reference_name} 由保存的本地正文支持。",
+                            ),
+                            references=[
+                                RowOneReference(
+                                    name=reference_name,
+                                    type=reference_type,
+                                    label=reference_type,
+                                )
+                            ],
+                            paragraph_indices=[0],
+                        )
+                    ],
+                )
+            ],
+        )
+
+    first_story = story(
+        "the-row-local-signal-1234567890",
+        "The Row saved local signal",
+        "Vogue Business",
+        "https://example.com/the-row-local-signal",
+    )
+    second_story = story(
+        "margaux-local-signal-abcdef1234",
+        "Margaux saved local signal",
+        "WWD",
+        "https://example.com/margaux-local-signal",
+    )
+    edition = RowOneEdition(
+        generated_at=as_of,
+        edition_date=as_of,
+        summary=localized("Two saved local signals.", "两条保存的本地信号。"),
+        sections=[
+            RowOneSection(
+                key="top_stories",
+                title=localized("Top Stories", "今日重点"),
+                dek=localized("Saved local evidence.", "保存的本地证据。"),
+            )
+        ],
+        stories=[first_story, second_story],
+    )
+    local_articles = {
+        first_story.id: local_article(first_story, "The Row", "brand", "The Row"),
+        second_story.id: local_article(second_story, "Margaux", "bag", "Margaux"),
+    }
+
+    render_row_one_site(edition, tmp_path, local_articles_by_story_id=local_articles)
+
+    sidecars = {
+        path.stem: RowOneLocalArticle.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        for path in sorted((tmp_path / "data" / "articles").glob("*.json"))
+    }
+    assert set(sidecars) == {first_story.id, second_story.id}
+    assert all(safe_local_article_story_id(story_id) for story_id in sidecars)
+    assert all(article.content_sections for article in sidecars.values())
+
+    index_html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    digest_marker = '<section class="daily-local-brand-product-people-signal-digest"'
+    digest_start = index_html.index(digest_marker)
+    digest_end = index_html.index("</section>", digest_start) + len("</section>")
+    digest_html = index_html[digest_start:digest_end]
+    expected_hrefs = {
+        f"articles/{first_story.id}.html#local-article-content-section-1",
+        f"articles/{second_story.id}.html#local-article-content-section-1",
+    }
+    digest_hrefs = set(
+        re.findall(
+            r'<a class="daily-local-brand-product-people-signal-digest-link" '
+            r'href="([^"]+)">',
+            digest_html,
+        )
+    )
+
+    assert "Daily Local Brand, Product &amp; People Signal Digest" in digest_html
+    assert digest_hrefs == expected_hrefs
+    for href in digest_hrefs:
+        route, anchor = href.split("#", maxsplit=1)
+        story_id = route.removeprefix("articles/").removesuffix(".html")
+        assert route == f"articles/{story_id}.html"
+        assert safe_local_article_story_id(story_id)
+        assert anchor == "local-article-content-section-1"
+    assert all(
+        digest_marker not in path.read_text(encoding="utf-8")
+        for path in tmp_path.rglob("*.html")
+        if path != tmp_path / "index.html"
     )
 
 
