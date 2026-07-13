@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Stage 389 corrects the local daily-operations contract: public scoring wording
+  now describes source diversity across configured sources and imported local
+  signals, rather than platform scoring; a non-skipped SQLite retention failure
+  makes `row-one refresh` return nonzero after report and site output; and
+  `row-one schedule --mode systemd` previews the same canonical
+  `row-one-refresh.service`, `row-one-refresh.timer`, and
+  `row-one-serve.service` payloads used by `row-one install-local`.
+  `row-one ops-check` reports filename-only `unit_files_present` evidence and
+  `site_ready_scheduler_unverified` status, while the guides retain manual
+  lingering/activation guidance and correctly describe the first-run smoke's
+  temporary local HTTP server fetch and termination. This does not add automatic
+  enablement, systemd directive validation or probing, collectors, platform
+  scoring, or deployment automation.
+
 ### Added
 
 - Stages 386-387 add homepage-only Daily Saved Text Takeaways and Daily Local Brand, Product & People Signal Digest sections to the generated ROW ONE `index.html`, organizing existing current-edition saved local article text and references without changing generated data artifacts, routes, source collection, scoring, or app contracts.

@@ -6,6 +6,14 @@ from dataclasses import dataclass
 
 HHMM_PATTERN = re.compile(r"^(?P<hour>[01][0-9]|2[0-3]):(?P<minute>[0-5][0-9])$")
 SYSTEMD_USER_PATH = "%h/.local/bin:%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
+ROW_ONE_REFRESH_SERVICE = "row-one-refresh.service"
+ROW_ONE_REFRESH_TIMER = "row-one-refresh.timer"
+ROW_ONE_SERVE_SERVICE = "row-one-serve.service"
+ROW_ONE_SYSTEMD_UNITS = (
+    ROW_ONE_REFRESH_SERVICE,
+    ROW_ONE_REFRESH_TIMER,
+    ROW_ONE_SERVE_SERVICE,
+)
 
 
 @dataclass(frozen=True)

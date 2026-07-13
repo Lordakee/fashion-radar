@@ -50,3 +50,19 @@ def test_scoring_docs_explain_candidate_score_components() -> None:
         "candidate score components intentionally omit the tracked-entity high-weight source term.",
     ):
         assert phrase in normalized
+
+
+def test_scoring_docs_pin_local_source_diversity_and_platform_provenance() -> None:
+    scoring_doc = _read_scoring_doc()
+    inputs = _section(scoring_doc, "Inputs")
+    formula = _section(scoring_doc, "Formula")
+
+    assert "item `source_name`" in inputs
+    assert "distinct_sources = count(unique source_name for current mentions)" in formula
+
+    normalized_inputs = _normalized(inputs)
+    for phrase in (
+        "Imported item platform labels are retained as local provenance for review output.",
+        "They do not affect heat scores and do not establish platform coverage.",
+    ):
+        assert phrase.casefold() in normalized_inputs

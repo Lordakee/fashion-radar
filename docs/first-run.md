@@ -140,6 +140,8 @@ window. Use `--retention-days N` for longer local item history, or
 `--skip-data-retention` to opt out for one refresh. The 1-day default is
 disk-friendly for test deployments, but it reduces multi-day item history
 available to future scoring window comparisons and heat scores.
+A non-skipped SQLite retention failure returns a nonzero exit status after report
+and site output is written.
 ROW ONE local ops use a daily `04:00` refresh boundary and fixed local
 IP:port `127.0.0.1:8787`; use `0.0.0.0:8787` only for explicit LAN serving.
 The generated site includes `data/runtime.json` runtime metadata alongside
@@ -180,8 +182,10 @@ status output, and local serve readiness path. It checks that ROW ONE writes the
 Manifest: `data/manifest.json` app discovery file and `data/runtime.json`
 runtime metadata file, runs `row-one status` against the generated temporary
 site as a lightweight runtime contract and cross-file consistency check, then runs
-`row-one serve --dry-run` against the same site so the dry-run URL path is
-covered without starting a long-running server.
+`row-one serve --dry-run` against the same site. It checks ROW ONE serve dry-run
+URLs, starts a temporary local HTTP server, fetches through that temporary local
+HTTP server, and terminates the temporary local HTTP server rather than leaving a
+long-running server behind.
 
 ## Installed-Wheel Smoke
 

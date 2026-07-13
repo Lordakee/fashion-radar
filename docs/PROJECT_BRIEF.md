@@ -23,7 +23,7 @@ Fashion Radar is not a generic scraper. It is a daily fashion intelligence workf
 1. Collect public fashion signals from reliable free sources.
 2. Normalize items into a shared data model.
 3. Match brands, designers, celebrities, product lines, categories, and trend words.
-4. Score heat changes using source count, recent growth, source weight, and cross-platform spread.
+4. Score local heat changes using mention volume, recent growth, source weight, and source diversity across configured sources and imported local signals.
 5. Generate a daily Markdown/JSON/HTML report.
 6. Show rankings and recent signals in a Streamlit dashboard.
 

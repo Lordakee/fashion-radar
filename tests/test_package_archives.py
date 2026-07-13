@@ -58,6 +58,11 @@ SDIST_FILES = [
     "pyproject.toml",
     "docs/cli-reference.md",
     "docs/github-upload-checklist.md",
+    "docs/PROJECT_BRIEF.md",
+    "docs/scoring.md",
+    "docs/scheduling.md",
+    "docs/first-run.md",
+    "docs/data-retention.md",
     "docs/row-one.md",
     "docs/source-boundaries.md",
     "docs/dependency-mirrors.md",
@@ -545,6 +550,35 @@ def test_rejects_sdist_without_row_one_doc(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "sdist archive missing required file: docs/row-one.md" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize(
+    "missing_path",
+    [
+        "docs/PROJECT_BRIEF.md",
+        "docs/scoring.md",
+        "docs/scheduling.md",
+        "docs/first-run.md",
+        "docs/data-retention.md",
+    ],
+)
+def test_rejects_sdist_without_required_operational_doc(
+    tmp_path: Path,
+    missing_path: str,
+) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    write_wheel(build_dir)
+    write_sdist(
+        build_dir,
+        files=[path for path in SDIST_FILES if path != missing_path],
+    )
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert f"sdist archive missing required file: {missing_path}" in result.stderr
     assert "Traceback" not in result.stderr
 
 

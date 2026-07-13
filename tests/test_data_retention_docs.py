@@ -79,3 +79,19 @@ def test_docs_no_longer_say_row_one_leaves_sqlite_retention_to_clean_old_data() 
         "leaves sqlite/data retention to `clean-old-data`",
     ):
         assert stale_phrase not in docs
+
+
+def test_data_retention_docs_describe_post_artifact_refresh_failure() -> None:
+    docs = {
+        "README": _normalized(_read(README)),
+        "ROW ONE": _normalized(_read(ROW_ONE_DOC)),
+        "first-run": _normalized(_read(FIRST_RUN_DOC)),
+        "CLI reference": _normalized(_read(CLI_REFERENCE)),
+        "data retention": _normalized(_read(DATA_RETENTION_DOC)),
+    }
+
+    for name, text in docs.items():
+        assert (
+            "non-skipped sqlite retention failure returns a nonzero exit status after report "
+            "and site output is written"
+        ) in text, name

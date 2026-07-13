@@ -18,6 +18,9 @@ Each mention uses:
 - item `source_weight`
 - item `collected_at`
 
+Imported item platform labels are retained as local provenance for review output.
+They do not affect heat scores and do not establish platform coverage.
+
 Rows below `min_match_confidence` are ignored. Future-dated items relative to
 `as_of` are ignored.
 

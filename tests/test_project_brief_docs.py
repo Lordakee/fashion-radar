@@ -46,6 +46,17 @@ def test_project_brief_docs_keep_mvp_non_goals_boundary() -> None:
         assert phrase.casefold() in normalized
 
 
+def test_project_brief_docs_pin_local_scoring_contract() -> None:
+    product_positioning = _section(_read_project_brief_doc(), "Product Positioning")
+    normalized = _normalized(product_positioning)
+
+    assert (
+        "score local heat changes using mention volume, recent growth, source weight, "
+        "and source diversity across configured sources and imported local signals." in normalized
+    )
+    assert "cross-platform spread" not in normalized
+
+
 def test_project_brief_docs_split_minimum_core_from_optional_article_extra_collection() -> None:
     free_first_boundary = _section(_read_project_brief_doc(), "Free-First Boundary")
     normalized_boundary = _normalized(free_first_boundary)

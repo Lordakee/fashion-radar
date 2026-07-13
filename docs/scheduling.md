@@ -52,10 +52,12 @@ Use `row-one schedule` to print ROW ONE snippets for the single local daily
 refresh command. ROW ONE scheduled refresh runs the single refresh command.
 The command is `fashion-radar row-one refresh`. The snippet includes the 04:00
 local time, `--output-dir`, and cron/systemd examples without installing
-anything.
+anything. Use `row-one schedule --mode systemd` for the ROW ONE user-systemd
+preview.
 
 ```bash
 uv run fashion-radar row-one schedule --time 04:00
+uv run fashion-radar row-one schedule --mode systemd --time 04:00 --host 0.0.0.0 --port 8787
 ```
 
 This is 04:00 local scheduling for cron and systemd. The generated ROW ONE
@@ -67,10 +69,29 @@ ROW ONE presentation path. By default, it also prunes SQLite items older than
 the retention window after generating the current edition; the default ROW ONE
 SQLite item retention window is 1 day. Pass `--retention-days N` to keep a
 longer local item-history window, or pass `--skip-data-retention` when a
-refresh should leave SQLite item history untouched.
+refresh should leave SQLite item history untouched. A non-skipped SQLite
+retention failure returns a nonzero exit status after report and site output is
+written.
 
 The generated ROW ONE site can be served later with `row-one serve`; use
 `--host 0.0.0.0` only when you explicitly want IP:port local-network serving.
+
+`row-one schedule --mode systemd` and `row-one install-local` use the same three
+canonical unit names: `row-one-refresh.service`, `row-one-refresh.timer`, and
+`row-one-serve.service`. Fashion Radar does not invoke `systemctl` or `loginctl`.
+Unattended user-systemd operation requires manual lingering verification.
+Check with `loginctl show-user "$USER" -p Linger`; an authorized operator may be
+needed to enable lingering under host policy. After you have reviewed the printed
+or written units, activate them manually:
+
+```bash
+loginctl show-user "$USER" -p Linger
+loginctl enable-linger "$USER"
+systemctl --user daemon-reload
+systemctl --user enable --now row-one-refresh.timer
+systemctl --user enable --now row-one-serve.service
+systemctl --user status row-one-refresh.timer row-one-serve.service
+```
 
 Standalone `fashion-radar clean-old-data` remains for manual or non-ROW ONE data
 retention.

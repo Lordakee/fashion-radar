@@ -4,6 +4,7 @@ import pytest
 
 from fashion_radar.row_one.ops import render_row_one_local_ops_runbook
 from fashion_radar.scheduling import (
+    ROW_ONE_SYSTEMD_UNITS,
     cron_as_of_shell,
     raw_as_of_shell,
     render_cron_example,
@@ -37,6 +38,14 @@ def test_as_of_shell_is_escaped_per_scheduler_context() -> None:
     assert raw_as_of_shell() == "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     assert cron_as_of_shell() == r"$(date -u +\%Y-\%m-\%dT\%H:\%M:\%SZ)"
     assert systemd_as_of_shell() == "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)"
+
+
+def test_row_one_systemd_unit_names_are_canonical_and_ordered() -> None:
+    assert ROW_ONE_SYSTEMD_UNITS == (
+        "row-one-refresh.service",
+        "row-one-refresh.timer",
+        "row-one-serve.service",
+    )
 
 
 def test_render_cron_example_contains_run_command_and_paths() -> None:

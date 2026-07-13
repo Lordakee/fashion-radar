@@ -172,6 +172,10 @@ from fashion_radar.row_one.status_integrity import (
     validate_row_one_generated_site_integrity,
 )
 from fashion_radar.scheduling import (
+    ROW_ONE_REFRESH_SERVICE,
+    ROW_ONE_REFRESH_TIMER,
+    ROW_ONE_SERVE_SERVICE,
+    ROW_ONE_SYSTEMD_UNITS,
     render_cron_example,
     render_github_actions_workflow,
     render_row_one_cron_example,
@@ -1603,6 +1607,8 @@ def row_one_refresh(
     _echo_row_one_local_article_metrics(site_result.local_article_metrics)
     typer.echo(f"Readiness: {readiness.readiness.en}")
     typer.echo(format_row_one_site_access_message(host, port))
+    if data_retention_error is not None:
+        raise typer.Exit(1)
 
 
 def _write_row_one_site_from_cli_options(
@@ -2390,6 +2396,8 @@ def _render_row_one_ops_check_text(payload: dict[str, object]) -> str:
         f"Freshness: {freshness.get('status', 'unknown')}",
         f"Server: {server.get('status', 'unknown')}",
         f"Systemd units: {systemd.get('status', 'unknown')}",
+        f"Systemd verification: {systemd.get('verification', 'unknown')}",
+        "Systemd scheduler state is not verified.",
         f"Local article routes: {local_article_routes.get('status', 'unknown')}",
         f"Local article content: {local_article_content.get('status', 'unknown')}",
     ]
@@ -2486,15 +2494,15 @@ def _row_one_systemd_unit_payloads(
 ) -> dict[str, str]:
     validate_hhmm(time)
     return {
-        "row-one-refresh.service": render_row_one_systemd_service(
+        ROW_ONE_REFRESH_SERVICE: render_row_one_systemd_service(
             project_dir=str(project_dir),
             config_dir=str(config_dir),
             data_dir=str(data_dir),
             reports_dir=str(reports_dir),
             output_dir=str(output_dir),
         ),
-        "row-one-refresh.timer": render_systemd_timer(time=time),
-        "row-one-serve.service": render_row_one_serve_systemd_service(
+        ROW_ONE_REFRESH_TIMER: render_systemd_timer(time=time),
+        ROW_ONE_SERVE_SERVICE: render_row_one_serve_systemd_service(
             project_dir=str(project_dir),
             site_dir=str(output_dir),
             host=host,
@@ -2632,6 +2640,8 @@ def row_one_schedule(
     reports_dir: Path = REPORTS_DIR_OPTION,
     output_dir: Path = ROW_ONE_OUTPUT_DIR_OPTION,
     time: str = typer.Option("04:00", help="Daily run time in 24-hour HH:MM format."),
+    host: str = ROW_ONE_HOST_OPTION,
+    port: int = ROW_ONE_PORT_OPTION,
 ) -> None:
     """Print ROW ONE daily scheduling examples without installing them."""
     try:
@@ -2652,18 +2662,20 @@ def row_one_schedule(
             )
         )
     else:
-        typer.echo("# ~/.config/systemd/user/row-one.service")
-        typer.echo(
-            render_row_one_systemd_service(
-                project_dir=str(project_dir),
-                config_dir=str(config_dir),
-                data_dir=str(data_dir),
-                reports_dir=str(reports_dir),
-                output_dir=str(output_dir),
-            )
+        unit_payloads = _row_one_systemd_unit_payloads(
+            project_dir=project_dir,
+            config_dir=config_dir,
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+            output_dir=output_dir,
+            time=time,
+            host=host,
+            port=port,
         )
-        typer.echo("# ~/.config/systemd/user/row-one.timer")
-        typer.echo(render_systemd_timer(time=time))
+        unit_dir = Path.home() / ".config" / "systemd" / "user"
+        for name in ROW_ONE_SYSTEMD_UNITS:
+            typer.echo(f"# {_format_row_one_unit_path(unit_dir / name)}")
+            typer.echo(unit_payloads[name])
 
 
 app.add_typer(row_one_app, name="row-one")

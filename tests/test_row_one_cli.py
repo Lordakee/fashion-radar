@@ -423,7 +423,16 @@ def _patch_successful_row_one_refresh_pipeline(
         assert kwargs["candidate_discovery"] is not None
         assert kwargs["entity_config"] is not None
         calls.append("write_daily_report_files")
-        return reports_dir / "daily.md", reports_dir / "daily.json"
+        markdown_path = reports_dir / "daily.md"
+        json_path = reports_dir / "daily.json"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        markdown_path.write_text("# Daily report\n", encoding="utf-8")
+        json_path.write_text("{}\n", encoding="utf-8")
+        markdown_path.with_suffix(".html").write_text(
+            "<html><body>Daily report</body></html>\n",
+            encoding="utf-8",
+        )
+        return markdown_path, json_path
 
     def prune_stale_daily_report_files(**kwargs: object) -> SimpleNamespace:
         assert kwargs["reports_dir"] == reports_dir
@@ -445,8 +454,14 @@ def _patch_successful_row_one_refresh_pipeline(
             "latest_only": True,
         }
         calls.append("_write_row_one_site_from_cli_options")
+        index_path = output_dir / "index.html"
+        site_data_dir = output_dir / "data"
+        site_data_dir.mkdir(parents=True, exist_ok=True)
+        index_path.write_text("<html><body>ROW ONE</body></html>\n", encoding="utf-8")
+        (site_data_dir / "edition.json").write_text("{}\n", encoding="utf-8")
+        (site_data_dir / "manifest.json").write_text("{}\n", encoding="utf-8")
         return SimpleNamespace(
-            index_path=output_dir / "index.html",
+            index_path=index_path,
             output_dir=output_dir,
             story_count=0,
             edition=build_row_one_edition(report=_empty_report(), recent_items=[], as_of=AS_OF),
@@ -601,7 +616,7 @@ def test_row_one_refresh_can_skip_sqlite_retention(
     assert "clean_old_data" not in calls
 
 
-def test_row_one_refresh_warns_when_sqlite_retention_fails(
+def test_row_one_refresh_fails_after_sqlite_retention_failure(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     config_dir = tmp_path / "configs"
@@ -643,10 +658,34 @@ def test_row_one_refresh_warns_when_sqlite_retention_fails(
         ],
     )
 
-    assert result.exit_code == 0, result.output
-    assert "SQLite retention: failed: database locked" in result.output
+    assert result.exit_code == 1, result.output
+    retention_diagnostic = "SQLite retention: failed: database locked"
+    assert retention_diagnostic in result.output
     assert "ROW ONE refresh failed" not in result.output
     assert calls[-1] == "clean_old_data"
+    for report_line in (
+        "Markdown report:",
+        "JSON report:",
+        "HTML report:",
+        "Latest-only reports:",
+    ):
+        assert result.output.index(report_line) < result.output.index(retention_diagnostic)
+    for site_line in (
+        "Site:",
+        "JSON: ",
+        "Manifest:",
+        "Open: http://127.0.0.1:8787",
+    ):
+        assert result.output.index(retention_diagnostic) < result.output.index(site_line)
+    for artifact_path in (
+        reports_dir / "daily.md",
+        reports_dir / "daily.json",
+        reports_dir / "daily.html",
+        output_dir / "index.html",
+        output_dir / "data" / "edition.json",
+        output_dir / "data" / "manifest.json",
+    ):
+        assert artifact_path.exists()
 
 
 def test_row_one_refresh_prunes_old_sqlite_items_after_successful_refresh(
@@ -844,18 +883,23 @@ def test_row_one_ops_check_json_forwards_options_and_as_of(
         )
         return {
             "ok": True,
-            "status": "attention",
+            "status": "site_ready_scheduler_unverified",
             "site_dir": str(site_dir),
             "as_of": "2026-07-07T08:00:00Z",
-            "freshness": {"status": "stale"},
-            "server": {"status": "serving_other"},
-            "systemd": {"status": "missing"},
+            "freshness": {"status": "fresh"},
+            "server": {"status": "serving_row_one"},
+            "systemd": {
+                "status": "unit_files_present",
+                "verification": "filenames_only",
+            },
+            "local_article_routes": {"status": "ready"},
+            "local_article_content": {"status": "ready"},
             "access": {
                 "message": "Open locally: http://127.0.0.1:8787",
                 "local_url": "http://127.0.0.1:8787",
                 "lan_url_hint": "http://<LAN-IP>:8787",
             },
-            "actions": ["检查本地 ROW ONE 服务。"],
+            "actions": [],
         }
 
     monkeypatch.setattr(
@@ -892,12 +936,12 @@ def test_row_one_ops_check_json_forwards_options_and_as_of(
         "unit_dir": unit_dir,
         "as_of": parse_datetime_utc("2026-07-07T08:00:00Z"),
     }
-    assert '\n  "status": "attention"' in result.output
-    assert "检查本地 ROW ONE 服务。" in result.output
+    assert '\n  "status": "site_ready_scheduler_unverified"' in result.output
     payload = json.loads(result.output)
-    assert payload["freshness"]["status"] == "stale"
-    assert payload["systemd"]["status"] == "missing"
-    assert payload["access"]["local_url"] == "http://127.0.0.1:8787"
+    assert payload["status"] == "site_ready_scheduler_unverified"
+    assert payload["systemd"]["status"] == "unit_files_present"
+    assert payload["systemd"]["verification"] == "filenames_only"
+    assert payload["actions"] == []
 
 
 def test_row_one_ops_check_human_output_is_read_only(
@@ -916,13 +960,16 @@ def test_row_one_ops_check_human_output_is_read_only(
     ) -> dict[str, object]:
         return {
             "ok": True,
-            "status": "ready",
+            "status": "site_ready_scheduler_unverified",
             "site_dir": str(site_dir),
             "as_of": "2026-07-07T08:00:00Z",
             "freshness": {"status": "fresh"},
             "server": {"status": "serving_row_one"},
-            "systemd": {"status": "present"},
-            "local_article_routes": {"status": "missing", "article_count": 1},
+            "systemd": {
+                "status": "unit_files_present",
+                "verification": "filenames_only",
+            },
+            "local_article_routes": {"status": "ready", "article_count": 1},
             "local_article_content": {"status": "ready", "article_count": 1},
             "access": {
                 "message": (
@@ -931,7 +978,7 @@ def test_row_one_ops_check_human_output_is_read_only(
                 "local_url": "http://127.0.0.1:8787",
                 "lan_url_hint": "http://<LAN-IP>:8787",
             },
-            "actions": ["Review user systemd units."],
+            "actions": [],
         }
 
     monkeypatch.setattr(
@@ -958,16 +1005,17 @@ def test_row_one_ops_check_human_output_is_read_only(
 
     assert result.exit_code == 0, result.output
     assert "ROW ONE ops check" in result.output
-    assert "Status: ready" in result.output
+    assert "Status: site_ready_scheduler_unverified" in result.output
     assert "Freshness: fresh" in result.output
     assert "Server: serving_row_one" in result.output
-    assert "Systemd units: present" in result.output
-    assert "Local article routes: missing" in result.output
+    assert "Systemd units: unit_files_present" in result.output
+    assert "Systemd verification: filenames_only" in result.output
+    assert "scheduler state is not verified" in result.output
+    assert "Local article routes: ready" in result.output
     assert "Local article content: ready" in result.output
     assert "Access:" in result.output
     assert "Open locally: http://127.0.0.1:8787" in result.output
-    assert "Actions:" in result.output
-    assert "- Review user systemd units." in result.output
+    assert "Actions:" not in result.output
     after = sorted(path.relative_to(tmp_path) for path in tmp_path.rglob("*"))
     assert after == before
 
@@ -2274,6 +2322,78 @@ def test_row_one_schedule_prints_refresh_command() -> None:
     assert "fashion-radar run" not in result.output
     assert "fashion-radar row-one build" not in result.output
     assert "--latest-only" not in result.output
+
+
+def test_row_one_schedule_systemd_preview_matches_install_local_payloads(tmp_path: Path) -> None:
+    output_dir = tmp_path / "reports" / "row-one" / "site"
+    common_options = [
+        "--project-dir",
+        str(tmp_path),
+        "--config-dir",
+        str(tmp_path / "configs"),
+        "--data-dir",
+        str(tmp_path / "data"),
+        "--reports-dir",
+        str(tmp_path / "reports"),
+        "--output-dir",
+        str(output_dir),
+        "--time",
+        "04:00",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "9876",
+    ]
+    schedule_result = CliRunner().invoke(
+        app,
+        ["row-one", "schedule", "--mode", "systemd", *common_options],
+    )
+    install_result = CliRunner().invoke(
+        app,
+        ["row-one", "install-local", "--dry-run", *common_options],
+    )
+
+    assert schedule_result.exit_code == 0, schedule_result.output
+    assert install_result.exit_code == 0, install_result.output
+    headings = (
+        "# ~/.config/systemd/user/row-one-refresh.service",
+        "# ~/.config/systemd/user/row-one-refresh.timer",
+        "# ~/.config/systemd/user/row-one-serve.service",
+    )
+    assert [schedule_result.output.index(heading) for heading in headings] == sorted(
+        schedule_result.output.index(heading) for heading in headings
+    )
+    assert "# ~/.config/systemd/user/row-one.service" not in schedule_result.output
+    assert "# ~/.config/systemd/user/row-one.timer" not in schedule_result.output
+    assert "Before enabling on a fresh install, generate the site once:" in install_result.output
+
+    def payload_sections(output: str) -> tuple[str, ...]:
+        sections: list[str] = []
+        for index, heading in enumerate(headings):
+            start = output.index(heading) + len(heading)
+            if index + 1 < len(headings):
+                end = output.index(headings[index + 1], start)
+            else:
+                end = output.find("\n\nBefore enabling on a fresh install", start)
+                if end == -1:
+                    end = len(output)
+            sections.append(output[start:end].strip())
+        return tuple(sections)
+
+    assert payload_sections(schedule_result.output) == payload_sections(install_result.output)
+    serve_payload = payload_sections(schedule_result.output)[2]
+    assert 'Environment="ROW_ONE_HOST=0.0.0.0"' in serve_payload
+    assert 'Environment="ROW_ONE_PORT=9876"' in serve_payload
+    assert '--host "$ROW_ONE_HOST"' in serve_payload
+    assert '--port "$ROW_ONE_PORT"' in serve_payload
+
+
+def test_row_one_schedule_help_includes_host_and_port() -> None:
+    result = CliRunner().invoke(app, ["row-one", "schedule", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "--host" in result.output
+    assert "--port" in result.output
 
 
 def test_row_one_server_serves_index_on_ephemeral_port(tmp_path: Path) -> None:

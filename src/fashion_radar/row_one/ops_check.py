@@ -21,13 +21,9 @@ from fashion_radar.row_one.server import (
     format_row_one_site_access_message,
     format_row_one_site_url,
 )
+from fashion_radar.scheduling import ROW_ONE_SYSTEMD_UNITS
 from fashion_radar.utils.dates import parse_datetime_utc
 
-ROW_ONE_SYSTEMD_UNITS = (
-    "row-one-refresh.service",
-    "row-one-refresh.timer",
-    "row-one-serve.service",
-)
 ROW_ONE_SERVER_TIMEOUT_SECONDS = 1.0
 
 
@@ -224,7 +220,8 @@ def _systemd_payload(unit_dir: Path) -> dict[str, object]:
     unit_dir_exists = unit_dir.is_dir()
     units = {unit: (unit_dir / unit).is_file() for unit in ROW_ONE_SYSTEMD_UNITS}
     return {
-        "status": "present" if all(units.values()) else "missing",
+        "status": "unit_files_present" if all(units.values()) else "missing",
+        "verification": "filenames_only",
         "unit_dir": str(unit_dir),
         "unit_dir_exists": unit_dir_exists,
         "units": units,
@@ -264,7 +261,7 @@ def _actions(
         actions.append("Stop or move the process occupying the ROW ONE port before serving.")
     if server.status == "serving_other":
         actions.append("Stop or move the non-ROW ONE process before serving on this port.")
-    if systemd.get("status") != "present":
+    if systemd.get("status") != "unit_files_present":
         actions.append(
             "Run `fashion-radar row-one install-local --dry-run` to inspect user systemd units.",
         )
@@ -292,9 +289,9 @@ def _overall_status(
     if (
         freshness.get("status") == "fresh"
         and server.status == "serving_row_one"
-        and systemd.get("status") == "present"
+        and systemd.get("status") == "unit_files_present"
         and local_article_routes.get("status") != "missing"
         and local_article_content.get("status") != "missing"
     ):
-        return "ready"
+        return "site_ready_scheduler_unverified"
     return "attention"

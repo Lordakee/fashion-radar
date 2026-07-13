@@ -9,6 +9,7 @@ ARCHITECTURE_DOC = ROOT / "docs" / "architecture.md"
 CLI_REFERENCE = ROOT / "docs" / "cli-reference.md"
 FIRST_RUN_DOC = ROOT / "docs" / "first-run.md"
 SCHEDULING_DOC = ROOT / "docs" / "scheduling.md"
+DATA_RETENTION_DOC = ROOT / "docs" / "data-retention.md"
 UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 STAGE_327_PLAN = (
@@ -68,6 +69,46 @@ STAGE_327_DRIFT_PHRASES = (
     "new child page",
     "separate child page",
 )
+OPS_CHECK_GUIDANCE_BOUNDARIES = {
+    README: (
+        "`row-one ops-check` is a read-only local ROW ONE ops diagnostic",
+        "\n\n`row-one schedule --mode systemd`",
+    ),
+    ROW_ONE_DOC: (
+        "## Ops Check",
+        "\n## Daily Readiness And Preview",
+    ),
+    CLI_REFERENCE: (
+        "- `row-one ops-check`: read-only local ROW ONE operations readiness check.",
+        "\n- `row-one local-ops`:",
+    ),
+}
+ROW_ONE_REFRESH_GUIDANCE_BOUNDARIES = {
+    README: (
+        "`row-one refresh` is the single local daily refresh command for ROW ONE:",
+        "\n`row-one local-ops` prints",
+    ),
+    ROW_ONE_DOC: (
+        "- `row-one refresh`: runs the single local daily refresh command for ROW ONE by",
+        "\n- `row-one preview`:",
+    ),
+    CLI_REFERENCE: (
+        "- `row-one refresh`: run the single local daily ROW ONE refresh path:",
+        "\n- `row-one build`:",
+    ),
+    FIRST_RUN_DOC: (
+        "`row-one refresh` is the single local daily refresh command for ROW ONE.",
+        "\nROW ONE local ops use",
+    ),
+    DATA_RETENTION_DOC: (
+        "`clean-old-data` remains the standalone/manual cleanup command. For ROW ONE,",
+        "\n\nThe 1-day retention",
+    ),
+    SCHEDULING_DOC: (
+        "`row-one refresh` prunes stale dated report and site artifacts for the local",
+        "\n\nThe generated ROW ONE site can be served later",
+    ),
+}
 
 
 def _read(path: Path) -> str:
@@ -86,6 +127,24 @@ def _section(text: str, heading: str) -> str:
     marker = f"## {heading}"
     assert marker in text
     return text.split(marker, 1)[1].split("\n## ", 1)[0]
+
+
+def _ops_check_guidance(path: Path, text: str | None = None) -> str:
+    text = _read(path) if text is None else text
+    start, end = OPS_CHECK_GUIDANCE_BOUNDARIES[path]
+    assert start in text
+    guidance_and_rest = text.split(start, 1)[1]
+    assert end in guidance_and_rest
+    return start + guidance_and_rest.split(end, 1)[0]
+
+
+def _row_one_refresh_guidance(path: Path, text: str | None = None) -> str:
+    text = _read(path) if text is None else text
+    start, end = ROW_ONE_REFRESH_GUIDANCE_BOUNDARIES[path]
+    assert start in text
+    guidance_and_rest = text.split(start, 1)[1]
+    assert end in guidance_and_rest
+    return start + guidance_and_rest.split(end, 1)[0]
 
 
 def test_row_one_docs_keep_local_static_site_boundary() -> None:
@@ -960,11 +1019,14 @@ def test_row_one_docs_describe_ops_check_boundary() -> None:
         normalized = _normalized(_read(path))
         assert expected in normalized
         for phrase in (
-            "`ready` status requires generated site files",
-            "fresh runtime metadata",
-            "local server already serving row one",
-            "expected user systemd unit files",
-            "missing units keep the result in `attention`",
+            "site_ready_scheduler_unverified",
+            "unit_files_present",
+            "filename evidence only",
+            (
+                "does not prove unit contents, drop-ins, enablement, activity, "
+                "or a successful future refresh"
+            ),
+            "fashion radar does not invoke `systemctl` or `loginctl`",
         ):
             assert phrase in normalized
         stage_329 = normalized[
@@ -4404,8 +4466,10 @@ def test_row_one_docs_describe_stage_308_site_integrity_preflight() -> None:
             "`data/edition.json` remains `row-one-app/v7`",
             "`data/manifest.json` remains `row-one-manifest/v1`",
             "`data/runtime.json` remains `row-one-runtime/v1`",
-            "first-run smoke now performs a local http serve fetch",
-            "not just `serve --dry-run`",
+            "first-run smoke checks row one serve dry-run urls",
+            "starts a temporary local http server",
+            "fetches through",
+            "terminates",
         ):
             assert phrase in normalized
 
@@ -5785,3 +5849,94 @@ def test_stage_388_changelog_records_daily_local_homepage_digests() -> None:
         "scoring, or app contracts",
     ):
         assert phrase in added
+
+
+def test_ops_check_guidance_isolates_current_contract_from_historical_notes() -> None:
+    obsolete_guidance = (
+        "ready status requires generated site files, fresh runtime metadata, a local server "
+        "already serving row one, and expected user systemd unit files",
+        "systemd units: present",
+    )
+    historical_notes = "\n\n## Historical release notes\n" + "\n".join(obsolete_guidance)
+
+    for path in OPS_CHECK_GUIDANCE_BOUNDARIES:
+        text = _read(path)
+        guidance_with_historical_notes = _normalized(
+            _ops_check_guidance(path, text + historical_notes)
+        )
+        start, _ = OPS_CHECK_GUIDANCE_BOUNDARIES[path]
+        restored_current_guidance = _normalized(
+            _ops_check_guidance(path, text.replace(start, f"{start}\n\n{historical_notes}", 1))
+        )
+
+        for phrase in obsolete_guidance:
+            normalized_phrase = _normalized(phrase)
+            assert normalized_phrase not in guidance_with_historical_notes
+            assert normalized_phrase in restored_current_guidance
+
+
+def test_row_one_docs_describe_stage_389_daily_ops_boundaries() -> None:
+    docs = {
+        "README": README,
+        "ROW ONE": ROW_ONE_DOC,
+        "CLI reference": CLI_REFERENCE,
+    }
+
+    for name, path in docs.items():
+        ops_check_guidance = _normalized(_ops_check_guidance(path))
+        expected_filename_presence = {
+            README: "three canonical filenames are present",
+            ROW_ONE_DOC: "all three canonical filenames are present",
+            CLI_REFERENCE: "all three canonical filenames are present",
+        }
+        for phrase in (
+            expected_filename_presence[path],
+            "site_ready_scheduler_unverified",
+            "unit_files_present",
+            "filename evidence only",
+            (
+                "does not prove unit contents, drop-ins, enablement, activity, "
+                "or a successful future refresh"
+            ),
+            "fashion radar does not invoke `systemctl` or `loginctl`",
+        ):
+            assert phrase in ops_check_guidance, name
+
+        assert (
+            "ready status requires generated site files, fresh runtime metadata, a local server "
+            "already serving row one, and expected user systemd unit files"
+            not in ops_check_guidance
+        ), name
+        assert "systemd units: present" not in ops_check_guidance, name
+
+    for name, path in {
+        "README": README,
+        "ROW ONE": ROW_ONE_DOC,
+        "CLI reference": CLI_REFERENCE,
+    }.items():
+        ops_check_guidance = _normalized(_ops_check_guidance(path))
+        for phrase in (
+            (
+                "missing canonical filenames yield `attention` only when runtime evidence "
+                "is otherwise healthy"
+            ),
+            (
+                "incomplete or invalid runtime evidence can still yield `unknown`, even "
+                "when canonical filenames are missing"
+            ),
+        ):
+            assert phrase in ops_check_guidance, name
+
+    for name, path in {
+        "README": README,
+        "ROW ONE": ROW_ONE_DOC,
+        "CLI reference": CLI_REFERENCE,
+        "First run": FIRST_RUN_DOC,
+        "Data retention": DATA_RETENTION_DOC,
+        "Scheduling": SCHEDULING_DOC,
+    }.items():
+        row_one_refresh_guidance = _normalized(_row_one_refresh_guidance(path))
+        assert (
+            "non-skipped sqlite retention failure returns a nonzero exit status "
+            "after report and site output is written"
+        ) in row_one_refresh_guidance, name

@@ -79,3 +79,32 @@ def test_scheduling_docs_keep_row_one_refresh_retention_boundary() -> None:
     assert "--latest-only" not in row_one_section
     assert "fashion-radar run" not in row_one_section
     assert "leaves all sqlite cleanup entirely to clean-old-data" not in normalized
+    assert (
+        "a non-skipped sqlite retention failure returns a nonzero exit status after report "
+        "and site output is written." in normalized
+    )
+
+
+def test_scheduling_docs_describe_stage_389_row_one_systemd_operations() -> None:
+    row_one_section = _section(_read_scheduling_doc(), "ROW ONE Daily Site")
+    normalized = _normalized(row_one_section)
+
+    for phrase in (
+        "`row-one schedule --mode systemd`",
+        "`row-one install-local`",
+        "`row-one-refresh.service`",
+        "`row-one-refresh.timer`",
+        "`row-one-serve.service`",
+        "fashion radar does not invoke `systemctl` or `loginctl`",
+        "unattended user-systemd operation requires manual lingering verification",
+        "an authorized operator may be needed to enable lingering under host policy",
+        'loginctl show-user "$user" -p linger',
+        'loginctl enable-linger "$user"',
+        "systemctl --user daemon-reload",
+        "systemctl --user enable --now row-one-refresh.timer",
+        "systemctl --user enable --now row-one-serve.service",
+        "systemctl --user status row-one-refresh.timer row-one-serve.service",
+        "--host",
+        "--port",
+    ):
+        assert phrase in normalized

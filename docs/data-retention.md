@@ -31,7 +31,9 @@ Rows in `items` with `collected_at` older than that cutoff are pruned.
 ONE site and reports are generated, using default 1-day SQLite item retention
 for the ROW ONE daily test-site path. Pass `--retention-days N` to
 `row-one refresh` for a longer local history, or pass `--skip-data-retention` to
-opt out for one refresh.
+opt out for one refresh. A non-skipped SQLite retention failure returns a
+nonzero exit status after report and site output is written. Report and site
+artifacts generated before the retention failure remain available for inspection.
 
 The 1-day retention is disk-friendly for test deployments, but it reduces
 multi-day item history available to future scoring-window and heat-score

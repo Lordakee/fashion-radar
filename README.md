@@ -1003,7 +1003,8 @@ uv run fashion-radar row-one status --site-dir reports/row-one/site --json
 uv run fashion-radar row-one ops-check --site-dir reports/row-one/site --host 0.0.0.0 --port 8787 --json
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 127.0.0.1 --port 8787
 uv run fashion-radar row-one serve --site-dir reports/row-one/site --host 0.0.0.0 --port 8787
-uv run fashion-radar row-one schedule --time 04:00
+uv run fashion-radar row-one schedule --mode systemd --time 04:00 --host 0.0.0.0 --port 8787
+uv run fashion-radar row-one install-local --dry-run --time 04:00 --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one local-ops --time 04:00 --host 0.0.0.0 --port 8787
 ```
 
@@ -1027,6 +1028,9 @@ days. The retention step does not prune `collector_runs`, does not prune
 and does not prune generated site files. It also does not change ROW ONE
 contracts, detail routes, or schemas; report artifact pruning remains separate
 from SQLite item retention.
+A non-skipped SQLite retention failure returns a nonzero exit status after report
+and site output is written; the generated artifacts remain available for
+inspection.
 `row-one local-ops` prints a local daily ops runbook for 04:00 refresh, preview,
 fixed IP:port serving, LAN access, cron snippets, latest-only cleanup, and a
 copyable source-checkout command group with its own `AS_OF`, `cd`, and
@@ -1037,19 +1041,28 @@ and `uv run fashion-radar row-one serve`. It prints snippets only and does not
 install timers, build the site, start the server, or mutate files.
 `row-one ops-check` is a read-only local ROW ONE ops diagnostic for site
 freshness, server/port readiness, access URLs, and user systemd unit-file
-presence. It inspects local files and local HTTP/port readiness only; it does
-not start servers, install or enable systemd units, kill processes, refresh or
-rebuild the site, write files or artifacts, or change ROW ONE contracts,
+presence. It reports `site_ready_scheduler_unverified` when the site is ready
+while the three canonical filenames are present, and reports
+`unit_files_present` for that systemd result. This is filename evidence only:
+it does not prove unit contents, drop-ins, enablement, activity, or a successful
+future refresh. Missing canonical filenames yield `attention` only when runtime
+evidence is otherwise healthy. Incomplete or invalid runtime evidence can still
+yield `unknown`, even when canonical filenames are missing. It inspects local
+files and local HTTP/port readiness only; it does not start servers, install or
+enable systemd units, kill processes, refresh or rebuild the site, write files
+or artifacts, or change ROW ONE contracts,
 schemas, collection, fetching, extraction, scoring, ranking, LLM, connector,
 deployment automation, market grouping, domestic/international classification,
-or compliance-review behavior. Its `ready` status requires generated site
-files, fresh runtime metadata, a local server already serving ROW ONE, and
-expected user systemd unit files; missing units keep the result in `attention`.
-Use `row-one status --json` as the
-script-facing preflight; ROW ONE runtime metadata remains local operational
-metadata only, not a deployment record.
-The first-run smoke now performs a local HTTP serve fetch, not just
-`serve --dry-run`, after the same status preflight path is covered.
+or compliance-review behavior. Fashion Radar does not invoke `systemctl` or
+`loginctl`. Use `row-one status --json` as the script-facing preflight; ROW ONE
+runtime metadata remains local operational metadata only, not a deployment
+record.
+
+`row-one schedule --mode systemd` and `row-one install-local` use the same
+canonical user-unit names: `row-one-refresh.service`,
+`row-one-refresh.timer`, and `row-one-serve.service`. The first-run smoke checks
+ROW ONE serve dry-run URLs, starts a temporary local HTTP server, fetches through
+that temporary local HTTP server, and terminates the temporary local HTTP server.
 
 Package local digest artifacts after a report or serial run:
 

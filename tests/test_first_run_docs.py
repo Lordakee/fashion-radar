@@ -67,3 +67,16 @@ def test_first_run_docs_describe_row_one_article_readiness_boundary() -> None:
         "optional article extraction dependency",
     ):
         assert phrase in normalized
+
+
+def test_first_run_docs_describe_temporary_http_smoke() -> None:
+    smoke = _section(_read_first_run_doc(), "Automated First-Run Smoke")
+    normalized = _normalized(smoke)
+
+    for phrase in (
+        "it checks row one serve dry-run urls",
+        "starts a temporary local http server",
+        "fetches through that temporary local http server",
+        "terminates the temporary local http server",
+    ):
+        assert phrase in normalized

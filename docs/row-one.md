@@ -264,25 +264,30 @@ fields to `row-one-runtime/v1`, `row-one-manifest/v1`, or `row-one-app/v7`.
 
 `row-one ops-check` is a read-only local ROW ONE operations diagnostic. It
 inspects generated site file presence, runtime freshness, local HTTP/port
-readiness, access URLs, and expected user systemd unit-file presence under the
+readiness, access URLs, and the expected user systemd filenames under the
 selected unit directory. It can print human-readable output or `--json` output
 for local operator dashboards.
 
-Its `ready` status requires generated site files, fresh runtime metadata, a
-local server already serving ROW ONE, and expected user systemd unit files;
-missing units keep the result in `attention` even when the site and server are
-otherwise healthy.
+When the site is ready and all three canonical filenames are present, it reports
+`site_ready_scheduler_unverified` and a systemd status of
+`unit_files_present`. This is filename evidence only: it does not prove unit
+contents, drop-ins, enablement, activity, or a successful future refresh. Missing
+canonical filenames yield `attention` only when runtime evidence is otherwise
+healthy. Incomplete or invalid runtime evidence can still yield `unknown`, even
+when canonical filenames are missing.
 
-It does not start servers, install or enable systemd units, call `systemctl`,
-kill processes, refresh or rebuild the site, write files or artifacts, change
+It does not start servers, install or enable systemd units, call `systemctl` or
+`loginctl`, kill processes, refresh or rebuild the site, write files or artifacts, change
 `row-one-app/v7`, `row-one-manifest/v1`, `row-one-runtime/v1`, schemas, source
 collection, fetching, extraction, scoring, ranking, LLM, connectors, deployment
 automation, market grouping, domestic/international classification, or
 compliance-review behavior. Use `row-one status --json` as the script-facing
 preflight surface; runtime metadata is local operational metadata only and is
-not a deployment record.
-The first-run smoke now performs a local HTTP serve fetch, not just
-`serve --dry-run`, after status has validated the generated site.
+not a deployment record. Fashion Radar does not invoke `systemctl` or `loginctl`.
+After `status` has validated the generated site, the first-run smoke checks ROW
+ONE serve dry-run URLs, then starts a temporary local HTTP server, fetches
+through that temporary local HTTP server, and terminates it without leaving a
+long-running process.
 
 The canonical first-run local serving boundary is fixed IP:port `127.0.0.1:8787`
 for local-only testing. Use `0.0.0.0:8787` only for explicit LAN serving, and
@@ -659,7 +664,8 @@ as `latest.md`, `latest.json`, `report-index.json`,
   `--skip-data-retention`; latest-only site cleanup is built in, older generated
   dated report artifacts in `--reports-dir` are pruned after the current report
   is written, and default 1-day SQLite item retention runs after the current
-  site and reports are generated.
+  site and reports are generated. A non-skipped SQLite retention failure returns
+  a nonzero exit status after report and site output is written.
 - `row-one preview`: builds the static ROW ONE site and prints daily readiness
   details. Important flags: `--as-of`, `--output-dir`, `--latest-only`,
   `--host`, `--port`, and `--dry-run-serve-url`.
@@ -669,9 +675,11 @@ as `latest.md`, `latest.json`, `report-index.json`,
   script-facing preflight surface before serving.
 - `row-one ops-check`: runs a read-only local operations diagnostic for site
   freshness, server/port readiness, access URLs, and user systemd unit-file
-  presence. Important flags: `--site-dir`, `--host`, `--port`, `--unit-dir`,
-  `--as-of`, and `--json`. It does not start servers, install systemd units,
-  refresh or rebuild the site, write files, or change ROW ONE contracts.
+  filename presence. Important flags: `--site-dir`, `--host`, `--port`,
+  `--unit-dir`, `--as-of`, and `--json`. Its positive filename-only result is
+  `site_ready_scheduler_unverified` with `unit_files_present`; it does not start
+  servers, install systemd units, refresh or rebuild the site, write files, or
+  change ROW ONE contracts.
 - `row-one local-ops`: prints a ROW ONE local daily ops runbook for 04:00
   refresh, fixed IP:port serving, preview, `row-one status --json` preflight,
   source checkout commands, and cron snippets. It prints snippets only and does
@@ -686,7 +694,7 @@ as `latest.md`, `latest.json`, `report-index.json`,
 - `row-one serve`: serves a generated site directory. Important flags:
   `--site-dir`, `--host`, `--port`, and `--dry-run`.
 - `row-one schedule`: prints examples for 04:00 local scheduling without
-  installing timers.
+  installing timers. Important flags: `--mode`, `--host`, and `--port`.
 
 ## Scheduling
 
@@ -699,12 +707,13 @@ or `--skip-data-retention` when a scheduled refresh must leave item history
 untouched. The 1-day retention default is disk-friendly for test deployments, but
 it reduces multi-day item history available to future scoring window comparisons
 and heat scores. Schedule output includes the 04:00 command, `--output-dir`,
-and serving guidance, but it prints snippets only.
+and serving guidance, but it prints snippets only. A non-skipped SQLite retention
+failure returns a nonzero exit status after report and site output is written.
 
 Use:
 
 ```bash
-uv run fashion-radar row-one schedule --time 04:00
+uv run fashion-radar row-one schedule --mode systemd --time 04:00 --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one local-ops --time 04:00 --host 0.0.0.0 --port 8787
 uv run fashion-radar row-one install-local --dry-run --time 04:00 --host 0.0.0.0 --port 8787
 ```
@@ -745,12 +754,22 @@ AS_OF="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 uv run fashion-radar row-one refresh --as-of "$AS_OF" --output-dir reports/row-one/site
 ```
 
-Then enable the timer and fixed local server with:
+`row-one schedule --mode systemd` and `row-one install-local` use the same
+canonical user-unit names: `row-one-refresh.service`,
+`row-one-refresh.timer`, and `row-one-serve.service`. Fashion Radar does not
+invoke `systemctl` or `loginctl`. Unattended user-systemd operation requires
+manual lingering verification. Check it with `loginctl show-user "$USER" -p
+Linger`; enabling lingering can require an authorized operator under host policy.
+
+After writing the units, make the local user-systemd activation decision manually:
 
 ```bash
+loginctl show-user "$USER" -p Linger
+loginctl enable-linger "$USER"
 systemctl --user daemon-reload
 systemctl --user enable --now row-one-refresh.timer
 systemctl --user enable --now row-one-serve.service
+systemctl --user status row-one-refresh.timer row-one-serve.service
 ```
 
 The generated timer runs the single ROW ONE refresh command at the selected local

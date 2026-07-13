@@ -101,7 +101,8 @@ first-run smoke now performs a local HTTP serve fetch, not just
   `--skip-data-retention`. SQLite retention uses default 1-day retention after
   the current site and reports are generated; pass `--retention-days N` for a
   longer local item-history window or `--skip-data-retention` to leave SQLite
-  item history untouched for that refresh.
+  item history untouched for that refresh. A non-skipped SQLite retention failure
+  returns a nonzero exit status after report and site output is written.
 - `row-one build`: build the ROW ONE local static site from existing daily
   report data; requires `--as-of` and supports `--config-dir`, `--data-dir`,
   `--reports-dir`, `--output-dir`, and `--latest-only`.
@@ -128,20 +129,25 @@ first-run smoke now performs a local HTTP serve fetch, not just
   do not add fields to `row-one-runtime/v1`, `row-one-manifest/v1`, or
   `row-one-app/v7`. `data/edition.json` remains `row-one-app/v7`,
   `data/manifest.json` remains `row-one-manifest/v1`, and `data/runtime.json`
-  remains `row-one-runtime/v1`. The first-run smoke now performs a local HTTP
-  serve fetch, not just `serve --dry-run`, after the generated site preflight.
+  remains `row-one-runtime/v1`. After the generated site preflight, the first-run
+  smoke checks ROW ONE serve dry-run URLs, starts a temporary local HTTP server,
+  fetches through it, and terminates it.
 - `row-one ops-check`: read-only local ROW ONE operations readiness check. It
   inspects generated site files, runtime freshness, local HTTP/port status,
-  access URLs, and expected user systemd unit files; supports `--site-dir`,
+  access URLs, and expected user systemd filenames; supports `--site-dir`,
   `--host`, `--port`, `--unit-dir`, `--as-of`, and `--json`. It does not start
   servers, install or enable units, kill processes, refresh or rebuild the
   site, write files or artifacts, or change ROW ONE app/runtime/manifest
   contracts, schemas, source collection, fetching, extraction, scoring,
   ranking, LLM, connectors, deployment automation, market grouping,
   domestic/international classification, or compliance-review behavior.
-  Its `ready` status requires generated site files, fresh runtime metadata, a
-  local server already serving ROW ONE, and expected user systemd unit files;
-  missing units keep the result in `attention`.
+  When the site is ready and all three canonical filenames are present, it reports
+  `site_ready_scheduler_unverified` with `unit_files_present`. This is filename
+  evidence only: it does not prove unit contents, drop-ins, enablement, activity,
+  or a successful future refresh. Fashion Radar does not invoke `systemctl` or
+  `loginctl`. Missing canonical filenames yield `attention` only when runtime
+  evidence is otherwise healthy. Incomplete or invalid runtime evidence can still
+  yield `unknown`, even when canonical filenames are missing.
   `row-one status --json` remains the script-facing preflight surface, and
   runtime metadata remains local operational metadata only, not a deployment
   record.
@@ -155,13 +161,16 @@ first-run smoke now performs a local HTTP serve fetch, not just
   `--reports-dir`, `--output-dir`, `--time`, `--host`, `--port`, `--dry-run`,
   `--unit-dir`, and `--force`. With `--dry-run`, it prints the refresh service,
   refresh timer, serve service, and enable commands without writing files.
-  Without `--dry-run`, it writes the units to `--unit-dir` and refuses to
-  overwrite existing units unless `--force` is passed.
+  Both it and `row-one schedule --mode systemd` use
+  `row-one-refresh.service`, `row-one-refresh.timer`, and
+  `row-one-serve.service`. Without `--dry-run`, it writes the units to
+  `--unit-dir` and refuses to overwrite existing units unless `--force` is
+  passed.
 - `row-one serve`: serve a generated ROW ONE site; supports `--site-dir`,
   `--host`, `--port`, and `--dry-run`.
 - `row-one schedule`: print ROW ONE scheduling snippets without installing
   timers; supports `--time`, `--project-dir`, `--config-dir`, `--data-dir`,
-  `--reports-dir`, `--output-dir`, and `--mode`.
+  `--reports-dir`, `--output-dir`, `--mode`, `--host`, and `--port`.
 
 ## Local Import And Community Handoff
 
