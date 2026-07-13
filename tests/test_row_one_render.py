@@ -20,6 +20,9 @@ from fashion_radar.row_one.daily_local_article_intelligence_brief import (
     RowOneDailyLocalArticleIntelligenceBriefRoute,
 )
 from fashion_radar.row_one.daily_local_brand_product_people_signal_digest import (
+    DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_EXCERPT_CHARS,
+    DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_ITEM_LIMIT,
+    DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_SUPPORT_LIMIT,
     RowOneDailyLocalBrandProductPeopleSignalDigest,
     RowOneDailyLocalBrandProductPeopleSignalDigestBucket,
     RowOneDailyLocalBrandProductPeopleSignalDigestItem,
@@ -16213,7 +16216,17 @@ def test_render_daily_local_brand_product_people_digest_counts_safe_rendered_ite
 def test_render_daily_local_brand_product_people_digest_caps_direct_payloads() -> None:
     long_excerpt_en = f"<en>{'e' * 180}</en>"
     long_excerpt_zh = f"<中>{'中' * 180}</中>"
-    supports = tuple(
+    unsafe_supports = tuple(
+        RowOneDailyLocalBrandProductPeopleSignalDigestSupport(
+            title=LocalizedText(en=f"Unsafe support {index}", zh=f"不安全证据 {index}"),
+            source_name="Unsafe source",
+            label=LocalizedText(en="Unsafe signal", zh="不安全信号"),
+            excerpt=LocalizedText(en="Unsafe excerpt.", zh="不安全摘要。"),
+            href=(f"articles/../unsafe-{index}.html#local-article-content-section-1"),
+        )
+        for index in range(1, DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_SUPPORT_LIMIT + 1)
+    )
+    valid_supports = tuple(
         RowOneDailyLocalBrandProductPeopleSignalDigestSupport(
             title=LocalizedText(en=f"Evidence {index}", zh=f"证据 {index}"),
             source_name="Saved source",
@@ -16223,7 +16236,18 @@ def test_render_daily_local_brand_product_people_digest_caps_direct_payloads() -
         )
         for index in range(1, 5)
     )
-    items = tuple(
+    supports = (*unsafe_supports, *valid_supports)
+    unsafe_items = tuple(
+        RowOneDailyLocalBrandProductPeopleSignalDigestItem(
+            name=LocalizedText(en=f"Unsafe entity {index}", zh=f"不安全实体 {index}"),
+            reference_type="brand",
+            article_count=1,
+            source_count=1,
+            supports=unsafe_supports,
+        )
+        for index in range(1, DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_ITEM_LIMIT + 1)
+    )
+    valid_items = tuple(
         RowOneDailyLocalBrandProductPeopleSignalDigestItem(
             name=LocalizedText(en=f"Renderable entity {index}", zh=f"可渲染实体 {index}"),
             reference_type="brand",
@@ -16256,8 +16280,8 @@ def test_render_daily_local_brand_product_people_digest_caps_direct_payloads() -
             RowOneDailyLocalBrandProductPeopleSignalDigestBucket(
                 key="brands",
                 title=LocalizedText(en="Brands", zh="品牌"),
-                items=items,
-                total_count=6,
+                items=(*unsafe_items, *valid_items),
+                total_count=len(unsafe_items) + len(valid_items),
             ),
         ),
     )
@@ -16272,8 +16296,12 @@ def test_render_daily_local_brand_product_people_digest_caps_direct_payloads() -
     rendered_items = section_html.split(
         '<article class="daily-local-brand-product-people-signal-digest-item">'
     )[1:]
-    expected_excerpt_en = escape(f"{long_excerpt_en[:167].rstrip()}...")
-    expected_excerpt_zh = escape(f"{long_excerpt_zh[:167].rstrip()}...")
+    ellipsis = "..."
+    excerpt_prefix_chars = DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_EXCERPT_CHARS - len(
+        ellipsis
+    )
+    expected_excerpt_en = escape(f"{long_excerpt_en[:excerpt_prefix_chars].rstrip()}{ellipsis}")
+    expected_excerpt_zh = escape(f"{long_excerpt_zh[:excerpt_prefix_chars].rstrip()}{ellipsis}")
 
     assert (
         section_html.count(
@@ -16283,12 +16311,21 @@ def test_render_daily_local_brand_product_people_digest_caps_direct_payloads() -
     )
     assert "Unsupported bucket" not in section_html
     assert "Unsupported entity" not in section_html
-    assert len(rendered_items) == 5
+    assert "Unsafe entity" not in section_html
+    assert "Unsafe support" not in section_html
+    assert len(rendered_items) == DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_ITEM_LIMIT
+    for index in range(1, DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_ITEM_LIMIT + 1):
+        assert f"Renderable entity {index}" in section_html
+    assert "Renderable entity 6" not in section_html
     assert all(
         item_html.count('<article class="daily-local-brand-product-people-signal-digest-support">')
-        == 3
+        == DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_SUPPORT_LIMIT
         for item_html in rendered_items
     )
+    for item_html in rendered_items:
+        for index in range(1, DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_SUPPORT_LIMIT + 1):
+            assert f"Evidence {index}" in item_html
+        assert "Evidence 4" not in item_html
     assert expected_excerpt_en in section_html
     assert expected_excerpt_zh in section_html
     assert escape(long_excerpt_en) not in section_html
