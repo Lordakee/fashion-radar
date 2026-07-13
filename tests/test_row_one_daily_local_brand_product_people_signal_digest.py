@@ -393,8 +393,8 @@ def test_daily_bpp_digest_caps_long_evidence_excerpt_before_tail() -> None:
     assert digest is not None
     the_row = next(item for item in digest.buckets[0].items if item.name.en == "The Row")
     excerpt = the_row.supports[0].excerpt.en
-    assert len(excerpt) <= 170
-    assert excerpt.endswith("...")
+    assert len(excerpt) == 170
+    assert excerpt.startswith(long_evidence[:100])
     assert tail not in excerpt
 
 
@@ -795,6 +795,11 @@ def test_daily_bpp_digest_does_not_count_blank_sources() -> None:
     )
 
     assert digest is not None
+    assert digest.article_count == 2
     assert digest.source_count == 0
     brands = next(bucket for bucket in digest.buckets if bucket.key == "brands")
     assert brands.items[0].source_count == 0
+    assert [support.source_name for support in brands.items[0].supports] == [
+        "Saved local source",
+        "Saved local source",
+    ]
