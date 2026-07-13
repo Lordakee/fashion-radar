@@ -38,6 +38,7 @@ def test_sdist_excludes_internal_agent_artifacts() -> None:
     data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
 
     assert data["tool"]["hatch"]["build"]["targets"]["sdist"]["exclude"] == [
+        "/.codegraph/**",
         "/docs/reviews/**",
         "/docs/superpowers/**",
     ]
