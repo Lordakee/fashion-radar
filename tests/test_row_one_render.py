@@ -19,6 +19,12 @@ from fashion_radar.row_one.daily_local_article_intelligence_brief import (
     RowOneDailyLocalArticleIntelligenceBriefLaneChip,
     RowOneDailyLocalArticleIntelligenceBriefRoute,
 )
+from fashion_radar.row_one.daily_local_brand_product_people_signal_digest import (
+    RowOneDailyLocalBrandProductPeopleSignalDigest,
+    RowOneDailyLocalBrandProductPeopleSignalDigestBucket,
+    RowOneDailyLocalBrandProductPeopleSignalDigestItem,
+    RowOneDailyLocalBrandProductPeopleSignalDigestSupport,
+)
 
 try:
     from fashion_radar.row_one.daily_local_saved_article_organizer import (
@@ -15894,6 +15900,530 @@ def _daily_local_saved_text_takeaways_section_html(index_html: str) -> str:
         return tail[: min(next_markers)]
     end = tail.index("</section>") + len("</section>")
     return tail[:end]
+
+
+def _daily_local_brand_product_people_signal_digest_fixture(
+    *,
+    support_href: str = ("articles/the-row-signal-1234567890.html#local-article-content-section-1"),
+    title_en: str = "Daily Local Brand, Product & People Signal Digest",
+    entity_en: str = "The Row <entity>",
+    source_name: str = "Vogue <Business>",
+    excerpt_en: str = "Saved local <evidence> grounds this entity in the article.",
+) -> RowOneDailyLocalBrandProductPeopleSignalDigest:
+    return RowOneDailyLocalBrandProductPeopleSignalDigest(
+        title=LocalizedText(en=title_en, zh="每日本地品牌、单品与人物信号摘要"),
+        dek=LocalizedText(
+            en="Coverage from today's saved local article text.",
+            zh="来自今日保存本地文章正文的覆盖信号。",
+        ),
+        article_count=2,
+        source_count=2,
+        entity_count=3,
+        buckets=(
+            RowOneDailyLocalBrandProductPeopleSignalDigestBucket(
+                key="brands",
+                title=LocalizedText(en="Brands", zh="品牌"),
+                items=(
+                    RowOneDailyLocalBrandProductPeopleSignalDigestItem(
+                        name=LocalizedText(en=entity_en, zh="The Row <实体>"),
+                        reference_type="brand",
+                        article_count=2,
+                        source_count=2,
+                        supports=(
+                            RowOneDailyLocalBrandProductPeopleSignalDigestSupport(
+                                title=LocalizedText(
+                                    en='The Row <signals> "quiet" demand',
+                                    zh="The Row <信号> 安静需求",
+                                ),
+                                source_name=source_name,
+                                label=LocalizedText(
+                                    en="Brand <signal>",
+                                    zh="品牌 <信号>",
+                                ),
+                                excerpt=LocalizedText(
+                                    en=excerpt_en,
+                                    zh="保存本地 <证据> 将该实体锚定在文章中。",
+                                ),
+                                href=support_href,
+                            ),
+                        ),
+                    ),
+                ),
+                total_count=1,
+            ),
+            RowOneDailyLocalBrandProductPeopleSignalDigestBucket(
+                key="products",
+                title=LocalizedText(en="Products", zh="单品"),
+                items=(
+                    RowOneDailyLocalBrandProductPeopleSignalDigestItem(
+                        name=LocalizedText(en="Margaux bag", zh="Margaux 手袋"),
+                        reference_type="bag",
+                        article_count=1,
+                        source_count=1,
+                        supports=(
+                            RowOneDailyLocalBrandProductPeopleSignalDigestSupport(
+                                title=LocalizedText(en="Margaux demand", zh="Margaux 需求"),
+                                source_name="WWD",
+                                label=LocalizedText(
+                                    en="Product signal",
+                                    zh="单品信号",
+                                ),
+                                excerpt=LocalizedText(
+                                    en="A saved product mention.",
+                                    zh="一条保存的单品提及。",
+                                ),
+                                href=(
+                                    "articles/margaux-signal-1234567890.html"
+                                    "#local-article-content-section-2"
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+                total_count=1,
+            ),
+            RowOneDailyLocalBrandProductPeopleSignalDigestBucket(
+                key="people",
+                title=LocalizedText(en="People", zh="人物"),
+                items=(
+                    RowOneDailyLocalBrandProductPeopleSignalDigestItem(
+                        name=LocalizedText(en="Mary-Kate Olsen", zh="玛丽-凯特-奥尔森"),
+                        reference_type="designer",
+                        article_count=1,
+                        source_count=1,
+                        supports=(
+                            RowOneDailyLocalBrandProductPeopleSignalDigestSupport(
+                                title=LocalizedText(
+                                    en="Designer context",
+                                    zh="设计师语境",
+                                ),
+                                source_name="WWD",
+                                label=LocalizedText(en="People signal", zh="人物信号"),
+                                excerpt=LocalizedText(
+                                    en="A saved person mention.",
+                                    zh="一条保存的人物提及。",
+                                ),
+                                href=(
+                                    "articles/margaux-signal-1234567890.html"
+                                    "#local-article-content-section-3"
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+                total_count=1,
+            ),
+        ),
+    )
+
+
+def _daily_local_brand_product_people_signal_digest_section_html(index_html: str) -> str:
+    marker = '<section class="daily-local-brand-product-people-signal-digest"'
+    start = index_html.find(marker)
+    if start == -1:
+        return ""
+    tail = index_html[start:]
+    next_markers = [
+        marker_index
+        for marker_index in (
+            tail.find('<section class="daily-local-saved-article-organizer"'),
+            tail.find('<section class="daily-local-reading-itinerary"'),
+            tail.find('<section class="saved-article-content-organization"'),
+        )
+        if marker_index > 0
+    ]
+    if next_markers:
+        return tail[: min(next_markers)]
+    end = tail.index("</section>") + len("</section>")
+    return tail[:end]
+
+
+def test_render_daily_local_brand_product_people_digest_is_bilingual_escaped_and_ordered() -> None:
+    html = render_index_html(
+        _edition(),
+        daily_local_saved_text_takeaways=_daily_local_saved_text_takeaways_fixture(),
+        daily_local_brand_product_people_signal_digest=(
+            _daily_local_brand_product_people_signal_digest_fixture()
+        ),
+        daily_local_saved_article_organizer=_daily_local_saved_article_organizer_fixture(),
+    )
+    section_html = _daily_local_brand_product_people_signal_digest_section_html(html)
+
+    assert '<section class="daily-local-brand-product-people-signal-digest"' in section_html
+    assert "Daily Local Brand, Product &amp; People Signal Digest" in section_html
+    assert "每日本地品牌、单品与人物信号摘要" in section_html
+    assert '<span data-lang="en">Brands</span>' in section_html
+    assert '<span data-lang="zh">品牌</span>' in section_html
+    assert '<span data-lang="en">Products</span>' in section_html
+    assert '<span data-lang="zh">单品</span>' in section_html
+    assert '<span data-lang="en">People</span>' in section_html
+    assert '<span data-lang="zh">人物</span>' in section_html
+    assert "The Row &lt;entity&gt;" in section_html
+    assert "Vogue &lt;Business&gt;" in section_html
+    assert "Brand &lt;signal&gt;" in section_html
+    assert "Saved local &lt;evidence&gt; grounds this entity in the article." in section_html
+    assert "<entity>" not in section_html
+    assert "<script>" not in section_html
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-content-section-1"'
+    ) in section_html
+    assert (
+        html.index('class="daily-local-saved-text-takeaways"')
+        < html.index('class="daily-local-brand-product-people-signal-digest"')
+        < html.index('class="daily-local-saved-article-organizer"')
+    )
+
+
+def test_render_daily_local_brand_product_people_digest_localizes_known_reference_types() -> None:
+    digest = _daily_local_brand_product_people_signal_digest_fixture()
+    digest = replace(
+        digest,
+        buckets=tuple(
+            replace(
+                bucket,
+                items=tuple(replace(item, reference_type=reference_type) for item in bucket.items),
+            )
+            for bucket, reference_type in zip(
+                digest.buckets,
+                ("brand", "product", "person"),
+                strict=True,
+            )
+        ),
+    )
+
+    section_html = _daily_local_brand_product_people_signal_digest_section_html(
+        render_index_html(
+            _edition(),
+            daily_local_brand_product_people_signal_digest=digest,
+        )
+    )
+
+    for reference_type_en, reference_type_zh in (
+        ("brand", "品牌"),
+        ("product", "单品"),
+        ("person", "人物"),
+    ):
+        assert (
+            f'<span data-lang="en">{reference_type_en}</span>\n'
+            f'              <span data-lang="zh">{reference_type_zh}</span>'
+        ) in section_html
+
+
+def test_render_daily_local_brand_product_people_digest_links_include_localized_titles() -> None:
+    digest = _daily_local_brand_product_people_signal_digest_fixture()
+    first_support = digest.buckets[0].items[0].supports[0]
+    supports = (
+        replace(
+            first_support,
+            title=LocalizedText(en="First evidence article", zh="第一篇证据文章"),
+        ),
+        replace(
+            first_support,
+            title=LocalizedText(en="Second evidence article", zh="第二篇证据文章"),
+            href=("articles/second-signal-1234567890.html#local-article-content-section-2"),
+        ),
+    )
+    digest = replace(
+        digest,
+        buckets=(
+            replace(
+                digest.buckets[0],
+                items=(replace(digest.buckets[0].items[0], supports=supports),),
+            ),
+            *digest.buckets[1:],
+        ),
+    )
+
+    section_html = _daily_local_brand_product_people_signal_digest_section_html(
+        render_index_html(
+            _edition(),
+            daily_local_brand_product_people_signal_digest=digest,
+        )
+    )
+    link_contents_by_href = {
+        href: contents
+        for href, contents in re.findall(
+            r'<a class="daily-local-brand-product-people-signal-digest-link" '
+            r'href="([^"]+)">(.*?)</a>',
+            section_html,
+            flags=re.DOTALL,
+        )
+    }
+
+    for href, title_en, title_zh in (
+        (
+            "articles/the-row-signal-1234567890.html#local-article-content-section-1",
+            "First evidence article",
+            "第一篇证据文章",
+        ),
+        (
+            "articles/second-signal-1234567890.html#local-article-content-section-2",
+            "Second evidence article",
+            "第二篇证据文章",
+        ),
+    ):
+        assert href in link_contents_by_href
+        link_contents = link_contents_by_href[href]
+        assert title_en in link_contents
+        assert title_zh in link_contents
+
+
+def test_render_daily_local_brand_product_people_digest_counts_safe_rendered_items() -> None:
+    digest = _daily_local_brand_product_people_signal_digest_fixture()
+    valid_item = digest.buckets[0].items[0]
+    invalid_item = replace(
+        valid_item,
+        name=LocalizedText(en="Unsafe entity", zh="不安全实体"),
+        supports=(
+            replace(
+                valid_item.supports[0],
+                href="articles/../unsafe.html#local-article-content-section-1",
+            ),
+        ),
+    )
+    digest = replace(
+        digest,
+        entity_count=99,
+        buckets=(
+            replace(
+                digest.buckets[0],
+                items=(valid_item, invalid_item),
+                total_count=42,
+            ),
+        ),
+    )
+
+    section_html = _daily_local_brand_product_people_signal_digest_section_html(
+        render_index_html(
+            _edition(),
+            daily_local_brand_product_people_signal_digest=digest,
+        )
+    )
+
+    assert "The Row &lt;entity&gt;" in section_html
+    assert "Unsafe entity" not in section_html
+    assert section_html.count('<span data-lang="en">1 entity</span>') == 2
+    assert section_html.count('<span data-lang="zh">1 个实体</span>') == 2
+    assert "42 entities" not in section_html
+    assert "42 个实体" not in section_html
+    assert "99 entities" not in section_html
+    assert "99 个实体" not in section_html
+
+
+def test_render_daily_local_brand_product_people_digest_caps_direct_payloads() -> None:
+    long_excerpt_en = f"<en>{'e' * 180}</en>"
+    long_excerpt_zh = f"<中>{'中' * 180}</中>"
+    supports = tuple(
+        RowOneDailyLocalBrandProductPeopleSignalDigestSupport(
+            title=LocalizedText(en=f"Evidence {index}", zh=f"证据 {index}"),
+            source_name="Saved source",
+            label=LocalizedText(en="Signal", zh="信号"),
+            excerpt=LocalizedText(en=long_excerpt_en, zh=long_excerpt_zh),
+            href=(f"articles/the-row-signal-1234567890.html#local-article-content-section-{index}"),
+        )
+        for index in range(1, 5)
+    )
+    items = tuple(
+        RowOneDailyLocalBrandProductPeopleSignalDigestItem(
+            name=LocalizedText(en=f"Renderable entity {index}", zh=f"可渲染实体 {index}"),
+            reference_type="brand",
+            article_count=1,
+            source_count=1,
+            supports=supports,
+        )
+        for index in range(1, 7)
+    )
+    unsupported_item = RowOneDailyLocalBrandProductPeopleSignalDigestItem(
+        name=LocalizedText(en="Unsupported entity", zh="不受支持的实体"),
+        reference_type="brand",
+        article_count=1,
+        source_count=1,
+        supports=supports,
+    )
+    digest = RowOneDailyLocalBrandProductPeopleSignalDigest(
+        title=LocalizedText(en="Direct payload", zh="直接载荷"),
+        dek=LocalizedText(en="Direct payload bounds.", zh="直接载荷边界。"),
+        article_count=1,
+        source_count=1,
+        entity_count=999,
+        buckets=(
+            RowOneDailyLocalBrandProductPeopleSignalDigestBucket(
+                key="unsupported",
+                title=LocalizedText(en="Unsupported bucket", zh="不受支持的分组"),
+                items=(unsupported_item,),
+                total_count=1,
+            ),
+            RowOneDailyLocalBrandProductPeopleSignalDigestBucket(
+                key="brands",
+                title=LocalizedText(en="Brands", zh="品牌"),
+                items=items,
+                total_count=6,
+            ),
+        ),
+    )
+
+    section_html = _daily_local_brand_product_people_signal_digest_section_html(
+        render_index_html(
+            _edition(),
+            daily_local_brand_product_people_signal_digest=digest,
+        )
+    )
+
+    rendered_items = section_html.split(
+        '<article class="daily-local-brand-product-people-signal-digest-item">'
+    )[1:]
+    expected_excerpt_en = escape(f"{long_excerpt_en[:167].rstrip()}...")
+    expected_excerpt_zh = escape(f"{long_excerpt_zh[:167].rstrip()}...")
+
+    assert (
+        section_html.count(
+            '<article class="daily-local-brand-product-people-signal-digest-bucket">'
+        )
+        == 1
+    )
+    assert "Unsupported bucket" not in section_html
+    assert "Unsupported entity" not in section_html
+    assert len(rendered_items) == 5
+    assert all(
+        item_html.count('<article class="daily-local-brand-product-people-signal-digest-support">')
+        == 3
+        for item_html in rendered_items
+    )
+    assert expected_excerpt_en in section_html
+    assert expected_excerpt_zh in section_html
+    assert escape(long_excerpt_en) not in section_html
+    assert escape(long_excerpt_zh) not in section_html
+    assert section_html.count('<span data-lang="en">5 entities</span>') == 2
+    assert section_html.count('<span data-lang="zh">5 个实体</span>') == 2
+    assert "999 entities" not in section_html
+    assert "999 个实体" not in section_html
+
+
+def test_render_daily_local_brand_product_people_signal_digest_rejects_unsafe_support_hrefs() -> (
+    None
+):
+    story_id = "the-row-signal-1234567890"
+    unsafe_hrefs = (
+        f"https://unsafe.example/articles/{story_id}.html#local-article-content-section-1",
+        f"articles/../{story_id}.html#local-article-content-section-1",
+        f"articles/{story_id}.html?next=unsafe#local-article-content-section-1",
+        f"articles/{story_id}.html#local-article-paragraph-1",
+        f"articles/{story_id}.html#local-article-content-section-0",
+        "",
+    )
+    digest = _daily_local_brand_product_people_signal_digest_fixture()
+    safe_item = digest.buckets[0].items[0]
+    unsafe_supports = tuple(
+        RowOneDailyLocalBrandProductPeopleSignalDigestSupport(
+            title=LocalizedText(en=f"Unsafe support {index}", zh=f"不安全支持 {index}"),
+            source_name="Unsafe Source",
+            label=LocalizedText(en="Unsafe label", zh="不安全标签"),
+            excerpt=LocalizedText(en="Unsafe excerpt.", zh="不安全摘要。"),
+            href=href,
+        )
+        for index, href in enumerate(unsafe_hrefs, start=1)
+    )
+    digest = replace(
+        digest,
+        buckets=(
+            replace(
+                digest.buckets[0],
+                items=(replace(safe_item, supports=(*safe_item.supports, *unsafe_supports)),),
+            ),
+            *digest.buckets[1:],
+        ),
+    )
+
+    html = render_index_html(
+        _edition(),
+        daily_local_brand_product_people_signal_digest=digest,
+    )
+    section_html = _daily_local_brand_product_people_signal_digest_section_html(html)
+
+    assert (
+        'href="articles/the-row-signal-1234567890.html#local-article-content-section-1"'
+    ) in section_html
+    assert "Unsafe support" not in section_html
+    assert "Unsafe Source" not in section_html
+    assert "https://unsafe.example" not in section_html
+    assert "../" not in section_html
+    assert "?next=unsafe" not in section_html
+    assert "#local-article-paragraph-1" not in section_html
+    assert "#local-article-content-section-0" not in section_html
+
+
+def test_render_daily_local_brand_product_people_signal_digest_omits_none_or_no_safe_items() -> (
+    None
+):
+    assert (
+        _daily_local_brand_product_people_signal_digest_section_html(
+            render_index_html(
+                _edition(),
+                daily_local_brand_product_people_signal_digest=None,
+            )
+        )
+        == ""
+    )
+
+    digest = _daily_local_brand_product_people_signal_digest_fixture()
+    no_safe_items = replace(
+        digest,
+        buckets=tuple(
+            replace(
+                bucket,
+                items=tuple(
+                    replace(
+                        item,
+                        supports=(
+                            replace(
+                                item.supports[0],
+                                href="articles/../unsafe.html#local-article-content-section-1",
+                            ),
+                        ),
+                    )
+                    for item in bucket.items
+                ),
+            )
+            for bucket in digest.buckets
+        ),
+    )
+
+    assert (
+        _daily_local_brand_product_people_signal_digest_section_html(
+            render_index_html(
+                _edition(),
+                daily_local_brand_product_people_signal_digest=no_safe_items,
+            )
+        )
+        == ""
+    )
+
+
+def test_row_one_css_includes_daily_local_brand_product_people_signal_digest_styles() -> None:
+    css = row_one_css()
+
+    for selector in (
+        ".daily-local-brand-product-people-signal-digest",
+        ".daily-local-brand-product-people-signal-digest-header",
+        ".daily-local-brand-product-people-signal-digest-metrics",
+        ".daily-local-brand-product-people-signal-digest-grid",
+        ".daily-local-brand-product-people-signal-digest-bucket",
+        ".daily-local-brand-product-people-signal-digest-bucket-header",
+        ".daily-local-brand-product-people-signal-digest-items",
+        ".daily-local-brand-product-people-signal-digest-item",
+        ".daily-local-brand-product-people-signal-digest-item-meta",
+        ".daily-local-brand-product-people-signal-digest-supports",
+        ".daily-local-brand-product-people-signal-digest-support",
+        ".daily-local-brand-product-people-signal-digest-support-meta",
+        ".daily-local-brand-product-people-signal-digest-support-excerpt",
+        ".daily-local-brand-product-people-signal-digest-link",
+    ):
+        assert selector in css
+    assert re.search(
+        r"\.daily-local-brand-product-people-signal-digest-grid\s*\{[^}]*"
+        r"grid-template-columns:\s*1fr",
+        css[css.index("@media (max-width: 760px)") :],
+    )
 
 
 def _require_daily_local_saved_article_organizer_models() -> None:

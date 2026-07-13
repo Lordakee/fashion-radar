@@ -16,6 +16,15 @@ from fashion_radar.row_one.daily_local_article_intelligence_brief import (
     RowOneDailyLocalArticleIntelligenceBriefLaneChip,
     RowOneDailyLocalArticleIntelligenceBriefRoute,
 )
+from fashion_radar.row_one.daily_local_brand_product_people_signal_digest import (
+    DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_EXCERPT_CHARS,
+    DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_ITEM_LIMIT,
+    DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_SUPPORT_LIMIT,
+    RowOneDailyLocalBrandProductPeopleSignalDigest,
+    RowOneDailyLocalBrandProductPeopleSignalDigestBucket,
+    RowOneDailyLocalBrandProductPeopleSignalDigestItem,
+    RowOneDailyLocalBrandProductPeopleSignalDigestSupport,
+)
 from fashion_radar.row_one.daily_local_key_signals_digest import (
     RowOneDailyLocalKeySignalsDigest,
     RowOneDailyLocalKeySignalsDigestEntry,
@@ -489,6 +498,9 @@ def render_index_html(
     daily_local_article_intelligence_brief: RowOneDailyLocalArticleIntelligenceBrief | None = None,
     daily_local_synthesis_brief: RowOneDailyLocalSynthesisBrief | None = None,
     daily_local_saved_text_takeaways: RowOneDailyLocalSavedTextTakeaways | None = None,
+    daily_local_brand_product_people_signal_digest: (
+        RowOneDailyLocalBrandProductPeopleSignalDigest | None
+    ) = None,
     daily_local_saved_article_organizer: RowOneDailyLocalSavedArticleOrganizer | None = None,
     daily_local_reading_itinerary: RowOneDailyLocalReadingItinerary | None = None,
     saved_article_content_organization: RowOneSavedArticleContentOrganization | None = None,
@@ -559,6 +571,11 @@ def render_index_html(
     )
     daily_local_saved_text_takeaways_section = _render_daily_local_saved_text_takeaways(
         daily_local_saved_text_takeaways
+    )
+    daily_local_brand_product_people_signal_digest_section = (
+        _render_daily_local_brand_product_people_signal_digest(
+            daily_local_brand_product_people_signal_digest
+        )
     )
     daily_local_saved_article_organizer_section = _render_daily_local_saved_article_organizer(
         daily_local_saved_article_organizer
@@ -669,6 +686,7 @@ def render_index_html(
 {daily_local_article_intelligence_brief_section}
 {daily_local_synthesis_brief_section}
 {daily_local_saved_text_takeaways_section}
+{daily_local_brand_product_people_signal_digest_section}
 {daily_local_saved_article_organizer_section}
 {daily_local_reading_itinerary_section}
 {saved_article_content_organization_section}
@@ -5736,6 +5754,137 @@ main, .site-main { padding: 36px min(7vw, 88px) 72px; }
 .daily-local-saved-text-takeaways-card-link:focus-visible {
   opacity: 0.75;
 }
+.daily-local-brand-product-people-signal-digest {
+  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 0 0 32px;
+}
+.daily-local-brand-product-people-signal-digest-header {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 0.44fr) minmax(0, 1fr);
+  margin-bottom: 18px;
+}
+.daily-local-brand-product-people-signal-digest-header h2 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(2rem, 4.6vw, 5.2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.94;
+  margin: 0;
+}
+.daily-local-brand-product-people-signal-digest-header p {
+  align-self: end;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 720px;
+}
+.daily-local-brand-product-people-signal-digest-metrics,
+.daily-local-brand-product-people-signal-digest-item-meta,
+.daily-local-brand-product-people-signal-digest-support-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.daily-local-brand-product-people-signal-digest-metrics {
+  margin: 0 0 18px;
+}
+.daily-local-brand-product-people-signal-digest-metrics > span,
+.daily-local-brand-product-people-signal-digest-bucket-header > span,
+.daily-local-brand-product-people-signal-digest-item-meta > span,
+.daily-local-brand-product-people-signal-digest-support-meta > span,
+.daily-local-brand-product-people-signal-digest-link {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+.daily-local-brand-product-people-signal-digest-grid {
+  background: var(--line);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.daily-local-brand-product-people-signal-digest-bucket {
+  background: var(--panel);
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+}
+.daily-local-brand-product-people-signal-digest-bucket-header {
+  align-items: start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+.daily-local-brand-product-people-signal-digest-bucket-header h3 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.3rem, 2vw, 2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.daily-local-brand-product-people-signal-digest-items,
+.daily-local-brand-product-people-signal-digest-supports {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.daily-local-brand-product-people-signal-digest-item {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 12px;
+}
+.daily-local-brand-product-people-signal-digest-item h4 {
+  font-family: RowOneSerif, Georgia, serif;
+  font-size: clamp(1.12rem, 1.7vw, 1.75rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.daily-local-brand-product-people-signal-digest-support {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 10px;
+}
+.daily-local-brand-product-people-signal-digest-support h5 {
+  font-size: 0.9rem;
+  line-height: 1.25;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.daily-local-brand-product-people-signal-digest-support-excerpt {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.daily-local-brand-product-people-signal-digest-link {
+  color: var(--accent);
+  text-decoration: none;
+  width: fit-content;
+}
+.daily-local-brand-product-people-signal-digest-link:hover,
+.daily-local-brand-product-people-signal-digest-link:focus-visible {
+  opacity: 0.75;
+}
 .daily-local-saved-article-organizer {
   border-bottom: 1px solid var(--ink);
   margin: 0 0 32px;
@@ -7676,6 +7825,8 @@ body.lang-zh p [data-lang="zh"] { display: inline; }
   .daily-local-synthesis-brief-grid { grid-template-columns: 1fr; }
   .daily-local-saved-text-takeaways-header { grid-template-columns: 1fr; }
   .daily-local-saved-text-takeaways-grid { grid-template-columns: 1fr; }
+  .daily-local-brand-product-people-signal-digest-header { grid-template-columns: 1fr; }
+  .daily-local-brand-product-people-signal-digest-grid { grid-template-columns: 1fr; }
   .daily-local-saved-article-organizer-header { grid-template-columns: 1fr; }
   .daily-local-saved-article-organizer-lanes { grid-template-columns: 1fr; }
   .daily-local-reading-itinerary-header { grid-template-columns: 1fr; }
@@ -14805,6 +14956,262 @@ def _safe_daily_local_saved_text_takeaway_href(href: object) -> str | None:
         _LOCAL_ARTICLE_PARAGRAPH_FRAGMENT_RE.fullmatch(fragment) is None
         and _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is None
     ):
+        return None
+    return f"articles/{story_id}.html#{fragment}"
+
+
+def _render_daily_local_brand_product_people_signal_digest(
+    digest: RowOneDailyLocalBrandProductPeopleSignalDigest | None,
+) -> str:
+    if digest is None or not digest.buckets:
+        return ""
+    rendered_buckets = []
+    for bucket_key in ("brands", "products", "people"):
+        for bucket in digest.buckets:
+            if bucket.key != bucket_key:
+                continue
+            rendered = _render_daily_local_brand_product_people_signal_digest_bucket(bucket)
+            if rendered is not None:
+                rendered_buckets.append(rendered)
+                break
+    if not rendered_buckets:
+        return ""
+    entity_count = sum(item_count for _bucket_html, item_count in rendered_buckets)
+    buckets = "".join(bucket_html for bucket_html, _item_count in rendered_buckets)
+    title_en = normalize_row_one_paragraph(digest.title.en)
+    title_zh = normalize_row_one_paragraph(digest.title.zh)
+    dek_en = normalize_row_one_paragraph(digest.dek.en)
+    dek_zh = normalize_row_one_paragraph(digest.dek.zh)
+    metrics = (
+        _render_daily_local_brand_product_people_signal_digest_metric(
+            _count_label(digest.article_count, "article", "articles"),
+            f"{digest.article_count} 篇文章",
+        )
+        + _render_daily_local_brand_product_people_signal_digest_metric(
+            _count_label(digest.source_count, "source", "sources"),
+            f"{digest.source_count} 个来源",
+        )
+        + _render_daily_local_brand_product_people_signal_digest_metric(
+            _count_label(entity_count, "entity", "entities"),
+            f"{entity_count} 个实体",
+        )
+    )
+    return f"""<section class="daily-local-brand-product-people-signal-digest"
+  aria-labelledby="daily-local-brand-product-people-signal-digest-title">
+  <div class="daily-local-brand-product-people-signal-digest-header">
+    <div>
+      <p class="story-section">
+        <span data-lang="en">{_esc(title_en or title_zh)}</span>
+        <span data-lang="zh">{_esc(title_zh or title_en)}</span>
+      </p>
+      <h2 id="daily-local-brand-product-people-signal-digest-title">
+        <span data-lang="en">Brands, products, and people in saved local article text</span>
+        <span data-lang="zh">保存本地文章正文中的品牌、单品与人物</span>
+      </h2>
+    </div>
+    <p>
+      <span data-lang="en">{_esc(dek_en or dek_zh)}</span>
+      <span data-lang="zh">{_esc(dek_zh or dek_en)}</span>
+    </p>
+  </div>
+  <div class="daily-local-brand-product-people-signal-digest-metrics">{metrics}</div>
+  <div class="daily-local-brand-product-people-signal-digest-grid">{buckets}</div>
+</section>"""
+
+
+def _render_daily_local_brand_product_people_signal_digest_metric(
+    value_en: str,
+    value_zh: str,
+) -> str:
+    return (
+        "<span>"
+        f'<span data-lang="en">{_esc(value_en)}</span>'
+        f'<span data-lang="zh">{_esc(value_zh)}</span>'
+        "</span>"
+    )
+
+
+def _render_daily_local_brand_product_people_signal_digest_bucket(
+    bucket: RowOneDailyLocalBrandProductPeopleSignalDigestBucket,
+) -> tuple[str, int] | None:
+    items = []
+    for item in bucket.items:
+        item_html = _render_daily_local_brand_product_people_signal_digest_item(item)
+        if not item_html:
+            continue
+        items.append(item_html)
+        if len(items) >= DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_ITEM_LIMIT:
+            break
+    if not items:
+        return None
+    title_en = normalize_row_one_paragraph(bucket.title.en)
+    title_zh = normalize_row_one_paragraph(bucket.title.zh)
+    item_count = len(items)
+    return (
+        f"""    <article class="daily-local-brand-product-people-signal-digest-bucket">
+      <div class="daily-local-brand-product-people-signal-digest-bucket-header">
+        <h3>
+          <span data-lang="en">{_esc(title_en or title_zh)}</span>
+          <span data-lang="zh">{_esc(title_zh or title_en)}</span>
+        </h3>
+        <span>
+          <span data-lang="en">{_esc(_count_label(item_count, "entity", "entities"))}</span>
+          <span data-lang="zh">{_esc(f"{item_count} 个实体")}</span>
+        </span>
+      </div>
+      <div class="daily-local-brand-product-people-signal-digest-items">{"".join(items)}</div>
+    </article>""",
+        item_count,
+    )
+
+
+def _render_daily_local_brand_product_people_signal_digest_item(
+    item: RowOneDailyLocalBrandProductPeopleSignalDigestItem,
+) -> str:
+    supports = []
+    for support in item.supports:
+        support_html = _render_daily_local_brand_product_people_signal_digest_support(support)
+        if not support_html:
+            continue
+        supports.append(support_html)
+        if len(supports) >= DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_SUPPORT_LIMIT:
+            break
+    if not supports:
+        return ""
+    name_en = normalize_row_one_paragraph(item.name.en)
+    name_zh = normalize_row_one_paragraph(item.name.zh)
+    if not (name_en or name_zh):
+        return ""
+    reference_type = _daily_local_brand_product_people_signal_digest_type_label(item.reference_type)
+    article_count_en = _count_label(item.article_count, "article", "articles")
+    article_count_zh = f"{item.article_count} 篇文章"
+    source_count_en = _count_label(item.source_count, "source", "sources")
+    source_count_zh = f"{item.source_count} 个来源"
+    supports_html = "".join(supports)
+    return f"""        <article class="daily-local-brand-product-people-signal-digest-item">
+          <div class="daily-local-brand-product-people-signal-digest-item-meta">
+            <span>
+              <span data-lang="en">{_esc(article_count_en)}</span>
+              <span data-lang="zh">{_esc(article_count_zh)}</span>
+            </span>
+            <span>
+              <span data-lang="en">{_esc(source_count_en)}</span>
+              <span data-lang="zh">{_esc(source_count_zh)}</span>
+            </span>
+            <span>
+              <span data-lang="en">{_esc(reference_type.en)}</span>
+              <span data-lang="zh">{_esc(reference_type.zh)}</span>
+            </span>
+          </div>
+          <h4>
+            <span data-lang="en">{_esc(name_en or name_zh)}</span>
+            <span data-lang="zh">{_esc(name_zh or name_en)}</span>
+          </h4>
+          <div class="daily-local-brand-product-people-signal-digest-supports">
+{supports_html}
+          </div>
+        </article>"""
+
+
+def _daily_local_brand_product_people_signal_digest_type_label(value: str) -> LocalizedText:
+    normalized = normalize_row_one_paragraph(value)
+    key = normalized.replace("_", " ").replace("-", " ").casefold()
+    labels = {
+        "brand": "品牌",
+        "product": "单品",
+        "person": "人物",
+        "people": "人物",
+        "designer": "设计师",
+        "creative director": "创意总监",
+        "bag": "手袋",
+        "shoe": "鞋履",
+        "sneaker": "运动鞋",
+        "accessory": "配饰",
+    }
+    return LocalizedText(en=normalized or "reference", zh=labels.get(key, "引用"))
+
+
+def _render_daily_local_brand_product_people_signal_digest_support(
+    support: RowOneDailyLocalBrandProductPeopleSignalDigestSupport,
+) -> str:
+    href = _safe_daily_local_brand_product_people_signal_digest_href(support.href)
+    if href is None:
+        return ""
+    title_en = normalize_row_one_paragraph(support.title.en)
+    title_zh = normalize_row_one_paragraph(support.title.zh)
+    label_en = normalize_row_one_paragraph(support.label.en)
+    label_zh = normalize_row_one_paragraph(support.label.zh)
+    excerpt_en = _truncate_daily_local_brand_product_people_signal_digest_excerpt(
+        normalize_row_one_paragraph(support.excerpt.en)
+    )
+    excerpt_zh = _truncate_daily_local_brand_product_people_signal_digest_excerpt(
+        normalize_row_one_paragraph(support.excerpt.zh)
+    )
+    if not (title_en or title_zh) or not (excerpt_en or excerpt_zh):
+        return ""
+    source_name = normalize_row_one_paragraph(support.source_name)
+    source_en = source_name or "Saved local article"
+    source_zh = source_name or "保存的本地文章"
+    link_title_en = title_en or title_zh
+    link_title_zh = title_zh or title_en
+    return f"""            <article class="daily-local-brand-product-people-signal-digest-support">
+              <div class="daily-local-brand-product-people-signal-digest-support-meta">
+                <span>
+                  <span data-lang="en">{_esc(source_en)}</span>
+                  <span data-lang="zh">{_esc(source_zh)}</span>
+                </span>
+                <span>
+                  <span data-lang="en">{_esc(label_en or label_zh)}</span>
+                  <span data-lang="zh">{_esc(label_zh or label_en)}</span>
+                </span>
+              </div>
+              <h5>
+                <span data-lang="en">{_esc(title_en or title_zh)}</span>
+                <span data-lang="zh">{_esc(title_zh or title_en)}</span>
+              </h5>
+              <p class="daily-local-brand-product-people-signal-digest-support-excerpt">
+                <span data-lang="en">{_esc(excerpt_en or excerpt_zh)}</span>
+                <span data-lang="zh">{_esc(excerpt_zh or excerpt_en)}</span>
+              </p>
+              <a class="daily-local-brand-product-people-signal-digest-link" href="{_esc(href)}">
+                <span data-lang="en">Open saved evidence: {_esc(link_title_en)}</span>
+                <span data-lang="zh">打开保存证据：{_esc(link_title_zh)}</span>
+              </a>
+            </article>"""
+
+
+def _truncate_daily_local_brand_product_people_signal_digest_excerpt(value: str) -> str:
+    if len(value) <= DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_EXCERPT_CHARS:
+        return value
+    return (
+        f"{value[: DAILY_LOCAL_BRAND_PRODUCT_PEOPLE_SIGNAL_DIGEST_EXCERPT_CHARS - 3].rstrip()}..."
+    )
+
+
+def _safe_daily_local_brand_product_people_signal_digest_href(
+    href: object,
+) -> str | None:
+    if not isinstance(href, str):
+        return None
+    if href != href.strip() or not href or any(character.isspace() for character in href):
+        return None
+    if "//" in href or "://" in href or "?" in href or href.startswith((".", "/")):
+        return None
+    path, separator, fragment = href.partition("#")
+    if separator != "#" or _LOCAL_ARTICLE_CONTENT_SECTION_FRAGMENT_RE.fullmatch(fragment) is None:
+        return None
+    route_path = PurePosixPath(path)
+    if (
+        route_path.is_absolute()
+        or len(route_path.parts) != 2
+        or route_path.parts[0] != "articles"
+        or route_path.name in ("", ".", "..")
+        or ".." in route_path.parts
+        or not route_path.name.endswith(".html")
+    ):
+        return None
+    story_id = route_path.name.removesuffix(".html")
+    if not safe_local_article_story_id(story_id):
         return None
     return f"articles/{story_id}.html#{fragment}"
 
