@@ -428,7 +428,7 @@ account or cookie work.
 
 ## Source Boundary
 
-The core collector set is RSS, RSSHub-compatible feeds, GDELT, HTML seed-URL collection, and sitemap discovery. Manual signal
+The minimum core collector set is RSS, RSSHub-compatible feeds, and GDELT. HTML seed-URL collection and sitemap discovery are optional `article`-extra collectors. Manual signal
 import is a local input path for user-provided CSV/JSON files, not a connector
 or platform collector. Opt-in social-platform collection (Phase 2-5:
 Xiaohongshu, Instagram, Twitter/X, YouTube) is use-at-your-own-risk, non-core,

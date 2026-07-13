@@ -10,6 +10,7 @@ CLI_REFERENCE = ROOT / "docs" / "cli-reference.md"
 FIRST_RUN_DOC = ROOT / "docs" / "first-run.md"
 SCHEDULING_DOC = ROOT / "docs" / "scheduling.md"
 UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
+CHANGELOG = ROOT / "CHANGELOG.md"
 STAGE_327_PLAN = (
     ROOT
     / "docs"
@@ -5764,3 +5765,23 @@ def test_row_one_docs_describe_stage_374_saved_local_article_route_health_bounda
             "adds compliance-review behavior",
         ):
             assert stale_phrase not in normalized
+
+
+def test_stage_388_changelog_records_daily_local_homepage_digests() -> None:
+    text = _read(CHANGELOG)
+    unreleased = text.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
+
+    assert "### Added" in unreleased
+
+    added = _normalized(unreleased.split("### Added", 1)[1].split("\n### ", 1)[0])
+    for phrase in (
+        "stages 386-387",
+        "daily saved text takeaways",
+        "daily local brand, product & people signal digest",
+        "homepage-only",
+        "generated row one `index.html`",
+        "organizing existing current-edition saved local article text and references",
+        "without changing generated data artifacts, routes, source collection, "
+        "scoring, or app contracts",
+    ):
+        assert phrase in added

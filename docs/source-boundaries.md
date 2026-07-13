@@ -4,13 +4,22 @@ Fashion Radar is a free-first research tool. It must be honest about source cove
 
 ## Connector Risk Tiers
 
-### Core
+### Minimum Core
 
-These connectors are suitable for the default local MVP:
+These connectors are included in the base install and default local MVP:
 
 - GDELT Doc API metadata and URLs.
-- Official RSS/Atom feeds.
+- Official RSS/Atom feeds, including allowed official brand RSS feeds.
 - RSSHub-compatible routes when the user accepts the route's source terms.
+
+Minimum Core connectors should store source URL, title, publication time, source name, short summary where provided by the feed/API, extracted entities, and aggregate metrics.
+
+Repository source packs are examples built from these source types. They are not
+automatic subscriptions, endorsements, or guarantees that a feed will remain
+available.
+
+### Optional Article-Extra Collection
+
 - HTML page collection of configured seed URLs via trafilatura (the optional
   `article` extra), respecting robots.txt and configured paywalled-domain skips;
   it does not crawl or follow links, and provides no demand proof and no platform
@@ -19,13 +28,10 @@ These connectors are suitable for the default local MVP:
   site-root URL via `trafilatura.sitemaps`, discovers article URLs, and extracts
   each through the same robots-respecting path; it is bounded per run and
   provides no demand proof and no platform coverage verification.
-- Official brand newsroom, press release, RSS, or sitemap pages where automated access is allowed.
+- Official brand newsroom and press-release HTML pages, and sitemap pages,
+  where automated access is allowed.
 
-Core connectors should store source URL, title, publication time, source name, short summary where provided by the feed/API, extracted entities, and aggregate metrics.
-
-Repository source packs are examples built from these source types. They are not
-automatic subscriptions, endorsements, or guarantees that a feed will remain
-available.
+### Local Input And Community Handoff
 
 Manual signal import is a local input path for user-provided CSV/JSON files the
 user is authorized to process. It is not a connector, platform collector, source

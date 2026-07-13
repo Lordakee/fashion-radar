@@ -46,6 +46,69 @@ def test_project_brief_docs_keep_mvp_non_goals_boundary() -> None:
         assert phrase.casefold() in normalized
 
 
+def test_project_brief_docs_split_minimum_core_from_optional_article_extra_collection() -> None:
+    free_first_boundary = _section(_read_project_brief_doc(), "Free-First Boundary")
+    normalized_boundary = _normalized(free_first_boundary)
+
+    minimum_core_marker = "minimum core sources"
+    article_extra_marker = "optional article-extra collection"
+    optional_sources_marker = "optional sources may require"
+
+    assert minimum_core_marker in normalized_boundary
+    assert article_extra_marker in normalized_boundary
+    assert optional_sources_marker in normalized_boundary
+
+    minimum_core = normalized_boundary.split(minimum_core_marker, 1)[1].split(
+        article_extra_marker,
+        1,
+    )[0]
+    article_extra = normalized_boundary.split(article_extra_marker, 1)[1].split(
+        optional_sources_marker,
+        1,
+    )[0]
+
+    for phrase in (
+        "rss/atom",
+        "rsshub-compatible",
+        "gdelt",
+        "official rss",
+    ):
+        assert phrase in minimum_core
+
+    for phrase in (
+        "html",
+        "sitemap",
+        "newsroom",
+        "press-release",
+    ):
+        assert phrase not in minimum_core
+
+    for phrase in (
+        "optional `article` extra",
+        "configured public html seed urls",
+        "allowed official newsroom/press-release html pages",
+        "sitemap discovery",
+    ):
+        assert phrase in article_extra
+
+    assert "official rss" not in article_extra
+
+    recommended_version = _normalized(
+        _section(_read_project_brief_doc(), "Recommended First Public Version"),
+    )
+
+    for phrase in (
+        "configured html seed urls and sitemap discovery are current optional "
+        "`article`-extra v0.1 capabilities.",
+        "google news rss, google trends, reddit, and social-platform connectors "
+        "should be opt-in post-mvp enhancements unless their authorization and "
+        "access boundaries are clear.",
+    ):
+        assert phrase in recommended_version
+
+    assert "static webpage monitoring" not in recommended_version
+
+
 def test_readme_keeps_project_brief_mvp_non_goal_parity() -> None:
     readme_non_goals = _section(_read_readme(), "What It Does Not Do")
     brief_non_goals = _section(_read_project_brief_doc(), "Non-Goals For MVP")

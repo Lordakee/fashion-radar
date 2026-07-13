@@ -624,6 +624,21 @@ def test_cli_reference_documents_source_liveness() -> None:
     assert "--strict" in entry
 
 
+def test_cli_reference_collect_entry_keeps_three_tier_source_wording() -> None:
+    collect_entry = _normalized_text(_cli_reference_command_entry("collect")).casefold()
+
+    for phrase in (
+        "rss/rsshub/gdelt",
+        "`html`/`sitemap` via the optional `article` extra",
+        "opt-in social",
+        "xiaohongshu",
+        "instagram",
+        "`twitter` (x)",
+        "youtube",
+    ):
+        assert phrase in collect_entry
+
+
 def test_readme_documents_source_liveness_public_pack_example() -> None:
     text = _read(README)
 

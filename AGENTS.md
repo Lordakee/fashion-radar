@@ -94,7 +94,7 @@ external rate limits, and the staged review gates.
 
 ## Scope Boundaries
 
-- `v0.1.0` core sources are RSS/Atom, RSSHub-compatible, GDELT, HTML seed-URL collection, and sitemap discovery.
+- `v0.1.0` minimum core sources are RSS/Atom, RSSHub-compatible feeds, and GDELT. HTML seed-URL collection and sitemap discovery are optional capabilities provided by the `article` extra.
 - Google News RSS is not part of `v0.1.0`.
 - Social-platform connectors are opt-in (Phase 2 adds Xiaohongshu), not enabled
   by default and not required for the core daily report.

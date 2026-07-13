@@ -20,15 +20,13 @@ def _normalized(text: str) -> str:
     return " ".join(text.split()).casefold()
 
 
-def test_architecture_source_boundary_keeps_core_scope_and_local_import_limits() -> None:
+def test_architecture_source_boundary_keeps_tiered_scope_and_local_import_limits() -> None:
     section = _markdown_section(_read_architecture_doc(), "## Source Boundary")
     normalized = _normalized(section)
 
     for phrase in (
-        (
-            "the core collector set is rss, rsshub-compatible feeds, "
-            "gdelt, html seed-url collection, and sitemap discovery"
-        ),
+        "the minimum core collector set is rss, rsshub-compatible feeds, and gdelt",
+        "html seed-url collection and sitemap discovery are optional `article`-extra collectors",
         "manual signal import is a local input path",
         "user-provided csv/json files",
         "not a connector or platform collector",
@@ -39,3 +37,8 @@ def test_architecture_source_boundary_keeps_core_scope_and_local_import_limits()
         "source-boundaries.md",
     ):
         assert phrase in normalized
+
+    assert (
+        "the core collector set is rss, rsshub-compatible feeds, gdelt, html "
+        "seed-url collection, and sitemap discovery"
+    ) not in normalized

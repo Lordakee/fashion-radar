@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Stages 386-387 add homepage-only Daily Saved Text Takeaways and Daily Local Brand, Product & People Signal Digest sections to the generated ROW ONE `index.html`, organizing existing current-edition saved local article text and references without changing generated data artifacts, routes, source collection, scoring, or app contracts.
+
 ## [0.1.0] - 2026-07-01
 
 ### Changed

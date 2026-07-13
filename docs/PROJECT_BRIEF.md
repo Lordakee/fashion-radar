@@ -36,12 +36,16 @@ Fashion Radar is not a generic scraper. It is a daily fashion intelligence workf
 
 ## Free-First Boundary
 
-Core sources must work without paid social listening products and without personal account cookies:
+Minimum core sources must work without paid social listening products and without personal account cookies:
 
-- RSS feeds and RSSHub routes.
+- RSS/Atom feeds and RSSHub-compatible routes.
 - GDELT Doc API.
-- Public web pages from fashion media and brand newsrooms.
-- Official brand newsroom/RSS/sitemap pages where allowed.
+- Official RSS feeds.
+
+Optional article-extra collection is provided by the optional `article` extra and can use:
+
+- Configured public HTML seed URLs.
+- Allowed official newsroom/press-release HTML pages and sitemap discovery.
 
 Optional sources may require user-provided credentials, approval, or explicit opt-in:
 
@@ -154,8 +158,9 @@ Version `v0.1.0` should promise only:
 - Basic Streamlit dashboard.
 - Typer CLI.
 - Tests and CI.
+- Configured HTML seed URLs and sitemap discovery are current optional `article`-extra v0.1 capabilities.
 
-Google News RSS, Google Trends, Reddit, static webpage monitoring, and social-platform connectors should be opt-in post-MVP enhancements unless their authorization and access boundaries are clear.
+Google News RSS, Google Trends, Reddit, and social-platform connectors should be opt-in post-MVP enhancements unless their authorization and access boundaries are clear.
 
 ## Current Review-Aligned Priorities
 
