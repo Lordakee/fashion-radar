@@ -24,10 +24,38 @@ default.
   text, tool-status messages, or empty output.
 - Fix critical and important review findings before continuing.
 
+## Parallel Agent Execution
+
+Treat parallel agent execution as a mandatory default for project work. Before
+delegating, the coordinating agent must identify independent modules, record
+each task's exact writable files or globs and any coupled write set, name the
+owner, and record its expected completion state. Never start a worker while any
+active worker or the coordinating agent has a conflicting claim on that write
+set. Keep multiple agents active whenever independent useful work remains; do
+not serialize unrelated implementation, test, documentation, review, or
+release-preparation tasks.
+
+The coordinating agent owns integration, cross-cutting changes, final
+verification, and conflict resolution. Before closing a completed, errored, or
+no-longer-needed agent, reconcile its terminal state: collect its changed-file
+list, verification commands/results, unresolved work, and any partial writes;
+then record a short handoff. An errored or incomplete task remains owned until
+the coordinator marks it complete or transfers its remaining write set to a
+named successor. Only then may freed capacity be used for unrelated work.
+
+Plan review must complete before implementation begins. Code and release review
+may start only from a stable, integrated snapshot after the applicable fresh
+verification; a subsequent diff change requires the affected verification and
+review to be rerun. Worker-reported checks are preliminary: the coordinator must
+run the applicable checks on the reconciled integrated tree, confirm completed
+review records, and resolve every critical or important finding before release.
+Apply this rule at every project node while respecting genuine dependencies,
+external rate limits, and the staged review gates.
+
 ## Agent Runtime Settings
 
 - When spawning Codex subagents for this project, set the subagent reasoning
-  effort to `max`.
+  effort to `xhigh`.
 - Claude Code is the primary reviewer. Use `--effort max`, read-only plan mode,
   and no session persistence for plan, code, and release reviews:
 
