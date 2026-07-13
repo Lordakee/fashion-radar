@@ -6,6 +6,7 @@ build/
 dist/
 .pytest_cache/
 .ruff_cache/
+.worktrees/
 .codegraph/
 tests/__pycache__/
 src/**/__pycache__/
