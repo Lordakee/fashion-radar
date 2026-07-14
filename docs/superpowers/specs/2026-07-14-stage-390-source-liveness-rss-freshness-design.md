@@ -106,12 +106,19 @@ Field semantics:
   probe time.
 - RSS/RSSHub probes that successfully parse a feed set `dated_records_seen`,
   including `0` for an empty feed or a feed with no valid entry dates.
-- Fetch failures, disabled sources, and GDELT results leave all three fields
-  `None`.
+- Fetch failures, disabled sources, malformed feeds with no entries, and GDELT
+  results leave all three fields `None`.
 
 The fields are additive within `source-liveness/v1`. This command is a local
 alpha diagnostic and the existing contract has already treated additive output
 as compatible. No existing field is removed or retyped.
+
+The v1 contract fixes the output shape, status vocabulary, and exit rules, but
+does not promise that improved diagnostic evidence can never change which
+existing status describes a source. Stage 390 intentionally reclassifies some
+previously `live/ok` nonempty feeds as `degraded/warning/stale_feed` or
+`live/info/freshness_unknown`. This also means `--strict` can now fail for a
+stale feed, using the command's existing warning behavior.
 
 ## Timestamp Selection
 
@@ -122,9 +129,15 @@ For each RSS/RSSHub entry:
 3. Ignore entries whose selected value cannot be converted to a UTC datetime.
 4. Select the maximum valid datetime across all entries.
 
-The conversion follows the existing RSS collector convention and uses the first
-six `struct_time` components with `tzinfo=UTC`. Conversion failures are local to
-that entry and do not fail the source probe.
+The conversion follows the existing RSS collector convention: pass the parsed
+`struct_time` through `calendar.timegm`, then use
+`datetime.fromtimestamp(..., tz=UTC)`. Conversion failures are local to that
+entry and do not fail the source probe.
+
+The liveness helper is intentionally more defensive than the collector's simple
+`published_parsed or updated_parsed` fallback: it validates and converts each
+candidate independently, so an invalid publication value can fall through to a
+valid update value and no conversion error escapes the diagnostic.
 
 Age calculation uses the exact time difference for threshold comparison:
 
@@ -232,6 +245,8 @@ does not prove demand or platform coverage, and does not alter collection.
 - `published_parsed` takes precedence over `updated_parsed` per entry.
 - An entry with only `updated_parsed` contributes valid freshness evidence.
 - A feed older than the threshold returns `degraded/warning/stale_feed`.
+- The same entry around 49 hours old is fresh at a 72-hour threshold and stale
+  at a 48-hour threshold, proving the builder uses a custom threshold.
 - An exactly-on-threshold feed remains fresh; an entry one second beyond it is
   stale.
 - A feed with entries but no valid timestamps returns
