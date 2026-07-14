@@ -42,9 +42,12 @@ Markdown contract tests, uv, standard-library packaging checks, Git.
   docs/reviews/opencode-stage-389-plan-review.md,
   docs/reviews/claude-code-stage-389-plan-rereview.md,
   docs/reviews/claude-code-stage-389-plan-release-safety-rereview.md,
+  docs/reviews/claude-code-stage-389-plan-final-release-safety-rereview.md,
+  docs/reviews/opencode-stage-389-plan-final-release-safety-rereview.md,
   docs/reviews/claude-code-stage-389-plan-test-contract-rereview.md,
-  docs/reviews/claude-code-stage-389-code-review.md, and
-  docs/reviews/claude-code-stage-389-release-review.md - concise,
+  docs/reviews/claude-code-stage-389-code-review.md, and one applicable release
+  record: docs/reviews/claude-code-stage-389-release-review.md or
+  docs/reviews/opencode-stage-389-release-review.md - concise,
   credential-free review records. Create matching Claude rereview or OpenCode
   fallback records only if a review-driven diff requires them.
 
@@ -574,72 +577,182 @@ public_uv() {
 }
 ~~~
 
-Run:
+Run the following entire sequence in one protected fail-fast subshell. Do not
+split it across fresh shells; `public_uv` must be defined in the same release
+terminal:
 
 ~~~bash
-public_uv lock --check
-if rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock; then exit 1; fi
-public_uv sync --locked --dev
-public_uv sync --locked --dev --check
-public_uv --no-config run --frozen pytest -q
-public_uv --no-config run --frozen ruff check .
-public_uv --no-config run --frozen ruff format --check .
-public_uv --no-config run --frozen python scripts/check_release_hygiene.py --repo-root .
-public_uv --no-config run --frozen python scripts/check_first_run_smoke.py --repo-root .
-git diff --check
-~~~
+(
+  set -e
+  public_uv lock --check
+  if rg -n 'tuna|aliyun|ustc|huaweicloud|mirror|index-url|extra-index-url|find-links' uv.lock; then
+    echo "refusing a mirror-bound public lockfile" >&2
+    exit 1
+  else
+    mirror_scan_status=$?
+  fi
+  case "$mirror_scan_status" in
+    1) ;;
+    *)
+      echo "refusing to continue after an unreadable lockfile mirror scan" >&2
+      exit "$mirror_scan_status"
+      ;;
+  esac
+  unset mirror_scan_status
+  public_uv sync --locked --dev
+  public_uv sync --locked --dev --check
+  public_uv --no-config run --frozen pytest -q
+  public_uv --no-config run --frozen ruff check .
+  public_uv --no-config run --frozen ruff format --check .
+  public_uv --no-config run --frozen python scripts/check_release_hygiene.py --repo-root .
+  public_uv --no-config run --frozen python scripts/check_first_run_smoke.py --repo-root .
+  git diff --check
 
-Build exactly one temporary archive pair, validate it, then use isolated wheel
-environments rather than checkout imports:
-
-~~~bash
-tmp_build="$(mktemp -d)"
-public_uv --no-config build --out-dir "$tmp_build"
-public_uv --no-config run --frozen python scripts/check_package_archives.py "$tmp_build"
-wheel="$(find "$tmp_build" -maxdepth 1 -name '*.whl' -print -quit)"
-tmp_env="$(mktemp -d)"
-public_uv venv "$tmp_env/venv"
-public_uv pip install --python "$tmp_env/venv/bin/python" "$wheel"
-tmp_run="$(mktemp -d)"
-env -u PYTHONPATH "$tmp_env/venv/bin/fashion-radar" --help
-env -u PYTHONPATH "$tmp_env/venv/bin/python" -m fashion_radar --help
-env -u PYTHONPATH "$tmp_env/venv/bin/fashion-radar" init --config-dir "$tmp_run/config" --data-dir "$tmp_run/data" --reports-dir "$tmp_run/reports"
-env -u PYTHONPATH "$tmp_env/venv/bin/fashion-radar" doctor --config-dir "$tmp_run/config" --data-dir "$tmp_run/data" --reports-dir "$tmp_run/reports"
-env -u PYTHONPATH "$tmp_env/venv/bin/python" scripts/check_first_run_smoke.py --repo-root . --python "$tmp_env/venv/bin/python" --installed
-env -u PYTHONPATH "$tmp_env/venv/bin/python" -c "from importlib import resources; text = resources.files('fashion_radar.templates').joinpath('daily_report.md').read_text(encoding='utf-8'); assert 'Fashion Radar Daily Report' in text"
-tmp_dash="$(mktemp -d)"
-public_uv venv "$tmp_dash/venv"
-public_uv pip install --python "$tmp_dash/venv/bin/python" "$wheel[dashboard]"
-env -u PYTHONPATH "$tmp_dash/venv/bin/python" -c "import fashion_radar.dashboard.app; import fashion_radar.dashboard.queries"
+  # Build one temporary archive pair, then test an installed wheel rather than checkout imports.
+  tmp_build="$(mktemp -d)"
+  public_uv --no-config build --out-dir "$tmp_build"
+  public_uv --no-config run --frozen python scripts/check_package_archives.py "$tmp_build"
+  wheel="$(find "$tmp_build" -maxdepth 1 -name '*.whl' -print -quit)"
+  test -n "$wheel"
+  tmp_env="$(mktemp -d)"
+  public_uv venv "$tmp_env/venv"
+  public_uv pip install --python "$tmp_env/venv/bin/python" "$wheel"
+  tmp_run="$(mktemp -d)"
+  env -u PYTHONPATH "$tmp_env/venv/bin/fashion-radar" --help
+  env -u PYTHONPATH "$tmp_env/venv/bin/python" -m fashion_radar --help
+  env -u PYTHONPATH "$tmp_env/venv/bin/fashion-radar" init --config-dir "$tmp_run/config" --data-dir "$tmp_run/data" --reports-dir "$tmp_run/reports"
+  env -u PYTHONPATH "$tmp_env/venv/bin/fashion-radar" doctor --config-dir "$tmp_run/config" --data-dir "$tmp_run/data" --reports-dir "$tmp_run/reports"
+  env -u PYTHONPATH "$tmp_env/venv/bin/python" scripts/check_first_run_smoke.py --repo-root . --python "$tmp_env/venv/bin/python" --installed
+  env -u PYTHONPATH "$tmp_env/venv/bin/python" -c "from importlib import resources; text = resources.files('fashion_radar.templates').joinpath('daily_report.md').read_text(encoding='utf-8'); assert 'Fashion Radar Daily Report' in text"
+  tmp_dash="$(mktemp -d)"
+  public_uv venv "$tmp_dash/venv"
+  public_uv pip install --python "$tmp_dash/venv/bin/python" "$wheel[dashboard]"
+  env -u PYTHONPATH "$tmp_dash/venv/bin/python" -c "import fashion_radar.dashboard.app; import fashion_radar.dashboard.queries"
+)
 ~~~
 
 - [ ] **Step 6: Obtain, record, and verify the release review.**
 
-Ask Claude Code for a release review using the same max-effort, read-only
-command contract. Give it the committed SHA, complete Step 5 validation
-outcomes, archive checks, and exact scope. If Claude Code is unavailable, use
-OpenCode with zhipuai-coding-plan/glm-5.2 max and save the matching fallback
-record. Save the concise credential-free result to the applicable release-review
-path with one coherent body and no raw tool output, live-capture stub, empty
-result, duplicated verdict, timeout text, credential, token, or URL with
-credentials.
+Capture `implementation_head="$(git rev-parse HEAD)"` before requesting the
+release review. Ask Claude Code for a release review using the same max-effort,
+read-only command contract. Give it `implementation_head`, complete Step 5
+validation outcomes, archive checks, and exact scope. The reviewer must inspect
+only that committed snapshot: use `git diff "$implementation_head^" "$implementation_head"`
+and `git show "$implementation_head:<path>"`, or an equivalent detached clean
+worktree; do not treat any later uncommitted release-safety plan correction as
+implementation content. If Claude Code is unavailable, use OpenCode with
+zhipuai-coding-plan/glm-5.2 max and save the matching fallback record. Save the
+concise credential-free result to the applicable release-review path with one
+coherent body and no raw tool output, live-capture stub, empty result, duplicated
+verdict, timeout text, credential, token, or URL with credentials.
 
-Resolve every critical or important finding. If the review causes any diff,
-rerun the full Step 5 suite from the changed stable snapshot, then obtain and
-record the corresponding release rereview before continuing. When the release
-review is clean, stage its record and rerun git diff --cached --check, release
-hygiene, the staged `uv.lock` no-drift guard from Step 4, and the full Step 5
-verification suite on that exact staged snapshot.
-Commit the record as Stage 389: record release review and capture the final
-HEAD SHA.
+Resolve every critical or important finding. If the release review requires any
+implementation or release-safety plan change, do not rereview a mutable
+worktree: stage and commit the resolved correction together with the applicable
+CHANGES REQUIRED review record as Stage 389: resolve release review findings.
+Capture a new `implementation_head`, rerun the full Step 5 suite from that
+committed snapshot, then obtain and record a SHA-pinned release rereview using
+the same committed-object-only inspection rule. Repeat until the review is
+clean.
+
+When the release review is clean, stage its record together with every Stage 389
+release-safety plan amendment made after the implementation commit. Before the
+staged-snapshot checks, prove that the working tree matches the index and has no
+nonignored untracked path:
+
+~~~bash
+git diff --quiet || { echo "refusing to validate a staged snapshot with unstaged changes" >&2; exit 1; }
+untracked_paths="$(git ls-files --others --exclude-standard)" || { echo "refusing to determine untracked paths" >&2; exit 1; }
+if [ -n "$untracked_paths" ]; then
+  echo "refusing to validate a staged snapshot with untracked paths" >&2
+  exit 1
+fi
+unset untracked_paths
+~~~
+
+Rerun git diff --cached --check, release hygiene, the staged `uv.lock`
+no-drift guard from Step 4, and the full Step 5 verification suite on that
+exact staged snapshot. Commit the record and release-safety plan amendments as
+Stage 389: record release review, retain `implementation_head` in the protected
+release terminal, and capture the final HEAD SHA.
 
 - [ ] **Step 7: Revalidate the final committed snapshot.**
 
 Repeat the complete Step 5 public lock scan, sync checks, test suite, Ruff,
 release hygiene, first-run smoke, archive, installed-wheel CLI init/doctor,
 installed first-run, package-resource, and dashboard-extra checks from the
-final committed HEAD. This second pass covers the release-review record and
-proves the exact SHA selected for publication.
+final committed HEAD. Before and after this second pass, require a completely
+clean committed worktree:
+
+~~~bash
+require_clean_final_head() {
+  worktree_status="$(git status --porcelain=v1 --untracked-files=all)" || {
+    echo "refusing to determine final worktree status" >&2
+    exit 1
+  }
+  if [ -n "$worktree_status" ]; then
+    echo "refusing to validate a dirty final worktree" >&2
+    exit 1
+  fi
+}
+require_clean_final_head
+~~~
+
+Before rerunning Step 5, prove that the final record commit adds no unreviewed
+shipped content relative to the SHA-pinned implementation review. The exact
+`implementation_head` captured in Step 6 must still name a commit and be an
+ancestor of the final HEAD. Its delta must contain at least one path and every
+path must be a review record or an agent-plan artifact. These guard helpers use
+`exit 1` deliberately: an uncertain release state terminates the protected
+release terminal rather than permitting in-session recovery:
+
+~~~bash
+verify_release_record_delta() {
+  test -n "${implementation_head:-}" || {
+    echo "refusing to validate without the SHA-pinned implementation head" >&2
+    exit 1
+  }
+  git cat-file -e "$implementation_head^{commit}" || {
+    echo "refusing to validate an unknown implementation head" >&2
+    exit 1
+  }
+  git merge-base --is-ancestor "$implementation_head" HEAD || {
+    echo "refusing to validate a final head outside the reviewed implementation history" >&2
+    exit 1
+  }
+  release_record_paths="$(git diff --name-only "$implementation_head" HEAD)" || {
+    echo "refusing to determine the release-record delta" >&2
+    exit 1
+  }
+  if [ -z "$release_record_paths" ]; then
+    echo "refusing to validate a missing release-record commit" >&2
+    exit 1
+  fi
+  while IFS= read -r release_record_path; do
+    case "$release_record_path" in
+      docs/reviews/*|docs/superpowers/*) ;;
+      *)
+        echo "refusing to publish an unreviewed non-record path" >&2
+        exit 1
+        ;;
+    esac
+  done <<EOF
+$release_record_paths
+EOF
+  unset release_record_path release_record_paths
+}
+verify_release_record_delta
+~~~
+
+Run the complete Step 5 verification suite, then run both final guards:
+
+~~~bash
+require_clean_final_head
+verify_release_record_delta
+~~~
+
+This second pass covers the release-review record and proves the exact SHA
+selected for publication.
 
 - [ ] **Step 8: Verify the authorized remote and publish one committed SHA.**
 
@@ -653,21 +766,37 @@ credentials, use embedded credentials, alter persistent Git auth, or use shell
 tracing. Abort if any condition does not match:
 
 ~~~bash
-origin_url="$(git remote get-url origin)"
-git status --short
-git status --ignored --short
-test -z "$(git status --porcelain=v1)"
-case "$origin_url" in
-  https://github.com/Lordakee/fashion-radar.git|git@github.com:Lordakee/fashion-radar.git) ;;
-  *) echo "origin is not the authorized Fashion Radar remote" >&2; exit 1 ;;
-esac
-unset origin_url
-release_head="$(git rev-parse HEAD)"
-remote_before="$(git ls-remote --exit-code origin refs/heads/main | awk '{print $1}')"
-git merge-base --is-ancestor "$remote_before" "$release_head"
-git push origin "$release_head:refs/heads/main"
-remote_after="$(git ls-remote --exit-code origin refs/heads/main | awk '{print $1}')"
-test "$remote_after" = "$release_head"
+(
+  set -e
+  origin_url="$(git remote get-url origin)"
+  git status --short --untracked-files=all
+  git status --ignored --short --untracked-files=all
+  worktree_status="$(git status --porcelain=v1 --untracked-files=all)" || {
+    echo "refusing to determine worktree status" >&2
+    exit 1
+  }
+  if [ -n "$worktree_status" ]; then
+    echo "refusing to publish with a dirty worktree" >&2
+    exit 1
+  fi
+  case "$origin_url" in
+    https://github.com/Lordakee/fashion-radar.git|git@github.com:Lordakee/fashion-radar.git) ;;
+    *) echo "origin is not the authorized Fashion Radar remote" >&2; exit 1 ;;
+  esac
+  unset origin_url worktree_status
+  release_head="$(git rev-parse HEAD)"
+  remote_before_raw="$(git ls-remote --exit-code origin refs/heads/main)"
+  remote_before="$(printf '%s\n' "$remote_before_raw" | awk '{print $1}')"
+  test -n "$remote_before"
+  unset remote_before_raw
+  git merge-base --is-ancestor "$remote_before" "$release_head"
+  git push origin "$release_head:refs/heads/main"
+  remote_after_raw="$(git ls-remote --exit-code origin refs/heads/main)"
+  remote_after="$(printf '%s\n' "$remote_after_raw" | awk '{print $1}')"
+  test -n "$remote_after"
+  unset remote_after_raw
+  test "$remote_after" = "$release_head"
+)
 ~~~
 
 Do not publish packages or uploads beyond the authorized GitHub branch push.
