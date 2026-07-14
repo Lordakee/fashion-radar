@@ -622,6 +622,9 @@ def test_cli_reference_documents_source_liveness() -> None:
     assert "no writes" in normalized
     assert "--format table|json" in entry
     assert "--strict" in entry
+    assert "--stale-after-hours" in entry
+    assert "rss/rsshub" in entry.casefold()
+    assert "newest dated entry" in entry.casefold()
 
 
 def test_cli_reference_collect_entry_keeps_three_tier_source_wording() -> None:
@@ -644,6 +647,8 @@ def test_readme_documents_source_liveness_public_pack_example() -> None:
 
     assert "source-liveness" in text
     assert "configs/source-packs/fashion-public.example.yaml" in text
+    assert "--stale-after-hours 72" in text
+    assert "reachable but stale" in text.casefold()
 
 
 def test_readme_documents_compact_default_source_starter() -> None:
@@ -676,6 +681,8 @@ def test_architecture_documents_source_liveness_boundary() -> None:
     assert "Source Liveness" in text
     assert "RSS/RSSHub" in text
     assert "GDELT" in text
+    assert "entry timestamps" in text.casefold()
+    assert "does not filter collected items" in text.casefold()
 
 
 def test_cli_reference_has_beginner_roadmap_with_existing_commands() -> None:

@@ -67,8 +67,15 @@ first-run smoke now performs a local HTTP serve fetch, not just
 - `source-pack-lint` PATH: lint one source pack without collecting sources;
   supports `--format table|json` and `--strict`.
 - `source-liveness` PATH: run bounded network probes for configured RSS/RSSHub
-  and GDELT sources with no writes; supports `--format table|json` and
-  `--strict`.
+  and GDELT sources with no writes. For RSS/RSSHub only, it inspects the
+  newest dated entry in the existing feed response; `--stale-after-hours INTEGER`
+  controls the threshold and defaults to `72`. A non-malformed stale feed is
+  `degraded/warning/stale_feed`, while a nonempty feed without parseable entry
+  dates is `live/info/freshness_unknown`. Default mode does not fail for
+  warnings; `--strict` does. GDELT remains bounded by its configured query-time
+  lookback. The command performs no additional fetch, collection, storage,
+  scoring, matching, report generation, source ranking, or filtering and does
+  not prove demand or platform coverage. Supports `--format table|json`.
 - `entity-pack-lint` PATH: lint one entity pack without matching or collecting;
   supports `--format table|json` and `--strict`.
 - `collect`: collect configured public sources into local SQLite (RSS/RSSHub/GDELT, plus `html`/`sitemap` via the optional `article` extra, and opt-in social `xiaohongshu` via xiaohongshu-mcp, `instagram` via instaloader, `twitter` (X) via twitter-cli, and `youtube` via yt-dlp); supports

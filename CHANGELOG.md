@@ -8,6 +8,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Stage 390 extends read-only `source-liveness` diagnostics with RSS/RSSHub
+  freshness evidence from the existing feed response: dated-entry count, latest
+  entry time, age, `degraded/warning/stale_feed` warnings when a non-malformed
+  feed exceeds the default 72-hour threshold, and
+  `live/info/freshness_unknown` information when a nonempty feed has no
+  parseable dates. Default mode continues to exit zero for warnings and
+  `--strict` exits nonzero. This performs no additional fetch and does not add
+  or replace sources, filter collection, change GDELT behavior, matching,
+  scoring, ROW ONE output, connectors, or dependencies; it adds no storage,
+  report generation, source ranking, demand proof, or platform coverage claim.
 - Stage 389 corrects the local daily-operations contract: public scoring wording
   now describes source diversity across configured sources and imported local
   signals, rather than platform scoring; a non-skipped SQLite retention failure

@@ -1161,12 +1161,24 @@ Check a source pack before copying or editing it:
 uv run fashion-radar source-pack-lint configs/source-packs/fashion-public.example.yaml --strict
 ```
 
-Check whether configured public RSS/RSSHub feeds and GDELT lanes are reachable
-today without collecting or writing artifacts:
+Check whether configured public RSS/RSSHub feeds are reachable and whether their
+newest dated entry is current, alongside the existing GDELT lane checks, without
+collecting or writing artifacts:
 
 ```bash
-uv run fashion-radar source-liveness configs/source-packs/fashion-public.example.yaml
+uv run fashion-radar source-liveness \
+  configs/source-packs/fashion-public.example.yaml \
+  --stale-after-hours 72
 ```
+
+The 72-hour default applies only to RSS/RSSHub. A reachable but stale,
+non-malformed feed is reported as `degraded/warning/stale_feed`; a nonempty feed
+with no parseable entry dates is `live/info/freshness_unknown`. Default mode
+does not fail for warnings, while `--strict` does. GDELT remains query-time
+bounded by its configured lookback. Freshness uses the existing feed response
+and performs no additional fetch or collection; it does not filter collected
+items, write storage state, score or match entities, generate reports, rank
+sources, or prove demand or platform coverage.
 
 In proxy-configured environments, refresh from the committed lockfile/frozen
 install so the HTTP client's SOCKS transport helper is present. Fashion Radar

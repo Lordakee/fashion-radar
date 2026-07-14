@@ -235,5 +235,17 @@ guarantee. `source-pack-lint` does not fetch sources; live checks belong to
 `source-liveness`:
 
 ```bash
-uv run fashion-radar source-liveness configs/source-packs/fashion-public.example.yaml
+uv run fashion-radar source-liveness configs/source-packs/fashion-public.example.yaml --stale-after-hours 72
 ```
+
+Reachable does not imply fresh. For RSS/RSSHub only, `source-liveness` uses
+entry timestamps from the existing feed response to report dated-entry count,
+latest entry time, and age against a default 72-hour threshold. A non-malformed
+stale feed is `degraded/warning/stale_feed`; a nonempty feed without parseable
+dates is `live/info/freshness_unknown`. GDELT keeps its configured query-time
+lookback. Default mode does not fail for warnings, while `--strict` does.
+
+This freshness evidence is point-in-time guidance for pack maintenance. It does
+not add a fetch, collect or filter items, write storage, score or match entities,
+or generate reports. Freshness evidence does not rank sources and does not prove
+demand or platform coverage.

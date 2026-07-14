@@ -97,6 +97,9 @@ def test_source_pack_quality_docs_route_live_checks_to_source_liveness() -> None
         "does not fetch sources",
         "live checks belong to `source-liveness`",
         "uv run fashion-radar source-liveness configs/source-packs/fashion-public.example.yaml",
+        "reachable does not imply fresh",
+        "freshness evidence does not rank sources",
+        "does not prove demand or platform coverage",
     ):
         assert phrase in normalized
 

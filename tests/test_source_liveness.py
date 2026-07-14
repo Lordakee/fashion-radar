@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from textwrap import dedent
+from time import struct_time
 
 import pytest
 
@@ -69,6 +70,41 @@ def write_yaml(path: Path, content: str) -> Path:
     return path
 
 
+def rss_item(
+    title: str,
+    *,
+    published: str | None = None,
+) -> str:
+    published_xml = f"<pubDate>{published}</pubDate>" if published else ""
+    slug = title.casefold().replace(" ", "-")
+    return (
+        f"<item><title>{title}</title><link>https://example.com/{slug}</link>{published_xml}</item>"
+    )
+
+
+def rss_feed(*items: str) -> str:
+    return '<?xml version="1.0"?><rss version="2.0"><channel>' + "".join(items) + "</channel></rss>"
+
+
+def atom_feed(
+    *,
+    published: str | None = None,
+    updated: str | None = None,
+) -> str:
+    published_xml = f"<published>{published}</published>" if published else ""
+    updated_xml = f"<updated>{updated}</updated>" if updated else ""
+    feed_updated = updated or published or "2026-06-24T00:00:00Z"
+    return (
+        '<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">'
+        "<title>Test Feed</title><id>urn:test-feed</id>"
+        f"<updated>{feed_updated}</updated>"
+        "<entry><title>Atom Entry</title><id>urn:test-entry</id>"
+        '<link href="https://example.com/atom-entry"/>'
+        f"{published_xml}{updated_xml}"
+        "</entry></feed>"
+    )
+
+
 def fixed_clock() -> datetime:
     return FIXED_NOW
 
@@ -132,6 +168,27 @@ def test_source_liveness_report_json_shape_is_stable(tmp_path: Path) -> None:
     assert payload["skipped_count"] == 1
     assert payload["type_counts"] == {"rss": 1}
     assert payload["tag_counts"] == {"fashion_media": 1}
+    assert list(payload["results"][0]) == [
+        "source_name",
+        "source_type",
+        "enabled",
+        "target_type",
+        "target",
+        "status",
+        "severity",
+        "code",
+        "message",
+        "checked_at",
+        "elapsed_ms",
+        "records_seen",
+        "dated_records_seen",
+        "latest_entry_at",
+        "latest_entry_age_hours",
+        "error_type",
+    ]
+    assert payload["results"][0]["dated_records_seen"] is None
+    assert payload["results"][0]["latest_entry_at"] is None
+    assert payload["results"][0]["latest_entry_age_hours"] is None
     assert payload["findings"] == []
     assert payload["boundaries"] == [
         (
@@ -238,6 +295,15 @@ def test_invalid_disabled_source_returns_invalid_config_instead_of_skipped_row(
     assert report.results == []
 
 
+def test_source_liveness_rejects_invalid_stale_threshold_before_config_or_network(
+    tmp_path: Path,
+) -> None:
+    missing_path = tmp_path / "missing-sources.yaml"
+
+    with pytest.raises(ValueError, match="stale_after_hours must be at least 1"):
+        build_source_liveness_report(missing_path, stale_after_hours=0)
+
+
 def test_render_source_liveness_table_includes_summary_rows_and_boundaries() -> None:
     result = SourceLivenessResult(
         source_name="Pipe | Feed",
@@ -252,6 +318,9 @@ def test_render_source_liveness_table_includes_summary_rows_and_boundaries() -> 
         checked_at=FIXED_NOW,
         elapsed_ms=25,
         records_seen=2,
+        dated_records_seen=2,
+        latest_entry_at=datetime(2026, 6, 24, 0, 0, tzinfo=UTC),
+        latest_entry_age_hours=2,
         error_type=None,
     )
     report = build_source_liveness_report_from_results(
@@ -279,6 +348,10 @@ def test_render_source_liveness_table_includes_summary_rows_and_boundaries() -> 
         "Tags: fashion_media=1",
         "Findings: 0 errors, 0 warnings, 0 info",
     ]
+    assert lines[9] == (
+        "Source | Type | Status | Severity | Records | Dated | Latest age | Target | Message"
+    )
+    assert " | 2 | 2 | 2h | " in lines[10]
     assert "Pipe / Feed" in lines[10]
     assert "Feed returned 2 entries. Second line" in lines[10]
     assert "Boundaries:" in lines
@@ -407,7 +480,7 @@ def test_source_liveness_should_exit_nonzero_only_for_errors_or_strict_warnings(
     assert source_liveness_should_exit_nonzero(error, strict=False) is True
 
 
-def test_rss_liveness_live_feed_counts_entries_from_fixture(tmp_path: Path) -> None:
+def test_rss_liveness_reports_fresh_newest_entry_evidence(tmp_path: Path) -> None:
     path = write_yaml(
         tmp_path / "sources.yaml",
         """
@@ -422,8 +495,211 @@ def test_rss_liveness_live_feed_counts_entries_from_fixture(tmp_path: Path) -> N
         """,
     )
     client = FakeClient(
-        text="""<?xml version="1.0"?><rss version="2.0"><channel><item><title>A</title><link>https://example.com/a</link></item><item><title>B</title><link>https://example.com/b</link></item></channel></rss>"""
+        text=rss_feed(
+            rss_item("Older", published="Mon, 22 Jun 2026 00:00:00 GMT"),
+            rss_item("Newest", published="Wed, 24 Jun 2026 00:00:00 GMT"),
+        )
     )
+
+    report = build_source_liveness_report(
+        path,
+        client_factory=lambda *_: client,
+        clock=fixed_clock,
+    )
+
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.LIVE
+    assert result.severity == SourceLivenessSeverity.OK
+    assert result.code is None
+    assert result.dated_records_seen == 2
+    assert result.latest_entry_at == datetime(2026, 6, 24, 0, 0, tzinfo=UTC)
+    assert result.latest_entry_age_hours == 2
+    assert result.message == "Feed returned 2 entries; newest dated entry is 2 hours old."
+    assert client.calls == [("https://example.com/feed.xml", None)]
+
+
+def test_rss_liveness_uses_updated_timestamp_when_atom_publication_is_absent(
+    tmp_path: Path,
+) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: Atom Feed
+            type: rss
+            url: https://example.com/atom.xml
+            tags: [fashion_media]
+            article:
+              enabled: false
+        """,
+    )
+    client = FakeClient(text=atom_feed(updated="2026-06-24T00:30:00Z"))
+
+    report = build_source_liveness_report(
+        path,
+        client_factory=lambda *_: client,
+        clock=fixed_clock,
+    )
+
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.LIVE
+    assert result.severity == SourceLivenessSeverity.OK
+    assert result.code is None
+    assert result.dated_records_seen == 1
+    assert result.latest_entry_at == datetime(2026, 6, 24, 0, 30, tzinfo=UTC)
+    assert result.latest_entry_age_hours == 2
+
+
+def test_rss_liveness_prefers_atom_publication_over_update_timestamp(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: Atom Feed
+            type: rss
+            url: https://example.com/atom.xml
+            tags: [fashion_media]
+            article:
+              enabled: false
+        """,
+    )
+    client = FakeClient(
+        text=atom_feed(
+            published="2026-06-20T00:00:00Z",
+            updated="2026-06-24T01:00:00Z",
+        )
+    )
+
+    report = build_source_liveness_report(
+        path,
+        client_factory=lambda *_: client,
+        clock=fixed_clock,
+    )
+
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.DEGRADED
+    assert result.severity == SourceLivenessSeverity.WARNING
+    assert result.code == "stale_feed"
+    assert result.dated_records_seen == 1
+    assert result.latest_entry_at == datetime(2026, 6, 20, 0, 0, tzinfo=UTC)
+    assert result.latest_entry_age_hours == 98
+
+
+def test_rss_liveness_marks_feed_beyond_threshold_degraded(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: RSS Feed
+            type: rss
+            url: https://example.com/feed.xml
+            tags: [fashion_media]
+            article:
+              enabled: false
+        """,
+    )
+    client = FakeClient(text=rss_feed(rss_item("Stale", published="Sat, 20 Jun 2026 00:00:00 GMT")))
+
+    report = build_source_liveness_report(
+        path,
+        stale_after_hours=72,
+        client_factory=lambda *_: client,
+        clock=fixed_clock,
+    )
+
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.DEGRADED
+    assert result.severity == SourceLivenessSeverity.WARNING
+    assert result.code == "stale_feed"
+    assert result.latest_entry_age_hours == 98
+    assert report.warning_count == 1
+    assert source_liveness_should_exit_nonzero(report, strict=False) is False
+    assert source_liveness_should_exit_nonzero(report, strict=True) is True
+
+
+def test_rss_liveness_freshness_exact_threshold_and_one_second_over() -> None:
+    from fashion_radar.source_liveness import _rss_freshness_evidence
+
+    exact = _rss_freshness_evidence(
+        [{"published_parsed": datetime(2026, 6, 21, 2, 0, tzinfo=UTC).utctimetuple()}],
+        checked_at=FIXED_NOW,
+        stale_after_hours=72,
+    )
+    one_second_over = _rss_freshness_evidence(
+        [{"published_parsed": datetime(2026, 6, 21, 1, 59, 59, tzinfo=UTC).utctimetuple()}],
+        checked_at=FIXED_NOW,
+        stale_after_hours=72,
+    )
+
+    assert exact.stale is False
+    assert exact.latest_entry_age_hours == 72
+    assert one_second_over.stale is True
+    assert one_second_over.latest_entry_age_hours == 73
+
+
+def test_rss_liveness_custom_threshold_changes_same_entry_classification(
+    tmp_path: Path,
+) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: RSS Feed
+            type: rss
+            url: https://example.com/feed.xml
+            tags: [fashion_media]
+            article:
+              enabled: false
+        """,
+    )
+    feed_text = rss_feed(rss_item("Threshold", published="Mon, 22 Jun 2026 01:00:00 GMT"))
+    default_client = FakeClient(text=feed_text)
+    custom_client = FakeClient(text=feed_text)
+
+    default_report = build_source_liveness_report(
+        path,
+        stale_after_hours=72,
+        client_factory=lambda *_: default_client,
+        clock=fixed_clock,
+    )
+    custom_report = build_source_liveness_report(
+        path,
+        stale_after_hours=48,
+        client_factory=lambda *_: custom_client,
+        clock=fixed_clock,
+    )
+
+    default_result = default_report.results[0]
+    custom_result = custom_report.results[0]
+    assert default_result.status == SourceLivenessStatus.LIVE
+    assert default_result.severity == SourceLivenessSeverity.OK
+    assert default_result.code is None
+    assert default_result.latest_entry_age_hours == 49
+    assert custom_result.status == SourceLivenessStatus.DEGRADED
+    assert custom_result.severity == SourceLivenessSeverity.WARNING
+    assert custom_result.code == "stale_feed"
+    assert custom_result.latest_entry_age_hours == 49
+
+
+def test_rss_liveness_no_date_feed_is_freshness_unknown(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: RSS Feed
+            type: rss
+            url: https://example.com/feed.xml
+            tags: [fashion_media]
+            article:
+              enabled: false
+        """,
+    )
+    client = FakeClient(text=rss_feed(rss_item("A"), rss_item("B")))
 
     report = build_source_liveness_report(
         path,
@@ -434,9 +710,114 @@ def test_rss_liveness_live_feed_counts_entries_from_fixture(tmp_path: Path) -> N
 
     assert client.closed is True
     assert report.live_count == 1
-    assert report.results[0].elapsed_ms == 25
-    assert report.results[0].records_seen == 2
-    assert report.results[0].message == "Feed returned 2 entries."
+    assert report.info_count == 1
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.LIVE
+    assert result.severity == SourceLivenessSeverity.INFO
+    assert result.code == "freshness_unknown"
+    assert result.elapsed_ms == 25
+    assert result.records_seen == 2
+    assert result.dated_records_seen == 0
+    assert result.latest_entry_at is None
+    assert result.latest_entry_age_hours is None
+    assert result.message == (
+        "Feed returned 2 entries; no parseable entry timestamps were available."
+    )
+
+
+@pytest.mark.filterwarnings("ignore:To avoid breaking existing software.*:DeprecationWarning")
+def test_rss_liveness_ignores_invalid_timestamp_when_another_entry_is_valid(
+    tmp_path: Path,
+) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: RSS Feed
+            type: rss
+            url: https://example.com/feed.xml
+            tags: [fashion_media]
+            article:
+              enabled: false
+        """,
+    )
+    client = FakeClient(
+        text=rss_feed(
+            rss_item("Invalid", published="not-a-timestamp"),
+            rss_item("Valid", published="Wed, 24 Jun 2026 00:00:00 GMT"),
+        )
+    )
+
+    report = build_source_liveness_report(
+        path,
+        client_factory=lambda *_: client,
+        clock=fixed_clock,
+    )
+
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.LIVE
+    assert result.severity == SourceLivenessSeverity.OK
+    assert result.code is None
+    assert result.records_seen == 2
+    assert result.dated_records_seen == 1
+    assert result.latest_entry_at == datetime(2026, 6, 24, 0, 0, tzinfo=UTC)
+    assert result.latest_entry_age_hours == 2
+
+
+def test_rss_liveness_freshness_falls_back_after_publication_conversion_error() -> None:
+    from fashion_radar.source_liveness import _rss_freshness_evidence
+
+    invalid_publication = struct_time((10**9, 1, 1, 0, 0, 0, 0, 1, -1))
+    valid_update = datetime(2026, 6, 24, 0, 0, tzinfo=UTC).utctimetuple()
+
+    evidence = _rss_freshness_evidence(
+        [
+            {
+                "published_parsed": invalid_publication,
+                "updated_parsed": valid_update,
+            }
+        ],
+        checked_at=FIXED_NOW,
+        stale_after_hours=72,
+    )
+
+    assert evidence.dated_records_seen == 1
+    assert evidence.latest_entry_at == datetime(2026, 6, 24, 0, 0, tzinfo=UTC)
+    assert evidence.latest_entry_age_hours == 2
+    assert evidence.stale is False
+
+
+def test_rss_liveness_clamps_future_entry_age_to_zero(tmp_path: Path) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: RSS Feed
+            type: rss
+            url: https://example.com/feed.xml
+            tags: [fashion_media]
+            article:
+              enabled: false
+        """,
+    )
+    client = FakeClient(
+        text=rss_feed(rss_item("Future", published="Thu, 25 Jun 2026 02:00:00 GMT"))
+    )
+
+    report = build_source_liveness_report(
+        path,
+        client_factory=lambda *_: client,
+        clock=fixed_clock,
+    )
+
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.LIVE
+    assert result.severity == SourceLivenessSeverity.OK
+    assert result.code is None
+    assert result.latest_entry_at == datetime(2026, 6, 25, 2, 0, tzinfo=UTC)
+    assert result.latest_entry_age_hours == 0
 
 
 def test_rss_liveness_empty_feed_is_warning(tmp_path: Path) -> None:
@@ -458,8 +839,13 @@ def test_rss_liveness_empty_feed_is_warning(tmp_path: Path) -> None:
     report = build_source_liveness_report(path, client_factory=lambda *_: client, clock=fixed_clock)
 
     assert report.warning_count == 1
-    assert report.results[0].status == SourceLivenessStatus.EMPTY
-    assert report.results[0].code == "empty_feed"
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.EMPTY
+    assert result.severity == SourceLivenessSeverity.WARNING
+    assert result.code == "empty_feed"
+    assert result.dated_records_seen == 0
+    assert result.latest_entry_at is None
+    assert result.latest_entry_age_hours is None
 
 
 def test_rss_liveness_malformed_feed_with_entries_is_degraded_warning(tmp_path: Path) -> None:
@@ -477,14 +863,86 @@ def test_rss_liveness_malformed_feed_with_entries_is_degraded_warning(tmp_path: 
         """,
     )
     client = FakeClient(
-        text="<rss><channel><item><title>A</title><link>https://example.com/a</link></item>"
+        text=("<rss><channel>" + rss_item("A", published="Sat, 20 Jun 2026 00:00:00 GMT"))
     )
 
     report = build_source_liveness_report(path, client_factory=lambda *_: client, clock=fixed_clock)
 
-    assert report.results[0].status == SourceLivenessStatus.DEGRADED
-    assert report.results[0].severity == SourceLivenessSeverity.WARNING
-    assert report.results[0].records_seen == 1
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.DEGRADED
+    assert result.severity == SourceLivenessSeverity.WARNING
+    assert result.code == "malformed_feed"
+    assert result.records_seen == 1
+    assert result.dated_records_seen == 1
+    assert result.latest_entry_at == datetime(2026, 6, 20, 0, 0, tzinfo=UTC)
+    assert result.latest_entry_age_hours == 98
+
+
+def test_rss_liveness_malformed_feed_without_dates_renders_latest_age_na(
+    tmp_path: Path,
+) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: Degraded Feed
+            type: rss
+            url: https://example.com/feed.xml
+            tags: [fashion_media]
+            article:
+              enabled: false
+        """,
+    )
+    client = FakeClient(text="<rss><channel>" + rss_item("A"))
+
+    report = build_source_liveness_report(path, client_factory=lambda *_: client, clock=fixed_clock)
+
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.DEGRADED
+    assert result.severity == SourceLivenessSeverity.WARNING
+    assert result.code == "malformed_feed"
+    assert result.records_seen == 1
+    assert result.dated_records_seen == 0
+
+    lines = render_source_liveness_table(report)
+    result_row = lines[10].split(" | ")
+    assert result_row[6] == "n/a"
+    assert "unknown" not in result_row
+
+
+def test_rss_liveness_malformed_empty_feed_leaves_freshness_fields_unset(
+    tmp_path: Path,
+) -> None:
+    path = write_yaml(
+        tmp_path / "sources.yaml",
+        """
+        version: 1
+        sources:
+          - name: Malformed Empty Feed
+            type: rss
+            url: https://example.com/feed.xml
+            tags: [fashion_media]
+            article:
+              enabled: false
+        """,
+    )
+    client = FakeClient(text="<rss><channel>")
+
+    report = build_source_liveness_report(
+        path,
+        client_factory=lambda *_: client,
+        clock=fixed_clock,
+    )
+
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.FAILED
+    assert result.severity == SourceLivenessSeverity.ERROR
+    assert result.code == "malformed_feed"
+    assert result.records_seen == 0
+    assert result.dated_records_seen is None
+    assert result.latest_entry_at is None
+    assert result.latest_entry_age_hours is None
 
 
 def test_rss_liveness_http_fetch_error_is_failed_error_without_traceback(tmp_path: Path) -> None:
@@ -574,7 +1032,7 @@ def test_rss_liveness_passes_source_http_settings_to_client_factory(tmp_path: Pa
     assert seen_settings[0].per_domain_delay_seconds == 0.25
 
 
-def test_rsshub_liveness_is_probed_like_rss(tmp_path: Path) -> None:
+def test_rsshub_liveness_uses_rss_freshness_classification(tmp_path: Path) -> None:
     path = write_yaml(
         tmp_path / "sources.yaml",
         """
@@ -589,14 +1047,21 @@ def test_rsshub_liveness_is_probed_like_rss(tmp_path: Path) -> None:
         """,
     )
     client = FakeClient(
-        text="""<?xml version="1.0"?><rss version="2.0"><channel><item><title>A</title><link>https://example.com/a</link></item></channel></rss>"""
+        text=rss_feed(rss_item("Stale RSSHub", published="Sat, 20 Jun 2026 00:00:00 GMT"))
     )
 
     report = build_source_liveness_report(path, client_factory=lambda *_: client, clock=fixed_clock)
 
-    assert report.live_count == 1
-    assert report.results[0].source_type == SourceType.RSSHUB
-    assert report.results[0].target_type == "url"
+    result = report.results[0]
+    assert report.degraded_count == 1
+    assert result.source_type == SourceType.RSSHUB
+    assert result.target_type == "url"
+    assert result.status == SourceLivenessStatus.DEGRADED
+    assert result.severity == SourceLivenessSeverity.WARNING
+    assert result.code == "stale_feed"
+    assert result.dated_records_seen == 1
+    assert result.latest_entry_at == datetime(2026, 6, 20, 0, 0, tzinfo=UTC)
+    assert result.latest_entry_age_hours == 98
 
 
 def test_gdelt_liveness_uses_query_timespan_format_and_maxrecords_one(
@@ -629,7 +1094,11 @@ def test_gdelt_liveness_uses_query_timespan_format_and_maxrecords_one(
         "timespan": "12h",
         "maxrecords": 1,
     }
-    assert report.results[0].target_type == "gdelt_query"
+    result = report.results[0]
+    assert result.target_type == "gdelt_query"
+    assert result.dated_records_seen is None
+    assert result.latest_entry_at is None
+    assert result.latest_entry_age_hours is None
 
 
 def test_gdelt_liveness_passes_gdelt_http_settings_to_client_factory(
@@ -680,8 +1149,12 @@ def test_gdelt_liveness_empty_articles_is_warning(tmp_path: Path) -> None:
     report = build_source_liveness_report(path, client_factory=lambda *_: client, clock=fixed_clock)
 
     assert report.warning_count == 1
-    assert report.results[0].status == SourceLivenessStatus.EMPTY
-    assert report.results[0].code == "empty_gdelt_results"
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.EMPTY
+    assert result.code == "empty_gdelt_results"
+    assert result.dated_records_seen is None
+    assert result.latest_entry_at is None
+    assert result.latest_entry_age_hours is None
 
 
 def test_gdelt_liveness_invalid_payload_is_failed_error(tmp_path: Path) -> None:
@@ -701,8 +1174,12 @@ def test_gdelt_liveness_invalid_payload_is_failed_error(tmp_path: Path) -> None:
     report = build_source_liveness_report(path, client_factory=lambda *_: client, clock=fixed_clock)
 
     assert report.error_count == 1
-    assert report.results[0].status == SourceLivenessStatus.FAILED
-    assert report.results[0].code == "invalid_gdelt_payload"
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.FAILED
+    assert result.code == "invalid_gdelt_payload"
+    assert result.dated_records_seen is None
+    assert result.latest_entry_at is None
+    assert result.latest_entry_age_hours is None
 
 
 def test_gdelt_liveness_fetch_error_is_failed_error(tmp_path: Path) -> None:
@@ -723,9 +1200,13 @@ def test_gdelt_liveness_fetch_error_is_failed_error(tmp_path: Path) -> None:
 
     assert report.error_count == 1
     assert client.closed is True
-    assert report.results[0].status == SourceLivenessStatus.FAILED
-    assert report.results[0].error_type == "RuntimeError"
-    assert "gdelt timeout" in report.results[0].message
+    result = report.results[0]
+    assert result.status == SourceLivenessStatus.FAILED
+    assert result.error_type == "RuntimeError"
+    assert result.dated_records_seen is None
+    assert result.latest_entry_at is None
+    assert result.latest_entry_age_hours is None
+    assert "gdelt timeout" in result.message
 
 
 def test_liveness_probe_order_matches_config_and_failures_do_not_abort_later_sources(

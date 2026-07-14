@@ -192,6 +192,7 @@ from fashion_radar.settings import (
     load_source_config,
 )
 from fashion_radar.source_liveness import (
+    DEFAULT_SOURCE_LIVENESS_STALE_AFTER_HOURS,
     build_source_liveness_report,
     render_source_liveness_table,
     source_liveness_should_exit_nonzero,
@@ -511,6 +512,12 @@ SOURCE_LIVENESS_FORMAT_OPTION = typer.Option(
     "--format",
     help="Output format.",
 )
+SOURCE_LIVENESS_STALE_AFTER_HOURS_OPTION = typer.Option(
+    DEFAULT_SOURCE_LIVENESS_STALE_AFTER_HOURS,
+    "--stale-after-hours",
+    min=1,
+    help="Mark RSS/RSSHub feeds degraded when the newest dated entry is older than this threshold.",
+)
 TREND_FORMAT_OPTION = typer.Option(
     "table",
     "--format",
@@ -721,9 +728,13 @@ def source_liveness_command(
     path: Path,
     output_format: SourceLivenessOutputFormat = SOURCE_LIVENESS_FORMAT_OPTION,
     strict: bool = typer.Option(False, help="Exit non-zero when warnings are present."),
+    stale_after_hours: int = SOURCE_LIVENESS_STALE_AFTER_HOURS_OPTION,
 ) -> None:
     """Check configured source liveness with bounded network probes and no writes."""
-    report = build_source_liveness_report(path)
+    report = build_source_liveness_report(
+        path,
+        stale_after_hours=stale_after_hours,
+    )
     if output_format == "json":
         typer.echo(report.model_dump_json(indent=2))
     else:

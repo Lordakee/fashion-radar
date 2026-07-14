@@ -277,11 +277,25 @@ are reachable today:
 ```bash
 uv run fashion-radar source-liveness configs/source-packs/fashion-public.example.yaml
 uv run fashion-radar source-liveness configs/source-packs/fashion-public.example.yaml --format json
+uv run fashion-radar source-liveness \
+  configs/source-packs/fashion-public.example.yaml \
+  --stale-after-hours 72
 ```
 
-`source-liveness` prints table or JSON diagnostics only. It does not collect
-items, store rows, score entities, write reports, open SQLite, fetch article
-pages, or prove demand or coverage.
+The default freshness threshold is 72 hours. `--stale-after-hours N` applies to
+RSS/RSSHub only and compares the newest dated entry from the existing feed
+response with the probe time. Output includes the dated-entry count, latest
+entry time, and latest entry age when available. A non-malformed feed older than
+the threshold is `degraded/warning/stale_feed`. A nonempty feed with no parseable
+entry dates is `live/info/freshness_unknown`. Warning exit behavior is unchanged:
+without `--strict`, warnings do not fail; with `--strict`, warnings fail.
+GDELT remains query-time bounded by its configured lookback.
+
+`source-liveness` prints point-in-time table or JSON diagnostics only. It uses
+the already fetched feed response and performs no additional fetch, collection,
+storage, scoring, matching, report generation, source ranking, or filtering. It
+does not open SQLite, fetch article pages, alter configured sources, prove
+demand, or verify platform coverage.
 
 ## Use A Pack
 

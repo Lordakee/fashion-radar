@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import calendar
 import time
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from io import BytesIO
+from math import ceil
 from pathlib import Path
+from time import struct_time
 from typing import Any, Literal, Protocol
 
 import feedparser
@@ -20,6 +24,7 @@ from fashion_radar.utils.http import FashionHttpClient
 
 SOURCE_LIVENESS_CONTRACT_VERSION = "source-liveness/v1"
 SOURCE_LIVENESS_EXECUTION_MODE = "network_read_only"
+DEFAULT_SOURCE_LIVENESS_STALE_AFTER_HOURS = 72
 SOURCE_LIVENESS_BOUNDARIES = [
     (
         "Performs bounded network probes for configured RSS/RSSHub feeds and GDELT "
@@ -76,6 +81,9 @@ class SourceLivenessResult(BaseModel):
     checked_at: datetime
     elapsed_ms: int
     records_seen: int | None = None
+    dated_records_seen: int | None = None
+    latest_entry_at: datetime | None = None
+    latest_entry_age_hours: int | None = None
     error_type: str | None = None
 
 
@@ -116,13 +124,23 @@ class HttpProbeClient(Protocol):
 SourceHttpClientFactory = Callable[[SourceDefinition, HttpSourceSettings], HttpProbeClient]
 
 
+@dataclass(frozen=True)
+class _RssFreshnessEvidence:
+    dated_records_seen: int
+    latest_entry_at: datetime | None
+    latest_entry_age_hours: int | None
+    stale: bool
+
+
 def build_source_liveness_report(
     path: Path,
     *,
+    stale_after_hours: int = DEFAULT_SOURCE_LIVENESS_STALE_AFTER_HOURS,
     client_factory: SourceHttpClientFactory | None = None,
     clock: Callable[[], datetime] | None = None,
     monotonic: Callable[[], float] | None = None,
 ) -> SourceLivenessReport:
+    stale_after_hours = _validate_stale_after_hours(stale_after_hours)
     checked_at = _checked_at(clock)
     try:
         config = load_source_config(path)
@@ -152,7 +170,15 @@ def build_source_liveness_report(
         if not source.enabled:
             results.append(_skipped_result(source, checked_at))
         elif source.type in {SourceType.RSS, SourceType.RSSHUB}:
-            results.append(_probe_rss_source(source, factory, checked_at, monotonic_clock))
+            results.append(
+                _probe_rss_source(
+                    source,
+                    factory,
+                    checked_at,
+                    monotonic_clock,
+                    stale_after_hours,
+                )
+            )
         elif source.type == SourceType.GDELT:
             results.append(_probe_gdelt_source(source, factory, checked_at, monotonic_clock))
 
@@ -233,9 +259,24 @@ def render_source_liveness_table(report: SourceLivenessReport) -> list[str]:
         ),
     ]
     if report.results:
-        lines.append("Source | Type | Status | Severity | Records | Target | Message")
+        lines.append(
+            "Source | Type | Status | Severity | Records | Dated | Latest age | Target | Message"
+        )
         for result in report.results:
             records = "n/a" if result.records_seen is None else str(result.records_seen)
+            dated = "n/a" if result.dated_records_seen is None else str(result.dated_records_seen)
+            if result.latest_entry_age_hours is not None:
+                latest_age = f"{result.latest_entry_age_hours}h"
+            elif (
+                result.source_type in {SourceType.RSS, SourceType.RSSHUB}
+                and result.records_seen is not None
+                and result.records_seen > 0
+                and result.dated_records_seen == 0
+                and result.code == "freshness_unknown"
+            ):
+                latest_age = "unknown"
+            else:
+                latest_age = "n/a"
             lines.append(
                 " | ".join(
                     [
@@ -244,6 +285,8 @@ def render_source_liveness_table(report: SourceLivenessReport) -> list[str]:
                         result.status.value,
                         result.severity.value,
                         records,
+                        dated,
+                        latest_age,
                         _sanitize_cell(result.target),
                         _sanitize_cell(result.message),
                     ]
@@ -287,11 +330,47 @@ def _default_client_factory(
     return FashionHttpClient(settings)
 
 
+def _entry_datetime(entry: Mapping[str, Any]) -> datetime | None:
+    for key in ("published_parsed", "updated_parsed"):
+        value = entry.get(key)
+        if not isinstance(value, struct_time):
+            continue
+        try:
+            return datetime.fromtimestamp(calendar.timegm(value), tz=UTC)
+        except (OverflowError, OSError, ValueError):
+            continue
+    return None
+
+
+def _rss_freshness_evidence(
+    entries: Sequence[Mapping[str, Any]],
+    *,
+    checked_at: datetime,
+    stale_after_hours: int,
+) -> _RssFreshnessEvidence:
+    timestamps = [
+        timestamp for entry in entries if (timestamp := _entry_datetime(entry)) is not None
+    ]
+    if not timestamps:
+        return _RssFreshnessEvidence(0, None, None, False)
+
+    latest_entry_at = max(timestamps)
+    age_seconds = max(0.0, (checked_at - latest_entry_at).total_seconds())
+    age_hours = ceil(age_seconds / 3600) if age_seconds else 0
+    return _RssFreshnessEvidence(
+        dated_records_seen=len(timestamps),
+        latest_entry_at=latest_entry_at,
+        latest_entry_age_hours=age_hours,
+        stale=age_seconds > stale_after_hours * 3600,
+    )
+
+
 def _probe_rss_source(
     source: SourceDefinition,
     client_factory: SourceHttpClientFactory,
     checked_at: datetime,
     monotonic: Callable[[], float],
+    stale_after_hours: int,
 ) -> SourceLivenessResult:
     started_at = monotonic()
     client: HttpProbeClient | None = None
@@ -302,6 +381,16 @@ def _probe_rss_source(
         entries = list(parsed.entries)
         records_seen = len(entries)
         bozo = bool(parsed.get("bozo", False))
+        freshness = _rss_freshness_evidence(
+            entries,
+            checked_at=checked_at,
+            stale_after_hours=stale_after_hours,
+        )
+        freshness_kwargs = {
+            "dated_records_seen": freshness.dated_records_seen,
+            "latest_entry_at": freshness.latest_entry_at,
+            "latest_entry_age_hours": freshness.latest_entry_age_hours,
+        }
         if records_seen > 0 and bozo:
             return _result(
                 source,
@@ -315,6 +404,38 @@ def _probe_rss_source(
                     "with parser warnings."
                 ),
                 records_seen=records_seen,
+                **freshness_kwargs,
+            )
+        if records_seen > 0 and freshness.latest_entry_at is None:
+            return _result(
+                source,
+                checked_at=checked_at,
+                elapsed_ms=elapsed_ms,
+                status=SourceLivenessStatus.LIVE,
+                severity=SourceLivenessSeverity.INFO,
+                code="freshness_unknown",
+                message=(
+                    f"Feed returned {_record_label(records_seen, 'entry', 'entries')}; "
+                    "no parseable entry timestamps were available."
+                ),
+                records_seen=records_seen,
+                **freshness_kwargs,
+            )
+        if records_seen > 0 and freshness.stale:
+            return _result(
+                source,
+                checked_at=checked_at,
+                elapsed_ms=elapsed_ms,
+                status=SourceLivenessStatus.DEGRADED,
+                severity=SourceLivenessSeverity.WARNING,
+                code="stale_feed",
+                message=(
+                    f"Feed returned {_record_label(records_seen, 'entry', 'entries')}; "
+                    f"newest dated entry is {freshness.latest_entry_age_hours} hours old, "
+                    f"beyond the {stale_after_hours}-hour freshness threshold."
+                ),
+                records_seen=records_seen,
+                **freshness_kwargs,
             )
         if records_seen > 0:
             return _result(
@@ -324,8 +445,12 @@ def _probe_rss_source(
                 status=SourceLivenessStatus.LIVE,
                 severity=SourceLivenessSeverity.OK,
                 code=None,
-                message=f"Feed returned {_record_label(records_seen, 'entry', 'entries')}.",
+                message=(
+                    f"Feed returned {_record_label(records_seen, 'entry', 'entries')}; "
+                    f"newest dated entry is {freshness.latest_entry_age_hours} hours old."
+                ),
                 records_seen=records_seen,
+                **freshness_kwargs,
             )
         if bozo:
             return _result(
@@ -348,6 +473,7 @@ def _probe_rss_source(
             code="empty_feed",
             message="Feed returned no entries.",
             records_seen=0,
+            dated_records_seen=0,
         )
     except Exception as exc:
         return _exception_result(source, checked_at, _elapsed_ms(started_at, monotonic), exc)
@@ -468,6 +594,9 @@ def _result(
     code: str | None,
     message: str,
     records_seen: int | None,
+    dated_records_seen: int | None = None,
+    latest_entry_at: datetime | None = None,
+    latest_entry_age_hours: int | None = None,
     error_type: str | None = None,
 ) -> SourceLivenessResult:
     target_type, target = _target(source)
@@ -484,6 +613,9 @@ def _result(
         checked_at=checked_at,
         elapsed_ms=elapsed_ms,
         records_seen=records_seen,
+        dated_records_seen=dated_records_seen,
+        latest_entry_at=latest_entry_at,
+        latest_entry_age_hours=latest_entry_age_hours,
         error_type=error_type,
     )
 
@@ -499,6 +631,12 @@ def _checked_at(clock: Callable[[], datetime] | None) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
+
+def _validate_stale_after_hours(value: int) -> int:
+    if value < 1:
+        raise ValueError("stale_after_hours must be at least 1")
+    return value
 
 
 def _elapsed_ms(started_at: float, monotonic: Callable[[], float]) -> int:

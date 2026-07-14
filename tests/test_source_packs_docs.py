@@ -144,6 +144,14 @@ def test_source_packs_docs_show_source_liveness_command_examples() -> None:
         "uv run fashion-radar source-liveness "
         "configs/source-packs/fashion-public.example.yaml --format json"
     ) in text
+    for phrase in (
+        "--stale-after-hours 72",
+        "stale_feed",
+        "freshness_unknown",
+        "without `--strict`, warnings do not fail",
+        "with `--strict`, warnings fail",
+    ):
+        assert phrase in text
 
 
 def test_source_packs_docs_record_stage_201_direct_endpoint_refresh() -> None:

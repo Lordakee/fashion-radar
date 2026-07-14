@@ -59,9 +59,12 @@ YAML config
   create config/data/report directories.
 - **Source Liveness:** Read-only network diagnostics probe configured RSS/RSSHub
   feed URLs and GDELT Doc API query lanes before a user relies on daily reports.
-  The command prints table or JSON diagnostics only: it does not collect, store,
-  score, match, report, open SQLite, update source health, fetch article pages,
-  or prove demand or coverage.
+  RSS/RSSHub probes derive freshness evidence from entry timestamps in the
+  existing feed response, using a default 72-hour threshold; GDELT keeps its
+  configured query-time lookback. The command prints table or JSON diagnostics
+  only: it does not perform an additional fetch, collect, store, score, match,
+  report, rank sources, filter collected items, open SQLite, update source
+  health, fetch article pages, or prove demand or platform coverage.
 - **Collectors:** RSS/RSSHub-compatible feeds, GDELT Doc API metadata, HTML page collection of configured seed URLs, and sitemap discovery of article URLs, via trafilatura (optional `article` extra, robots-respecting, no link crawling); plus opt-in Xiaohongshu (xiaohongshu-mcp), Instagram (instaloader), Twitter/X (twitter-cli), and YouTube (yt-dlp) — login-required/use-at-your-own-risk (YouTube needs no login).
   Collectors return normalized items and do not write directly to SQLite.
 - **Manual Import:** Local CSV/JSON user-provided signal files are parsed as an
@@ -377,9 +380,20 @@ artifacts.
 `source-liveness` is a pre-collection diagnostics command for schema-valid source
 YAML files. It performs bounded network probes for configured RSS/RSSHub feed
 URLs and GDELT Doc API queries, prints deterministic table or JSON output, and
-then exits. It does not collect items, store rows, score entities, match
-entities, generate reports, open SQLite, update `source_health`, fetch article
-pages, or prove demand or coverage.
+then exits. For RSS/RSSHub only, it examines entry timestamps already present in
+the fetched feed, reports dated-entry count, latest entry time, and age, and
+compares the newest valid timestamp with a default 72-hour threshold configurable
+through `--stale-after-hours`. A non-malformed stale feed is
+`degraded/warning/stale_feed`; a nonempty feed with no parseable entry dates is
+`live/info/freshness_unknown`. Default mode does not fail for warnings, while
+`--strict` does. GDELT behavior is unchanged and remains query-time bounded by
+the configured lookback.
+
+The freshness check uses the existing feed response and does not perform an
+additional network request. It does not collect or store rows, score or match
+entities, generate reports, rank sources, or open SQLite.
+It does not filter collected items. It does not update `source_health`, fetch
+article pages, prove demand, or verify platform coverage.
 
 ## Entity-Pack Quality Boundary
 

@@ -331,7 +331,8 @@ dated = "n/a" if result.dated_records_seen is None else str(result.dated_records
 if result.latest_entry_age_hours is not None:
     latest_age = f"{result.latest_entry_age_hours}h"
 elif (
-    result.source_type in {SourceType.RSS, SourceType.RSSHUB}
+    result.code == "freshness_unknown"
+    and result.source_type in {SourceType.RSS, SourceType.RSSHUB}
     and result.records_seen is not None
     and result.records_seen > 0
     and result.dated_records_seen == 0
@@ -975,6 +976,19 @@ rerun affected checks, and obtain a rereview for any review-driven diff.
 Stage only intended Stage 390 files. Before commit run:
 
 ```bash
+git diff --quiet || {
+  echo "refusing to commit with unstaged implementation changes" >&2
+  exit 1
+}
+untracked_paths="$(git ls-files --others --exclude-standard)" || {
+  echo "refusing to determine untracked paths" >&2
+  exit 1
+}
+if [ -n "$untracked_paths" ]; then
+  echo "refusing to commit with untracked paths" >&2
+  exit 1
+fi
+unset untracked_paths
 git diff --cached --check
 git diff --cached --quiet -- uv.lock || {
   echo "Stage 390 must not modify uv.lock" >&2
@@ -1026,7 +1040,10 @@ Run the entire sequence in one `set -e` subshell:
   fi
   case "$mirror_scan_status" in
     1) ;;
-    *) exit "$mirror_scan_status" ;;
+    *)
+      echo "refusing to continue after an unreadable lockfile mirror scan" >&2
+      exit "$mirror_scan_status"
+      ;;
   esac
   unset mirror_scan_status
   public_uv sync --locked --dev
@@ -1082,7 +1099,32 @@ and review until clean.
 
 - [ ] **Step 8: Commit the release record and revalidate final HEAD**
 
-Commit the clean release-review record as:
+Stage only the clean release-review record and any explicitly approved Stage 390
+plan/design amendments. Before committing, prove the working tree matches the
+index and contains no nonignored untracked path:
+
+```bash
+git diff --quiet || {
+  echo "refusing to commit a release record with unstaged changes" >&2
+  exit 1
+}
+untracked_paths="$(git ls-files --others --exclude-standard)" || {
+  echo "refusing to determine untracked paths" >&2
+  exit 1
+}
+if [ -n "$untracked_paths" ]; then
+  echo "refusing to commit a release record with untracked paths" >&2
+  exit 1
+fi
+unset untracked_paths
+git diff --cached --check
+git diff --cached --quiet -- uv.lock || {
+  echo "Stage 390 release records must not modify uv.lock" >&2
+  exit 1
+}
+```
+
+Commit as:
 
 ```text
 Stage 390: record release review

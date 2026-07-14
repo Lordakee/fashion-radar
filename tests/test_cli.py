@@ -9467,37 +9467,128 @@ def test_source_pack_lint_help_lists_format_and_strict() -> None:
     assert "without collecting sources" in result.output
 
 
+def source_liveness_builder(report):
+    def build(path: Path, *, stale_after_hours: int):
+        assert stale_after_hours == 72
+        return report
+
+    return build
+
+
 def test_source_liveness_help_lists_format_strict_and_network_read_only() -> None:
     result = CliRunner().invoke(app, ["source-liveness", "--help"], env={"COLUMNS": "120"})
 
     assert result.exit_code == 0
     assert "--format" in result.output
     assert "--strict" in result.output
+    assert "--stale-after-hours" in result.output
+    assert "[default: 72]" in result.output
     assert "bounded network probes" in result.output
 
 
+def test_source_liveness_forwards_custom_stale_threshold(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from fashion_radar.source_liveness import SourceLivenessReport
+
+    path = tmp_path / "sources.yaml"
+    path.write_text("version: 1\nsources: []\n", encoding="utf-8")
+    seen: dict[str, object] = {}
+    report = SourceLivenessReport(
+        path=str(path),
+        checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
+    )
+
+    def fake_builder(value: Path, *, stale_after_hours: int):
+        seen["path"] = value
+        seen["stale_after_hours"] = stale_after_hours
+        return report
+
+    monkeypatch.setattr(cli_module, "build_source_liveness_report", fake_builder)
+
+    result = CliRunner().invoke(
+        app,
+        ["source-liveness", str(path), "--stale-after-hours", "48"],
+    )
+
+    assert result.exit_code == 0
+    assert seen == {"path": path, "stale_after_hours": 48}
+
+
+def test_source_liveness_rejects_stale_threshold_below_one_before_builder(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "sources.yaml"
+    path.write_text("version: 1\nsources: []\n", encoding="utf-8")
+    monkeypatch.setattr(
+        cli_module,
+        "build_source_liveness_report",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("builder called")),
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["source-liveness", str(path), "--stale-after-hours", "0"],
+    )
+
+    assert result.exit_code == 2
+    assert "x>=1" in result.output
+
+
 def test_source_liveness_prints_json_from_builder(monkeypatch, tmp_path: Path) -> None:
-    from fashion_radar.source_liveness import build_source_liveness_report_from_results
+    from fashion_radar.source_liveness import (
+        SourceLivenessResult,
+        SourceLivenessSeverity,
+        SourceLivenessStatus,
+        build_source_liveness_report_from_results,
+    )
 
     path = tmp_path / "sources.yaml"
     path.write_text("version: 1\nsources: []\n", encoding="utf-8")
     report = build_source_liveness_report_from_results(
         path=str(path),
         checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
-        source_count=0,
-        enabled_count=0,
+        source_count=1,
+        enabled_count=1,
         disabled_count=0,
-        type_counts={},
-        tag_counts={},
-        results=[],
+        type_counts={"rss": 1},
+        tag_counts={"fashion_media": 1},
+        results=[
+            SourceLivenessResult(
+                source_name="Designer Feed",
+                source_type=SourceType.RSS,
+                enabled=True,
+                target_type="url",
+                target="https://example.com/feed.xml",
+                status=SourceLivenessStatus.LIVE,
+                severity=SourceLivenessSeverity.OK,
+                message="Feed returned 1 entry; newest dated entry is 2 hours old.",
+                checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
+                elapsed_ms=20,
+                records_seen=1,
+                dated_records_seen=1,
+                latest_entry_at=datetime(2026, 6, 24, 0, 0, tzinfo=UTC),
+                latest_entry_age_hours=2,
+            )
+        ],
         findings=[],
     )
-    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+    monkeypatch.setattr(
+        cli_module,
+        "build_source_liveness_report",
+        source_liveness_builder(report),
+    )
 
     result = CliRunner().invoke(app, ["source-liveness", str(path), "--format", "json"])
 
     assert result.exit_code == 0
-    assert json.loads(result.output)["contract_version"] == "source-liveness/v1"
+    payload = json.loads(result.output)
+    assert payload["contract_version"] == "source-liveness/v1"
+    assert payload["results"][0]["dated_records_seen"] == 1
+    assert payload["results"][0]["latest_entry_at"] == "2026-06-24T00:00:00Z"
+    assert payload["results"][0]["latest_entry_age_hours"] == 2
 
 
 def test_source_liveness_default_table_uses_renderer_output(
@@ -9534,17 +9625,26 @@ def test_source_liveness_default_table_uses_renderer_output(
                 checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
                 elapsed_ms=20,
                 records_seen=1,
+                dated_records_seen=1,
+                latest_entry_at=datetime(2026, 6, 24, 0, 0, tzinfo=UTC),
+                latest_entry_age_hours=2,
             )
         ],
         findings=[],
     )
-    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+    monkeypatch.setattr(
+        cli_module,
+        "build_source_liveness_report",
+        source_liveness_builder(report),
+    )
 
     result = CliRunner().invoke(app, ["source-liveness", str(path)])
 
     assert result.exit_code == 0
     assert "Sources: 1 total, 1 enabled, 0 disabled, 1 probed" in result.output
     assert "Designer Feed" in result.output
+    assert "Dated" in result.output
+    assert "2h" in result.output
     assert "Boundaries:" in result.output
     assert "Does not collect, store" in result.output
 
@@ -9562,7 +9662,11 @@ def test_source_liveness_warning_only_exits_one_with_strict_but_prints_output(
         checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
         warning_count=1,
     )
-    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+    monkeypatch.setattr(
+        cli_module,
+        "build_source_liveness_report",
+        source_liveness_builder(report),
+    )
 
     result = CliRunner().invoke(app, ["source-liveness", str(path), "--strict"])
 
@@ -9583,7 +9687,11 @@ def test_source_liveness_warning_only_exits_zero_without_strict(
         checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
         warning_count=1,
     )
-    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+    monkeypatch.setattr(
+        cli_module,
+        "build_source_liveness_report",
+        source_liveness_builder(report),
+    )
 
     result = CliRunner().invoke(app, ["source-liveness", str(path)])
 
@@ -9604,7 +9712,11 @@ def test_source_liveness_warning_only_prints_json_without_strict(
         checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
         warning_count=1,
     )
-    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+    monkeypatch.setattr(
+        cli_module,
+        "build_source_liveness_report",
+        source_liveness_builder(report),
+    )
 
     result = CliRunner().invoke(app, ["source-liveness", str(path), "--format", "json"])
 
@@ -9626,7 +9738,11 @@ def test_source_liveness_error_exits_one_but_prints_output(
         checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
         error_count=1,
     )
-    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+    monkeypatch.setattr(
+        cli_module,
+        "build_source_liveness_report",
+        source_liveness_builder(report),
+    )
 
     result = CliRunner().invoke(app, ["source-liveness", str(path)])
 
@@ -9647,7 +9763,11 @@ def test_source_liveness_error_prints_json_and_exits_one(
         checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
         error_count=1,
     )
-    monkeypatch.setattr(cli_module, "build_source_liveness_report", lambda path: report)
+    monkeypatch.setattr(
+        cli_module,
+        "build_source_liveness_report",
+        source_liveness_builder(report),
+    )
 
     result = CliRunner().invoke(app, ["source-liveness", str(path), "--format", "json"])
 
@@ -9664,7 +9784,7 @@ def test_source_liveness_invalid_format_does_not_call_builder(
     path.write_text("version: 1\nsources: []\n", encoding="utf-8")
     called = False
 
-    def fail_if_called(path: Path):
+    def fail_if_called(path: Path, *, stale_after_hours: int):
         nonlocal called
         called = True
         raise AssertionError("builder should not be called")
@@ -9691,13 +9811,14 @@ def test_source_liveness_does_not_create_config_data_report_or_workflow_artifact
     explicit_data = tmp_path / "explicit-data"
     explicit_reports = tmp_path / "explicit-reports"
     monkeypatch.chdir(workdir)
+    report = SourceLivenessReport(
+        path=str(path),
+        checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
+    )
     monkeypatch.setattr(
         cli_module,
         "build_source_liveness_report",
-        lambda path: SourceLivenessReport(
-            path=str(path),
-            checked_at=datetime(2026, 6, 24, 2, 0, tzinfo=UTC),
-        ),
+        source_liveness_builder(report),
     )
 
     result = CliRunner().invoke(
