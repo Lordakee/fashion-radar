@@ -102,7 +102,8 @@ Field semantics:
 - `dated_records_seen` is the number of RSS/RSSHub entries with a valid parsed
   publication or update timestamp.
 - `latest_entry_at` is the newest valid entry timestamp normalized to UTC.
-- `latest_entry_age_hours` is the nonnegative whole-hour age at probe time.
+- `latest_entry_age_hours` is the nonnegative age rounded up to whole hours at
+  probe time.
 - RSS/RSSHub probes that successfully parse a feed set `dated_records_seen`,
   including `0` for an empty feed or a feed with no valid entry dates.
 - Fetch failures, disabled sources, and GDELT results leave all three fields
@@ -131,8 +132,10 @@ Age calculation uses the exact time difference for threshold comparison:
 stale when checked_at - latest_entry_at > stale_after_hours
 ```
 
-The displayed integer age is floored to whole hours. Future-dated entries are
-clamped to an age of zero and are not treated as stale in this stage.
+The displayed integer age is rounded up to whole hours. This keeps the boundary
+legible: an entry exactly 72 hours old reports `72`, while an entry one second
+older reports `73`. Future-dated entries are clamped to an age of zero and are
+not treated as stale in this stage.
 
 ## Status Matrix
 
