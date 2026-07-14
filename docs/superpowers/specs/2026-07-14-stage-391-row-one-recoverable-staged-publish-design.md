@@ -163,10 +163,13 @@ output is copied into staging:
 - generated-directory contents are not copied, matching current latest-only
   cleanup semantics.
 
-After child copying and before rendering, the publisher applies the physical
-output root's ordinary mode and timestamp metadata to staging where the
-platform supports it. This does not change the generated-child replacement
-rules.
+The publisher captures the physical output root's ordinary mode and timestamp
+metadata before rendering. After rendering and staged integrity validation, it
+reapplies that metadata to staging immediately before the `ready` phase is
+written. Applying it after rendering is required because creation of generated
+top-level children changes the staging root timestamp, and applying a read-only
+root mode before rendering could prevent the renderer from completing. This
+does not change the generated-child replacement rules.
 
 Path and content preservation are required. Inode identity, every filesystem
 ACL or extended attribute, and concurrent edits by a non-publisher during the
@@ -187,18 +190,25 @@ The lock file is stable and may remain after a successful publish. It contains
 a small contract marker and the normalized physical output path, and consumes
 negligible space. After acquiring the operating-system lock, the publisher
 validates this ownership metadata before using an existing lock file. An
+empty regular lock file is treated as recoverable creation-crash residue and is
+initialized only after the publisher successfully acquires its OS lock. An
 unrecognized nonempty lock file fails without being overwritten. The lock file
 is not deleted because unlinking it can allow different processes to lock
 different inodes under the same pathname.
 
 The journal records the normalized physical output path, token, staging path,
-backup path, whether an old live output existed, and phase. Paths loaded from a
-journal are accepted only when they remain direct siblings of the expected
-physical output, match the expected tokenized names, and do not alias the live
-path, lock, or journal.
+backup path, whether an old live output directory existed, whether its public
+site marker existed, whether its index existed, and phase. Recording these as
+separate facts preserves the existing case where an unmarked directory contains
+only unrelated user files and is therefore a valid first-publish target. Paths
+loaded from a journal are accepted only when they remain direct siblings of the
+expected physical output, match the expected tokenized names, and do not alias
+the live path, lock, or journal.
 
-Staging contains a private `.row-one-publish-owner.json` marker carrying the
-same token. The marker moves with staging if staging becomes live and is removed
+Staging contains a private `data/.row-one-publish-owner.json` marker carrying
+the same token. It lives inside the managed `data/` tree so it cannot collide
+with an unrelated top-level user file that latest-only refresh promises to
+preserve. The marker moves with staging if staging becomes live and is removed
 before a successful result is returned. It is not a public site artifact.
 
 An unrecognized journal, malformed journal, path mismatch, owner-token mismatch,
@@ -222,6 +232,14 @@ The lock is non-blocking:
   its transaction;
 - operating-system lock release on process termination removes the need for PID
   reuse or stale PID heuristics.
+
+Lock, journal, temporary journal, and owner paths are inspected with no-follow
+filesystem metadata. A symlink, directory, special file, or other non-regular
+object in a file role is ambiguous and is never followed, overwritten, or
+deleted. The lock opener uses `O_NOFOLLOW` where available and verifies lstat
+and fstat identity on fallback platforms. The Windows byte-range lock may cover
+one byte beyond the current end of an empty file; the publisher does not write a
+sentinel byte before acquiring the lock.
 
 Recovery and cleanup occur only while this lock is held.
 
@@ -277,7 +295,8 @@ The staged render sequence is:
 6. copy unrelated top-level children;
 7. call the in-place renderer against staging with cleanup disabled;
 8. validate staging;
-9. atomically write the `ready` phase.
+9. reapply the captured live-root mode and timestamp metadata to staging;
+10. atomically write the `ready` phase.
 
 Validation reads what was actually written to disk. It does not reuse an
 in-memory app payload as a substitute for disk validation.
@@ -294,6 +313,11 @@ The staged validator:
 - confirms the staged render result refers to the staging directory before it
   is rebased;
 - propagates any validation exception as a pre-publish failure.
+
+Before unrelated directories are copied, the publisher recursively scans their
+entries without following symbolic links and rejects nested sockets, FIFOs,
+devices, or other special files. This prevents a recursive copy from blocking
+or reading an untrusted special path.
 
 Any stage creation, copy, render, JSON read, or validation failure leaves the
 live output untouched. Owned staging and journal data are removed on handled
@@ -312,10 +336,12 @@ When no physical live output exists:
 5. return a result rebased to the logical output.
 
 If the move fails, no partial live directory is accepted. If post-move
-validation fails, rename the token-owned invalid live directory back to its
-owned staging path and retain the journal with a clear recovery error. If that
-rename also fails, preserve the token-owned live and journal as an ambiguous
-recovery state. Neither case returns a successful publish result.
+validation or the `published` journal write fails, rename the token-owned new
+live directory back to its owned staging path. A successful rollback removes
+the owned stage and journal and re-raises the original failure. If that rename
+or owned cleanup fails, preserve the token-owned live or staging path and
+journal as an explicit rollback or cleanup-pending state. Neither case returns
+a successful publish result.
 
 ### Existing Publish
 
@@ -331,14 +357,16 @@ When a physical live output exists:
 8. remove backup and journal;
 9. return a result rebased to the logical output.
 
-If the first rename fails, the old live output remains in place. If the second
-rename fails, rename backup back to live. If post-move validation fails, first
-rename the token-owned new live back to its owned staging path and then rename
-backup back to live. A successful rollback re-raises the original publish
-failure after confirming the old live site is valid. If moving the token-owned
-new live aside or restoring the backup fails, keep journal, backup, staging or
-token-owned live state and raise a rollback error containing every recovery
-path.
+If the first rename fails, the old live output remains in place. If writing the
+`live_backed_up` phase, performing the second rename, validating the new live,
+or writing the `published` phase fails, immediately restore the old output in
+the same invocation. When a token-owned new live exists, first rename it back
+to its owned staging path and then rename backup back to live. A successful
+rollback removes the owned stage and journal, revalidates the restored prior
+state, and re-raises the original publish failure. If moving the token-owned
+new live aside, restoring the backup, or cleaning owned rollback state fails,
+keep journal, backup, staging or token-owned live state and raise a rollback or
+cleanup-pending error containing every recovery path.
 
 There is a short interval between the two directory renames when the physical
 live pathname is absent. Eliminating that interval requires the deferred
@@ -354,6 +382,7 @@ when a backup exists and the transaction is not durably marked `published`.
 | No journal and no matching owned artifacts | Start normally. |
 | No journal plus matching stage/backup artifacts | Fail ambiguous; delete nothing. |
 | `staging` or `ready`, old live present, no backup | Keep old live; remove token-owned stage and journal after validation. |
+| `live_moving`, old live present, no backup | The live-to-backup rename did not complete; keep and validate old live, then remove token-owned stage and journal. |
 | `live_moving`, live missing, backup present | Restore backup to live; remove token-owned stage and journal. |
 | `live_backed_up`, backup present | Remove only a token-owned new live if present, then restore and validate backup. |
 | Pre-`published`, new token-owned live and backup present | Restore the old backup, even when the new live validates. |
@@ -363,8 +392,30 @@ when a backup exists and the transaction is not durably marked `published`.
 | Any state with malformed metadata, mismatched token, unsafe path, or multiple interpretations | Fail ambiguous and report all paths; delete nothing. |
 
 Recovery validates the chosen live site before starting a new render.
+When the journal proves the prior output was an unrelated-only unmarked
+directory, recovery instead validates that the directory and its unrelated
+children were restored; it does not require ROW ONE marker or index files that
+did not previously exist. A marker-only prior output remains repairable under
+the existing safety rule because the marker itself is not treated as an
+unmarked generated child. An index-only prior output is restored byte-for-byte
+but remains an unsafe unmarked generated target; recovery reports it and a new
+publish refuses to overwrite it. Recovery never bypasses the marker guard.
+
+The `published` recovery path accepts a missing private owner marker because a
+process may terminate after removing that marker but before deleting the backup
+and journal. It still validates the complete live site and journal-owned paths.
+If an owner path remains, it must be a regular file with the matching token.
+Every phase before `published` continues to require the owner marker when a
+token-owned new live or staging directory must be identified.
 
 ## Cleanup Semantics
+
+Before the first cleanup mutation, the publisher validates the canonical
+journal, owner state, stage or live ownership, backup object, and the complete
+set of matching temporary journals as one preflight. If any object is unsafe,
+unowned, malformed, or inconsistent, cleanup deletes nothing. Once preflight
+passes, later I/O failure may leave a partial but still journal-owned cleanup
+state for the next invocation.
 
 Successful publication removes the owned stage, backup, private owner marker,
 journal, and temporary journal files. The stable lock file may remain.
@@ -408,7 +459,12 @@ Errors must distinguish these cases in concise messages:
 - valid new live with cleanup pending.
 
 No error message includes credentials, article bodies, or unrelated file
-contents.
+contents. Ordinary handled stage creation, copy, render, validation, rename, or
+successful-rollback failures use concise public messages and retain the
+original exception only as `__cause__`; they do not expose tokenized staging,
+backup, or physical-target paths. Rollback, cleanup-pending, and ambiguous-state
+errors deliberately include the retained recovery paths needed for an operator
+to recover safely.
 
 ## Test Design
 
@@ -438,7 +494,8 @@ Required RED or strengthened regression coverage:
 12. malformed journal, unsafe journal paths, token mismatch, and unjournaled
     lookalike siblings fail without deletion.
 13. a concurrent publisher holding the OS lock causes a fast failure before
-    recovery or staging.
+    recovery or staging, while an empty regular lock left by a creation crash is
+    initialized only after acquiring that same OS lock.
 14. output root regular files, directories, symlinks, and metadata survive a
     successful transaction; old generated children do not.
 15. special unrelated files fail before live mutation on platforms that can
