@@ -4,7 +4,11 @@
 
 Approved by the user after a read-only CodeGraph audit, parallel runtime and
 architecture reviews, and a Claude Code `--effort max` design review against
-clean commit `67d26c6`.
+clean commit `67d26c6`. An implementation-time filesystem-capability amendment
+was accepted through the OpenCode GLM 5.2 max fallback after Claude Code failed
+the primary call and protocol retry; the amendment addresses Task 2 proof that
+pathname-only fallback operations cannot enforce the owner marker's no-follow
+boundary.
 
 ## Goal
 
@@ -19,6 +23,12 @@ uses an owned journal to recover a safe site before starting another render.
 
 This is a failure-safe, recoverable publish design. It is not described as a
 fully atomic or zero-downtime release mechanism.
+
+The recoverable latest-only path requires safe directory-relative filesystem
+operations. On a platform where Python does not expose that capability, the
+publisher fails before creating the output parent, lock, journal, stage, or any
+other transaction artifact. Ordinary `latest_only=False` in-place rendering
+remains available.
 
 ## Verified Defect
 
@@ -41,7 +51,8 @@ site into a missing or mixed site.
 
 Use a same-filesystem staging directory, an owned backup, an atomically written
 journal, a single-publisher operating-system lock, validation before and after
-the publish rename, and old-version-first recovery.
+the publish rename, old-version-first recovery, and a mutation-free platform
+capability gate before publication begins.
 
 This approach preserves current URLs, direct filesystem paths, static-server
 configuration, systemd units, generated contracts, and the existing rule that
@@ -60,6 +71,12 @@ unrelated top-level output files survive latest-only refreshes.
 3. Keeping the current delete-then-render flow and retaining a copied archive
    elsewhere does not protect readers during a failed render and makes rollback
    a separate manual operation.
+4. A Windows native-handle backend could provide directory-handle-relative
+   owner and staged-JSON access without following reparse points. Python's
+   documented `os` API does not expose the required Windows primitives, and a
+   new `ctypes`/NT implementation would require a separate design, Windows CI,
+   and recovery test matrix. Stage 391 therefore fails closed instead of using
+   a race-prone pathname fallback.
 
 ## Scope
 
@@ -74,6 +91,12 @@ The ordinary `latest_only=False` in-place rendering behavior remains unchanged.
 Its partial-write risk is an explicit residual risk and must be pinned by a
 regression test so this stage does not silently widen its contract.
 
+The staged publisher is capability-gated. Standard Python builds on platforms
+without safe directory-relative handles, including current Windows builds, get
+a concise mutation-free `RowOnePublishError` from the latest-only path. This is
+a feature-level capability boundary, not a claim that the rest of the package
+is platform-specific.
+
 ## Public Compatibility
 
 Stage 391 preserves:
@@ -87,6 +110,10 @@ Stage 391 preserves:
 - schemas and generated JSON shapes;
 - `row-one serve`, `row-one status`, `row-one ops-check`, and systemd paths;
 - output-directory safety rules and unrelated top-level file preservation.
+
+These compatibility guarantees apply when the safe directory-operation
+capability gate passes. On an unsupported platform, latest-only publication
+does not fall back to delete-and-render or partially create transaction state.
 
 No staging, backup, token, or physical symlink-target path may appear in a
 returned `RowOneRenderResult` or generated public artifact.
@@ -123,9 +150,43 @@ symlink is allowed when its resolved target parent can be created safely.
 
 For a normal output directory, logical and physical outputs are the same.
 
-The physical parent directory is created before lock acquisition and staging.
+The platform capability gate runs before the physical parent directory is
+created. After the gate passes, the physical parent directory is created before
+lock acquisition and staging.
 Stage and backup directories must be siblings of the physical output so each
 publish rename remains on one filesystem.
+
+## Filesystem Capability Boundary
+
+The owner marker and generated JSON live below a managed root while staging and
+after staging becomes live. A final-component `O_NOFOLLOW` check is insufficient
+because a pathname open can still traverse a replaced root or `data/` ancestor.
+The publisher therefore requires all of the following before latest-only
+publication starts:
+
+- `os.open`, `os.stat`, `os.mkdir`, and `os.unlink` support
+  descriptor-relative `dir_fd` operations;
+- directory opens support `O_DIRECTORY` and `O_NOFOLLOW`;
+- every stage or live managed root and its `data` child can be opened and
+  identity-checked as actual directories before owner or generated JSON files
+  are accessed.
+
+If any capability is unavailable, publication raises exactly
+`ROW ONE safe directory handles are unsupported on this platform` before
+creating the physical output parent, stable lock, journal, stage, backup, or
+owner marker and before invoking the render callback. The publisher never uses
+a pathname-only fallback for owner creation or stage/live owner and JSON reads.
+
+The resolved physical output parent is the local transaction root. Stage 391
+protects every transaction entry and managed descendant below that root with
+no-follow metadata and ownership checks. Concurrent hostile replacement of an
+already resolved ancestor above that transaction root is outside this local,
+single-user publisher's threat model.
+
+The package remains OS-independent overall. Non-latest in-place build and
+preview paths remain available on platforms that fail this gate. A future
+Windows native-handle publisher may remove the capability restriction without
+changing the public site contracts.
 
 ## Managed And Unrelated Children
 
@@ -233,6 +294,11 @@ The lock is non-blocking:
 - operating-system lock release on process termination removes the need for PID
   reuse or stale PID heuristics.
 
+The Windows `msvcrt` lock implementation remains defined and tested, but the
+current staged publisher's earlier safe-directory capability gate prevents it
+from being reached on a standard Windows Python build. It remains part of the
+portable lock contract for a future native-handle staging backend.
+
 Lock, journal, temporary journal, and owner paths are inspected with no-follow
 filesystem metadata. A symlink, directory, special file, or other non-regular
 object in a file role is ambiguous and is never followed, overwritten, or
@@ -287,16 +353,17 @@ it never trusts phase alone.
 
 The staged render sequence is:
 
-1. acquire the single-publisher lock;
-2. recover or reject any prior transaction state;
-3. perform the read-only live marker safety check;
-4. atomically write a `staging` journal;
-5. create the owned staging directory and owner marker;
-6. copy unrelated top-level children;
-7. call the in-place renderer against staging with cleanup disabled;
-8. validate staging;
-9. reapply the captured live-root mode and timestamp metadata to staging;
-10. atomically write the `ready` phase.
+1. require safe directory-relative filesystem operations without mutation;
+2. create the physical parent and acquire the single-publisher lock;
+3. recover or reject any prior transaction state;
+4. perform the read-only live marker safety check;
+5. atomically write a `staging` journal;
+6. create the owned staging directory and owner marker;
+7. copy unrelated top-level children;
+8. call the in-place renderer against staging with cleanup disabled;
+9. validate staging;
+10. reapply the captured live-root mode and timestamp metadata to staging;
+11. atomically write the `ready` phase.
 
 Validation reads what was actually written to disk. It does not reuse an
 in-memory app payload as a substitute for disk validation.
@@ -322,6 +389,8 @@ or reading an untrusted special path.
 Any stage creation, copy, render, JSON read, or validation failure leaves the
 live output untouched. Owned staging and journal data are removed on handled
 failure unless preserving them is required to explain an ambiguous state.
+An unsupported filesystem capability fails earlier and creates no output
+parent, lock, journal, stage, backup, owner marker, or render side effect.
 
 ## Commit And Rollback
 
@@ -578,4 +647,8 @@ Stage 391 is complete only when:
   not change;
 - latest-only storage remains bounded after successful recovery and cleanup;
 - no unknown or unowned path is deleted;
+- an unsupported safe-directory capability fails before every filesystem
+  mutation and render callback, with the documented concise error;
+- public documentation identifies the capability-gated latest-only boundary
+  and the unchanged non-latest fallback;
 - the full release verification and required Claude Code reviews pass.

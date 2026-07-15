@@ -15,11 +15,16 @@ and backup directories, validation before and after commit, rollback, and
 old-version-first recovery. Keep `render_row_one_site` as the public dispatcher,
 move its current write body into an in-place helper, and route only
 `latest_only=True` through the publisher while preserving logical output paths,
-URLs, schemas, and unrelated top-level files.
+URLs, schemas, and unrelated top-level files. Gate the staged path on safe
+directory-relative filesystem operations before any mutation; never substitute
+a pathname-only owner/JSON fallback on an unsupported platform.
 
 **Tech Stack:** Python 3.11+, standard-library `pathlib`, `os`, `json`, `secrets`,
-`shutil`, `stat`, `contextlib`, POSIX `fcntl`, Windows `msvcrt`, existing ROW ONE
-validators and models, pytest fault injection, Ruff, uv, Git.
+`shutil`, `stat`, `contextlib`, descriptor-relative `open/stat/mkdir/unlink`, POSIX
+`fcntl`, Windows `msvcrt`, existing ROW ONE validators and models, pytest fault
+injection, Ruff, uv, Git. Windows remains supported by the package, but the
+recoverable latest-only path fails closed until a separately designed native
+directory-handle backend exists.
 
 **Core product gap closed:** The report/publish end of the
 collect -> match -> report pipeline currently destroys the live ROW ONE site
@@ -56,6 +61,14 @@ ROW_ONE_PUBLISH_CONTRACT_VERSION = "row-one-publish/v1"
 ROW_ONE_PUBLISH_LOCK_CONTRACT_VERSION = "row-one-publish-lock/v1"
 ROW_ONE_PUBLISH_OWNER_CONTRACT_VERSION = "row-one-publish-owner/v1"
 ROW_ONE_PUBLISH_OWNER_PATH = Path("data/.row-one-publish-owner.json")
+_SAFE_DIRECTORY_OPERATIONS_SUPPORTED = (
+    all(
+        function in os.supports_dir_fd
+        for function in (os.open, os.stat, os.mkdir, os.unlink)
+    )
+    and hasattr(os, "O_DIRECTORY")
+    and hasattr(os, "O_NOFOLLOW")
+)
 GENERATED_CHILDREN = (
     "index.html",
     ".row-one-site",
@@ -161,6 +174,7 @@ steps do not invent incompatible names:
 | `_try_lock_handle` | `(handle: BinaryIO) -> None` | Task 1 Step 6 |
 | `_unlock_handle` | `(handle: BinaryIO) -> None` | Task 1 Step 6 |
 | `_validate_or_initialize_lock_metadata` | `(handle: BinaryIO, target: RowOnePublishTarget) -> None` | Task 1 Step 6 |
+| `_require_safe_directory_operations` | `() -> None` | Task 3 Step 1 |
 | `_validate_live_publish_target` | `(target: RowOnePublishTarget) -> None` | Task 2 Step 3 |
 | `_validate_unrelated_tree` | `(path: Path) -> None` | Task 2 Step 3 |
 | `_copy_unrelated_children` | `(source: Path, stage: Path) -> None` | Task 2 Step 3 |
@@ -169,6 +183,7 @@ steps do not invent incompatible names:
 | `_read_owner_token` | `(directory: Path) -> str` | Task 2 Step 5 |
 | `_write_owner_file` | `(stage: Path, transaction: RowOnePublishTransaction) -> None` | Task 2 Step 5 |
 | `_validate_staged_row_one_site` | `(transaction: RowOnePublishTransaction, result: StagedRowOneRenderResult) -> None` | Task 2 Step 5 |
+| `_read_owner_token_if_present` | `(directory: Path) -> str | None` | Task 3 Step 4 |
 | `_move_publish_path` | `(source: Path, destination: Path) -> None` | Task 3 Step 1 |
 | `_remove_publish_path` | `(path: Path) -> None` | Task 3 Step 1 |
 | `_replace_phase` | `(transaction: RowOnePublishTransaction, phase: RowOnePublishPhase) -> RowOnePublishTransaction` | Task 3 Step 1 |
@@ -185,11 +200,12 @@ steps do not invent incompatible names:
 | `_clean_precommit_stage_after_preserving_old_output` | `(transaction: RowOnePublishTransaction) -> None` | Task 3 Step 6 |
 | `_begin_staging` | `(transaction: RowOnePublishTransaction) -> RowOnePublishTransaction` | Task 3 Step 7 |
 | `_copy_unrelated_children_if_present` | `(transaction: RowOnePublishTransaction) -> None` | Task 3 Step 7 |
-| `_commit_publish` | `(transaction: RowOnePublishTransaction) -> RowOnePublishTransaction` | Task 3 Step 7 |
+| `_commit_publish` | `(transaction: RowOnePublishTransaction) -> RowOnePublishTransaction` | Task 3 Step 4 |
 | `_cleanup_after_handled_failure` | `(transaction: RowOnePublishTransaction) -> None` | Task 3 Step 7 |
 | `_cleanup_after_published` | `(transaction: RowOnePublishTransaction) -> None` | Task 3 Step 7 |
 | `_preflight_cleanup_artifacts` | `(transaction: RowOnePublishTransaction, *, published: bool) -> None` | Task 3 Step 7 |
 | `_remove_owner_file_if_present` | `(transaction: RowOnePublishTransaction) -> None` | Task 3 Step 7 |
+| `_remove_owner_file_from_managed_root` | `(directory: Path, *, expected_token: str) -> None` | Task 3 Step 7 |
 | `_remove_owned_backup_if_present` | `(transaction: RowOnePublishTransaction) -> None` | Task 3 Step 7 |
 | `_remove_matching_temporary_journals` | `(transaction: RowOnePublishTransaction) -> None` | Task 3 Step 7 |
 
@@ -208,6 +224,35 @@ The journal JSON keys are exact and stable for Stage 391 local recovery:
     "phase": "ready",
 }
 ```
+
+### Filesystem Capability Contract
+
+The recoverable latest-only path uses the fixed
+`_SAFE_DIRECTORY_OPERATIONS_SUPPORTED` predicate shown above: `os.open`,
+`os.stat`, `os.mkdir`, and `os.unlink` in `os.supports_dir_fd` plus
+`O_DIRECTORY` and `O_NOFOLLOW`. Task 2's private managed-root/JSON helpers fail
+closed when this set is unavailable. Task 3 adds the single public orchestration
+gate:
+
+```python
+def _require_safe_directory_operations() -> None:
+    if not _SAFE_DIRECTORY_OPERATIONS_SUPPORTED:
+        raise RowOnePublishError(
+            "ROW ONE safe directory handles are unsupported on this platform"
+        )
+```
+
+`publish_latest_row_one_site` must call this helper before resolving or creating
+the output parent, opening the stable lock, recovering a journal, creating a
+stage, or invoking `render`. Tests monkeypatch only the capability predicate and
+require the output parent and every transaction sibling to remain absent. The
+publisher does not fall back to legacy latest-only cleanup. Ordinary
+`latest_only=False` rendering does not call this gate.
+
+The resolved physical output parent is the trusted local transaction root for
+Stage 391. Every managed object and descendant below it retains the plan's
+no-follow and ownership checks. Concurrent hostile replacement of an ancestor
+above that resolved root is outside this stage's local single-user threat model.
 
 Use these deterministic sibling names for a physical output named `site`:
 
@@ -260,6 +305,12 @@ success.
   unavailable after the protocol retry.
 - Create if required: `docs/reviews/claude-code-stage-391-plan-rereview.md` and
   `docs/reviews/opencode-stage-391-plan-rereview.md`.
+- Create for this implementation amendment:
+  `docs/reviews/opencode-stage-391-capability-plan-review.md` and
+  `docs/reviews/opencode-stage-391-capability-plan-rereview.md`, plus a final
+  `docs/reviews/opencode-stage-391-capability-plan-final-rereview.md` after a
+  later independent finding changes the predicate. These fallback records remain
+  authoritative because Claude returned no coherent capability rereview body.
 - Create: `docs/reviews/claude-code-stage-391-code-review.md` and any required
   rereview.
 - Create: `docs/reviews/claude-code-stage-391-release-review.md`, or the matching
@@ -975,6 +1026,17 @@ The private owner file uses this exact object and rejects missing or extra keys:
 }
 ```
 
+Owner creation and owner/edition/manifest/runtime reads must bind any managed
+root and its `data/` child with descriptor-relative directory handles. This
+applies both to staging and to the same tree after it becomes live for
+post-publish validation, ownership checks, cleanup, rollback, and recovery. A
+pathname-only fallback can follow a replaced ancestor even when the final file
+uses `O_NOFOLLOW`; it is forbidden. When the safe-directory capability set is
+unavailable, these private helpers raise the fixed capability error without
+creating `data/`, opening a child file, or invoking the integrity validator.
+Tests force the unsupported branch and prove that external sentinels and JSON
+bytes remain unchanged.
+
 ```python
 def _validate_staged_row_one_site(
     transaction: RowOnePublishTransaction,
@@ -1020,7 +1082,28 @@ Expected: all selected tests and Ruff checks pass.
 - Modify: `src/fashion_radar/row_one/publish.py`
 - Modify: `tests/test_row_one_publish.py`
 
-- [ ] **Step 1: Add focused filesystem-operation injection points**
+- [ ] **Step 1: Add the mutation-free capability gate and focused filesystem-operation injection points**
+
+First add RED tests that force the safe-directory capability predicate false
+and call `publish_latest_row_one_site` with an output whose parent does not yet
+exist. Require the exact base `RowOnePublishError` message:
+
+```text
+ROW ONE safe directory handles are unsupported on this platform
+```
+
+Assert that the output parent remains absent and no lock, journal, temporary
+journal, stage, backup, owner marker, or render-callback side effect exists. Add
+a second integration test proving `render_row_one_site(..., latest_only=False)`
+bypasses the gate and retains its existing in-place behavior.
+
+Parameterize the predicate test so each required operation, including
+descriptor-relative `os.unlink`, can be absent independently. A platform that
+can bind owner reads but cannot perform the required bound owner unlink must
+fail before commit, not during post-publish cleanup.
+
+Implement `_require_safe_directory_operations()` from the fixed capability
+contract before adding the remaining injection points.
 
 Declare these helpers so tests can distinguish each transition without patching
 global `os.replace` or `Path.rename`:
@@ -1124,6 +1207,22 @@ def fail_second_move(source: Path, destination: Path) -> None:
     os.replace(source, destination)
 ```
 
+Add live-root no-follow RED coverage before implementing the commit helpers:
+
+- replace `live/data` with a symlink to an external directory containing an
+  otherwise exact owner plus edition/manifest/runtime JSON, then require
+  `_validate_published_row_one_site` to reject before the integrity validator
+  and preserve every external byte;
+- require `_is_owned_live` to reject the same live-root/data ancestor state
+  without treating the external owner as transaction-owned;
+- require `_remove_owner_file_if_present` to reject without deleting or
+  changing the external owner;
+- force `_SAFE_DIRECTORY_OPERATIONS_SUPPORTED=False` for each direct helper and
+  require the fixed capability error before a child file is opened;
+- cover both a symlinked live root and a symlinked `live/data` child. Missing
+  owner relaxation in `published` recovery does not relax directory ancestry or
+  JSON-read safety.
+
 - [ ] **Step 4: Implement first and existing publish commit paths**
 
 Implement `_commit_first_publish` and `_commit_existing_publish` with the exact
@@ -1137,20 +1236,12 @@ def _validate_published_row_one_site(
 ) -> None:
     live = transaction.target.physical_output
     validate_row_one_site_dir(live)
-    owner_path = live / ROW_ONE_PUBLISH_OWNER_PATH
-    try:
-        owner_mode = owner_path.lstat().st_mode
-    except FileNotFoundError:
-        owner_mode = None
-    if owner_mode is not None and not stat.S_ISREG(owner_mode):
-        raise RowOnePublishAmbiguousStateError(
-            f"ROW ONE published owner path is not a regular file: {owner_path}"
-        )
-    if owner_mode is not None and _read_owner_token(live) != transaction.token:
+    owner_token = _read_owner_token_if_present(live)
+    if owner_token is not None and owner_token != transaction.token:
         raise RowOnePublishAmbiguousStateError(f"ROW ONE published owner token mismatch: {live}")
-    if require_owner and owner_mode is None:
+    if require_owner and owner_token is None:
         raise RowOnePublishAmbiguousStateError(
-            f"ROW ONE published owner marker is missing: {owner_path}"
+            f"ROW ONE published owner marker is missing: {live / ROW_ONE_PUBLISH_OWNER_PATH}"
         )
     edition = _read_json_object(live / "data" / "edition.json", label="edition")
     _read_json_object(live / "data" / "manifest.json", label="manifest")
@@ -1165,6 +1256,14 @@ def _commit_publish(
         return _commit_existing_publish(transaction)
     return _commit_first_publish(transaction)
 ```
+
+`_read_owner_token_if_present` must bind the managed root and `data/` directory
+with the same descriptor-relative helpers as Task 2, return `None` only for a
+missing final owner file, and reject every non-regular owner, symlinked root,
+symlinked `data/`, identity change, malformed payload, or unsupported capability.
+It is used by published validation and `_is_owned_live`; owner cleanup uses the
+separate bound inspection-and-unlink helper so none of those paths can
+reintroduce pathname-only live-root reads.
 
 The existing path must keep every post-backup operation inside the rollback
 boundary, including both phase writes:
@@ -1426,20 +1525,10 @@ def _cleanup_after_handled_failure(
 def _remove_owner_file_if_present(
     transaction: RowOnePublishTransaction,
 ) -> None:
-    owner_path = transaction.target.physical_output / ROW_ONE_PUBLISH_OWNER_PATH
-    try:
-        owner_mode = owner_path.lstat().st_mode
-    except FileNotFoundError:
-        return
-    if not stat.S_ISREG(owner_mode):
-        raise RowOnePublishAmbiguousStateError(
-            f"ROW ONE published owner path is unsafe: {owner_path}"
-        )
-    if _read_owner_token(transaction.target.physical_output) != transaction.token:
-        raise RowOnePublishAmbiguousStateError(
-            f"ROW ONE published owner token mismatch: {owner_path}"
-        )
-    owner_path.unlink()
+    _remove_owner_file_from_managed_root(
+        transaction.target.physical_output,
+        expected_token=transaction.token,
+    )
 
 
 def _cleanup_after_published(transaction: RowOnePublishTransaction) -> None:
@@ -1459,6 +1548,13 @@ def _cleanup_after_published(transaction: RowOnePublishTransaction) -> None:
         ) from exc
 ```
 
+`_remove_owner_file_from_managed_root` must keep the verified managed-root and
+`data/` directory descriptors open from owner inspection through the relative
+unlink. It returns only when the final owner is absent, requires the exact token
+when present, and never performs a full-path unlink after releasing the bound
+directory. Tests inject a `live/data` replacement between inspection and unlink
+and require zero external mutation.
+
 `_remove_owned_backup_if_present` validates the canonical journal token and
 exact backup path before removal. `_cleanup_after_handled_failure` must not erase
 a rollback error, ambiguous state, committed state, unowned stage path, or
@@ -1473,6 +1569,7 @@ def publish_latest_row_one_site(
     *,
     render: Callable[[Path], RenderResultT],
 ) -> RenderResultT:
+    _require_safe_directory_operations()
     target = _resolve_publish_target(output_dir)
     target.physical_output.parent.mkdir(parents=True, exist_ok=True)
     with _acquire_publish_lock(target):
@@ -1519,6 +1616,10 @@ sanitized successful-rollback error bypass ordinary wrapping. A base
 untrusted callback cannot smuggle stage or physical paths into ordinary CLI
 output. A rollback failure, ambiguous state, or cleanup-pending state is never
 erased by the outer exception handler.
+
+The capability error occurs before this transaction exception handler because
+there is no owned transaction state to clean. It is concise and path-free and
+must reach build, preview, and refresh with only their existing command prefix.
 
 - [ ] **Step 8: Run all publisher tests and module quality gates**
 
@@ -1672,6 +1773,8 @@ Update or add tests proving:
 - the stable lock file may exist beside physical output;
 - the real `validate_row_one_generated_site_integrity` accepts the staged site;
 - `latest_only=False` does not call `publish_latest_row_one_site`;
+- a forced unsupported safe-directory capability raises before creating the
+  output parent, lock, journal, stage, owner, or render side effect;
 - an unmarked generated target fails before `_write_assets` runs.
 
 - [ ] **Step 5: Add workflow and CLI fault propagation tests**
@@ -1690,6 +1793,12 @@ message. Then inject `RowOnePublishRollbackError` and
 paths remain visible. This verifies that ordinary failures are wrapped by the
 publisher while recovery errors are not sanitized. Successful commands continue
 printing logical output paths.
+
+Also force the safe-directory capability false for build, preview, and refresh.
+Require their existing command prefixes plus the exact concise capability
+message, no filesystem transaction artifacts, and no render callback. This
+capability error is not a rollback/ambiguous-state diagnostic and exposes no
+physical or tokenized path.
 
 Update the build and preview `--latest-only` help text in
 `src/fashion_radar/cli.py` so it describes a staged, validated replacement that
@@ -1872,6 +1981,9 @@ preserves unrelated top-level output children
 keeps the public output path and generated URLs unchanged
 does not claim zero-downtime publication or power-loss durability
 the stable sibling lock file may remain after a successful refresh
+recoverable latest-only publication requires safe directory-relative filesystem operations
+unsupported platforms fail before creating output or transaction artifacts
+ordinary non-latest build and preview rendering remains available
 ```
 
 Also require the Unreleased changelog to name Stage 391 and explicitly deny
@@ -1896,7 +2008,10 @@ Add current Stage 391 behavior to README, `docs/row-one.md`, `docs/first-run.md`
 with the revised `--latest-only` help text. Do not edit historical Stage 329,
 330, 389, or 390 specs and review records. Keep terminology exact:
 `failure-safe recoverable publish`, not `fully atomic`, `zero downtime`, or
-`transactional power-loss durability`.
+`transactional power-loss durability`. State that current standard Windows
+Python builds fail the staged publisher's safe-directory gate before mutation;
+do not imply that the package as a whole is Windows-incompatible or remove its
+OS-independent metadata.
 
 - [ ] **Step 4: Run documentation GREEN tests**
 
@@ -2360,6 +2475,10 @@ artifact beyond the authorized Git branch.
 - [ ] Ordinary CLI failures hide tokenized recovery paths while rollback,
   cleanup-pending, and ambiguous errors retain required operator paths.
 - [ ] Latest-only success leaves bounded disk state and logical result paths.
+- [ ] Unsupported safe-directory operations fail before the output parent,
+  lock, journal, stage, backup, owner, and render callback are created.
+- [ ] Public docs state the current latest-only capability boundary without
+  claiming the package as a whole is platform-specific.
 - [ ] `public_uv`, the fail-closed mirror scan, immutable
   `implementation_head`, exact release-record allowlist, and complete final-HEAD
   rerun are executable rather than prose.

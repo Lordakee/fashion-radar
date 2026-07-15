@@ -1,0 +1,33 @@
+## Findings
+
+### IMPORTANT
+
+**I-1. No-follow/descriptor-relative mandate does not cover live-root reads used by validation, cleanup, and recovery.** The capability amendment scopes its descriptor-relative no-follow requirement to the staging tree only:
+- Design `2026-07-14-stage-391-...-design.md:158-174` - "The owner marker and staged JSON live below the private stage directory ... a pathname open can still traverse a replaced `stage/` or `stage/data/` ancestor ... never uses a pathname-only fallback for owner creation or staged JSON reads."
+- Plan `2026-07-14-stage-391-...-plan.md:1011-1018` (Task 2 Step 5) - "Owner creation and owner/edition/manifest/runtime reads must bind `stage/` and `stage/data/` with descriptor-relative directory handles ... Tests force the unsupported branch and prove that external sentinels and JSON bytes remain unchanged."
+
+But the same generic helpers are also invoked against the **live** root, which the threat model explicitly places *inside* the trusted transaction root (design `:176-180` - "Stage 391 protects every transaction entry and managed descendant below that root with no-follow metadata and ownership checks"):
+- `_validate_published_row_one_site` reads the live owner token and live `data/*.json`: plan `:1191-1216` (`_read_owner_token(live)` at `:1205-1207`; `_read_json_object(live / "data" / "edition.json" ...)` at `:1213-1215`).
+- `_remove_owner_file_if_present` reads the live owner token: plan `:1496`.
+- `_is_owned_live` (described at plan `:1315-1319`) reads the live owner token during rollback preflight and every recovery branch (`:1387-1394`).
+
+At depth 2 below the trusted root, `live/data/*` has the same ancestor-replacement exposure the amendment cites for `stage/data/*`; a final-element `O_NOFOLLOW` open of `live/data/<file>` is still traversable via a replaced `live` or `live/data`. Neither the design nor the plan states that these live-root reads are descriptor-relative/no-follow, and no RED test in Task 2 or Task 3 forces the unsupported branch or a symlinked/replaced `live/data/` ancestor for the live read path. This is an incompleteness in the amendment's stated goal ("cannot enforce the owner marker's no-follow boundary"), not a behavioral rollback regression. Resolve by extending the mandate (and a RED test) to confirm the generic helpers enforce descriptor-relative no-follow reads for any managed root, or explicitly justify why live-root reads are safe under final-element checks alone.
+
+### MINOR
+
+**M-1. `_commit_publish` helper-table attribution is inconsistent with its code placement.** Plan `:194` lists `_commit_publish` as "First implementation: Task 3 Step 7," but the dispatcher body is shown in Task 3 Step 4 at plan `:1219-1225`, alongside the `_commit_first_publish`/`_commit_existing_publish` functions it dispatches (Step 7 orchestration only *calls* it at `:1551`). A worker should define it in Step 4; correct the table column.
+
+**M-2. `_SAFE_DIRECTORY_OPERATIONS_SUPPORTED` is referenced but not pinned by the Fixed Interface Contract.** Plan `:227` uses it inside `_require_safe_directory_operations`, and its derivation is prose-only (`:220-222`). It is absent from the helper/contract table (`:154-201`), so a worker must synthesize the predicate. Add the constant (or its factory) to the contract for reproducibility.
+
+## Verification Of Requested Items
+
+- **Fail-closed before all mutation/render - PASS.** Gate is the first statement of `publish_latest_row_one_site` (plan `:1534`), preceding `_resolve_publish_target` (`:1535`), parent `mkdir` (`:1536`), lock (`:1537`), recovery (`:1538`), staging, and `render` (`:1546`); contract requires "before resolving or creating the output parent, opening the stable lock, recovering a journal, creating a stage, or invoking `render`" (plan `:233-235`); design `:170-174` and acceptance criterion design `:646-647` agree; Task 2 helpers additionally fail closed as defense-in-depth (plan `:1014-1018`). Capability error is raised outside the transaction try/except so it is not re-wrapped (plan `:1582-1584`).
+- **Windows feature boundary / OS-independent wording - PASS.** Boundary is scoped to the latest-only staged feature, not the package: design `:92-96, 182-185`; plan `:25-27`; docs task plan `:1966-1976` and checklist `:2442-2443`. `msvcrt` lock remains in the portable contract but unreachable through the earlier gate (design `:293-296`).
+- **No-follow / trusted-root threat model - PASS with I-1 gap.** Trusted-root statement consistent (design `:176-180`; plan `:240-243`); depth-1 artifacts (lock/journal/temp-journal) adequately protected by `O_NOFOLLOW` + lstat/fstat identity (design `:298-304`; plan `:615-621, 840-843`); depth-2 stage reads mandated (plan `:1011-1018`); depth-2 **live** reads unaddressed - see I-1.
+- **Fixed interface - PASS.** Public function, Protocol, TypeVar, dataclasses, phases, error hierarchy, and the helper-signature table (`:154-201`) are internally consistent; all helpers referenced in Tasks 1-6 appear in the table or an earlier step (modulo M-1/M-2). Result rebasing keeps staging/backup/token out of the public `RowOneRenderResult` (plan `:1702-1716`; design `:116-117, 498-510`).
+- **Task 3-5 TDD/docs/CLI coverage - PASS.** Task 3 RED-GREEN per component (capability gate `:1065-1082`; pre-commit preservation `:1111-1141`; rename/rollback/cleanup incl. `live_backed_up`/`published` journal-write failure `:1143-1183`; recovery matrix 12 named cases `:1340-1378`; orchestration `:1400-1572`). Task 4 RED real-render failure first (`:1623-1659`) then extraction/dispatcher/integration/workflow/CLI (`:1742-1768`). Task 5A debris + archive RED (`:1821-1899`). Task 5B 10 normalized doc phrases + changelog denials (`:1933-1953`). CLI covers build/preview/refresh nonzero, prefix, path sanitization, capability message, and help-text correction (`:1742-1768`).
+- **No rollback/recovery regression - PASS.** Same-invocation restore for `live_backed_up`/second-rename/validation/`published` failures (plan `:1227-1273`); `LIVE_BACKED_UP`-write-failure rollback correctly drives off physical state (backup present, live missing), matching recovery row design `:451`; recovery matrix and `published` owner-missing relaxation unchanged (design `:440-474`); amendment only adds an earlier gate and stage-side descriptor-relative reads - it does not weaken any phase transition, rollback step, or recovery branch.
+
+## Verdict
+
+**CHANGES REQUIRED** - resolve I-1 (extend the no-follow descriptor-relative mandate and add RED coverage for live-root owner/JSON reads in `_validate_published_row_one_site`, `_remove_owner_file_if_present`, and `_is_owned_live`); M-1 and M-2 are non-blocking cleanups.
