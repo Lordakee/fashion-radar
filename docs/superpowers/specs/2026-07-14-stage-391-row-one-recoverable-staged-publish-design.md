@@ -8,7 +8,11 @@ clean commit `67d26c6`. An implementation-time filesystem-capability amendment
 was accepted through the OpenCode GLM 5.2 max fallback after Claude Code failed
 the primary call and protocol retry; the amendment addresses Task 2 proof that
 pathname-only fallback operations cannot enforce the owner marker's no-follow
-boundary.
+boundary. A pre-Task 3 readiness amendment further separates mutation-free
+canonical journal inspection from locked temporary-journal recovery, fixes
+live-owner binding and capability detection contracts, aligns live-root metadata
+timing with the approved Task 2 implementation, and closes published/no-backup
+recovery states.
 
 ## Goal
 
@@ -171,11 +175,22 @@ publication starts:
   identity-checked as actual directories before owner or generated JSON files
   are accessed.
 
+A pure `_safe_directory_operations_supported()` helper evaluates those four
+`os.supports_dir_fd` memberships and the two flags. The module initializes
+`_SAFE_DIRECTORY_OPERATIONS_SUPPORTED` exactly once from that helper at import
+time. The public `_require_safe_directory_operations()` gate reads only this
+constant and remains the first operation in latest-only publication; it does
+not redetect capabilities after publication starts.
+
 If any capability is unavailable, publication raises exactly
 `ROW ONE safe directory handles are unsupported on this platform` before
 creating the physical output parent, stable lock, journal, stage, backup, or
 owner marker and before invoking the render callback. The publisher never uses
 a pathname-only fallback for owner creation or stage/live owner and JSON reads.
+Tests call the pure detector while removing each `os.supports_dir_fd` membership
+and each flag independently. Separate public-gate tests patch only the
+import-time constant, proving the gate has no earlier filesystem or render side
+effect and does not call the detector again.
 
 The resolved physical output parent is the local transaction root. Stage 391
 protects every transaction entry and managed descendant below that root with
@@ -224,12 +239,17 @@ output is copied into staging:
 - generated-directory contents are not copied, matching current latest-only
   cleanup semantics.
 
-The publisher captures the physical output root's ordinary mode and timestamp
-metadata before rendering. After rendering and staged integrity validation, it
-reapplies that metadata to staging immediately before the `ready` phase is
-written. Applying it after rendering is required because creation of generated
-top-level children changes the staging root timestamp, and applying a read-only
-root mode before rendering could prevent the renderer from completing. This
+After rendering and staged integrity validation, and before the `ready` phase or
+any live rename, `_apply_live_root_metadata` calls
+`shutil.copystat(live, stage, follow_symlinks=False)` when
+`had_live_output` is true and is a no-op for first publish. The `copystat` call
+reads the physical output root's ordinary mode and timestamp metadata from the
+still-live root at that exact snapshot point and applies it directly to staging;
+there is no captured-before-render state or transaction field. Applying it
+after rendering is required because creation of generated top-level children
+changes the staging root timestamp, and applying a read-only root mode before
+rendering could prevent the renderer from completing. This timing is defined
+within Stage 391's local single-user/non-concurrent-external-mutation model and
 does not change the generated-child replacement rules.
 
 Path and content preservation are required. Inode identity, every filesystem
@@ -271,6 +291,18 @@ the same token. It lives inside the managed `data/` tree so it cannot collide
 with an unrelated top-level user file that latest-only refresh promises to
 preserve. The marker moves with staging if staging becomes live and is removed
 before a successful result is returned. It is not a public site artifact.
+
+Stage ownership and live ownership use deliberately different read contracts.
+Stage validation retains the existing owner tuple check: both token and
+embedded `physical_output` must match the transaction. The private
+`_read_owner_token_if_present(directory) -> str | None` helper is live-root-only.
+It returns `None` only when the final owner file is absent; otherwise it parses
+both owner fields and returns the token only after the embedded absolute
+`physical_output` exactly equals the managed live `directory` argument. It does
+not resolve or normalize a different embedded path into acceptance. Published
+validation and live ownership checks pass only the transaction's physical live
+directory to this helper. A matching token with a different physical output is
+ambiguous and causes no mutation.
 
 An unrecognized journal, malformed journal, path mismatch, owner-token mismatch,
 or unjournaled sibling matching a ROW ONE stage or backup prefix is ambiguous.
@@ -332,6 +364,16 @@ Temporary journal recovery is deterministic under the publisher lock:
 - a mismatched, malformed, unsafe, or non-unique temporary journal set is
   ambiguous and is preserved without mutation.
 
+Journal reads have two fixed boundaries. `_load_journal` is the locked recovery
+entry: it may invoke temporary-journal recovery and then reads the canonical
+journal. `_read_canonical_journal` validates and reads only the deterministic
+canonical journal and returns the parsed transaction or `None`; it never calls
+temporary-journal recovery and never writes, promotes, renames, or deletes a
+transaction path. Recovery orchestration uses `_load_journal` while holding the
+publisher lock. Cleanup and rollback preflight use
+`_read_canonical_journal`, so a stale or promotable temporary journal cannot be
+mutated before the complete artifact set passes preflight.
+
 The design targets process-crash recovery. It does not claim complete durability
 through sudden power loss on every filesystem.
 
@@ -362,7 +404,9 @@ The staged render sequence is:
 7. copy unrelated top-level children;
 8. call the in-place renderer against staging with cleanup disabled;
 9. validate staging;
-10. reapply the captured live-root mode and timestamp metadata to staging;
+10. copy live-root mode and timestamp metadata from the still-live root to
+    staging with `_apply_live_root_metadata` (a no-op when
+    `had_live_output` is false, i.e. first publish);
 11. atomically write the `ready` phase.
 
 Validation reads what was actually written to disk. It does not reuse an
@@ -372,7 +416,8 @@ The staged validator:
 
 - calls `validate_row_one_site_dir`, which requires `.row-one-site` and
   `index.html`;
-- explicitly confirms that the private owner token matches the journal;
+- explicitly confirms that the private owner token and embedded physical output
+  match the journal transaction;
 - reads `data/edition.json`, `data/manifest.json`, and `data/runtime.json` as
   JSON objects;
 - passes the parsed `data/edition.json` object to
@@ -455,9 +500,10 @@ when a backup exists and the transaction is not durably marked `published`.
 | `live_moving`, live missing, backup present | Restore backup to live; remove token-owned stage and journal. |
 | `live_backed_up`, backup present | Remove only a token-owned new live if present, then restore and validate backup. |
 | Pre-`published`, new token-owned live and backup present | Restore the old backup, even when the new live validates. |
-| First publish, token-owned live validates, no backup | Keep the valid live, mark published, remove owner marker and journal. |
-| `published`, valid live, backup present | Keep live; remove backup, owner marker, and journal. |
+| First publish before `published`, token-owned live validates, no backup | Keep the valid live, mark published, then finish owner, temporary-journal, and canonical-journal cleanup. |
+| `published`, valid live, backup present or absent, owner present or absent, either `had_live_output` value | Keep live and finish bounded cleanup. A present owner must match both token and exact physical live output. |
 | `published`, invalid live, valid backup present | Restore backup and report failed commit validation. |
+| `published`, invalid live, no backup | Fail ambiguous and preserve every path present at phase/state dispatch, including live, owner if present, and canonical journal, without cleanup deletion. |
 | Any state with malformed metadata, mismatched token, unsafe path, or multiple interpretations | Fail ambiguous and report all paths; delete nothing. |
 
 Recovery validates the chosen live site before starting a new render.
@@ -473,9 +519,22 @@ publish refuses to overwrite it. Recovery never bypasses the marker guard.
 The `published` recovery path accepts a missing private owner marker because a
 process may terminate after removing that marker but before deleting the backup
 and journal. It still validates the complete live site and journal-owned paths.
-If an owner path remains, it must be a regular file with the matching token.
-Every phase before `published` continues to require the owner marker when a
+If an owner path remains, it must be a regular file with the matching token and
+an embedded physical output exactly equal to the managed live directory. Every
+phase before `published` continues to require the owner marker when a
 token-owned new live or staging directory must be identified.
+
+A valid `published` live is authoritative even when no backup remains. This is
+required for both journal values of `had_live_output`: first publish has no
+backup by definition, while existing publish can lose its backup during
+successful cleanup before the canonical journal is removed. Owner presence does
+not change that decision; recovery either removes a matching owner or accepts
+that it was already removed. Conversely, invalid live plus no backup has no
+trustworthy version to select. Recovery therefore fails before any cleanup
+deletion, regardless of `had_live_output` or owner presence. This no-deletion
+rule begins after `_load_journal` completes its separately specified locked
+temporary-journal recovery; the no-backup matrix fixture contains no temporary
+journal so every seeded path is preserved end to end.
 
 ## Cleanup Semantics
 
@@ -486,8 +545,33 @@ unowned, malformed, or inconsistent, cleanup deletes nothing. Once preflight
 passes, later I/O failure may leave a partial but still journal-owned cleanup
 state for the next invocation.
 
+Cleanup and rollback preflight read the canonical journal only through
+`_read_canonical_journal`; they never call `_load_journal` or temporary-journal
+recovery. A complete preflight therefore cannot promote or delete a temporary
+journal before discovering a later invalid owner, stage, backup, or live path.
+Rollback performs the same complete read-only check before its first rename and
+again before deleting restored transaction debris.
+
 Successful publication removes the owned stage, backup, private owner marker,
 journal, and temporary journal files. The stable lock file may remain.
+
+Published cleanup has a fixed mutation order after preflight: remove the owner
+if present, remove the exact backup if present, remove validated same-token
+temporary journals, and remove the canonical journal last. The live site is
+never deleted by this cleanup. Owner removal keeps the verified live and `data/`
+directory handles open through descriptor-relative unlink and revalidates both
+the token and exact embedded physical output. For first publish, backup is
+absent from the start, so owner-present and owner-removed no-backup states are
+both reachable.
+For existing publish, owner-removed/backup-present is reachable after the first
+mutation and owner-removed/no-backup after the second. Owner-present/no-backup
+is not emitted by this chosen existing-publish ordering, but recovery accepts it
+regardless of how it arose: it is a conservative idempotent superset of the
+states emitted by the chosen cleanup order, and a valid live site plus matching
+remaining ownership state is cleaned exactly the same way whether or not that
+exact combination was produced by a normal cleanup sequence. If live is invalid and backup is absent, the complete
+preflight fails and no owner, temporary journal, canonical journal, or live
+child is removed.
 
 Pre-commit cleanup failure leaves the old live site untouched and reports the
 owned path. Post-commit cleanup failure does not roll back a valid new live
@@ -559,7 +643,10 @@ Required RED or strengthened regression coverage:
 9. post-rename validation failure restores the old site.
 10. rollback failure retains sufficient journal and owned paths for the next
     invocation to recover.
-11. each journal phase has an old-version-first recovery test.
+11. each journal phase has an old-version-first recovery test, including the
+    complete `published` valid-live/no-backup owner-presence and
+    `had_live_output` matrix and invalid-live/no-backup preservation of every
+    seeded path after a fixture with no temporary journal reaches dispatch.
 12. malformed journal, unsafe journal paths, token mismatch, and unjournaled
     lookalike siblings fail without deletion.
 13. a concurrent publisher holding the OS lock causes a fast failure before
@@ -575,11 +662,23 @@ Required RED or strengthened regression coverage:
     recovery leave no stage, backup, journal, owner marker, or temporary
     journal. The stable lock file is allowed.
 18. post-commit cleanup failure keeps the valid new live site and is recovered
-    on the next invocation.
+    on the next invocation from each reachable cleanup crash point.
 19. `latest_only=False` bypasses the publisher and retains current in-place
     behavior.
 20. CLI build, preview, and refresh continue to print logical output paths and
     return nonzero on publisher errors.
+21. `_safe_directory_operations_supported` returns false when each required
+    `os.supports_dir_fd` membership and each required flag is removed
+    independently, while the public gate reads only the import-time constant as
+    its first operation.
+22. `_read_canonical_journal` never invokes temporary-journal recovery or
+    mutates transaction paths; cleanup and rollback preserve a valid temporary
+    journal when a later preflight artifact is invalid.
+23. live-root optional owner reads reject a matching token with a different
+    embedded physical output, while stage tuple validation remains unchanged.
+24. live-root metadata is copied from the still-live root after staged writes
+    and validation but before `ready` and every live rename, under the local
+    non-concurrent-external-mutation model.
 
 Existing route, app contract, manifest, runtime, article, rendering, cleanup,
 server, status, ops, first-run, packaging, and systemd tests remain part of the
@@ -641,6 +740,22 @@ Stage 391 is complete only when:
 - handled publish failures restore a valid old site or retain explicit owned
   recovery state when rollback itself fails;
 - the next invocation recovers every specified process-crash phase;
+- locked recovery may promote temporary journals, but cleanup and rollback
+  preflight read only the canonical journal and complete without mutation before
+  their first rename or deletion;
+- live owner tokens are accepted only when their embedded physical output is the
+  exact managed live directory, while stage owner tuple validation remains
+  unchanged;
+- every required directory-operation membership and flag is independently
+  detected by the pure capability helper, and the first public publisher
+  operation gates on only the import-time capability constant;
+- existing-live root metadata is copied from the still-live root after staged
+  writes and validation and before `ready` or live rename, with no earlier
+  transaction snapshot;
+- a valid `published` live with no backup is kept and cleaned for either owner
+  state and either `had_live_output` value, while invalid live with no backup is
+  ambiguous and loses none of the live, owner, or canonical-journal artifacts
+  seeded after locked temporary-journal recovery;
 - unrelated top-level output children retain their current preservation
   contract;
 - generated URLs, schemas, CLI paths, systemd paths, and public result paths do

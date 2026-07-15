@@ -109,14 +109,40 @@ first-run smoke now performs a local HTTP serve fetch, not just
   the current site and reports are generated; pass `--retention-days N` for a
   longer local item-history window or `--skip-data-retention` to leave SQLite
   item history untouched for that refresh. A non-skipped SQLite retention failure
-  returns a nonzero exit status after report and site output is written.
+  returns a nonzero exit status after report and site output is written. Site
+  publication uses a failure-safe recoverable publish: a staged, validated
+  replacement that preserves unrelated top-level output children and does not
+  delete live generated children before rendering. Recoverable latest-only
+  publication requires safe directory-relative filesystem operations. On
+  unsupported platforms, latest-only fails with the concise error `ROW ONE safe
+  directory handles are unsupported on this platform` before creating the
+  output parent, lock, journal, stage, backup, or owner marker and before
+  invoking render. In other words, unsupported platforms fail before creating
+  output or transaction artifacts. The mutation-free promise covers only the
+  publisher-owned ROW ONE site output parent and publisher transaction
+  artifacts. `row-one refresh` may already have collected, matched, and stored
+  data and written the current dated report before site publication reaches the
+  capability gate. The gate does not skip or roll back that completed source,
+  SQLite, and report work. The publisher never falls back to delete-and-render.
+  `row-one refresh` is latest-only and therefore fails at this gate on
+  unsupported platforms.
 - `row-one build`: build the ROW ONE local static site from existing daily
   report data; requires `--as-of` and supports `--config-dir`, `--data-dir`,
-  `--reports-dir`, `--output-dir`, and `--latest-only`.
+  `--reports-dir`, `--output-dir`, and `--latest-only`. With `--latest-only`, it
+  uses a staged, validated replacement that preserves unrelated top-level output
+  children and does not delete live generated children before rendering.
+  Current standard Windows Python lacks the safe directory-handle capability
+  for recoverable latest-only.
 - `row-one preview`: build the ROW ONE local static site and print the Latest
   Edition readiness details; requires `--as-of` and supports `--config-dir`,
   `--data-dir`, `--reports-dir`, `--output-dir`, `--latest-only`, `--host`,
-  `--port`, and `--dry-run-serve-url`.
+  `--port`, and `--dry-run-serve-url`. The latest-only build and preview path is
+  a failure-safe recoverable publish with a short live-path gap. It is not fully
+  atomic and does not claim zero-downtime publication or power-loss durability.
+  This is a feature-level boundary. The package remains OS-independent, and
+  ordinary non-latest build and preview rendering remains available.
+  See [row-one.md](row-one.md#recoverable-latest-only-publication) for staged
+  recovery, lock, cleanup, and power-loss limits.
 - `row-one status`: read a generated ROW ONE site directory and print local
   runtime status from `data/runtime.json` without rebuilding the site or
   starting a server; supports `--site-dir`. It checks the generated site marker,

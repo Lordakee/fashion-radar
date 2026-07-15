@@ -3679,6 +3679,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
         ("Open: http://127.0.0.1:8787",),
     )
     run_row_one_local_http_serve_smoke(context, row_one_output_dir)
+    assert_row_one_publish_artifacts_clean(row_one_output_dir)
     row_one_local_ops = run_cli(
         context,
         "row-one",
@@ -3892,6 +3893,38 @@ def assert_workspace_artifacts(context: SmokeContext) -> None:
     database_path = context.data_dir / "fashion-radar.sqlite"
     if not database_path.is_file():
         raise SmokeError(f"Expected SQLite database was not created: {database_path}")
+
+
+def assert_row_one_publish_artifacts_clean(output_dir: Path) -> None:
+    output_dir = output_dir.resolve()
+    sibling_prefix = f".{output_dir.name}.row-one-"
+    stable_lock_name = f"{sibling_prefix}publish.lock"
+    canonical_journal_name = f"{sibling_prefix}publish.json"
+    staging_prefix = f"{sibling_prefix}stage-"
+    backup_prefix = f"{sibling_prefix}backup-"
+    temporary_journal_prefix = f"{sibling_prefix}publish."
+
+    for path in output_dir.parent.iterdir():
+        name = path.name
+        if name == stable_lock_name:
+            continue
+        if (
+            name == canonical_journal_name
+            or name.startswith(staging_prefix)
+            or name.startswith(backup_prefix)
+            or (name.startswith(temporary_journal_prefix) and name.endswith(".tmp"))
+        ):
+            raise SmokeError(
+                "Unexpected ROW ONE publish artifact after successful first-run: "
+                f"{path.relative_to(output_dir.parent).as_posix()}"
+            )
+
+    owner_path = output_dir / "data" / ".row-one-publish-owner.json"
+    if owner_path.exists() or owner_path.is_symlink():
+        raise SmokeError(
+            "Unexpected ROW ONE publish artifact after successful first-run: "
+            f"{owner_path.relative_to(output_dir.parent).as_posix()}"
+        )
 
 
 def assert_installed_import_origin(context: SmokeContext, module_file: Path) -> None:

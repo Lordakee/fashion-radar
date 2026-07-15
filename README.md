@@ -1008,6 +1008,51 @@ uv run fashion-radar row-one install-local --dry-run --time 04:00 --host 0.0.0.0
 uv run fashion-radar row-one local-ops --time 04:00 --host 0.0.0.0 --port 8787
 ```
 
+### Recoverable Latest-Only Publication
+
+`row-one refresh`, `row-one build --latest-only`, and `row-one preview
+--latest-only` use a failure-safe recoverable publish. It renders and validates
+a same-filesystem staging site before changing the live output. The publisher
+uses same-filesystem staging, backup, and journal paths beside the physical
+output target, plus a stable sibling lock file. It restores the previous output
+after a handled publish failure and recovers an interrupted owned transaction
+before the next latest-only render. The stable sibling lock file may remain
+after a successful refresh.
+
+The staged replacement preserves unrelated top-level output children and does
+not delete live generated children before rendering. Bounded cleanup removes
+only publisher-owned stage, backup, journal, temporary journal, and owner
+artifacts, leaving unrelated children and the stable lock file alone. It keeps
+the public output path and generated URLs unchanged. Returned result paths
+continue to use the logical `output_dir` and `index_path`, including for a
+logical symlink path; publication resolves the physical target for the live
+output and private publish siblings.
+
+Recoverable latest-only publication requires safe directory-relative filesystem
+operations. Current standard Windows Python lacks the safe directory-handle
+capability for recoverable latest-only. On unsupported platforms, latest-only
+fails with the concise error
+`ROW ONE safe directory handles are unsupported on this platform` before
+creating the output parent, lock, journal, stage, backup, or owner marker and
+before invoking render. In other words, unsupported platforms fail before
+creating output or transaction artifacts. The mutation-free promise covers only
+the publisher-owned ROW ONE site output parent and publisher transaction
+artifacts. `row-one refresh` may already have collected, matched, and stored data
+and written the current dated report before site publication reaches the
+capability gate. The gate does not skip or roll back that completed source,
+SQLite, and report work. The publisher never falls back to delete-and-render.
+
+This is a feature-level boundary. The package remains OS-independent, and
+ordinary non-latest build and preview rendering remains available. `row-one
+refresh` is latest-only and therefore fails at this gate on unsupported
+platforms.
+
+There is a short live-path gap while an existing site is renamed to backup and
+the validated staging directory is renamed live. The publish is not fully atomic
+and does not claim zero-downtime publication or power-loss durability. It
+recovers handled failures and interrupted owned transactions on a later
+latest-only run.
+
 ROW ONE supports IP:port local-network serving when you explicitly bind
 `--host 0.0.0.0`; open `http://<LAN-IP>:8787`, not `http://0.0.0.0:8787`,
 from another device. The local ROW ONE server has no authentication layer.
@@ -1032,7 +1077,8 @@ A non-skipped SQLite retention failure returns a nonzero exit status after repor
 and site output is written; the generated artifacts remain available for
 inspection.
 `row-one local-ops` prints a local daily ops runbook for 04:00 refresh, preview,
-fixed IP:port serving, LAN access, cron snippets, latest-only cleanup, and a
+fixed IP:port serving, LAN access, cron snippets, recoverable latest-only
+publication, and a
 copyable source-checkout command group with its own `AS_OF`, `cd`, and
 `row-one status --json` preflight. The group includes
 `uv run fashion-radar row-one refresh`,

@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import errno
 import json
+import os
+import stat
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
+import fashion_radar.row_one.render as row_one_render
 from fashion_radar.collectors.article import ArticleExtractionResult
 from fashion_radar.collectors.gdelt import GdeltCollector
 from fashion_radar.collectors.html import HtmlCollector
@@ -22,6 +26,7 @@ from fashion_radar.db.schema import initialize_schema
 from fashion_radar.models.entity import EntityDefinition, EntityType
 from fashion_radar.models.item import CollectedItem
 from fashion_radar.models.source import SourceDefinition, SourceType
+from fashion_radar.row_one.publish import RowOnePublishError
 from fashion_radar.settings import ScoringSettings
 from fashion_radar.workflows import (
     _default_collectors,
@@ -33,6 +38,68 @@ from fashion_radar.workflows import (
     write_daily_report_files,
     write_row_one_site_files,
 )
+
+
+def _try_symlink(
+    link_path: Path,
+    target: str | Path,
+    *,
+    target_is_directory: bool = False,
+) -> bool:
+    unsupported_errnos = {errno.EACCES, errno.ENOSYS, errno.EPERM}
+    for error_name in ("ENOTSUP", "EOPNOTSUPP"):
+        error_number = getattr(errno, error_name, None)
+        if error_number is not None:
+            unsupported_errnos.add(error_number)
+    try:
+        link_path.symlink_to(target, target_is_directory=target_is_directory)
+    except OSError as exc:
+        if exc.errno in unsupported_errnos or getattr(exc, "winerror", None) in {1, 50, 1314}:
+            return False
+        raise
+    return True
+
+
+def test_publish_workflow_try_symlink_reports_unsupported_without_skipping(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_symlink(
+        _link_path: Path,
+        _target: str | Path,
+        target_is_directory: bool = False,
+    ) -> None:
+        del target_is_directory
+        raise OSError(errno.ENOSYS, "simulated unsupported symlink")
+
+    monkeypatch.setattr(Path, "symlink_to", fail_symlink)
+
+    assert not _try_symlink(tmp_path / "optional-link", "target.txt")
+    assert not (tmp_path / "optional-link").exists()
+
+
+def _lstat_tree_snapshot(
+    root: Path,
+) -> dict[str, tuple[tuple[int, int, int, int], bytes | str | None]]:
+    snapshot: dict[str, tuple[tuple[int, int, int, int], bytes | str | None]] = {}
+    for path in sorted((root, *root.rglob("*"))):
+        metadata = path.lstat()
+        relative_path = "." if path == root else path.relative_to(root).as_posix()
+        preserved_metadata = (
+            stat.S_IFMT(metadata.st_mode),
+            stat.S_IMODE(metadata.st_mode),
+            metadata.st_size,
+            metadata.st_mtime_ns,
+        )
+        content: bytes | str | None
+        if stat.S_ISREG(metadata.st_mode):
+            content = path.read_bytes()
+        elif stat.S_ISLNK(metadata.st_mode):
+            content = os.readlink(path)
+        else:
+            content = None
+        snapshot[relative_path] = (preserved_metadata, content)
+    return snapshot
 
 
 class FakeCollector:
@@ -268,6 +335,126 @@ def test_write_daily_report_files_writes_html_with_recent_window_items(
     assert "Future collected title" not in html
     assert "Stale collected title" not in html
     assert "TAIL_MARKER" not in html
+
+
+def test_write_row_one_site_files_latest_only_failure_preserves_live_site(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one"
+    write_row_one_site_files(
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        output_dir=output_dir,
+        scoring=ScoringSettings(),
+        as_of=datetime(2026, 6, 11, 12, 0, tzinfo=UTC),
+        sources=[],
+        local_articles_enabled=False,
+    )
+    keep = output_dir / "keep.txt"
+    notes = output_dir / "notes"
+    note = notes / "daily.txt"
+    latest_note = output_dir / "latest-note"
+    keep.write_text("keep", encoding="utf-8")
+    notes.mkdir()
+    note.write_text("daily", encoding="utf-8")
+    has_latest_note_symlink = _try_symlink(latest_note, "notes/daily.txt")
+    expected_metadata: dict[Path, tuple[int, int]] = {}
+    for path, mode, mtime_ns in (
+        (keep, 0o640, 1_700_000_000_123_456_711),
+        (notes, 0o750, 1_700_000_000_123_456_712),
+        (note, 0o600, 1_700_000_000_123_456_713),
+    ):
+        path.chmod(mode)
+        os.utime(path, ns=(mtime_ns, mtime_ns))
+        observed = path.lstat()
+        expected_metadata[path] = (
+            stat.S_IMODE(observed.st_mode),
+            observed.st_mtime_ns,
+        )
+    output_dir.chmod(0o750)
+    requested_root_mtime_ns = 1_700_000_000_123_456_719
+    os.utime(output_dir, ns=(requested_root_mtime_ns, requested_root_mtime_ns))
+    observed_root = output_dir.lstat()
+    expected_root_metadata = (
+        stat.S_IMODE(observed_root.st_mode),
+        observed_root.st_mtime_ns,
+    )
+
+    old_site = _lstat_tree_snapshot(output_dir)
+    for required_path in (
+        ".",
+        ".row-one-site",
+        "index.html",
+        "assets/row-one.css",
+        "assets/row-one.js",
+        "data/edition.json",
+        "data/manifest.json",
+        "data/runtime.json",
+    ):
+        assert required_path in old_site
+    if has_latest_note_symlink:
+        assert old_site["latest-note"][1] == "notes/daily.txt"
+    else:
+        assert "latest-note" not in old_site
+
+    asset_targets: list[Path] = []
+    asset_error = OSError("injected workflow render failure")
+
+    def fail_assets(render_output: Path) -> None:
+        asset_targets.append(render_output)
+        raise asset_error
+
+    monkeypatch.setattr(row_one_render, "_write_assets", fail_assets)
+
+    with pytest.raises(
+        RowOnePublishError,
+        match="staged publish failed before commit",
+    ) as error:
+        write_row_one_site_files(
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+            output_dir=output_dir,
+            scoring=ScoringSettings(),
+            as_of=datetime(2026, 6, 11, 12, 0, tzinfo=UTC),
+            sources=[],
+            local_articles_enabled=False,
+            latest_only=True,
+        )
+
+    assert error.value.__cause__ is asset_error
+    assert len(asset_targets) == 1
+    assert asset_targets[0] != output_dir
+    assert asset_targets[0].name.startswith(f".{output_dir.name}.row-one-stage-")
+    assert _lstat_tree_snapshot(output_dir) == old_site
+    assert {
+        path: (stat.S_IMODE(path.lstat().st_mode), path.lstat().st_mtime_ns)
+        for path in (keep, notes, note)
+    } == expected_metadata
+    final_root = output_dir.lstat()
+    assert (
+        stat.S_IMODE(final_root.st_mode),
+        final_root.st_mtime_ns,
+    ) == expected_root_metadata
+    assert keep.read_text(encoding="utf-8") == "keep"
+    assert note.read_text(encoding="utf-8") == "daily"
+    if has_latest_note_symlink:
+        assert latest_note.is_symlink()
+        assert os.readlink(latest_note) == "notes/daily.txt"
+    else:
+        assert not latest_note.exists()
+    assert not any(
+        path.name == f".{output_dir.name}.row-one-publish.json"
+        or path.name.startswith(f".{output_dir.name}.row-one-stage-")
+        or path.name.startswith(f".{output_dir.name}.row-one-backup-")
+        or (
+            path.name.startswith(f".{output_dir.name}.row-one-publish.")
+            and path.name.endswith(".tmp")
+        )
+        for path in output_dir.parent.iterdir()
+    )
 
 
 def test_write_row_one_site_files_writes_local_article_without_mutating_sqlite(

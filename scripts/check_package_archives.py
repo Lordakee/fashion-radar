@@ -41,6 +41,7 @@ def load_expected_project_metadata(
 WHEEL_REQUIRED_PATHS = [
     "fashion_radar/cli.py",
     "fashion_radar/__main__.py",
+    "fashion_radar/row_one/publish.py",
     "fashion_radar/templates/daily_report.md",
     "fashion_radar/templates/configs/sources.example.yaml",
     "fashion_radar/templates/configs/entities.example.yaml",
@@ -104,6 +105,7 @@ SDIST_REQUIRED_PATHS = [
     "src/fashion_radar/row_one/edition.py",
     "src/fashion_radar/row_one/models.py",
     "src/fashion_radar/row_one/ops.py",
+    "src/fashion_radar/row_one/publish.py",
     "src/fashion_radar/row_one/readiness.py",
     "src/fashion_radar/row_one/render.py",
     "src/fashion_radar/row_one/server.py",

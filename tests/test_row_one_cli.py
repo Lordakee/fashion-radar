@@ -17,6 +17,8 @@ from sqlalchemy import func, select
 from typer.testing import CliRunner
 
 import fashion_radar.cli as cli_module
+import fashion_radar.row_one.publish as row_one_publish
+import fashion_radar.row_one.render as row_one_render
 from fashion_radar.cli import app
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
@@ -38,6 +40,11 @@ from fashion_radar.row_one.models import (
     RowOneLocalArticleContentSection,
     RowOneReference,
 )
+from fashion_radar.row_one.publish import (
+    RowOnePublishAmbiguousStateError,
+    RowOnePublishCleanupPendingError,
+    RowOnePublishRollbackError,
+)
 from fashion_radar.row_one.render import render_row_one_site
 from fashion_radar.row_one.server import (
     create_row_one_http_server,
@@ -51,6 +58,10 @@ from fashion_radar.workflows import default_database_path
 AS_OF = "2026-07-02T04:00:00Z"
 ROOT = Path(__file__).resolve().parents[1]
 ROW_ONE_APP_SCHEMA = ROOT / "schemas" / "row-one-app.schema.json"
+_REQUIRES_SAFE_DIRECTORY_OPERATIONS = pytest.mark.skipif(
+    not row_one_publish._SAFE_DIRECTORY_OPERATIONS_SUPPORTED,
+    reason="safe directory-relative operations are unavailable",
+)
 
 
 def _row_one_app_schema_validator() -> Draft202012Validator:
@@ -248,6 +259,7 @@ def _seed_collected_item(data_dir: Path, *, title: str, url: str) -> None:
         engine.dispose()
 
 
+@_REQUIRES_SAFE_DIRECTORY_OPERATIONS
 def test_row_one_build_command_writes_empty_state_site(tmp_path: Path) -> None:
     config_dir = tmp_path / "configs"
     data_dir = tmp_path / "data"
@@ -287,6 +299,7 @@ def test_row_one_build_command_writes_empty_state_site(tmp_path: Path) -> None:
     assert "No ROW ONE stories" in (output_dir / "index.html").read_text(encoding="utf-8")
 
 
+@_REQUIRES_SAFE_DIRECTORY_OPERATIONS
 def test_row_one_preview_builds_site_and_prints_readiness(tmp_path: Path) -> None:
     config_dir = tmp_path / "configs"
     data_dir = tmp_path / "data"
@@ -391,6 +404,475 @@ def test_row_one_preview_help_is_discoverable() -> None:
     assert "Print the local" in result.output
 
 
+@pytest.mark.parametrize("command_name", ["build", "preview"])
+def test_row_one_latest_only_help_describes_recoverable_publish(command_name: str) -> None:
+    result = CliRunner().invoke(app, ["row-one", command_name, "--help"])
+
+    assert result.exit_code == 0
+    normalized = " ".join(result.output.split()).lower()
+    latest_only_help = normalized.split("--latest-only", 1)[1]
+    end_marker = "--host" if command_name == "preview" else "--help"
+    latest_only_help = latest_only_help.split(end_marker, 1)[0]
+    for word in (
+        "staged",
+        "validated",
+        "recoverable",
+        "replacement",
+        "preserving",
+        "unrelated",
+        "top-level",
+        "children",
+    ):
+        assert word in latest_only_help
+    assert "remove known row one generated children before writing" not in normalized
+
+
+def test_row_one_refresh_help_describes_recoverable_site_publication() -> None:
+    result = CliRunner().invoke(app, ["row-one", "refresh", "--help"])
+
+    assert result.exit_code == 0
+    normalized = " ".join(result.output.split()).lower()
+    assert (
+        "collect, match, report, and publish row one using recoverable staged replacement."
+        in normalized
+    )
+
+
+_SAFE_DIRECTORY_CAPABILITY_ERROR = "ROW ONE safe directory handles are unsupported on this platform"
+
+
+def _row_one_publish_artifact_paths(output_dir: Path) -> list[Path]:
+    physical_output = output_dir.resolve(strict=False)
+    parent = physical_output.parent
+    output_name = physical_output.name
+    owner_path = physical_output / "data" / ".row-one-publish-owner.json"
+    artifacts = []
+    if parent.is_dir():
+        artifacts.extend(
+            path
+            for path in parent.iterdir()
+            if path.name == f".{output_name}.row-one-publish.lock"
+            or path.name == f".{output_name}.row-one-publish.json"
+            or path.name.startswith(f".{output_name}.row-one-stage-")
+            or path.name.startswith(f".{output_name}.row-one-backup-")
+            or (
+                path.name.startswith(f".{output_name}.row-one-publish.")
+                and path.name.endswith(".tmp")
+            )
+        )
+    if owner_path.exists() or owner_path.is_symlink():
+        artifacts.append(owner_path)
+    return sorted(artifacts)
+
+
+@pytest.mark.parametrize(
+    ("command_name", "extra_args", "failure_prefix"),
+    [
+        ("build", ["--latest-only"], "ROW ONE build failed:"),
+        ("preview", ["--latest-only"], "ROW ONE preview failed:"),
+        ("refresh", [], "ROW ONE refresh failed:"),
+    ],
+)
+def test_row_one_latest_only_commands_report_capability_failure_before_publish_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command_name: str,
+    extra_args: list[str],
+    failure_prefix: str,
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "absent-output-parent" / "row-one-site"
+    output_parent = output_dir.parent
+    physical_target = output_dir.resolve(strict=False)
+    publish_token = "3914cafe3914cafe3914cafe3914cafe"
+    _write_minimal_config(config_dir)
+    edition = build_row_one_edition(report=_empty_report(), recent_items=[], as_of=AS_OF)
+    assert not output_parent.exists()
+    refresh_calls: list[str] = []
+
+    if command_name == "refresh":
+        _patch_successful_row_one_refresh_pipeline(
+            monkeypatch,
+            config_dir=config_dir,
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+            output_dir=output_dir,
+            calls=refresh_calls,
+            patch_site_writer=False,
+            guard_sqlite_retention=True,
+        )
+
+    site_writer_calls: list[tuple[Path, bool]] = []
+
+    def write_site_through_real_renderer(
+        *,
+        config_dir: Path,
+        data_dir: Path,
+        reports_dir: Path,
+        output_dir: Path,
+        as_of: str,
+        latest_only: bool,
+    ):
+        del config_dir, data_dir, reports_dir, as_of
+        site_writer_calls.append((output_dir, latest_only))
+        if command_name == "refresh":
+            refresh_calls.append("_write_row_one_site_from_cli_options")
+        return render_row_one_site(edition, output_dir, latest_only=latest_only)
+
+    token_requests: list[int] = []
+
+    def deterministic_token_hex(byte_count: int) -> str:
+        token_requests.append(byte_count)
+        if byte_count == 16:
+            return publish_token
+        return "0" * (byte_count * 2)
+
+    asset_targets: list[Path] = []
+    original_write_assets = row_one_render._write_assets
+
+    def record_asset_write(render_output: Path) -> None:
+        asset_targets.append(render_output)
+        original_write_assets(render_output)
+
+    monkeypatch.setattr(
+        row_one_publish,
+        "_SAFE_DIRECTORY_OPERATIONS_SUPPORTED",
+        False,
+    )
+    monkeypatch.setattr(row_one_publish.secrets, "token_hex", deterministic_token_hex)
+    monkeypatch.setattr(
+        cli_module,
+        "_write_row_one_site_from_cli_options",
+        write_site_through_real_renderer,
+    )
+    monkeypatch.setattr(row_one_render, "_write_assets", record_asset_write)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            command_name,
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--output-dir",
+            str(output_dir),
+            "--as-of",
+            AS_OF,
+            *extra_args,
+        ],
+    )
+
+    if command_name == "refresh":
+        _assert_refresh_stopped_after_site_publication(
+            calls=refresh_calls,
+            reports_dir=reports_dir,
+        )
+    assert result.exit_code == 1
+    assert result.output == f"{failure_prefix} {_SAFE_DIRECTORY_CAPABILITY_ERROR}\n"
+    assert site_writer_calls == [(output_dir, True)]
+    assert token_requests == []
+    assert asset_targets == []
+    assert not output_parent.exists()
+    assert _row_one_publish_artifact_paths(output_dir) == []
+    sensitive_paths = (
+        str(physical_target),
+        publish_token,
+        f".{physical_target.name}.row-one-stage-{publish_token}",
+    )
+    for sensitive_path in sensitive_paths:
+        assert sensitive_path not in result.output
+
+
+@pytest.mark.parametrize(
+    ("command_name", "extra_args", "failure_prefix"),
+    [
+        ("build", ["--latest-only"], "ROW ONE build failed:"),
+        ("preview", ["--latest-only"], "ROW ONE preview failed:"),
+        ("refresh", [], "ROW ONE refresh failed:"),
+    ],
+)
+def test_row_one_latest_only_commands_prioritize_capability_for_invalid_symlink_target(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command_name: str,
+    extra_args: list[str],
+    failure_prefix: str,
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    physical_target = tmp_path / "private-physical-target" / "row-one-site"
+    output_dir = tmp_path / "logical-row-one-site"
+    physical_target.mkdir(parents=True)
+    (physical_target / "index.html").write_text("manual live content\n", encoding="utf-8")
+    try:
+        output_dir.symlink_to(physical_target, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"symlink creation is unavailable: {exc}")
+    _write_minimal_config(config_dir)
+    edition = build_row_one_edition(report=_empty_report(), recent_items=[], as_of=AS_OF)
+
+    def live_tree_snapshot() -> dict[str, tuple[int, int, int, bytes | None]]:
+        snapshot = {}
+        for path in sorted((physical_target, *physical_target.rglob("*"))):
+            metadata = path.lstat()
+            relative_path = (
+                "." if path == physical_target else path.relative_to(physical_target).as_posix()
+            )
+            snapshot[relative_path] = (
+                metadata.st_mode,
+                metadata.st_size,
+                metadata.st_mtime_ns,
+                path.read_bytes() if path.is_file() else None,
+            )
+        return snapshot
+
+    live_before = live_tree_snapshot()
+    refresh_calls: list[str] = []
+    if command_name == "refresh":
+        _patch_successful_row_one_refresh_pipeline(
+            monkeypatch,
+            config_dir=config_dir,
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+            output_dir=output_dir,
+            calls=refresh_calls,
+            patch_site_writer=False,
+            guard_sqlite_retention=True,
+        )
+
+    site_writer_calls: list[tuple[Path, bool]] = []
+
+    def write_site_through_real_renderer(
+        *,
+        config_dir: Path,
+        data_dir: Path,
+        reports_dir: Path,
+        output_dir: Path,
+        as_of: str,
+        latest_only: bool,
+    ):
+        del config_dir, data_dir, reports_dir, as_of
+        site_writer_calls.append((output_dir, latest_only))
+        if command_name == "refresh":
+            refresh_calls.append("_write_row_one_site_from_cli_options")
+        return render_row_one_site(edition, output_dir, latest_only=latest_only)
+
+    token_requests: list[int] = []
+
+    def deterministic_token_hex(byte_count: int) -> str:
+        token_requests.append(byte_count)
+        return "0" * (byte_count * 2)
+
+    asset_targets: list[Path] = []
+
+    def fail_if_assets_are_written(render_output: Path) -> None:
+        asset_targets.append(render_output)
+        raise AssertionError("capability failure must precede rendering")
+
+    monkeypatch.setattr(
+        row_one_publish,
+        "_SAFE_DIRECTORY_OPERATIONS_SUPPORTED",
+        False,
+    )
+    monkeypatch.setattr(row_one_publish.secrets, "token_hex", deterministic_token_hex)
+    monkeypatch.setattr(
+        cli_module,
+        "_write_row_one_site_from_cli_options",
+        write_site_through_real_renderer,
+    )
+    monkeypatch.setattr(row_one_render, "_write_assets", fail_if_assets_are_written)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            command_name,
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--output-dir",
+            str(output_dir),
+            "--as-of",
+            AS_OF,
+            *extra_args,
+        ],
+    )
+
+    if command_name == "refresh":
+        _assert_refresh_stopped_after_site_publication(
+            calls=refresh_calls,
+            reports_dir=reports_dir,
+        )
+    assert result.exit_code == 1
+    assert result.output == f"{failure_prefix} {_SAFE_DIRECTORY_CAPABILITY_ERROR}\n"
+    assert str(physical_target) not in result.output
+    assert site_writer_calls == [(output_dir, True)]
+    assert token_requests == []
+    assert asset_targets == []
+    assert output_dir.is_symlink()
+    assert output_dir.readlink() == physical_target
+    assert live_tree_snapshot() == live_before
+    assert _row_one_publish_artifact_paths(output_dir) == []
+
+
+@_REQUIRES_SAFE_DIRECTORY_OPERATIONS
+@pytest.mark.parametrize(
+    ("command_name", "extra_args", "failure_prefix"),
+    [
+        ("build", ["--latest-only"], "ROW ONE build failed:"),
+        ("preview", ["--latest-only"], "ROW ONE preview failed:"),
+        ("refresh", [], "ROW ONE refresh failed:"),
+    ],
+)
+def test_row_one_publish_failures_hide_internal_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command_name: str,
+    extra_args: list[str],
+    failure_prefix: str,
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+    edition = build_row_one_edition(report=_empty_report(), recent_items=[], as_of=AS_OF)
+    render_row_one_site(edition, output_dir)
+    physical_target = output_dir.resolve(strict=True)
+    publish_token = "3914cafe3914cafe3914cafe3914cafe"
+    unique_underlying_message = "stage-391-task-4 private renderer failure"
+    token_requests: list[int] = []
+    journal_nonce = 0
+    refresh_calls: list[str] = []
+
+    def deterministic_token_hex(byte_count: int) -> str:
+        nonlocal journal_nonce
+        token_requests.append(byte_count)
+        if byte_count == 16:
+            return publish_token
+        if byte_count == 8:
+            nonce = f"{journal_nonce:016x}"
+            journal_nonce += 1
+            return nonce
+        raise AssertionError(f"unexpected publisher token size: {byte_count}")
+
+    monkeypatch.setattr(row_one_publish.secrets, "token_hex", deterministic_token_hex)
+
+    if command_name == "refresh":
+        _patch_successful_row_one_refresh_pipeline(
+            monkeypatch,
+            config_dir=config_dir,
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+            output_dir=output_dir,
+            calls=refresh_calls,
+            patch_site_writer=False,
+            guard_sqlite_retention=True,
+        )
+
+    site_writer_calls: list[tuple[Path, bool]] = []
+
+    def write_site_through_real_renderer(
+        *,
+        config_dir: Path,
+        data_dir: Path,
+        reports_dir: Path,
+        output_dir: Path,
+        as_of: str,
+        latest_only: bool,
+    ):
+        del config_dir, data_dir, reports_dir, as_of
+        site_writer_calls.append((output_dir, latest_only))
+        if command_name == "refresh":
+            refresh_calls.append("_write_row_one_site_from_cli_options")
+        return render_row_one_site(edition, output_dir, latest_only=latest_only)
+
+    staged_asset_targets: list[Path] = []
+    underlying_messages: list[str] = []
+
+    def fail_staged_assets(render_output: Path) -> None:
+        staged_asset_targets.append(render_output)
+        underlying_message = "; ".join(
+            (
+                f"physical_target={physical_target}",
+                f"token={publish_token}",
+                f"stage_basename={render_output.name}",
+                f"stage_path={render_output}",
+                unique_underlying_message,
+            )
+        )
+        underlying_messages.append(underlying_message)
+        raise OSError(underlying_message)
+
+    monkeypatch.setattr(
+        cli_module,
+        "_write_row_one_site_from_cli_options",
+        write_site_through_real_renderer,
+    )
+    monkeypatch.setattr(row_one_render, "_write_assets", fail_staged_assets)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            command_name,
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--output-dir",
+            str(output_dir),
+            "--as-of",
+            AS_OF,
+            *extra_args,
+        ],
+    )
+
+    if command_name == "refresh":
+        _assert_refresh_stopped_after_site_publication(
+            calls=refresh_calls,
+            reports_dir=reports_dir,
+        )
+    assert result.exit_code == 1
+    assert site_writer_calls == [(output_dir, True)]
+    assert len(staged_asset_targets) == 1
+    assert len(underlying_messages) == 1
+    received_stage_path = staged_asset_targets[0]
+    received_stage_basename = received_stage_path.name
+    internal_components = (
+        str(physical_target),
+        publish_token,
+        received_stage_basename,
+        str(received_stage_path),
+        unique_underlying_message,
+    )
+    for component in internal_components:
+        assert component in underlying_messages[0]
+    assert result.output == (
+        f"{failure_prefix} ROW ONE staged publish failed before commit; "
+        "the live site was preserved\n"
+    )
+    for component in internal_components:
+        assert component not in result.output
+    expected_stage_path = (
+        physical_target.parent / f".{physical_target.name}.row-one-stage-{publish_token}"
+    )
+    assert received_stage_path == expected_stage_path
+    assert token_requests[0] == 16
+
+
 def _patch_successful_row_one_refresh_pipeline(
     monkeypatch: pytest.MonkeyPatch,
     *,
@@ -399,6 +881,8 @@ def _patch_successful_row_one_refresh_pipeline(
     reports_dir: Path,
     output_dir: Path,
     calls: list[str],
+    patch_site_writer: bool = True,
+    guard_sqlite_retention: bool = False,
 ) -> None:
     class StoredMatches:
         matches_stored = 4
@@ -444,6 +928,10 @@ def _patch_successful_row_one_refresh_pipeline(
             kept_current_count=3,
         )
 
+    def clean_old_data(**_kwargs: object) -> None:
+        calls.append("clean_old_data")
+        raise AssertionError("SQLite retention must not run before publication succeeds")
+
     def write_row_one_site_from_cli_options(**kwargs: object) -> SimpleNamespace:
         assert kwargs == {
             "config_dir": config_dir,
@@ -476,11 +964,121 @@ def _patch_successful_row_one_refresh_pipeline(
         "prune_stale_daily_report_files",
         prune_stale_daily_report_files,
     )
-    monkeypatch.setattr(
-        cli_module,
+    if guard_sqlite_retention:
+        monkeypatch.setattr(cli_module, "clean_old_data", clean_old_data)
+    if patch_site_writer:
+        monkeypatch.setattr(
+            cli_module,
+            "_write_row_one_site_from_cli_options",
+            write_row_one_site_from_cli_options,
+        )
+
+
+def _assert_refresh_stopped_after_site_publication(
+    *,
+    calls: list[str],
+    reports_dir: Path,
+) -> None:
+    assert calls == [
+        "collect_configured_sources",
+        "match_stored_items",
+        "write_daily_report_files",
         "_write_row_one_site_from_cli_options",
-        write_row_one_site_from_cli_options,
+    ]
+    assert (reports_dir / "daily.md").read_text(encoding="utf-8") == "# Daily report\n"
+    assert (reports_dir / "daily.json").read_text(encoding="utf-8") == "{}\n"
+    assert (reports_dir / "daily.html").read_text(encoding="utf-8") == (
+        "<html><body>Daily report</body></html>\n"
     )
+
+
+@pytest.mark.parametrize(
+    ("error_type", "error_label"),
+    [
+        (RowOnePublishRollbackError, "rollback failed"),
+        (RowOnePublishAmbiguousStateError, "ambiguous state"),
+        (RowOnePublishCleanupPendingError, "cleanup pending"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("command_name", "extra_args", "failure_prefix"),
+    [
+        ("build", ["--latest-only"], "ROW ONE build failed:"),
+        ("preview", ["--latest-only"], "ROW ONE preview failed:"),
+        ("refresh", [], "ROW ONE refresh failed:"),
+    ],
+)
+def test_row_one_recovery_errors_keep_operator_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[Exception],
+    error_label: str,
+    command_name: str,
+    extra_args: list[str],
+    failure_prefix: str,
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+    recovery_paths = {
+        "live": tmp_path / "physical-site",
+        "stage": tmp_path / ".physical-site.row-one-stage-token",
+        "backup": tmp_path / ".physical-site.row-one-backup-token",
+        "journal": tmp_path / ".physical-site.row-one-publish.json",
+    }
+    refresh_calls: list[str] = []
+
+    if command_name == "refresh":
+        _patch_successful_row_one_refresh_pipeline(
+            monkeypatch,
+            config_dir=config_dir,
+            data_dir=data_dir,
+            reports_dir=reports_dir,
+            output_dir=output_dir,
+            calls=refresh_calls,
+            patch_site_writer=False,
+            guard_sqlite_retention=True,
+        )
+
+    def fail_publish(**_kwargs: object) -> None:
+        if command_name == "refresh":
+            refresh_calls.append("_write_row_one_site_from_cli_options")
+        details = "; ".join(f"{key}={path}" for key, path in recovery_paths.items())
+        raise error_type(f"ROW ONE {error_label}; {details}")
+
+    monkeypatch.setattr(cli_module, "_write_row_one_site_from_cli_options", fail_publish)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            command_name,
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--output-dir",
+            str(output_dir),
+            "--as-of",
+            AS_OF,
+            *extra_args,
+        ],
+    )
+
+    if command_name == "refresh":
+        _assert_refresh_stopped_after_site_publication(
+            calls=refresh_calls,
+            reports_dir=reports_dir,
+        )
+    assert result.exit_code == 1
+    assert failure_prefix in result.output
+    assert error_label in result.output
+    for key, path in recovery_paths.items():
+        assert f"{key}={path}" in result.output
 
 
 def test_row_one_refresh_runs_pipeline_and_writes_site(
@@ -786,7 +1384,9 @@ def test_row_one_refresh_help_is_discoverable() -> None:
     result = CliRunner().invoke(app, ["row-one", "refresh", "--help"])
 
     assert result.exit_code == 0
-    assert "Refresh ROW ONE" in result.output
+    normalized = " ".join(result.output.split())
+    assert "Collect, match, report, and publish ROW ONE" in normalized
+    assert "recoverable staged replacement" in normalized
     assert "--output-dir" in result.output
     assert "--host" in result.output
     assert "--port" in result.output
@@ -1209,6 +1809,7 @@ def test_row_one_install_local_help_is_discoverable() -> None:
     assert "--port" in result.output
 
 
+@_REQUIRES_SAFE_DIRECTORY_OPERATIONS
 def test_row_one_build_command_writes_non_ascii_story_detail_path(tmp_path: Path) -> None:
     config_dir = tmp_path / "configs"
     data_dir = tmp_path / "data"

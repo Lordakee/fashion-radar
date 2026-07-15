@@ -12,6 +12,17 @@ SCHEDULING_DOC = ROOT / "docs" / "scheduling.md"
 DATA_RETENTION_DOC = ROOT / "docs" / "data-retention.md"
 UPLOAD_CHECKLIST = ROOT / "docs" / "github-upload-checklist.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
+STAGE_391_MUTATION_FREE_CAVEAT = (
+    "the mutation-free promise covers only the publisher-owned row one site output parent "
+    "and publisher transaction artifacts. `row-one refresh` may already have collected, "
+    "matched, and stored data and written the current dated report before site publication "
+    "reaches the capability gate. the gate does not skip or roll back that completed source, "
+    "sqlite, and report work."
+)
+STAGE_391_UNSUPPORTED_PLATFORM_CAVEAT = (
+    "unsupported platforms fail before creating output or transaction artifacts. "
+    + STAGE_391_MUTATION_FREE_CAVEAT
+)
 STAGE_327_PLAN = (
     ROOT
     / "docs"
@@ -129,6 +140,26 @@ def _section(text: str, heading: str) -> str:
     return text.split(marker, 1)[1].split("\n## ", 1)[0]
 
 
+def _subsection(text: str, heading: str) -> str:
+    marker = f"### {heading}"
+    assert marker in text
+    subsection = text.split(marker, 1)[1]
+    for next_heading in ("\n### ", "\n## "):
+        subsection = subsection.split(next_heading, 1)[0]
+    return subsection
+
+
+def _unreleased_changelog(text: str) -> str:
+    marker = "## [Unreleased]"
+    assert marker in text
+    return text.split(marker, 1)[1].split("\n## [", 1)[0]
+
+
+def _changelog_list_item(text: str, marker: str) -> str:
+    assert marker in text
+    return text.split(marker, 1)[1].split("\n- ", 1)[0]
+
+
 def _ops_check_guidance(path: Path, text: str | None = None) -> str:
     text = _read(path) if text is None else text
     start, end = OPS_CHECK_GUIDANCE_BOUNDARIES[path]
@@ -145,6 +176,41 @@ def _row_one_refresh_guidance(path: Path, text: str | None = None) -> str:
     guidance_and_rest = text.split(start, 1)[1]
     assert end in guidance_and_rest
     return start + guidance_and_rest.split(end, 1)[0]
+
+
+def test_subsection_stops_before_next_level_two_heading() -> None:
+    required_stage_391_phrase = "does not claim zero-downtime publication or power-loss durability"
+    markdown = f"""# Document
+
+### Recoverable Latest-Only Publication
+
+Stage 391 subsection content.
+
+## Later Release Notes
+
+{required_stage_391_phrase}
+"""
+
+    subsection = _subsection(markdown, "Recoverable Latest-Only Publication")
+
+    assert "Stage 391 subsection content." in subsection
+    assert required_stage_391_phrase not in subsection
+
+
+def test_changelog_list_item_stops_before_ordinary_next_bullet() -> None:
+    markdown = """### Changed
+
+- Stage 391 intended content.
+  Continued Stage 391 content.
+- Ordinary maintenance note that belongs to another change.
+- Stage 390 older content.
+"""
+
+    stage_391 = _changelog_list_item(markdown, "- Stage 391")
+
+    assert "intended content" in stage_391
+    assert "Continued Stage 391 content" in stage_391
+    assert "Ordinary maintenance note" not in stage_391
 
 
 def test_row_one_docs_keep_local_static_site_boundary() -> None:
@@ -168,7 +234,7 @@ def test_row_one_docs_keep_local_static_site_boundary() -> None:
         assert phrase in normalized
 
 
-def test_row_one_docs_describe_generated_files_and_cleanup_boundary() -> None:
+def test_row_one_docs_describe_generated_files() -> None:
     section = _section(_read(ROW_ONE_DOC), "Generated Files")
     normalized = _normalized(section)
 
@@ -178,7 +244,6 @@ def test_row_one_docs_describe_generated_files_and_cleanup_boundary() -> None:
         "`articles/index.html`",
         "`articles/<story-id>.html`",
         "first-class local article pages",
-        "`articles/`",
         "`assets/row-one.css`",
         "`assets/row-one.js`",
         "`data/edition.json`",
@@ -186,20 +251,128 @@ def test_row_one_docs_describe_generated_files_and_cleanup_boundary() -> None:
         "`data/runtime.json`",
         "`data/local-intelligence.json`",
         "publishable saved local articles for the daily saved article library",
-        "remove only known row one generated children",
-        "`assets/`, `data/`, and `articles/`",
-        "they do not delete unrelated files in the output directory",
-        "row-one refresh",
-        "prunes older generated report artifacts",
-        "`fashion-radar-yyyy-mm-dd.md`",
-        "`fashion-radar-yyyy-mm-dd.json`",
-        "`fashion-radar-yyyy-mm-dd.html`",
-        "report artifact pruning remains separate from sqlite item retention",
-        "default 1-day retention",
-        "does not prune `collector_runs`",
-        "`fashion-radar-yyyy-mm-dd.eml`",
     ):
         assert phrase in normalized
+
+
+def test_row_one_docs_describe_stage_391_recoverable_latest_only_publish() -> None:
+    row_one_doc = _read(ROW_ONE_DOC)
+    row_one = _section(row_one_doc, "Recoverable Latest-Only Publication")
+    readme = _subsection(_read(README), "Recoverable Latest-Only Publication")
+
+    for text in (row_one, readme):
+        normalized = _normalized(text)
+        for phrase in (
+            "failure-safe recoverable publish",
+            "renders and validates a same-filesystem staging site before changing the live output",
+            "recoverable latest-only publication requires safe directory-relative filesystem "
+            "operations",
+            "current standard windows python lacks the safe directory-handle capability for "
+            "recoverable latest-only",
+            "unsupported platforms fail before creating output or transaction artifacts",
+            "`row one safe directory handles are unsupported on this platform`",
+            "before creating the output parent, lock, journal, stage, backup, or owner marker",
+            "before invoking render",
+            "never falls back to delete-and-render",
+            "feature-level boundary",
+            "package remains os-independent",
+            "ordinary non-latest build and preview rendering remains available",
+            "`row-one refresh` is latest-only and therefore fails at this gate on unsupported "
+            "platforms",
+            "same-filesystem staging, backup, and journal paths",
+            "restores the previous output after a handled publish failure",
+            "recovers an interrupted owned transaction before the next latest-only render",
+            "preserves unrelated top-level output children",
+            "keeps the public output path and generated urls unchanged",
+            "returned result paths continue to use the logical `output_dir` and `index_path`",
+            "publication resolves the physical target for the live output and private "
+            "publish siblings",
+            "the stable sibling lock file may remain after a successful refresh",
+            "bounded cleanup removes only publisher-owned stage, backup, journal, "
+            "temporary journal, and owner artifacts",
+            "short live-path gap",
+            "not fully atomic",
+            "does not claim zero-downtime publication or power-loss durability",
+            "does not delete live generated children before rendering",
+        ):
+            assert phrase in normalized
+
+        assert (
+            normalized.count("does not claim zero-downtime publication or power-loss durability")
+            == 1
+        )
+        assert STAGE_391_UNSUPPORTED_PLATFORM_CAVEAT in normalized
+        assert STAGE_391_MUTATION_FREE_CAVEAT in normalized
+        assert normalized.count(STAGE_391_MUTATION_FREE_CAVEAT) == 1
+        for stale_phrase in (
+            "remove known row one generated children before writing",
+            "physical target is used only for private publish siblings",
+            "does not promise zero downtime",
+            "does not guarantee universal power-loss durability",
+        ):
+            assert stale_phrase not in normalized
+
+    assert "the latest-only cleanup has two local presentation surfaces" not in _normalized(
+        row_one_doc
+    )
+
+
+def test_stage_391_changelog_describes_recoverable_latest_only_publish() -> None:
+    unreleased = _unreleased_changelog(_read(CHANGELOG))
+    assert "- Stage 391" in unreleased
+    stage_391 = _changelog_list_item(unreleased, "- Stage 391")
+    normalized_changelog = _normalized(stage_391)
+
+    for phrase in (
+        "failure-safe recoverable publish",
+        "recoverable latest-only publication requires safe directory-relative filesystem "
+        "operations",
+        "current standard windows python lacks the safe directory-handle capability for "
+        "recoverable latest-only",
+        "unsupported platforms fail before creating output or transaction artifacts",
+        "`row one safe directory handles are unsupported on this platform`",
+        "before creating the output parent, lock, journal, stage, backup, or owner marker",
+        "before invoking render",
+        "never falls back to delete-and-render",
+        "feature-level boundary",
+        "package remains os-independent",
+        "ordinary non-latest build and preview rendering remains available",
+        "`row-one refresh` is latest-only and therefore fails at this gate on unsupported "
+        "platforms",
+        "temporary owned backup and journal",
+        "short live-path gap",
+        "not fully atomic",
+        "does not change schemas",
+        "does not change dependencies",
+        "does not change sources",
+        "does not change source collection",
+        "does not change scoring",
+        "does not change translation",
+        "does not change remote-worker behavior",
+        "does not claim zero-downtime publication or power-loss durability",
+    ):
+        assert phrase in normalized_changelog
+
+    assert (
+        normalized_changelog.count(
+            "does not claim zero-downtime publication or power-loss durability"
+        )
+        == 1
+    )
+    assert STAGE_391_UNSUPPORTED_PLATFORM_CAVEAT in normalized_changelog
+    assert STAGE_391_MUTATION_FREE_CAVEAT in normalized_changelog
+    assert normalized_changelog.count(STAGE_391_MUTATION_FREE_CAVEAT) == 1
+    for stale_phrase in (
+        "does not add dependencies",
+        "does not add sources",
+        "does not add source collection",
+        "does not add scoring",
+        "does not add translation",
+        "does not add remote-worker behavior",
+        "does not promise zero downtime",
+        "does not guarantee universal power-loss durability",
+    ):
+        assert stale_phrase not in normalized_changelog
 
 
 def test_row_one_docs_describe_refresh_sqlite_retention() -> None:
@@ -245,6 +418,18 @@ def test_row_one_docs_describe_refresh_sqlite_retention() -> None:
         "leaves sqlite/data retention to `clean-old-data`",
     ):
         assert stale_phrase not in stale_docs
+
+    row_one = _section(_read(ROW_ONE_DOC), "Recoverable Latest-Only Publication")
+    for report_pattern in (
+        "`fashion-radar-YYYY-MM-DD.md`",
+        "`fashion-radar-YYYY-MM-DD.json`",
+        "`fashion-radar-YYYY-MM-DD.html`",
+    ):
+        assert report_pattern in row_one
+
+    preserved_outputs = row_one.split("Nonmatching digest and note files", 1)[1]
+    assert "`fashion-radar-YYYY-MM-DD.eml`" in preserved_outputs
+    assert "are left untouched" in preserved_outputs
 
 
 def test_row_one_docs_describe_saved_article_reader_boundary() -> None:
@@ -3904,7 +4089,7 @@ def test_row_one_docs_include_user_required_phrases() -> None:
         "row-one schedule",
         "04:00 local scheduling",
         "fixed ip:port",
-        "latest-only cleanup",
+        "recoverable latest-only publication",
         "ip:port local-network serving",
         "open from lan: http://<lan-ip>:8787",
         "fashion-radar row-one refresh",

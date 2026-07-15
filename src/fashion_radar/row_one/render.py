@@ -48,6 +48,12 @@ from fashion_radar.row_one.models import (
     RowOneStoryDisplay,
     RowOneStoryImage,
 )
+from fashion_radar.row_one.publish import (
+    GENERATED_CHILDREN,
+    _resolve_publish_target,
+    _validate_live_publish_target,
+    publish_latest_row_one_site,
+)
 from fashion_radar.row_one.readiness import build_row_one_readiness
 from fashion_radar.row_one.saved_article_briefs import (
     build_row_one_saved_article_briefs,
@@ -127,8 +133,6 @@ from fashion_radar.row_one.templates import (
 from fashion_radar.row_one.text import clean_row_one_text
 from fashion_radar.row_one.utils import isoformat_z, safe_external_url, utc_datetime
 
-# Top-level articles/ is generated HTML. data/articles/ remains the JSON sidecar tree.
-GENERATED_CHILDREN = ("index.html", ".row-one-site", "details", "assets", "data", "articles")
 ROW_ONE_APP_CONTRACT_VERSION = "row-one-app/v7"
 ROW_ONE_MANIFEST_CONTRACT_VERSION = "row-one-manifest/v1"
 ROW_ONE_MANIFEST_SCHEMA_PATH = "schemas/row-one-manifest.schema.json"
@@ -153,9 +157,37 @@ def render_row_one_site(
     local_articles_by_story_id: Mapping[str, RowOneLocalArticle] | None = None,
 ) -> RowOneRenderResult:
     _validate_unique_story_routes(edition)
-    if latest_only:
-        clean_row_one_site_children(output_dir)
-    local_articles_by_story_id = local_articles_by_story_id or {}
+    articles = local_articles_by_story_id or {}
+    if not latest_only:
+        return _render_row_one_site_in_place(
+            edition,
+            output_dir,
+            local_articles_by_story_id=articles,
+        )
+
+    staged_result = publish_latest_row_one_site(
+        output_dir,
+        render=lambda stage: _render_row_one_site_in_place(
+            edition,
+            stage,
+            local_articles_by_story_id=articles,
+        ),
+    )
+    return RowOneRenderResult(
+        output_dir=output_dir,
+        index_path=output_dir / "index.html",
+        story_count=staged_result.story_count,
+        edition=staged_result.edition,
+        local_article_metrics=staged_result.local_article_metrics,
+    )
+
+
+def _render_row_one_site_in_place(
+    edition: RowOneEdition,
+    output_dir: Path,
+    *,
+    local_articles_by_story_id: Mapping[str, RowOneLocalArticle],
+) -> RowOneRenderResult:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / ".row-one-site").write_text("ROW ONE generated site\n", encoding="utf-8")
     _write_assets(output_dir)
@@ -371,13 +403,13 @@ def _validate_unique_story_routes(edition: RowOneEdition) -> None:
 
 
 def clean_row_one_site_children(output_dir: Path) -> None:
+    """Remove generated ROW ONE children for explicit cleanup callers.
+
+    Staged publication does not invoke ``clean_row_one_site_children``.
+    """
     if not output_dir.exists():
         return
-    marker = output_dir / ".row-one-site"
-    generated_children = [output_dir / child_name for child_name in GENERATED_CHILDREN]
-    has_generated_children = any(child.exists() for child in generated_children if child != marker)
-    if has_generated_children and not marker.exists():
-        raise ValueError(f"ROW ONE output directory is not marked as generated: {output_dir}")
+    _validate_live_publish_target(_resolve_publish_target(output_dir))
     for child_name in GENERATED_CHILDREN:
         child = output_dir / child_name
         if child.is_dir():

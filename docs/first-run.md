@@ -142,6 +142,35 @@ disk-friendly for test deployments, but it reduces multi-day item history
 available to future scoring window comparisons and heat scores.
 A non-skipped SQLite retention failure returns a nonzero exit status after report
 and site output is written.
+
+`row-one refresh` and `row-one preview --latest-only` use the same failure-safe
+recoverable publish as `row-one build --latest-only`. It renders and validates a
+same-filesystem staging site before changing the live output, restores the
+previous output after a handled publish failure, and recovers an interrupted
+owned transaction before the next latest-only render. The stable sibling lock
+file may remain after a successful refresh. Replacement has a short live-path
+gap, is not fully atomic, and does not claim zero-downtime publication or
+power-loss durability.
+
+Recoverable latest-only publication requires safe directory-relative filesystem
+operations. Current standard Windows Python lacks the safe directory-handle
+capability for recoverable latest-only. On unsupported platforms, latest-only
+fails with the concise error
+`ROW ONE safe directory handles are unsupported on this platform` before
+creating the output parent, lock, journal, stage, backup, or owner marker and
+before invoking render. In other words, unsupported platforms fail before
+creating output or transaction artifacts. The mutation-free promise covers only
+the publisher-owned ROW ONE site output parent and publisher transaction
+artifacts. `row-one refresh` may already have collected, matched, and stored data
+and written the current dated report before site publication reaches the
+capability gate. The gate does not skip or roll back that completed source,
+SQLite, and report work. The publisher never falls back to delete-and-render.
+
+This is a feature-level boundary. The package remains OS-independent, and
+ordinary non-latest build and preview rendering remains available. `row-one
+refresh` is latest-only and therefore fails at this gate on unsupported
+platforms.
+
 ROW ONE local ops use a daily `04:00` refresh boundary and fixed local
 IP:port `127.0.0.1:8787`; use `0.0.0.0:8787` only for explicit LAN serving.
 The generated site includes `data/runtime.json` runtime metadata alongside
@@ -276,9 +305,11 @@ test -f pyproject.toml && test -d examples && { \
 }
 ```
 
-This keeps `data/README.md` and `reports/README.md`. ROW ONE latest-only site
-cleanup removes generated site output, including `data/runtime.json` inside the
-site directory, but it does not delete dated Fashion Radar reports such as
+This keeps `data/README.md` and `reports/README.md`. ROW ONE latest-only
+publication replaces only managed generated children after staged validation
+and preserves unrelated top-level output children. The managed output includes
+`data/runtime.json` inside the site directory. This site publication step does
+not delete dated Fashion Radar reports such as
 `reports/fashion-radar-YYYY-MM-DD.md`, `.json`, or `.html`.
 
 ## Boundary

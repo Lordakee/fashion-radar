@@ -28,6 +28,17 @@ ENTITY_PACKS_DOC = ROOT / "docs" / "entity-packs.md"
 AGENTS_DOC = ROOT / "AGENTS.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 FIRST_RUN_DOC = ROOT / "docs" / "first-run.md"
+STAGE_391_MUTATION_FREE_CAVEAT = (
+    "the mutation-free promise covers only the publisher-owned row one site output parent "
+    "and publisher transaction artifacts. `row-one refresh` may already have collected, "
+    "matched, and stored data and written the current dated report before site publication "
+    "reaches the capability gate. the gate does not skip or roll back that completed source, "
+    "sqlite, and report work."
+)
+STAGE_391_UNSUPPORTED_PLATFORM_CAVEAT = (
+    "unsupported platforms fail before creating output or transaction artifacts. "
+    + STAGE_391_MUTATION_FREE_CAVEAT
+)
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 CONTRIBUTING_DOC = ROOT / "CONTRIBUTING.md"
 PULL_REQUEST_TEMPLATE = ROOT / ".github" / "pull_request_template.md"
@@ -605,6 +616,81 @@ def test_cli_reference_lists_every_public_command() -> None:
     assert "FASHION_RADAR_REPORTS_DIR" in text
     assert "deterministic sample-output gate" in text
     assert "validates deterministic sample output content" in normalized
+
+
+def test_cli_reference_documents_stage_391_recoverable_latest_only_publish() -> None:
+    entries = {
+        command: _normalized_text(_cli_reference_command_entry(command)).casefold()
+        for command in ("row-one refresh", "row-one build", "row-one preview")
+    }
+
+    assert "`row-one build`" not in entries["row-one refresh"]
+    assert "`row-one preview`" not in entries["row-one build"]
+    assert "`row-one status`" not in entries["row-one preview"]
+    assert STAGE_391_MUTATION_FREE_CAVEAT in entries["row-one refresh"]
+    assert entries["row-one refresh"].count(STAGE_391_MUTATION_FREE_CAVEAT) == 1
+    assert STAGE_391_MUTATION_FREE_CAVEAT not in entries["row-one build"]
+    assert STAGE_391_MUTATION_FREE_CAVEAT not in entries["row-one preview"]
+
+    for phrase in (
+        "failure-safe recoverable publish",
+        "staged, validated replacement",
+        "recoverable latest-only publication requires safe directory-relative filesystem "
+        "operations",
+        "unsupported platforms fail before creating output or transaction artifacts",
+        "`row one safe directory handles are unsupported on this platform`",
+        "before creating the output parent, lock, journal, stage, backup, or owner marker",
+        "before invoking render",
+        "never falls back to delete-and-render",
+        "`row-one refresh` is latest-only and therefore fails at this gate on unsupported "
+        "platforms",
+    ):
+        assert phrase in entries["row-one refresh"]
+    assert STAGE_391_UNSUPPORTED_PLATFORM_CAVEAT in entries["row-one refresh"]
+
+    for phrase in (
+        "latest-only",
+        "staged, validated replacement",
+        "preserves unrelated top-level output children",
+        "does not delete live generated children before rendering",
+        "current standard windows python lacks the safe directory-handle capability for "
+        "recoverable latest-only",
+    ):
+        assert phrase in entries["row-one build"]
+
+    for phrase in (
+        "latest-only",
+        "feature-level boundary",
+        "package remains os-independent",
+        "ordinary non-latest build and preview rendering remains available",
+        "the latest-only build and preview path",
+        "failure-safe recoverable publish",
+        "short live-path gap",
+        "not fully atomic",
+        "does not claim zero-downtime publication or power-loss durability",
+    ):
+        assert phrase in entries["row-one preview"]
+
+    assert (
+        entries["row-one preview"].count(
+            "does not claim zero-downtime publication or power-loss durability"
+        )
+        == 1
+    )
+    assert (
+        "does not claim zero-downtime publication or power-loss durability"
+        not in entries["row-one refresh"]
+    )
+    assert (
+        "does not claim zero-downtime publication or power-loss durability"
+        not in entries["row-one build"]
+    )
+    for redundant_phrase in (
+        "does not promise zero downtime",
+        "does not guarantee universal power-loss durability",
+    ):
+        for entry in entries.values():
+            assert redundant_phrase not in entry
 
 
 def test_cli_reference_documents_source_liveness() -> None:

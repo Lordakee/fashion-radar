@@ -31,6 +31,7 @@ EXPECTED_WHEEL_DIST_INFO_DIR = check_package_archives.expected_wheel_dist_info_d
 WHEEL_FILES = {
     "fashion_radar/cli.py": "",
     "fashion_radar/__main__.py": "",
+    "fashion_radar/row_one/publish.py": "",
     "fashion_radar/templates/daily_report.md": "",
     "fashion_radar/templates/configs/sources.example.yaml": "",
     "fashion_radar/templates/configs/entities.example.yaml": "",
@@ -97,6 +98,7 @@ SDIST_FILES = [
     "src/fashion_radar/row_one/edition.py",
     "src/fashion_radar/row_one/models.py",
     "src/fashion_radar/row_one/ops.py",
+    "src/fashion_radar/row_one/publish.py",
     "src/fashion_radar/row_one/readiness.py",
     "src/fashion_radar/row_one/render.py",
     "src/fashion_radar/row_one/server.py",
@@ -234,6 +236,40 @@ def test_accepts_archives_with_required_files_and_metadata(tmp_path: Path) -> No
     assert result.returncode == 0
     assert result.stdout == "Package archives contain required files.\n"
     assert result.stderr == ""
+
+
+def test_rejects_wheel_without_row_one_publish_module(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    wheel_files = dict(WHEEL_FILES)
+    del wheel_files["fashion_radar/row_one/publish.py"]
+    write_wheel(build_dir, files=wheel_files)
+    write_sdist(build_dir)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert "wheel archive missing required file: fashion_radar/row_one/publish.py" in result.stderr
+    assert "sdist archive missing required file" not in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_rejects_sdist_without_row_one_publish_module(tmp_path: Path) -> None:
+    build_dir = tmp_path / "dist"
+    build_dir.mkdir()
+    sdist_files = list(SDIST_FILES)
+    sdist_files.remove("src/fashion_radar/row_one/publish.py")
+    write_wheel(build_dir)
+    write_sdist(build_dir, files=sdist_files)
+
+    result = run_checker(build_dir)
+
+    assert result.returncode == 1
+    assert (
+        "sdist archive missing required file: src/fashion_radar/row_one/publish.py" in result.stderr
+    )
+    assert "wheel archive missing required file" not in result.stderr
+    assert "Traceback" not in result.stderr
 
 
 def test_accepts_uv_build_gitignore_marker(tmp_path: Path) -> None:

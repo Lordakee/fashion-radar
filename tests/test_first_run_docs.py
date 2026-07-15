@@ -4,6 +4,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FIRST_RUN_DOC = ROOT / "docs" / "first-run.md"
+STAGE_391_MUTATION_FREE_CAVEAT = (
+    "the mutation-free promise covers only the publisher-owned row one site output parent "
+    "and publisher transaction artifacts. `row-one refresh` may already have collected, "
+    "matched, and stored data and written the current dated report before site publication "
+    "reaches the capability gate. the gate does not skip or roll back that completed source, "
+    "sqlite, and report work."
+)
+STAGE_391_UNSUPPORTED_PLATFORM_CAVEAT = (
+    "unsupported platforms fail before creating output or transaction artifacts. "
+    + STAGE_391_MUTATION_FREE_CAVEAT
+)
 
 
 def _read_first_run_doc() -> str:
@@ -80,3 +91,57 @@ def test_first_run_docs_describe_temporary_http_smoke() -> None:
         "terminates the temporary local http server",
     ):
         assert phrase in normalized
+
+
+def test_first_run_docs_describe_stage_391_recoverable_latest_only_publish() -> None:
+    row_one = _section(_read_first_run_doc(), "Inspect The Sample In ROW ONE")
+    normalized = _normalized(row_one)
+
+    for phrase in (
+        "row-one refresh",
+        "row-one preview",
+        "--latest-only",
+        "failure-safe recoverable publish",
+        "renders and validates a same-filesystem staging site before changing the live output",
+        "recoverable latest-only publication requires safe directory-relative filesystem "
+        "operations",
+        "current standard windows python lacks the safe directory-handle capability for "
+        "recoverable latest-only",
+        "unsupported platforms fail before creating output or transaction artifacts",
+        "`row one safe directory handles are unsupported on this platform`",
+        "before creating the output parent, lock, journal, stage, backup, or owner marker",
+        "before invoking render",
+        "never falls back to delete-and-render",
+        "feature-level boundary",
+        "package remains os-independent",
+        "ordinary non-latest build and preview rendering remains available",
+        "`row-one refresh` is latest-only and therefore fails at this gate on unsupported "
+        "platforms",
+        "restores the previous output after a handled publish failure",
+        "recovers an interrupted owned transaction before the next latest-only render",
+        "the stable sibling lock file may remain after a successful refresh",
+        "short live-path gap",
+        "not fully atomic",
+        "does not claim zero-downtime publication or power-loss durability",
+    ):
+        assert phrase in normalized
+
+    assert (
+        normalized.count("does not claim zero-downtime publication or power-loss durability") == 1
+    )
+    assert STAGE_391_UNSUPPORTED_PLATFORM_CAVEAT in normalized
+    assert STAGE_391_MUTATION_FREE_CAVEAT in normalized
+    assert normalized.count(STAGE_391_MUTATION_FREE_CAVEAT) == 1
+    for redundant_phrase in (
+        "does not promise zero downtime",
+        "does not guarantee universal power-loss durability",
+    ):
+        assert redundant_phrase not in normalized
+
+
+def test_first_run_reset_describes_managed_child_replacement_after_staged_validation() -> None:
+    reset = _normalized(_section(_read_first_run_doc(), "Reset The Repo-Local Sample"))
+
+    assert "replaces only managed generated children after staged validation" in reset
+    assert "preserves unrelated top-level output children" in reset
+    assert "latest-only site cleanup removes generated site output" not in reset

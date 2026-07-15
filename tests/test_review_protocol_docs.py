@@ -112,9 +112,11 @@ def test_active_review_protocol_documents_opencode_gate_and_claude_primary() -> 
 
     assert ACTIVE_OPENCODE_COMMAND in _normalized_text(agents_text)
     assert (
-        "When spawning Codex subagents for this project, set the subagent reasoning "
-        "effort to `xhigh`."
+        "Every Codex subagent spawned for this project must explicitly use model "
+        "`gpt-5.6-sol` with reasoning effort `max`. This rule overrides and replaces "
+        "every earlier Codex subagent model or reasoning-effort rule."
     ) in _normalized_text(agents_text)
+    assert "xhigh" not in _section(agents_text, "Agent Runtime Settings").casefold()
     assert ACTIVE_OPENCODE_COMMAND in normalized_protocol
     assert ACTIVE_OPENCODE_COMMAND in normalized_checklist
     assert PRIMARY_CLAUDE_CODE_COMMAND in normalized_checklist

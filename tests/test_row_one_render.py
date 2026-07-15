@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import errno
 import json
+import os
 import re
+import stat
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from html import escape
@@ -10,6 +13,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+import fashion_radar.row_one.publish as row_one_publish
 import fashion_radar.row_one.render as row_one_render
 import fashion_radar.row_one.templates as row_one_templates
 from fashion_radar.row_one.daily_local_article_intelligence_brief import (
@@ -135,6 +139,7 @@ from fashion_radar.row_one.local_article_synthesis_brief import (
     RowOneLocalArticleSynthesisAnchor,
     RowOneLocalArticleSynthesisBrief,
 )
+from fashion_radar.row_one.publish import RowOnePublishError
 from fashion_radar.row_one.render import (
     _companion_related_story_ids,
     _editorial_brief_payload,
@@ -263,6 +268,10 @@ from fashion_radar.row_one.templates import (
 )
 
 AS_OF = datetime(2026, 7, 2, 4, 0, tzinfo=UTC)
+_REQUIRES_SAFE_DIRECTORY_OPERATIONS = pytest.mark.skipif(
+    not row_one_publish._SAFE_DIRECTORY_OPERATIONS_SUPPORTED,
+    reason="safe directory-relative operations are unavailable",
+)
 
 
 def _edition() -> RowOneEdition:
@@ -6923,6 +6932,7 @@ def test_render_row_one_site_keeps_existing_error_for_unsafe_detail_path(tmp_pat
         )
 
 
+@_REQUIRES_SAFE_DIRECTORY_OPERATIONS
 def test_render_row_one_site_latest_only_removes_stale_local_article_page(tmp_path) -> None:
     articles_dir = tmp_path / "articles"
     articles_dir.mkdir(parents=True)
@@ -20374,7 +20384,279 @@ def test_render_row_one_site_story_orientation_handles_single_link_and_undated(
     assert "1 条线索" in orientation_html
 
 
-def test_render_row_one_site_latest_only_preserves_unrelated_files(tmp_path) -> None:
+_ROW_ONE_MANAGED_CHILDREN = (
+    "index.html",
+    ".row-one-site",
+    "details",
+    "assets",
+    "data",
+    "articles",
+)
+_ROW_ONE_PUBLISHED_FILE_PATHS = (
+    ".row-one-site",
+    "index.html",
+    "assets/row-one.css",
+    "assets/row-one.js",
+    "data/edition.json",
+    "data/manifest.json",
+    "data/runtime.json",
+)
+
+
+def _lstat_tree_snapshot(
+    root: Path,
+) -> dict[str, tuple[tuple[int, int, int, int], bytes | str | None]]:
+    snapshot: dict[str, tuple[tuple[int, int, int, int], bytes | str | None]] = {}
+    for path in sorted((root, *root.rglob("*"))):
+        metadata = path.lstat()
+        relative_path = "." if path == root else path.relative_to(root).as_posix()
+        preserved_metadata = (
+            stat.S_IFMT(metadata.st_mode),
+            stat.S_IMODE(metadata.st_mode),
+            metadata.st_size,
+            metadata.st_mtime_ns,
+        )
+        content: bytes | str | None
+        if stat.S_ISREG(metadata.st_mode):
+            content = path.read_bytes()
+        elif stat.S_ISLNK(metadata.st_mode):
+            content = os.readlink(path)
+        else:
+            content = None
+        snapshot[relative_path] = (preserved_metadata, content)
+    return snapshot
+
+
+def _try_symlink(
+    link_path: Path,
+    target: str | Path,
+    *,
+    target_is_directory: bool = False,
+) -> bool:
+    unsupported_errnos = {
+        errno.EACCES,
+        errno.ENOSYS,
+        errno.EPERM,
+    }
+    for error_name in ("ENOTSUP", "EOPNOTSUPP"):
+        error_number = getattr(errno, error_name, None)
+        if error_number is not None:
+            unsupported_errnos.add(error_number)
+    try:
+        link_path.symlink_to(target, target_is_directory=target_is_directory)
+    except OSError as exc:
+        if exc.errno in unsupported_errnos or getattr(exc, "winerror", None) in {1, 50, 1314}:
+            return False
+        raise
+    return True
+
+
+def _symlink_or_skip(
+    link_path: Path,
+    target: str | Path,
+    *,
+    target_is_directory: bool = False,
+) -> None:
+    if not _try_symlink(
+        link_path,
+        target,
+        target_is_directory=target_is_directory,
+    ):
+        pytest.skip("symlink creation is unavailable")
+
+
+def test_latest_only_try_symlink_reports_unsupported_without_skipping(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_symlink(
+        _link_path: Path,
+        _target: str | Path,
+        target_is_directory: bool = False,
+    ) -> None:
+        del target_is_directory
+        raise OSError(errno.ENOSYS, "simulated unsupported symlink")
+
+    monkeypatch.setattr(Path, "symlink_to", fail_symlink)
+
+    assert not _try_symlink(tmp_path / "optional-link", "target.txt")
+    assert not (tmp_path / "optional-link").exists()
+
+
+def _row_one_publish_artifact_paths(
+    output_dir: Path,
+    *,
+    include_stable_lock: bool,
+) -> list[Path]:
+    physical_output = output_dir.resolve(strict=False)
+    parent = physical_output.parent
+    output_name = physical_output.name
+    owner_path = physical_output / "data" / ".row-one-publish-owner.json"
+    artifacts = []
+    if parent.is_dir():
+        artifacts.extend(
+            path
+            for path in parent.iterdir()
+            if (include_stable_lock and path.name == f".{output_name}.row-one-publish.lock")
+            or path.name == f".{output_name}.row-one-publish.json"
+            or path.name.startswith(f".{output_name}.row-one-stage-")
+            or path.name.startswith(f".{output_name}.row-one-backup-")
+            or (
+                path.name.startswith(f".{output_name}.row-one-publish.")
+                and path.name.endswith(".tmp")
+            )
+        )
+    if owner_path.exists() or owner_path.is_symlink():
+        artifacts.append(owner_path)
+    return sorted(artifacts)
+
+
+def _assert_no_row_one_publish_debris(output_dir: Path) -> None:
+    physical_output = output_dir.resolve(strict=False)
+    parent = physical_output.parent
+    output_name = physical_output.name
+
+    assert _row_one_publish_artifact_paths(output_dir, include_stable_lock=False) == []
+
+    lock_path = parent / f".{output_name}.row-one-publish.lock"
+    try:
+        lock_metadata = lock_path.lstat()
+    except FileNotFoundError:
+        return
+    assert stat.S_ISREG(lock_metadata.st_mode)
+    assert json.loads(lock_path.read_text(encoding="utf-8")) == {
+        "contract_version": "row-one-publish-lock/v1",
+        "physical_output": str(physical_output),
+    }
+
+
+_SAFE_DIRECTORY_CAPABILITY_ERROR = "ROW ONE safe directory handles are unsupported on this platform"
+
+
+def test_render_row_one_site_latest_only_capability_failure_precedes_parent_creation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_dir = tmp_path / "absent-parent" / "row-one-site"
+    output_parent = output_dir.parent
+    asset_targets: list[Path] = []
+    original_write_assets = row_one_render._write_assets
+
+    def record_asset_write(render_output: Path) -> None:
+        asset_targets.append(render_output)
+        original_write_assets(render_output)
+
+    assert not output_parent.exists()
+    monkeypatch.setattr(
+        row_one_publish,
+        "_SAFE_DIRECTORY_OPERATIONS_SUPPORTED",
+        False,
+    )
+    monkeypatch.setattr(row_one_render, "_write_assets", record_asset_write)
+
+    with pytest.raises(RowOnePublishError) as error:
+        render_row_one_site(_edition(), output_dir, latest_only=True)
+
+    assert type(error.value) is RowOnePublishError
+    assert str(error.value) == _SAFE_DIRECTORY_CAPABILITY_ERROR
+    assert asset_targets == []
+    assert not output_parent.exists()
+    assert (
+        _row_one_publish_artifact_paths(
+            output_dir,
+            include_stable_lock=True,
+        )
+        == []
+    )
+
+
+def test_render_row_one_site_latest_only_capability_failure_precedes_invalid_symlink_target(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    physical_output = tmp_path / "private-physical-target" / "row-one-site"
+    logical_output = tmp_path / "logical-row-one-site"
+    physical_output.mkdir(parents=True)
+    (physical_output / "index.html").write_text("manual live content\n", encoding="utf-8")
+    _symlink_or_skip(logical_output, physical_output, target_is_directory=True)
+    live_before = _lstat_tree_snapshot(physical_output)
+    asset_targets: list[Path] = []
+
+    def fail_if_assets_are_written(render_output: Path) -> None:
+        asset_targets.append(render_output)
+        raise AssertionError("capability failure must precede rendering")
+
+    monkeypatch.setattr(
+        row_one_publish,
+        "_SAFE_DIRECTORY_OPERATIONS_SUPPORTED",
+        False,
+    )
+    monkeypatch.setattr(row_one_render, "_write_assets", fail_if_assets_are_written)
+
+    with pytest.raises(RowOnePublishError) as error:
+        render_row_one_site(_edition(), logical_output, latest_only=True)
+
+    assert type(error.value) is RowOnePublishError
+    assert str(error.value) == _SAFE_DIRECTORY_CAPABILITY_ERROR
+    assert str(physical_output) not in str(error.value)
+    assert asset_targets == []
+    assert logical_output.is_symlink()
+    assert logical_output.readlink() == physical_output
+    assert _lstat_tree_snapshot(physical_output) == live_before
+    assert (
+        _row_one_publish_artifact_paths(
+            logical_output,
+            include_stable_lock=True,
+        )
+        == []
+    )
+
+
+@_REQUIRES_SAFE_DIRECTORY_OPERATIONS
+def test_render_row_one_site_latest_only_preserves_unrelated_files_and_replaces_managed_children(
+    tmp_path: Path,
+) -> None:
+    edition = _edition()
+    story = edition.stories[0]
+    local_articles = {story.id: _signal_briefing_local_article()}
+    render_row_one_site(edition, tmp_path, local_articles_by_story_id=local_articles)
+
+    keep_path = tmp_path / "keep.txt"
+    stale_paths = (
+        tmp_path / "details" / "stale-detail.html",
+        tmp_path / "assets" / "stale-asset.css",
+        tmp_path / "data" / "stale-data.json",
+        tmp_path / "articles" / "stale-article.html",
+    )
+    keep_path.write_text("do not delete", encoding="utf-8")
+    for stale_path in stale_paths:
+        stale_path.write_text("stale sentinel", encoding="utf-8")
+    (tmp_path / "index.html").write_text("stale index sentinel", encoding="utf-8")
+    (tmp_path / ".row-one-site").write_text("stale marker sentinel", encoding="utf-8")
+
+    result = render_row_one_site(
+        edition,
+        tmp_path,
+        latest_only=True,
+        local_articles_by_story_id=local_articles,
+    )
+
+    assert keep_path.read_text(encoding="utf-8") == "do not delete"
+    assert {path.name for path in tmp_path.iterdir()} == {*_ROW_ONE_MANAGED_CHILDREN, "keep.txt"}
+    assert (tmp_path / ".row-one-site").read_text(encoding="utf-8") == "ROW ONE generated site\n"
+    assert "stale index sentinel" not in (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert (tmp_path / "articles" / "index.html").exists()
+    for stale_path in stale_paths:
+        assert not stale_path.exists()
+    assert result.output_dir == tmp_path
+    assert result.index_path == tmp_path / "index.html"
+    _assert_no_row_one_publish_debris(tmp_path)
+
+
+@_REQUIRES_SAFE_DIRECTORY_OPERATIONS
+def test_render_row_one_site_latest_only_removes_stale_children_without_article_library(
+    tmp_path: Path,
+) -> None:
     keep_path = tmp_path / "keep.txt"
     stale_detail = tmp_path / "details" / "old.html"
     stale_asset = tmp_path / "assets" / "old.css"
@@ -20403,7 +20685,269 @@ def test_render_row_one_site_latest_only_preserves_unrelated_files(tmp_path) -> 
     assert (tmp_path / "index.html").exists()
 
 
-def test_render_row_one_site_latest_only_refuses_unmarked_directory_children(tmp_path) -> None:
+@_REQUIRES_SAFE_DIRECTORY_OPERATIONS
+def test_render_row_one_site_latest_only_failure_preserves_published_site(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    render_row_one_site(_edition(), tmp_path)
+    keep = tmp_path / "keep.txt"
+    notes = tmp_path / "notes"
+    note = notes / "daily.txt"
+    latest_note = tmp_path / "latest-note"
+    keep.write_text("keep", encoding="utf-8")
+    notes.mkdir()
+    note.write_text("daily", encoding="utf-8")
+    has_latest_note_symlink = _try_symlink(latest_note, "notes/daily.txt")
+    old_site = _lstat_tree_snapshot(tmp_path)
+    assert "." in old_site
+    assert set(_ROW_ONE_PUBLISHED_FILE_PATHS) <= set(old_site)
+    if has_latest_note_symlink:
+        assert old_site["latest-note"][1] == "notes/daily.txt"
+    else:
+        assert "latest-note" not in old_site
+    asset_targets: list[Path] = []
+    asset_error = OSError("injected asset failure")
+
+    def fail_assets(output_dir: Path) -> None:
+        asset_targets.append(output_dir)
+        raise asset_error
+
+    monkeypatch.setattr(row_one_render, "_write_assets", fail_assets)
+
+    with pytest.raises(
+        RowOnePublishError,
+        match="staged publish failed before commit",
+    ) as error:
+        render_row_one_site(_edition(), tmp_path, latest_only=True)
+
+    assert len(asset_targets) == 1
+    assert asset_targets[0] != tmp_path
+    assert asset_targets[0].name.startswith(f".{tmp_path.name}.row-one-stage-")
+    assert error.value.__cause__ is asset_error
+    assert "row-one-stage" not in str(error.value)
+    assert _lstat_tree_snapshot(tmp_path) == old_site
+    if has_latest_note_symlink:
+        assert latest_note.is_symlink()
+        assert os.readlink(latest_note) == "notes/daily.txt"
+    else:
+        assert not latest_note.exists()
+    _assert_no_row_one_publish_debris(tmp_path)
+
+
+@_REQUIRES_SAFE_DIRECTORY_OPERATIONS
+def test_render_row_one_site_latest_only_rejects_corrupt_staged_site_before_commit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    render_row_one_site(_edition(), tmp_path)
+    keep = tmp_path / "keep.txt"
+    keep.write_text("keep", encoding="utf-8")
+    old_site = _lstat_tree_snapshot(tmp_path)
+    original_validator = row_one_publish.validate_row_one_generated_site_integrity
+    validated_sites: list[Path] = []
+
+    def remove_required_staged_manifest(
+        *,
+        site_dir: Path,
+        edition: dict[str, object],
+    ) -> object:
+        validated_sites.append(site_dir)
+        (site_dir / "data" / "manifest.json").unlink()
+        return original_validator(site_dir=site_dir, edition=edition)
+
+    monkeypatch.setattr(
+        row_one_publish,
+        "validate_row_one_generated_site_integrity",
+        remove_required_staged_manifest,
+    )
+
+    with pytest.raises(
+        RowOnePublishError,
+        match="staged publish failed before commit",
+    ) as error:
+        render_row_one_site(_edition(), tmp_path, latest_only=True)
+
+    assert isinstance(error.value.__cause__, ValueError)
+    assert "missing: data/manifest.json" in str(error.value.__cause__)
+    assert len(validated_sites) == 1
+    assert validated_sites[0] != tmp_path
+    assert _lstat_tree_snapshot(tmp_path) == old_site
+    _assert_no_row_one_publish_debris(tmp_path)
+
+
+@_REQUIRES_SAFE_DIRECTORY_OPERATIONS
+def test_render_row_one_site_latest_only_preserves_unexpected_integrity_validator_oserror(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    render_row_one_site(_edition(), tmp_path)
+    old_site = _lstat_tree_snapshot(tmp_path)
+    validator_error = OSError("unexpected integrity validator failure")
+
+    def fail_integrity_validator(*, site_dir: Path, edition: dict[str, object]) -> None:
+        del site_dir, edition
+        raise validator_error
+
+    monkeypatch.setattr(
+        row_one_publish,
+        "validate_row_one_generated_site_integrity",
+        fail_integrity_validator,
+    )
+
+    with pytest.raises(
+        RowOnePublishError,
+        match="staged publish failed before commit",
+    ) as error:
+        render_row_one_site(_edition(), tmp_path, latest_only=True)
+
+    assert error.value.__cause__ is validator_error
+    assert _lstat_tree_snapshot(tmp_path) == old_site
+    _assert_no_row_one_publish_debris(tmp_path)
+
+
+def test_render_row_one_site_latest_only_false_bypasses_publisher_and_keeps_partial_writes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    render_row_one_site(_edition(), tmp_path)
+    old_index = (tmp_path / "index.html").read_bytes()
+    old_javascript = (tmp_path / "assets" / "row-one.js").read_bytes()
+
+    def write_partial_assets(output_dir: Path) -> None:
+        assets_dir = output_dir / "assets"
+        assets_dir.mkdir(parents=True, exist_ok=True)
+        (assets_dir / "row-one.css").write_text("partial css", encoding="utf-8")
+        raise OSError("in-place asset failure")
+
+    monkeypatch.setattr(
+        row_one_publish,
+        "_SAFE_DIRECTORY_OPERATIONS_SUPPORTED",
+        False,
+    )
+    monkeypatch.setattr(row_one_render, "_write_assets", write_partial_assets)
+
+    with pytest.raises(OSError, match="in-place asset failure"):
+        render_row_one_site(_edition(), tmp_path, latest_only=False)
+
+    assert (tmp_path / "assets" / "row-one.css").read_text(encoding="utf-8") == "partial css"
+    assert (tmp_path / "assets" / "row-one.js").read_bytes() == old_javascript
+    assert (tmp_path / "index.html").read_bytes() == old_index
+    assert (
+        _row_one_publish_artifact_paths(
+            tmp_path,
+            include_stable_lock=True,
+        )
+        == []
+    )
+
+
+@_REQUIRES_SAFE_DIRECTORY_OPERATIONS
+def test_render_row_one_site_latest_only_preserves_unrelated_tree_and_root_metadata(
+    tmp_path: Path,
+) -> None:
+    render_row_one_site(_edition(), tmp_path)
+    keep = tmp_path / "keep.txt"
+    notes = tmp_path / "notes"
+    note = notes / "daily.txt"
+    internal_link = tmp_path / "latest-note"
+    dangling_link = tmp_path / "dangling-note"
+    external_target = tmp_path.parent / f"{tmp_path.name}-external-note.txt"
+    external_link = tmp_path / "external-note"
+    keep.write_text("keep", encoding="utf-8")
+    notes.mkdir()
+    note.write_text("daily", encoding="utf-8")
+    _symlink_or_skip(internal_link, "notes/daily.txt")
+    _symlink_or_skip(dangling_link, "missing-note.txt")
+    external_target.write_text("external", encoding="utf-8")
+    _symlink_or_skip(external_link, external_target)
+    preserved_paths = (keep, notes, note)
+    expected_metadata: dict[Path, tuple[int, int]] = {}
+    for path, mode, mtime_ns in (
+        (keep, 0o640, 1_700_000_000_123_456_701),
+        (notes, 0o750, 1_700_000_000_123_456_702),
+        (note, 0o600, 1_700_000_000_123_456_703),
+    ):
+        path.chmod(mode)
+        os.utime(path, ns=(mtime_ns, mtime_ns))
+        observed = path.lstat()
+        expected_metadata[path] = (
+            stat.S_IMODE(observed.st_mode),
+            observed.st_mtime_ns,
+        )
+    external_target_before = (
+        external_target.read_bytes(),
+        stat.S_IMODE(external_target.lstat().st_mode),
+        external_target.lstat().st_mtime_ns,
+    )
+    tmp_path.chmod(0o750)
+    requested_root_mtime_ns = 1_700_000_000_123_456_789
+    os.utime(tmp_path, ns=(requested_root_mtime_ns, requested_root_mtime_ns))
+    observed_root = tmp_path.lstat()
+    expected_root_metadata = (
+        stat.S_IMODE(observed_root.st_mode),
+        observed_root.st_mtime_ns,
+    )
+
+    render_row_one_site(_edition(), tmp_path, latest_only=True)
+
+    assert keep.read_text(encoding="utf-8") == "keep"
+    assert note.read_text(encoding="utf-8") == "daily"
+    assert {
+        path: (stat.S_IMODE(path.lstat().st_mode), path.lstat().st_mtime_ns)
+        for path in preserved_paths
+    } == expected_metadata
+    assert internal_link.is_symlink()
+    assert os.readlink(internal_link) == "notes/daily.txt"
+    assert dangling_link.is_symlink()
+    assert os.readlink(dangling_link) == "missing-note.txt"
+    assert external_link.is_symlink()
+    assert os.readlink(external_link) == str(external_target)
+    assert (
+        external_target.read_bytes(),
+        stat.S_IMODE(external_target.lstat().st_mode),
+        external_target.lstat().st_mtime_ns,
+    ) == external_target_before
+    root_stat = tmp_path.lstat()
+    assert (stat.S_IMODE(root_stat.st_mode), root_stat.st_mtime_ns) == expected_root_metadata
+    _assert_no_row_one_publish_debris(tmp_path)
+
+
+@_REQUIRES_SAFE_DIRECTORY_OPERATIONS
+@pytest.mark.parametrize(
+    "physical_output_exists",
+    [True, False],
+    ids=["existing-target", "dangling-target"],
+)
+def test_render_row_one_site_latest_only_rebases_result_to_logical_symlink_and_creates_target(
+    tmp_path: Path, physical_output_exists: bool
+) -> None:
+    physical_output = tmp_path / "physical" / "site"
+    logical_output = tmp_path / "logical-site"
+    physical_output.parent.mkdir()
+    if physical_output_exists:
+        render_row_one_site(_edition(), physical_output)
+    _symlink_or_skip(logical_output, physical_output, target_is_directory=True)
+
+    result = render_row_one_site(_edition(), logical_output, latest_only=True)
+
+    assert logical_output.is_symlink()
+    assert physical_output.is_dir()
+    assert (physical_output / ".row-one-site").read_text(
+        encoding="utf-8"
+    ) == "ROW ONE generated site\n"
+    assert (physical_output / "index.html").is_file()
+    assert result.output_dir == logical_output
+    assert result.index_path == logical_output / "index.html"
+    assert result.index_path.exists()
+    _assert_no_row_one_publish_debris(logical_output)
+
+
+@_REQUIRES_SAFE_DIRECTORY_OPERATIONS
+def test_render_row_one_site_latest_only_refuses_unmarked_directory_children_without_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     stale_asset = tmp_path / "assets" / "keep.css"
     stale_detail = tmp_path / "details" / "manual.html"
     stale_data = tmp_path / "data" / "manual.json"
@@ -20416,14 +20960,21 @@ def test_render_row_one_site_latest_only_refuses_unmarked_directory_children(tmp
     stale_detail.write_text("keep", encoding="utf-8")
     stale_data.write_text("keep", encoding="utf-8")
     stale_articles.write_text("keep", encoding="utf-8")
+    before = _lstat_tree_snapshot(tmp_path)
+    asset_writes: list[Path] = []
 
-    with pytest.raises(ValueError, match="not marked"):
+    def fail_if_assets_are_written(output_dir: Path) -> None:
+        asset_writes.append(output_dir)
+        raise AssertionError("unmarked live output must be rejected before rendering")
+
+    monkeypatch.setattr(row_one_render, "_write_assets", fail_if_assets_are_written)
+
+    with pytest.raises(RowOnePublishError, match="not marked"):
         render_row_one_site(_edition(), tmp_path, latest_only=True)
 
-    assert stale_asset.exists()
-    assert stale_detail.exists()
-    assert stale_data.exists()
-    assert stale_articles.exists()
+    assert _lstat_tree_snapshot(tmp_path) == before
+    assert asset_writes == []
+    _assert_no_row_one_publish_debris(tmp_path)
 
 
 def test_render_row_one_site_writes_validated_detail_path(tmp_path) -> None:
@@ -20485,6 +21036,202 @@ def test_clean_row_one_site_children_allows_missing_output_dir(tmp_path) -> None
     clean_row_one_site_children(site_dir)
 
     assert not site_dir.exists()
+
+
+def _write_row_one_generated_children(
+    site_dir: Path,
+    *,
+    include_marker: bool = True,
+) -> None:
+    site_dir.mkdir(parents=True, exist_ok=True)
+    for child_name in row_one_publish.GENERATED_CHILDREN:
+        child = site_dir / child_name
+        if child_name == ".row-one-site":
+            if include_marker:
+                child.write_text("ROW ONE generated site\n", encoding="utf-8")
+        elif child_name == "index.html":
+            child.write_bytes(b"stale index\n")
+        else:
+            nested_file = child / "nested" / "stale.bin"
+            nested_file.parent.mkdir(parents=True)
+            nested_file.write_bytes(f"stale {child_name}\n".encode())
+
+
+def test_clean_row_one_site_children_removes_every_generated_child_and_preserves_unrelated_tree(
+    tmp_path: Path,
+) -> None:
+    site_dir = tmp_path / "site"
+    _write_row_one_generated_children(site_dir)
+    keep_file = site_dir / "keep.bin"
+    keep_dir = site_dir / "notes"
+    keep_nested_file = keep_dir / "daily.txt"
+    keep_link = site_dir / "latest-note"
+    keep_file.write_bytes(b"keep file\x00content")
+    keep_dir.mkdir()
+    keep_nested_file.write_bytes(b"keep nested content\n")
+    _symlink_or_skip(keep_link, "notes/daily.txt")
+    keep_file.chmod(0o640)
+    keep_dir.chmod(0o750)
+    keep_nested_file.chmod(0o600)
+    preserved_relative_paths = {
+        "keep.bin",
+        "notes",
+        "notes/daily.txt",
+        "latest-note",
+    }
+    before = _lstat_tree_snapshot(site_dir)
+
+    clean_row_one_site_children(site_dir)
+
+    after = _lstat_tree_snapshot(site_dir)
+    assert set(after) == {".", *preserved_relative_paths}
+    assert {path: after[path] for path in preserved_relative_paths} == {
+        path: before[path] for path in preserved_relative_paths
+    }
+    assert after["latest-note"][1] == "notes/daily.txt"
+    for child_name in row_one_publish.GENERATED_CHILDREN:
+        child = site_dir / child_name
+        assert not child.exists()
+        assert not child.is_symlink()
+
+
+def test_clean_row_one_site_children_rejects_unmarked_generated_children_without_mutation(
+    tmp_path: Path,
+) -> None:
+    site_dir = tmp_path / "site"
+    _write_row_one_generated_children(site_dir, include_marker=False)
+    keep_file = site_dir / "keep.bin"
+    keep_dir = site_dir / "notes"
+    keep_nested_file = keep_dir / "daily.txt"
+    keep_link = site_dir / "latest-note"
+    keep_file.write_bytes(b"keep file\x00content")
+    keep_dir.mkdir()
+    keep_nested_file.write_bytes(b"keep nested content\n")
+    _symlink_or_skip(keep_link, "notes/daily.txt")
+    keep_file.chmod(0o640)
+    keep_dir.chmod(0o750)
+    keep_nested_file.chmod(0o600)
+    site_dir.chmod(0o750)
+    before = _lstat_tree_snapshot(site_dir)
+
+    with pytest.raises(RowOnePublishError) as error:
+        clean_row_one_site_children(site_dir)
+
+    assert type(error.value) is RowOnePublishError
+    assert str(error.value) == (f"ROW ONE output directory is not marked as generated: {site_dir}")
+    assert _lstat_tree_snapshot(site_dir) == before
+
+
+def test_clean_row_one_site_children_rejects_unmarked_logical_symlink_target_without_mutation(
+    tmp_path: Path,
+) -> None:
+    physical_site = tmp_path / "physical" / "site"
+    logical_site = tmp_path / "logical-site"
+    _write_row_one_generated_children(physical_site, include_marker=False)
+    keep_dir = physical_site / "notes"
+    keep_file = keep_dir / "daily.txt"
+    keep_link = physical_site / "latest-note"
+    keep_dir.mkdir()
+    keep_file.write_bytes(b"keep nested content\n")
+    _symlink_or_skip(keep_link, "notes/daily.txt")
+    _symlink_or_skip(logical_site, physical_site, target_is_directory=True)
+    physical_site.chmod(0o750)
+    keep_dir.chmod(0o750)
+    keep_file.chmod(0o600)
+    resolved_physical_site = physical_site.resolve(strict=True)
+    assert resolved_physical_site != logical_site
+    physical_before = _lstat_tree_snapshot(physical_site)
+    generated_children_before = {
+        child_name
+        for child_name in row_one_publish.GENERATED_CHILDREN
+        if (physical_site / child_name).exists() or (physical_site / child_name).is_symlink()
+    }
+    logical_metadata = logical_site.lstat()
+    logical_before = (
+        stat.S_IFMT(logical_metadata.st_mode),
+        stat.S_IMODE(logical_metadata.st_mode),
+        logical_metadata.st_size,
+        logical_metadata.st_mtime_ns,
+        os.readlink(logical_site),
+    )
+
+    with pytest.raises(RowOnePublishError) as error:
+        clean_row_one_site_children(logical_site)
+
+    assert type(error.value) is RowOnePublishError
+    message = str(error.value)
+    assert message == (
+        f"ROW ONE output directory is not marked as generated: {resolved_physical_site}"
+    )
+    assert str(logical_site) not in message
+    assert _lstat_tree_snapshot(physical_site) == physical_before
+    assert {
+        child_name
+        for child_name in row_one_publish.GENERATED_CHILDREN
+        if (physical_site / child_name).exists() or (physical_site / child_name).is_symlink()
+    } == generated_children_before
+    assert logical_site.is_symlink()
+    logical_metadata = logical_site.lstat()
+    assert (
+        stat.S_IFMT(logical_metadata.st_mode),
+        stat.S_IMODE(logical_metadata.st_mode),
+        logical_metadata.st_size,
+        logical_metadata.st_mtime_ns,
+        os.readlink(logical_site),
+    ) == logical_before
+
+
+def test_clean_row_one_site_children_follows_logical_output_symlink_and_preserves_it(
+    tmp_path: Path,
+) -> None:
+    physical_site = tmp_path / "physical" / "site"
+    logical_site = tmp_path / "logical-site"
+    _write_row_one_generated_children(physical_site)
+    keep_file = physical_site / "keep.bin"
+    keep_dir = physical_site / "notes"
+    keep_nested_file = keep_dir / "daily.txt"
+    keep_link = physical_site / "latest-note"
+    keep_file.write_bytes(b"keep file\x00content")
+    keep_dir.mkdir()
+    keep_nested_file.write_bytes(b"keep nested content\n")
+    _symlink_or_skip(keep_link, "notes/daily.txt")
+    _symlink_or_skip(logical_site, physical_site, target_is_directory=True)
+    preserved_relative_paths = {
+        "keep.bin",
+        "notes",
+        "notes/daily.txt",
+        "latest-note",
+    }
+    physical_before = _lstat_tree_snapshot(physical_site)
+    logical_metadata = logical_site.lstat()
+    logical_before = (
+        stat.S_IFMT(logical_metadata.st_mode),
+        stat.S_IMODE(logical_metadata.st_mode),
+        logical_metadata.st_size,
+        logical_metadata.st_mtime_ns,
+        os.readlink(logical_site),
+    )
+
+    clean_row_one_site_children(logical_site)
+
+    physical_after = _lstat_tree_snapshot(physical_site)
+    assert set(physical_after) == {".", *preserved_relative_paths}
+    assert {path: physical_after[path] for path in preserved_relative_paths} == {
+        path: physical_before[path] for path in preserved_relative_paths
+    }
+    for child_name in row_one_publish.GENERATED_CHILDREN:
+        child = physical_site / child_name
+        assert not child.exists()
+        assert not child.is_symlink()
+    assert logical_site.is_symlink()
+    logical_metadata = logical_site.lstat()
+    assert (
+        stat.S_IFMT(logical_metadata.st_mode),
+        stat.S_IMODE(logical_metadata.st_mode),
+        logical_metadata.st_size,
+        logical_metadata.st_mtime_ns,
+        os.readlink(logical_site),
+    ) == logical_before
 
 
 def test_render_row_one_site_writes_json_payload(tmp_path) -> None:

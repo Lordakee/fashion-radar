@@ -8,6 +8,34 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Stage 391 changes latest-only ROW ONE publication to a failure-safe
+  recoverable publish: it renders and validates a same-filesystem staging site
+  before changing live output, keeps a temporary owned backup and journal beside
+  the physical target, recovers interrupted owned transactions under a stable
+  lock, and preserves unrelated top-level output children. The public output
+  path, generated URLs, and returned result paths remain compatible.
+  Recoverable latest-only publication requires safe directory-relative
+  filesystem operations. Current standard Windows Python lacks the safe
+  directory-handle capability for recoverable latest-only. On unsupported
+  platforms, latest-only fails with the concise error
+  `ROW ONE safe directory handles are unsupported on this platform` before
+  creating the output parent, lock, journal, stage, backup, or owner marker and
+  before invoking render. In other words, unsupported platforms fail before
+  creating output or transaction artifacts. The mutation-free promise covers
+  only the publisher-owned ROW ONE site output parent and publisher transaction
+  artifacts. `row-one refresh` may already have collected, matched, and stored
+  data and written the current dated report before site publication reaches the
+  capability gate. The gate does not skip or roll back that completed source,
+  SQLite, and report work. The publisher never falls back to delete-and-render.
+  This is a feature-level boundary. The package remains OS-independent, and
+  ordinary non-latest build and preview rendering remains available. `row-one
+  refresh` is latest-only and therefore fails at this gate on unsupported
+  platforms. Directory renames leave a short live-path gap. Publication is not
+  fully atomic and does not claim zero-downtime publication or power-loss
+  durability. It does not change schemas, does not change dependencies, does
+  not change sources, does not change source collection, does not change
+  scoring, does not change translation, and does not change remote-worker
+  behavior.
 - Stage 390 extends read-only `source-liveness` diagnostics with RSS/RSSHub
   freshness evidence from the existing feed response: dated-entry count, latest
   entry time, age, `degraded/warning/stale_feed` warnings when a non-malformed

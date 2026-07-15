@@ -45,6 +45,31 @@ YAML config
   Python's stdlib HTTP server. It performs no new data acquisition, no entity
   matching, no source collection, no new scoring logic, no persisted scoring
   state, no demand proof, and no platform coverage verification.
+  For `latest_only=True`, it uses a failure-safe recoverable publish: it renders
+  and validates a same-filesystem staging site before changing the live output,
+  with same-filesystem backup and journal paths and a stable sibling lock file.
+  It recovers an interrupted owned transaction before the next latest-only
+  render, preserves unrelated top-level output children, and keeps the public
+  output path, generated URLs, and result paths unchanged. The two directory
+  renames leave a short live-path gap, so this is not fully atomic and does not
+  claim zero-downtime publication or power-loss durability. Recoverable
+  latest-only publication requires safe directory-relative filesystem
+  operations. Current standard Windows Python lacks the safe directory-handle
+  capability for recoverable latest-only. On unsupported platforms, latest-only
+  fails with the concise error
+  `ROW ONE safe directory handles are unsupported on this platform` before
+  creating the output parent, lock, journal, stage, backup, or owner marker and
+  before invoking render. In other words, unsupported platforms fail before
+  creating output or transaction artifacts. The mutation-free promise covers
+  only the publisher-owned ROW ONE site output parent and publisher transaction
+  artifacts. `row-one refresh` may already have collected, matched, and stored
+  data and written the current dated report before site publication reaches the
+  capability gate. The gate does not skip or roll back that completed source,
+  SQLite, and report work. The publisher never falls back to delete-and-render.
+  This is a feature-level boundary. The package remains OS-independent, and
+  ordinary non-latest build and preview rendering remains available. `row-one
+  refresh` is latest-only and therefore fails at this gate on unsupported
+  platforms.
 - **Entity-Pack Quality:** Local read-only diagnostics lint one entity YAML or
   entity-pack YAML file for invalid config, empty packs, aliases that cannot
   match, matcher-context surprises, product parent-brand precision issues,

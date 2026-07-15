@@ -629,13 +629,57 @@ not change `row-one-runtime/v1`. It does not add source collection, does not
 add scoring, and does not change collection, matching, story IDs, detail
 routes, paragraph anchors, or schemas.
 
-The latest-only cleanup has two local presentation surfaces.
-`row-one build --latest-only` and `row-one preview --latest-only` remove only
-known ROW ONE generated children: `index.html`, `.row-one-site`, `details/`,
-`assets/`, `data/`, and `articles/`. They do not delete unrelated files in the
-output directory. If an existing directory has generated-looking children but
-no `.row-one-site` marker, cleanup refuses to continue so user files are not
-silently removed.
+## Recoverable Latest-Only Publication
+
+`row-one refresh`, `row-one build --latest-only`, and `row-one preview
+--latest-only` use a failure-safe recoverable publish. It renders and validates
+a same-filesystem staging site before changing the live output. The publisher
+uses same-filesystem staging, backup, and journal paths beside the physical
+output target, plus a stable sibling lock file. It restores the previous output
+after a handled publish failure and recovers an interrupted owned transaction
+before the next latest-only render. The stable sibling lock file may remain
+after a successful refresh.
+
+The staged replacement preserves unrelated top-level output children. The
+managed generated children remain `index.html`, `.row-one-site`, `details/`,
+`assets/`, `data/`, and `articles/`; an unmarked directory with generated-looking
+children still fails before staging so user files are not silently replaced. It
+does not delete live generated children before rendering. Bounded cleanup
+removes only publisher-owned stage, backup, journal, temporary journal, and
+owner artifacts; it leaves unrelated children and the stable lock file alone.
+
+The publish path keeps the public output path and generated URLs unchanged.
+Returned result paths continue to use the logical `output_dir` and `index_path`,
+including when the logical output path is a symlink; publication resolves the
+physical target for the live output and private publish siblings. The app,
+manifest, and runtime contracts and their schemas remain unchanged, and no
+staging, backup, token, or physical target path is exposed in public generated
+artifacts.
+
+Recoverable latest-only publication requires safe directory-relative filesystem
+operations. Current standard Windows Python lacks the safe directory-handle
+capability for recoverable latest-only. On unsupported platforms, latest-only
+fails with the concise error
+`ROW ONE safe directory handles are unsupported on this platform` before
+creating the output parent, lock, journal, stage, backup, or owner marker and
+before invoking render. In other words, unsupported platforms fail before
+creating output or transaction artifacts. The mutation-free promise covers only
+the publisher-owned ROW ONE site output parent and publisher transaction
+artifacts. `row-one refresh` may already have collected, matched, and stored data
+and written the current dated report before site publication reaches the
+capability gate. The gate does not skip or roll back that completed source,
+SQLite, and report work. The publisher never falls back to delete-and-render.
+
+This is a feature-level boundary. The package remains OS-independent, and
+ordinary non-latest build and preview rendering remains available. `row-one
+refresh` is latest-only and therefore fails at this gate on unsupported
+platforms.
+
+This design has a short live-path gap while an existing output is renamed to its
+backup and the validated staging directory is renamed live. It is not fully
+atomic and does not claim zero-downtime publication or power-loss durability. A
+process crash or handled failure is recoverable on the next latest-only
+invocation under the stable lock.
 
 `row-one refresh` is latest-only for the local ROW ONE presentation path: after
 writing the current dated report and rebuilding the site, it prunes older
@@ -661,11 +705,12 @@ as `latest.md`, `latest.json`, `report-index.json`,
 - `row-one refresh`: runs the single local daily refresh command for ROW ONE by
   refreshing the daily report data and generated site in one command. Important
   flags: `--as-of`, `--reports-dir`, `--output-dir`, `--retention-days`, and
-  `--skip-data-retention`; latest-only site cleanup is built in, older generated
-  dated report artifacts in `--reports-dir` are pruned after the current report
-  is written, and default 1-day SQLite item retention runs after the current
-  site and reports are generated. A non-skipped SQLite retention failure returns
-  a nonzero exit status after report and site output is written.
+  `--skip-data-retention`; failure-safe recoverable latest-only site publication
+  is built in, older generated dated report artifacts in `--reports-dir` are
+  pruned after the current report is written, and default 1-day SQLite item
+  retention runs after the current site and reports are generated. A non-skipped
+  SQLite retention failure returns a nonzero exit status after report and site
+  output is written.
 - `row-one preview`: builds the static ROW ONE site and prints daily readiness
   details. Important flags: `--as-of`, `--output-dir`, `--latest-only`,
   `--host`, `--port`, and `--dry-run-serve-url`.

@@ -4322,6 +4322,116 @@ def test_workspace_artifact_assertion_requires_temp_dirs_and_sqlite(tmp_path: Pa
     smoke.assert_workspace_artifacts(context)
 
 
+@pytest.mark.parametrize(
+    "artifact_name",
+    (
+        ".site.row-one-publish.json",
+        ".site.row-one-stage-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        ".site.row-one-backup-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        ".site.row-one-publish.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.nonce.tmp",
+    ),
+)
+def test_row_one_publish_artifact_assertion_rejects_sibling_debris_without_deleting(
+    tmp_path: Path,
+    artifact_name: str,
+) -> None:
+    output_dir = tmp_path / "reports" / "row-one" / "site"
+    output_dir.mkdir(parents=True)
+    artifact_path = output_dir.parent / artifact_name
+    artifact_path.write_text("unfinished publish\n", encoding="utf-8")
+
+    with pytest.raises(smoke.SmokeError) as exc_info:
+        smoke.assert_row_one_publish_artifacts_clean(output_dir)
+
+    assert str(exc_info.value) == (
+        f"Unexpected ROW ONE publish artifact after successful first-run: {artifact_name}"
+    )
+    assert artifact_path.read_text(encoding="utf-8") == "unfinished publish\n"
+
+
+def test_row_one_publish_artifact_assertion_rejects_private_owner_without_deleting(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "reports" / "row-one" / "site"
+    owner_path = output_dir / "data" / ".row-one-publish-owner.json"
+    owner_path.parent.mkdir(parents=True)
+    owner_path.write_text('{"token": "unfinished"}\n', encoding="utf-8")
+
+    with pytest.raises(smoke.SmokeError) as exc_info:
+        smoke.assert_row_one_publish_artifacts_clean(output_dir)
+
+    assert str(exc_info.value) == (
+        "Unexpected ROW ONE publish artifact after successful first-run: "
+        "site/data/.row-one-publish-owner.json"
+    )
+    assert owner_path.read_text(encoding="utf-8") == '{"token": "unfinished"}\n'
+
+
+def test_row_one_publish_artifact_assertion_rejects_broken_private_owner_symlink(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "reports" / "row-one" / "site"
+    owner_path = output_dir / "data" / ".row-one-publish-owner.json"
+    owner_path.parent.mkdir(parents=True)
+    owner_target = tmp_path / "missing-owner.json"
+    owner_path.symlink_to(owner_target)
+
+    with pytest.raises(smoke.SmokeError) as exc_info:
+        smoke.assert_row_one_publish_artifacts_clean(output_dir)
+
+    assert str(exc_info.value) == (
+        "Unexpected ROW ONE publish artifact after successful first-run: "
+        "site/data/.row-one-publish-owner.json"
+    )
+    assert owner_path.is_symlink()
+    assert not owner_path.exists()
+    assert owner_path.readlink() == owner_target
+
+
+def test_row_one_publish_artifact_assertion_resolves_output_symlink_before_checking_debris(
+    tmp_path: Path,
+) -> None:
+    physical_output = tmp_path / "physical" / "published-site"
+    physical_output.mkdir(parents=True)
+    logical_output = tmp_path / "logical" / "site-link"
+    logical_output.parent.mkdir()
+    logical_output.symlink_to(physical_output, target_is_directory=True)
+    physical_debris = physical_output.parent / ".published-site.row-one-publish.json"
+    logical_lookalike = logical_output.parent / ".site-link.row-one-publish.json"
+    physical_debris.write_text("physical debris\n", encoding="utf-8")
+    logical_lookalike.write_text("unrelated lookalike\n", encoding="utf-8")
+
+    with pytest.raises(smoke.SmokeError) as exc_info:
+        smoke.assert_row_one_publish_artifacts_clean(logical_output)
+
+    assert str(exc_info.value) == (
+        "Unexpected ROW ONE publish artifact after successful first-run: "
+        ".published-site.row-one-publish.json"
+    )
+    assert physical_debris.read_text(encoding="utf-8") == "physical debris\n"
+    assert logical_lookalike.read_text(encoding="utf-8") == "unrelated lookalike\n"
+
+
+def test_row_one_publish_artifact_assertion_accepts_stable_lock_and_ignores_unrelated_paths(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "reports" / "row-one" / "site"
+    output_dir.mkdir(parents=True)
+    stable_lock = output_dir.parent / ".site.row-one-publish.lock"
+    unrelated_sibling = output_dir.parent / ".other.row-one-publish.json"
+    nested_unrelated_path = output_dir / "archive" / ".site.row-one-publish.json"
+    stable_lock.write_text("row-one-publish-lock/v1\n", encoding="utf-8")
+    unrelated_sibling.write_text("unrelated\n", encoding="utf-8")
+    nested_unrelated_path.parent.mkdir()
+    nested_unrelated_path.write_text("unrelated\n", encoding="utf-8")
+
+    smoke.assert_row_one_publish_artifacts_clean(output_dir)
+
+    assert stable_lock.read_text(encoding="utf-8") == "row-one-publish-lock/v1\n"
+    assert unrelated_sibling.read_text(encoding="utf-8") == "unrelated\n"
+    assert nested_unrelated_path.read_text(encoding="utf-8") == "unrelated\n"
+
+
 def test_parse_args_defaults_to_source_checkout() -> None:
     args = smoke.parse_args(["--repo-root", ".", "--python", "python-test"])
 
@@ -4907,12 +5017,16 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
     context = make_context(tmp_path, python=sys.executable)
     captured: list[tuple[str, ...]] = []
     local_http_smokes: list[tuple[smoke.SmokeContext, Path]] = []
+    publish_artifact_checks: list[Path] = []
 
     def fake_run_row_one_local_http_serve_smoke(
         fake_context: smoke.SmokeContext,
         site_dir: Path,
     ) -> None:
         local_http_smokes.append((fake_context, site_dir))
+
+    def fake_assert_row_one_publish_artifacts_clean(site_dir: Path) -> None:
+        publish_artifact_checks.append(site_dir)
 
     def fake_run_cli(fake_context, *args: str):
         assert fake_context is context
@@ -5301,11 +5415,17 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
         "run_row_one_local_http_serve_smoke",
         fake_run_row_one_local_http_serve_smoke,
     )
+    monkeypatch.setattr(
+        smoke,
+        "assert_row_one_publish_artifacts_clean",
+        fake_assert_row_one_publish_artifacts_clean,
+    )
 
     smoke.run_first_run_flow(context)
 
     assert_first_run_flow_commands(captured, context, example_csv)
     assert local_http_smokes == [(context, context.reports_dir / "row-one" / "site")]
+    assert publish_artifact_checks == [context.reports_dir / "row-one" / "site"]
     assert (context.config_dir / "sources.yaml").read_text(encoding="utf-8") == (
         "version: 1\nsources: []\n"
     )

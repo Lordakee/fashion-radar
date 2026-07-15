@@ -54,8 +54,9 @@ external rate limits, and the staged review gates.
 
 ## Agent Runtime Settings
 
-- When spawning Codex subagents for this project, set the subagent reasoning
-  effort to `xhigh`.
+- Every Codex subagent spawned for this project must explicitly use model
+  `gpt-5.6-sol` with reasoning effort `max`. This rule overrides and replaces
+  every earlier Codex subagent model or reasoning-effort rule.
 - Claude Code is the primary reviewer. Use `--effort max`, read-only plan mode,
   and no session persistence for plan, code, and release reviews:
 

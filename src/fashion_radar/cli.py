@@ -1441,7 +1441,10 @@ def row_one_build(
     output_dir: Path = ROW_ONE_OUTPUT_DIR_OPTION,
     latest_only: bool = typer.Option(
         False,
-        help="Remove known ROW ONE generated children before writing the site.",
+        help=(
+            "Publish a staged, validated, recoverable replacement while "
+            "preserving unrelated top-level children."
+        ),
     ),
 ) -> None:
     """Build the local ROW ONE static daily site."""
@@ -1475,7 +1478,10 @@ def row_one_preview(
     output_dir: Path = ROW_ONE_OUTPUT_DIR_OPTION,
     latest_only: bool = typer.Option(
         False,
-        help="Remove known ROW ONE generated children before writing the site.",
+        help=(
+            "Publish a staged, validated, recoverable replacement while "
+            "preserving unrelated top-level children."
+        ),
     ),
     host: str = ROW_ONE_HOST_OPTION,
     port: int = ROW_ONE_PORT_OPTION,
@@ -1534,7 +1540,7 @@ def row_one_refresh(
         help="Skip ROW ONE SQLite item retention after refresh.",
     ),
 ) -> None:
-    """Refresh ROW ONE by collecting, matching, reporting, and rebuilding the site."""
+    """Collect, match, report, and publish ROW ONE using recoverable staged replacement."""
     try:
         source_config = load_source_config(config_dir / "sources.yaml")
         entity_config = load_entity_config(config_dir / "entities.yaml")

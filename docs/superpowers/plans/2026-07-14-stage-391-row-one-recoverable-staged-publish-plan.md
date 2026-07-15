@@ -61,14 +61,20 @@ ROW_ONE_PUBLISH_CONTRACT_VERSION = "row-one-publish/v1"
 ROW_ONE_PUBLISH_LOCK_CONTRACT_VERSION = "row-one-publish-lock/v1"
 ROW_ONE_PUBLISH_OWNER_CONTRACT_VERSION = "row-one-publish-owner/v1"
 ROW_ONE_PUBLISH_OWNER_PATH = Path("data/.row-one-publish-owner.json")
-_SAFE_DIRECTORY_OPERATIONS_SUPPORTED = (
-    all(
-        function in os.supports_dir_fd
-        for function in (os.open, os.stat, os.mkdir, os.unlink)
+
+
+def _safe_directory_operations_supported() -> bool:
+    return (
+        all(
+            function in os.supports_dir_fd
+            for function in (os.open, os.stat, os.mkdir, os.unlink)
+        )
+        and hasattr(os, "O_DIRECTORY")
+        and hasattr(os, "O_NOFOLLOW")
     )
-    and hasattr(os, "O_DIRECTORY")
-    and hasattr(os, "O_NOFOLLOW")
-)
+
+
+_SAFE_DIRECTORY_OPERATIONS_SUPPORTED = _safe_directory_operations_supported()
 GENERATED_CHILDREN = (
     "index.html",
     ".row-one-site",
@@ -165,6 +171,7 @@ steps do not invent incompatible names:
 | `_new_transaction` | `(target: RowOnePublishTarget, *, token: str | None = None) -> RowOnePublishTransaction` | Task 1 Step 3 |
 | `_validate_token` | `(token: str) -> None` | Task 1 Step 3 |
 | `_journal_payload` | `(transaction: RowOnePublishTransaction) -> dict[str, object]` | Task 1 Step 4 |
+| `_read_canonical_journal` | `(target: RowOnePublishTarget) -> RowOnePublishTransaction | None` | Task 3 Step 4 |
 | `_load_journal` | `(target: RowOnePublishTarget) -> RowOnePublishTransaction | None` | Task 1 Step 4 |
 | `_write_journal` | `(transaction: RowOnePublishTransaction) -> None` | Task 1 Step 4 |
 | `_recover_temporary_journals` | `(target: RowOnePublishTarget) -> None` | Task 1 Step 4 |
@@ -174,6 +181,7 @@ steps do not invent incompatible names:
 | `_try_lock_handle` | `(handle: BinaryIO) -> None` | Task 1 Step 6 |
 | `_unlock_handle` | `(handle: BinaryIO) -> None` | Task 1 Step 6 |
 | `_validate_or_initialize_lock_metadata` | `(handle: BinaryIO, target: RowOnePublishTarget) -> None` | Task 1 Step 6 |
+| `_safe_directory_operations_supported` | `() -> bool` | Task 3 Step 1 |
 | `_require_safe_directory_operations` | `() -> None` | Task 3 Step 1 |
 | `_validate_live_publish_target` | `(target: RowOnePublishTarget) -> None` | Task 2 Step 3 |
 | `_validate_unrelated_tree` | `(path: Path) -> None` | Task 2 Step 3 |
@@ -193,7 +201,7 @@ steps do not invent incompatible names:
 | `_rollback_existing_publish` | `(transaction: RowOnePublishTransaction, publish_error: BaseException) -> NoReturn` | Task 3 Step 4 |
 | `_recover_interrupted_publish` | `(target: RowOnePublishTarget) -> None` | Task 3 Step 6 |
 | `_reject_unowned_publish_artifacts` | `(target: RowOnePublishTarget) -> None` | Task 3 Step 6 |
-| `_is_owned_live` | `(transaction: RowOnePublishTransaction) -> bool` | Task 3 Step 6 |
+| `_is_owned_live` | `(transaction: RowOnePublishTransaction) -> bool` | Task 3 Step 4 |
 | `_restore_previous_output` | `(transaction: RowOnePublishTransaction) -> None` | Task 3 Step 6 |
 | `_finish_published_recovery` | `(transaction: RowOnePublishTransaction) -> None` | Task 3 Step 6 |
 | `_finish_valid_first_publish_recovery` | `(transaction: RowOnePublishTransaction) -> None` | Task 3 Step 6 |
@@ -227,12 +235,13 @@ The journal JSON keys are exact and stable for Stage 391 local recovery:
 
 ### Filesystem Capability Contract
 
-The recoverable latest-only path uses the fixed
-`_SAFE_DIRECTORY_OPERATIONS_SUPPORTED` predicate shown above: `os.open`,
-`os.stat`, `os.mkdir`, and `os.unlink` in `os.supports_dir_fd` plus
-`O_DIRECTORY` and `O_NOFOLLOW`. Task 2's private managed-root/JSON helpers fail
-closed when this set is unavailable. Task 3 adds the single public orchestration
-gate:
+The pure `_safe_directory_operations_supported()` helper shown above evaluates
+the current `os` capability surface: `os.open`, `os.stat`, `os.mkdir`, and
+`os.unlink` in `os.supports_dir_fd` plus independently present `O_DIRECTORY`
+and `O_NOFOLLOW` flags. Import takes exactly one snapshot in
+`_SAFE_DIRECTORY_OPERATIONS_SUPPORTED`. Task 2's private managed-root/JSON
+helpers fail closed when that constant is false. Task 3 adds the single public
+orchestration gate:
 
 ```python
 def _require_safe_directory_operations() -> None:
@@ -244,10 +253,13 @@ def _require_safe_directory_operations() -> None:
 
 `publish_latest_row_one_site` must call this helper before resolving or creating
 the output parent, opening the stable lock, recovering a journal, creating a
-stage, or invoking `render`. Tests monkeypatch only the capability predicate and
-require the output parent and every transaction sibling to remain absent. The
-publisher does not fall back to legacy latest-only cleanup. Ordinary
-`latest_only=False` rendering does not call this gate.
+stage, or invoking `render`. The public gate reads only the import-time constant;
+it must not call the pure detector again. Detector tests monkeypatch each of the
+four `os.supports_dir_fd` memberships and each flag independently and call the
+pure helper. Public-gate tests monkeypatch only the constant and require the
+output parent and every transaction sibling to remain absent. The publisher
+does not fall back to legacy latest-only cleanup. Ordinary `latest_only=False`
+rendering does not call this gate.
 
 The resolved physical output parent is the trusted local transaction root for
 Stage 391. Every managed object and descendant below it retains the plan's
@@ -773,6 +785,14 @@ any candidate, and validate the canonical journal path as missing or regular
 before `os.replace`; a symlink, directory, FIFO, socket, or device is preserved
 and reported as ambiguous.
 
+Keep `_load_journal` as the recovery-capable journal entry. Its production
+caller runs under the stable publisher lock, it may call
+`_recover_temporary_journals`, and it then parses the resulting canonical
+journal. Task 3 extracts that final parse into the fixed
+`_read_canonical_journal` helper for cleanup and rollback preflight; those
+preflights must not call `_load_journal` because temporary-journal promotion or
+deletion would mutate transaction state before all artifacts are validated.
+
 - [ ] **Step 5: Add RED single-publisher lock tests**
 
 Add:
@@ -968,13 +988,18 @@ every non-regular/non-directory/non-symlink entry.
 Implement `_apply_live_root_metadata` separately with
 `shutil.copystat(live, stage, follow_symlinks=False)` when
 `transaction.had_live_output` is true and as a no-op for first publish. It is
-called only after the renderer and staged validator finish, so a restrictive
-prior root mode cannot make staging unwritable and generated top-level writes
-cannot change the restored mtime afterward. Add a full successful-publication
-test that fixes the old live root mode and nanosecond mtime, has the render
-callback create new top-level children, and requires the final physical live
-directory to preserve both values where the platform supports `copystat`. A
-staging-only assertion is not sufficient.
+called only after the renderer and staged validator finish and before the
+`ready` journal write or any live rename. The `copystat` call itself reads the
+snapshot from the still-live physical root at that exact point; there is no
+captured-before-render metadata field or earlier snapshot. This timing is
+defined within Stage 391's local single-user model, which excludes concurrent
+external mutation of the live root. It prevents a restrictive prior root mode
+from making staging unwritable and prevents generated top-level writes from
+changing the restored mtime afterward. Add a full successful-publication test
+that fixes the old live root mode and nanosecond mtime, has the render callback
+create new top-level children, and requires the final physical live directory
+to preserve both values where the platform supports `copystat`. A staging-only
+assertion is not sufficient.
 
 - [ ] **Step 4: Write RED stage-validation tests**
 
@@ -1084,9 +1109,20 @@ Expected: all selected tests and Ruff checks pass.
 
 - [ ] **Step 1: Add the mutation-free capability gate and focused filesystem-operation injection points**
 
-First add RED tests that force the safe-directory capability predicate false
-and call `publish_latest_row_one_site` with an output whose parent does not yet
-exist. Require the exact base `RowOnePublishError` message:
+First add RED unit tests for `_safe_directory_operations_supported()`. Build a
+synthetic supported baseline containing `os.open`, `os.stat`, `os.mkdir`, and
+`os.unlink`, then parameterize removal of each operation from
+`os.supports_dir_fd` independently while both required flags remain present.
+Each removal must make the pure helper return false. In separate parameterized
+cases, keep all four memberships present and remove `O_DIRECTORY` or
+`O_NOFOLLOW` independently; each missing flag must also return false. The full
+synthetic baseline must return true. Call the pure helper in every case rather
+than reloading the module or asserting a duplicated expression.
+
+Then add RED public-gate tests that monkeypatch only
+`_SAFE_DIRECTORY_OPERATIONS_SUPPORTED` false and call
+`publish_latest_row_one_site` with an output whose parent does not yet exist.
+Require the exact base `RowOnePublishError` message:
 
 ```text
 ROW ONE safe directory handles are unsupported on this platform
@@ -1097,13 +1133,16 @@ journal, stage, backup, owner marker, or render-callback side effect exists. Add
 a second integration test proving `render_row_one_site(..., latest_only=False)`
 bypasses the gate and retains its existing in-place behavior.
 
-Parameterize the predicate test so each required operation, including
-descriptor-relative `os.unlink`, can be absent independently. A platform that
-can bind owner reads but cannot perform the required bound owner unlink must
-fail before commit, not during post-publish cleanup.
+The public test must also monkeypatch
+`_safe_directory_operations_supported` to raise if called, proving that the gate
+reads only the import-time constant. A platform that can bind owner reads but
+cannot perform the required bound owner unlink must fail before commit, not
+during post-publish cleanup.
 
-Implement `_require_safe_directory_operations()` from the fixed capability
-contract before adding the remaining injection points.
+Implement the pure helper, initialize the fixed constant from it exactly once,
+and implement `_require_safe_directory_operations()` from the fixed capability
+contract before adding the remaining injection points. The call to the gate
+remains the first operation in `publish_latest_row_one_site`.
 
 Declare these helpers so tests can distinguish each transition without patching
 global `os.replace` or `Path.rename`:
@@ -1184,6 +1223,18 @@ Add tests that inject `_move_publish_path` failures by call index:
 - published cleanup with an unsafe backup object or temporary journal preserves
   the live owner, backup, canonical journal, and every temporary object because
   all artifacts are preflighted before the first deletion.
+- handled cleanup and rollback with a valid same-token temporary journal plus a
+  later-invalid artifact preserve that temporary journal byte-for-byte. Patch
+  `_recover_temporary_journals` to raise if called and prove both preflights use
+  `_read_canonical_journal` rather than recovery-capable `_load_journal`;
+- direct `_read_canonical_journal` coverage proves a missing canonical returns
+  `None`, a valid canonical round-trips, malformed or non-regular canonical
+  state raises without mutation, and no temporary journal is promoted, removed,
+  rewritten, or inspected through `_recover_temporary_journals`; these tests
+  live in this Step 3 fault-injection step intentionally so the mutation-free
+  contract is pinned alongside the preflight/preservation cases, and are turned
+  GREEN by the Step 4 `_read_canonical_journal` extraction (not reimplemented
+  elsewhere);
 - `KeyboardInterrupt` during the first live rename is re-raised unchanged,
   leaves the `live_moving` journal for recovery, and does not attempt a phase
   rollback that could demote the control-flow exception.
@@ -1211,12 +1262,18 @@ Add live-root no-follow RED coverage before implementing the commit helpers:
 
 - replace `live/data` with a symlink to an external directory containing an
   otherwise exact owner plus edition/manifest/runtime JSON, then require
-  `_validate_published_row_one_site` to reject before the integrity validator
-  and preserve every external byte;
+  `_validate_published_row_one_site` to reject without invoking either
+  `validate_row_one_site_dir` or the integrity validator and preserve every
+  external byte;
 - require `_is_owned_live` to reject the same live-root/data ancestor state
   without treating the external owner as transaction-owned;
 - require `_remove_owner_file_if_present` to reject without deleting or
   changing the external owner;
+- write an otherwise valid live owner whose embedded `physical_output` names a
+  different absolute directory and require `_read_owner_token_if_present`,
+  `_validate_published_row_one_site`, `_is_owned_live`, and
+  `_remove_owner_file_if_present` to reject it without mutation even though its
+  token matches;
 - force `_SAFE_DIRECTORY_OPERATIONS_SUPPORTED=False` for each direct helper and
   require the fixed capability error before a child file is opened;
 - cover both a symlinked live root and a symlinked `live/data` child. Missing
@@ -1235,7 +1292,6 @@ def _validate_published_row_one_site(
     require_owner: bool = True,
 ) -> None:
     live = transaction.target.physical_output
-    validate_row_one_site_dir(live)
     owner_token = _read_owner_token_if_present(live)
     if owner_token is not None and owner_token != transaction.token:
         raise RowOnePublishAmbiguousStateError(f"ROW ONE published owner token mismatch: {live}")
@@ -1243,6 +1299,7 @@ def _validate_published_row_one_site(
         raise RowOnePublishAmbiguousStateError(
             f"ROW ONE published owner marker is missing: {live / ROW_ONE_PUBLISH_OWNER_PATH}"
         )
+    validate_row_one_site_dir(live)
     edition = _read_json_object(live / "data" / "edition.json", label="edition")
     _read_json_object(live / "data" / "manifest.json", label="manifest")
     _read_json_object(live / "data" / "runtime.json", label="runtime")
@@ -1257,13 +1314,74 @@ def _commit_publish(
     return _commit_first_publish(transaction)
 ```
 
-`_read_owner_token_if_present` must bind the managed root and `data/` directory
-with the same descriptor-relative helpers as Task 2, return `None` only for a
-missing final owner file, and reject every non-regular owner, symlinked root,
-symlinked `data/`, identity change, malformed payload, or unsupported capability.
-It is used by published validation and `_is_owned_live`; owner cleanup uses the
-separate bound inspection-and-unlink helper so none of those paths can
-reintroduce pathname-only live-root reads.
+`_validate_published_row_one_site` deliberately performs the bound ownership
+preflight first. `_read_owner_token_if_present` binds and validates the managed
+live root and `data/` directory, validates any present owner and its embedded
+physical output, and then the caller enforces the transaction token and
+`require_owner` semantics. `require_owner=False` relaxes only a missing final
+owner marker; it does not relax managed-root or `data/` ancestry safety, and any
+present owner must still match both the token and exact physical live directory.
+Only after this preflight succeeds may `validate_row_one_site_dir(live)` run,
+followed by the bound edition/manifest/runtime JSON reads and integrity check.
+This deliberate order prevents a path-based validator from following an unsafe
+managed ancestor and is the specified error precedence: ancestry or ownership
+ambiguity is reported before any site/content validation error.
+
+As the first Step 4 implementation action, before writing the commit helpers,
+extract the existing canonical parse from `_load_journal` without changing its
+validation. This extraction turns the direct `_read_canonical_journal` tests
+from Step 3 GREEN; no additional dedicated test step is introduced for it:
+
+```python
+def _read_canonical_journal(
+    target: RowOnePublishTarget,
+) -> RowOnePublishTransaction | None:
+    journal_metadata = _regular_file_metadata(
+        target.journal_path,
+        label="journal",
+        allow_missing=True,
+    )
+    if journal_metadata is None:
+        return None
+    payload = _read_journal_json_object(
+        target.journal_path,
+        label="journal",
+        expected_identity=_identity(journal_metadata),
+    )
+    return _transaction_from_payload(
+        target,
+        payload,
+        label=f"journal at {target.journal_path}",
+    )
+
+
+def _load_journal(
+    target: RowOnePublishTarget,
+) -> RowOnePublishTransaction | None:
+    _recover_temporary_journals(target)
+    return _read_canonical_journal(target)
+```
+
+`_read_canonical_journal` validates and reads only the deterministic canonical
+journal. It never calls `_recover_temporary_journals` and never writes, promotes,
+renames, or deletes a transaction path. `_load_journal` remains the sole
+recovery-capable entry; production code calls it only while holding the stable
+publisher lock. Cleanup and rollback preflight use only the canonical reader.
+
+`_read_owner_token_if_present` is a live-root-only helper. It must bind the
+managed live root and `data/` directory with the same descriptor-relative
+helpers as Task 2, return `None` only for a missing final owner file, parse both
+the token and `physical_output`, and reject unless the embedded absolute
+`physical_output` is exactly equal to the `directory` argument before returning
+the token. It also rejects every non-regular owner, symlinked root, symlinked
+`data/`, identity change, malformed payload, or unsupported capability. Do not
+resolve or normalize the embedded value during this comparison. Published
+validation and `_is_owned_live` pass only `transaction.target.physical_output`.
+Stage ownership continues to use Task 2's existing `(token, physical_output)`
+tuple validation against the transaction; do not route staging through this
+live-root-only helper. Owner cleanup uses the separate bound
+inspection-and-unlink helper so none of those paths can reintroduce
+pathname-only live-root reads.
 
 The existing path must keep every post-backup operation inside the rollback
 boundary, including both phase writes:
@@ -1370,13 +1488,19 @@ removes nothing further and raises `RowOnePublishRollbackError` with all
 retained paths. Catch `BaseException` so a handled `KeyboardInterrupt` also
 attempts rollback; `SIGKILL` remains a recovery case.
 
-Before its first rollback move, the helper validates the canonical journal,
-backup directory, complete temporary-journal set, and any new live owner as one
-read-only preflight. It calls `_is_owned_live` before moving a present new live;
-a missing, malformed, non-regular, or mismatched owner raises ambiguous state
-and preserves live, backup, stage, journal, and temporary paths. Before deleting
-owned rollback debris after restoration, it preflights that full cleanup set;
-the canonical journal is removed last.
+Before its first rollback move, the helper calls
+`_read_canonical_journal(transaction.target)` and requires the result to equal
+`transaction`, then validates the backup directory, complete
+temporary-journal set, stage state, and any new live owner as one read-only
+preflight. It must not call `_load_journal` or
+`_recover_temporary_journals`. It calls `_is_owned_live` during that preflight
+before moving a present new live; a missing, malformed, non-regular, or
+mismatched owner, including a matching token paired with a different embedded
+physical output, raises ambiguous state and preserves live, backup, stage,
+journal, and temporary paths. Only after every artifact passes may the first
+rollback rename occur. Before deleting owned rollback debris after restoration,
+it performs another complete read-only canonical cleanup preflight; the
+canonical journal is removed last.
 
 - [ ] **Step 5: Write RED recovery-matrix tests**
 
@@ -1391,7 +1515,9 @@ test_recovery_prefers_backup_before_published_phase
 test_recovery_keeps_valid_first_publish_without_backup
 test_recovery_keeps_valid_published_live_and_cleans_backup
 test_recovery_keeps_published_live_after_owner_was_removed_before_cleanup
+test_recovery_keeps_valid_published_live_without_backup
 test_recovery_restores_backup_when_published_live_is_invalid
+test_recovery_preserves_invalid_published_live_without_backup
 test_recovery_restores_unrelated_only_directory_without_site_validation
 test_recovery_allows_marker_only_output_to_be_repaired
 test_recovery_preserves_and_rejects_index_only_unmarked_output
@@ -1418,11 +1544,33 @@ live plus backup and journal, remove only `data/.row-one-publish-owner.json`, an
 require recovery to validate with `require_owner=False`, keep the new live, and
 clean backup and journal. Earlier phases never relax owner validation.
 
+Parameterize the valid published/no-backup case over all four combinations of
+`had_live_output` true or false and owner present or absent. Seed a complete
+valid live site, a `published` canonical journal, no stage, and no backup. When
+the owner is present, its token and embedded physical output must both match.
+Recovery keeps the live site and finishes bounded cleanup, including removal of
+the owner when present, matching temporary journals, and the canonical journal.
+This proves cleanup is idempotent after either an ordinary first publish (which
+never had a backup) or an existing publish whose backup cleanup already
+completed.
+
+Parameterize the invalid published/no-backup case over both
+`had_live_output` values and owner presence as well. Recovery has no trustworthy
+version to restore, so it raises `RowOnePublishAmbiguousStateError` before the
+first state-machine cleanup deletion and preserves every seeded path: the
+invalid live tree, owner if present, and canonical journal byte-for-byte. Do not
+seed a temporary journal in this matrix case because `_load_journal` performs
+its separately specified locked temporary-journal recovery before phase/state
+dispatch. A `published` phase never turns an invalid, unrestorable live tree
+into successful cleanup.
+
 - [ ] **Step 6: Implement old-version-first recovery**
 
-Implement `_recover_interrupted_publish(target)` as a pure phase/state dispatcher
-over a validated journal. It must run under the lock, call temporary-journal
-recovery first, reject unknown sibling artifacts, and use these invariants:
+Implement `_recover_interrupted_publish(target)` as a phase/state dispatcher
+over a validated journal. It must run under the lock and use `_load_journal` as
+the one recovery-capable entry so temporary-journal recovery occurs before the
+canonical read. It then rejects unknown sibling artifacts and uses these
+invariants:
 
 ```python
 if transaction.phase is not RowOnePublishPhase.PUBLISHED and backup.exists():
@@ -1437,6 +1585,21 @@ else:
 
 Each branch verifies actual path state and ownership before moving or deleting.
 Ambiguous combinations raise and preserve every path.
+
+`_finish_published_recovery` first calls the owner-first published validator with
+`require_owner=False`. The managed live root, `data/` directory, and any present
+owner are therefore validated before `validate_row_one_site_dir` or the bound
+JSON/integrity checks; a present owner must still be regular and match both the
+token and exact physical live directory. A valid live is authoritative in
+`published` phase whether the journal says `had_live_output` true or false and
+whether the exact backup is present or absent, so recovery keeps live and
+finishes cleanup. Unsafe or mismatched owner, journal, stage, backup, or sibling
+metadata is ownership ambiguity and preserves all paths; it never falls through
+to restoration. If only live site content/integrity validation fails after
+ownership preflight and a valid owned backup exists, restore the backup under
+the existing old-version recovery rule. If live content/integrity validation
+fails and backup is absent, raise ambiguous state before deleting the owner,
+canonical journal, or any live child.
 
 - [ ] **Step 7: Implement high-level orchestration and bounded cleanup**
 
@@ -1477,18 +1640,25 @@ Implement `_preflight_cleanup_artifacts(transaction, *, published)` as one
 complete read-only pass. Before either cleanup function mutates anything, it
 must:
 
-- require the canonical journal to be a regular file equal to `transaction`;
+- call `_read_canonical_journal(transaction.target)` and require the result to
+  be a regular, fully parsed canonical journal equal to `transaction`, without
+  calling `_load_journal` or `_recover_temporary_journals`;
 - require phase `published` exactly when `published=True`, otherwise require
   only `staging` or `ready`;
 - enumerate the complete matching temporary-journal set with no-follow metadata
   and require every candidate to be a regular, fully parsed same-token journal;
 - reject every extra matching stage/backup sibling not named by the journal;
-- for handled cleanup, require an existing stage to be a directory with the
-  matching regular owner marker, require backup to be absent, and reject a
-  token-owned live path as cleanup-pending rather than deleting its journal;
-- for published cleanup, require a complete valid live site, accept only a
-  missing or matching regular owner marker, require stage to be absent, and
-  require any backup to be the exact journal-owned directory;
+- for handled cleanup, allow the stage to be absent after a handled exclusive
+  stage-creation or owner-write cleanup; when it exists, require it to be a
+  directory with a regular owner whose token and embedded physical output both
+  match the transaction. Require backup to be absent and reject a token-owned
+  live path as cleanup-pending rather than deleting its journal;
+- for published cleanup, use the owner-first published validator with
+  `require_owner=False`, so a missing owner is accepted but any present owner
+  and the managed root/`data/` ancestry are validated before the complete
+  site/content checks. Require stage to be absent and any backup to be the exact
+  journal-owned directory. Backup absence is valid in `published` phase for
+  either value of `had_live_output`;
 - raise ambiguous or cleanup-pending before the first mutation when any check
   fails.
 
@@ -1500,7 +1670,13 @@ After defining that preflight, implement cleanup as:
 def _cleanup_after_handled_failure(
     transaction: RowOnePublishTransaction,
 ) -> None:
-    if _load_journal(transaction.target) is None:
+    # Missing-journal guard only: a quick no-mutation exit when no canonical
+    # journal names an owned transaction to clean. _preflight_cleanup_artifacts
+    # below deliberately performs its own complete canonical read and full
+    # equality check against this transaction, so this guard result is not
+    # reused for validation.
+    canonical = _read_canonical_journal(transaction.target)
+    if canonical is None:
         _reject_unowned_publish_artifacts(transaction.target)
         return
     _preflight_cleanup_artifacts(transaction, published=False)
@@ -1513,10 +1689,8 @@ def _cleanup_after_handled_failure(
             raise RowOnePublishAmbiguousStateError(
                 f"ROW ONE owned stage path is unsafe: {transaction.stage_path}"
             )
-        if _read_owner_token(transaction.stage_path) != transaction.token:
-            raise RowOnePublishAmbiguousStateError(
-                f"ROW ONE stage owner token mismatch: {transaction.stage_path}"
-            )
+        # The complete preflight already revalidated the stage owner token and
+        # physical_output tuple against this transaction.
         _remove_publish_path(transaction.stage_path)
     _remove_matching_temporary_journals(transaction)
     transaction.target.journal_path.unlink()
@@ -1548,18 +1722,38 @@ def _cleanup_after_published(transaction: RowOnePublishTransaction) -> None:
         ) from exc
 ```
 
+The published cleanup mutation order is fixed and crash-recoverable: remove the
+owner if present, remove the exact owned backup if present, remove validated
+same-token temporary journals, then remove the canonical journal last. The live
+site is never deleted by this cleanup. For first publish, backup is absent from
+the start, so both owner-present and owner-removed no-backup states are directly
+reachable. For an existing publish, owner-removed plus backup-present is
+reachable after the first mutation, and owner-removed plus no-backup is
+reachable after the second. Owner-present plus no-backup is not produced by
+this chosen existing-publish ordering, but recovery accepts it regardless of how
+it arose: it is an idempotent conservative superset of the states emitted by
+the chosen cleanup order, and a valid live site plus matching remaining
+ownership state is cleaned the same way whether or not that exact combination
+was produced by a normal cleanup sequence. Every one of these valid `published` states keeps live and resumes the
+same cleanup order. An invalid live with no backup fails the complete preflight
+and preserves every remaining path without deletion.
+
 `_remove_owner_file_from_managed_root` must keep the verified managed-root and
 `data/` directory descriptors open from owner inspection through the relative
 unlink. It returns only when the final owner is absent, requires the exact token
-when present, and never performs a full-path unlink after releasing the bound
-directory. Tests inject a `live/data` replacement between inspection and unlink
-and require zero external mutation.
+and an embedded physical output exactly equal to `directory` when present, and
+never performs a full-path unlink after releasing the bound directory. Tests
+inject a `live/data` replacement between inspection and unlink and require zero
+external mutation.
 
-`_remove_owned_backup_if_present` validates the canonical journal token and
-exact backup path before removal. `_cleanup_after_handled_failure` must not erase
-a rollback error, ambiguous state, committed state, unowned stage path, or
+`_remove_owned_backup_if_present` uses `_read_canonical_journal` to validate the
+canonical journal token and exact backup path before removal; it never invokes
+temporary-journal recovery. `_cleanup_after_handled_failure` must not erase a
+rollback error, ambiguous state, committed state, unowned stage path, or
 token-owned live path. Every owner, journal, and temporary-journal deletion is
 preceded by no-follow regular-file validation; unknown objects are preserved.
+No cleanup or rollback mutation may occur until its complete canonical
+preflight has succeeded.
 
 Implement `publish_latest_row_one_site` in this exact order:
 
@@ -2130,10 +2324,13 @@ git add \
   scripts/check_package_archives.py \
   tests/test_first_run_smoke.py \
   tests/test_package_archives.py \
+  AGENTS.md \
   README.md docs/row-one.md docs/first-run.md docs/cli-reference.md \
   docs/architecture.md CHANGELOG.md \
   tests/test_row_one_docs.py tests/test_first_run_docs.py tests/test_cli_docs.py \
-  tests/test_architecture_boundary_docs.py \
+  tests/test_architecture_boundary_docs.py tests/test_review_protocol_docs.py \
+  docs/reviews/claude-code-stage-391-plan-rereview.md \
+  docs/reviews/opencode-stage-391-plan-rereview-2.md \
   docs/superpowers/specs/2026-07-14-stage-391-row-one-recoverable-staged-publish-design.md \
   docs/superpowers/plans/2026-07-14-stage-391-row-one-recoverable-staged-publish-plan.md
 for review_path in \
@@ -2468,15 +2665,31 @@ artifact beyond the authorized Git branch.
 - [ ] Staged validation reads disk JSON and checks the public marker/index.
 - [ ] Every destructive rename has RED failure and rollback coverage.
 - [ ] Every journal phase has recovery coverage.
+- [ ] `_load_journal` is used only as the locked recovery-capable entry;
+  rollback and cleanup preflights use mutation-free
+  `_read_canonical_journal` and validate every artifact before deleting or
+  renaming anything.
 - [ ] Unknown paths, malformed state, and ownership mismatches delete nothing.
 - [ ] Temporary journal, canonical journal, lock, and owner non-regular paths
   have no-follow tests that preserve the unexpected object.
+- [ ] Live-root owner reads reject a matching token paired with any embedded
+  physical output other than the exact managed live directory; stage ownership
+  retains its existing token-and-physical-output tuple validation.
 - [ ] Final live root mode and mtime are asserted after real renderer writes.
+- [ ] Live-root metadata is sampled by `copystat` from the still-live root only
+  after staged writes and validation and before `ready` or any live rename,
+  within the documented non-concurrent-external-mutation model.
 - [ ] Ordinary CLI failures hide tokenized recovery paths while rollback,
   cleanup-pending, and ambiguous errors retain required operator paths.
 - [ ] Latest-only success leaves bounded disk state and logical result paths.
 - [ ] Unsupported safe-directory operations fail before the output parent,
   lock, journal, stage, backup, owner, and render callback are created.
+- [ ] The pure capability helper has independent tests for all four
+  `os.supports_dir_fd` memberships and both flags, while the public gate reads
+  only the import-time constant and remains the first publisher operation.
+- [ ] Published valid-live recovery without a backup covers owner present and
+  absent for both `had_live_output` values; invalid live without a backup is
+  ambiguous and preserves all remaining artifacts without deletion.
 - [ ] Public docs state the current latest-only capability boundary without
   claiming the package as a whole is platform-specific.
 - [ ] `public_uv`, the fail-closed mirror scan, immutable
