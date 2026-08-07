@@ -47,6 +47,7 @@ unfinished scope before it is closed.
 **Files:**
 - Modify: `src/fashion_radar/settings.py:100-147`
 - Modify: `configs/scoring.example.yaml`
+- Modify: `src/fashion_radar/templates/configs/scoring.example.yaml` (keep the packaged example byte-identical to the root example)
 - Modify: `configs/scoring.yaml`
 - Modify: `tests/test_config.py`
 

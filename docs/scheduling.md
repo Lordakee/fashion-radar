@@ -64,14 +64,26 @@ This is 04:00 local scheduling for cron and systemd. The generated ROW ONE
 scheduled snippets run the refresh command directly. They do not use the preview
 path or the general serial collection/report command.
 
+`row-one refresh` evaluates current-run daily content acceptance immediately
+after collection and before matching, report writing, site publication,
+dated-report pruning, and SQLite item retention. The default thresholds are 1
+successful collector, 1 fresh current-run item, and 48 hours. FAILED and SKIPPED
+collector results do not count. A rejected timer or cron run is intentionally
+visible as a failure rather than a successful empty edition.
+
+`--allow-unaccepted-content` is a one-shot manual override for an intentional
+refresh. It prints a warning, does not persistently disable daily content
+acceptance, and must not be added to normal cron or systemd commands. The
+scheduled snippets intentionally omit it.
+
 `row-one refresh` prunes stale dated report and site artifacts for the local
-ROW ONE presentation path. By default, it also prunes SQLite items older than
-the retention window after generating the current edition; the default ROW ONE
-SQLite item retention window is 1 day. Pass `--retention-days N` to keep a
-longer local item-history window, or pass `--skip-data-retention` when a
-refresh should leave SQLite item history untouched. A non-skipped SQLite
-retention failure returns a nonzero exit status after report and site output is
-written.
+ROW ONE presentation path. Daily content acceptance succeeds before SQLite item
+retention. By default, it also prunes SQLite items older than the retention
+window after generating the current edition; the default ROW ONE SQLite item
+retention window is 1 day. Pass `--retention-days N` to keep a longer local
+item-history window, or pass `--skip-data-retention` when a refresh should leave
+SQLite item history untouched. A non-skipped SQLite retention failure returns a
+nonzero exit status after report and site output is written.
 
 The generated ROW ONE site can be served later with `row-one serve`; use
 `--host 0.0.0.0` only when you explicitly want IP:port local-network serving.

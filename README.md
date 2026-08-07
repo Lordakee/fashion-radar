@@ -1058,9 +1058,22 @@ ROW ONE supports IP:port local-network serving when you explicitly bind
 from another device. The local ROW ONE server has no authentication layer.
 Open Design imagery is optional and not required for tests.
 `row-one refresh` is the single local daily refresh command for ROW ONE: it
-refreshes the daily report data and generated site in one command. After the
-current site and reports are generated, it keeps generated dated report artifacts
-latest-only in the selected `--reports-dir`, pruning older
+refreshes the daily report data and generated site in one command. `row-one
+refresh` evaluates current-run daily content acceptance immediately after
+collection and before matching, report writing, site publication, dated-report
+pruning, and SQLite item retention. The default thresholds are 1 successful
+collector, 1 fresh current-run item, and 48 hours. FAILED and SKIPPED collector
+results do not count. Freshness uses normalized `published_at`; dateless
+collectors may synthesize a collection-time date. A rejection exits with code 1
+and preserves the existing site and generated reports. Collector runs and items
+already stored by collection are not rolled back. `--allow-unaccepted-content`
+is a one-shot manual override that prints a warning for that refresh only; it
+does not persistently disable daily content acceptance and must not appear in
+normal cron or systemd commands.
+
+Daily content acceptance succeeds before SQLite item retention. After the
+current site and reports are generated, `row-one refresh` keeps generated dated
+report artifacts latest-only in the selected `--reports-dir`, pruning older
 `fashion-radar-YYYY-MM-DD.{md,json,html}` files, then runs SQLite item retention.
 The SQLite retention uses a default 1-day retention window for `items` and
 `item_entities` so test deployments stay disk-friendly. Use `--retention-days N`

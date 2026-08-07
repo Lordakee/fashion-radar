@@ -7,6 +7,7 @@ README = ROOT / "README.md"
 ROW_ONE_DOC = ROOT / "docs" / "row-one.md"
 ARCHITECTURE_DOC = ROOT / "docs" / "architecture.md"
 CLI_REFERENCE = ROOT / "docs" / "cli-reference.md"
+SCORING_DOC = ROOT / "docs" / "scoring.md"
 FIRST_RUN_DOC = ROOT / "docs" / "first-run.md"
 SCHEDULING_DOC = ROOT / "docs" / "scheduling.md"
 DATA_RETENTION_DOC = ROOT / "docs" / "data-retention.md"
@@ -6125,3 +6126,45 @@ def test_row_one_docs_describe_stage_389_daily_ops_boundaries() -> None:
             "non-skipped sqlite retention failure returns a nonzero exit status "
             "after report and site output is written"
         ) in row_one_refresh_guidance, name
+
+
+def test_row_one_docs_describe_stage_392_daily_content_acceptance() -> None:
+    readme = _normalized(_read(README))
+    row_one = _normalized(_read(ROW_ONE_DOC))
+    cli_reference = _normalized(_read(CLI_REFERENCE))
+    scoring = _normalized(_read(SCORING_DOC))
+
+    lifecycle = (
+        "`row-one refresh` evaluates current-run daily content acceptance immediately after "
+        "collection and before matching, report writing, site publication, dated-report "
+        "pruning, and sqlite item retention"
+    )
+    for text in (readme, row_one, cli_reference):
+        assert lifecycle in text
+
+    for phrase in (
+        "the default thresholds are 1 successful collector, 1 fresh current-run item, and 48 hours",
+        "failed and skipped collector results do not count",
+        "freshness uses normalized `published_at`",
+        "dateless collectors may synthesize a collection-time date",
+        "rejection exits with code 1 and preserves the existing site and generated reports",
+        "collector runs and items already stored by collection are not rolled back",
+    ):
+        assert phrase in row_one
+
+    for phrase in (
+        "`daily_content_acceptance`",
+        "`min_successful_collectors: 1`",
+        "`min_fresh_items: 1`",
+        "`max_fresh_item_age_hours: 48`",
+        "used only by `row-one refresh` for the current collection run",
+    ):
+        assert phrase in scoring
+
+    for phrase in (
+        "`--allow-unaccepted-content`",
+        "one-shot manual override",
+        "prints a warning",
+        "does not persistently disable daily content acceptance",
+    ):
+        assert phrase in cli_reference

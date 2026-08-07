@@ -95,3 +95,21 @@ def test_data_retention_docs_describe_post_artifact_refresh_failure() -> None:
             "non-skipped sqlite retention failure returns a nonzero exit status after report "
             "and site output is written"
         ) in text, name
+
+
+def test_row_one_content_acceptance_precedes_existing_retention_boundaries() -> None:
+    docs = {
+        "README": _normalized(_read(README)),
+        "ROW ONE": _normalized(_read(ROW_ONE_DOC)),
+        "CLI reference": _normalized(_read(CLI_REFERENCE)),
+    }
+
+    for name, text in docs.items():
+        assert "daily content acceptance succeeds before sqlite item retention" in text, name
+        assert "default 1-day retention" in text, name
+
+    for name in ("README", "ROW ONE"):
+        text = docs[name]
+        assert "does not prune `collector_runs`" in text, name
+        assert "does not prune `source_health`" in text, name
+        assert "does not prune `entity_first_seen`" in text, name

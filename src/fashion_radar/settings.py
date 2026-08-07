@@ -136,6 +136,14 @@ class CandidateDiscoverySettings(BaseModel):
     max_phrase_chars: int = Field(default=80, ge=10)
 
 
+class DailyContentAcceptanceSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    min_successful_collectors: int = Field(default=1, gt=0)
+    min_fresh_items: int = Field(default=1, gt=0)
+    max_fresh_item_age_hours: int = Field(default=48, gt=0)
+
+
 class ScoringConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -143,6 +151,9 @@ class ScoringConfig(BaseModel):
     scoring: ScoringSettings
     candidate_discovery: CandidateDiscoverySettings = Field(
         default_factory=CandidateDiscoverySettings
+    )
+    daily_content_acceptance: DailyContentAcceptanceSettings = Field(
+        default_factory=DailyContentAcceptanceSettings
     )
 
 

@@ -40,3 +40,10 @@ candidate_discovery:
   min_single_token_distinct_sources: 2
   max_phrase_words: 5
   max_phrase_chars: 80
+
+# Used only by `row-one refresh` to assess the current collection run.
+# `--allow-unaccepted-content` bypasses these checks for one refresh.
+daily_content_acceptance:
+  min_successful_collectors: 1
+  min_fresh_items: 1
+  max_fresh_item_age_hours: 48

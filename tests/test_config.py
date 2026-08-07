@@ -445,6 +445,54 @@ def test_candidate_discovery_defaults_load_from_minimal_scoring_config(tmp_path:
     assert config.candidate_discovery.review_min_current_mentions == 2
 
 
+def test_daily_content_acceptance_defaults_load_from_minimal_scoring_config(
+    tmp_path: Path,
+) -> None:
+    path = write_yaml(
+        tmp_path / "scoring.yaml",
+        """
+        version: 1
+        scoring: {}
+        """,
+    )
+
+    config = load_scoring_config(path)
+
+    assert config.daily_content_acceptance.min_successful_collectors == 1
+    assert config.daily_content_acceptance.min_fresh_items == 1
+    assert config.daily_content_acceptance.max_fresh_item_age_hours == 48
+
+
+@pytest.mark.parametrize(
+    ("setting_name", "setting_value"),
+    [
+        ("min_successful_collectors", 0),
+        ("min_successful_collectors", -1),
+        ("min_fresh_items", 0),
+        ("min_fresh_items", -1),
+        ("max_fresh_item_age_hours", 0),
+        ("max_fresh_item_age_hours", -1),
+    ],
+)
+def test_daily_content_acceptance_rejects_non_positive_thresholds(
+    tmp_path: Path,
+    setting_name: str,
+    setting_value: int,
+) -> None:
+    path = write_yaml(
+        tmp_path / "scoring.yaml",
+        f"""
+        version: 1
+        scoring: {{}}
+        daily_content_acceptance:
+          {setting_name}: {setting_value}
+        """,
+    )
+
+    with pytest.raises(ConfigError, match="greater than 0"):
+        load_scoring_config(path)
+
+
 def test_candidate_discovery_rejects_invalid_threshold(tmp_path: Path) -> None:
     path = write_yaml(
         tmp_path / "scoring.yaml",

@@ -148,6 +148,7 @@ from fashion_radar.row_one.article_readiness import (
     build_row_one_article_readiness,
     row_one_article_readiness_payload,
 )
+from fashion_radar.row_one.daily_content_acceptance import evaluate_daily_content_acceptance
 from fashion_radar.row_one.local_article_content_health import (
     row_one_local_article_content_health_payload,
 )
@@ -1539,17 +1540,40 @@ def row_one_refresh(
         "--skip-data-retention",
         help="Skip ROW ONE SQLite item retention after refresh.",
     ),
+    allow_unaccepted_content: bool = typer.Option(
+        False,
+        "--allow-unaccepted-content",
+        help="Publish even when the current refresh fails daily content acceptance.",
+    ),
 ) -> None:
     """Collect, match, report, and publish ROW ONE using recoverable staged replacement."""
     try:
         source_config = load_source_config(config_dir / "sources.yaml")
         entity_config = load_entity_config(config_dir / "entities.yaml")
         scoring_config = load_scoring_config(config_dir / "scoring.yaml")
-        collect_configured_sources(
+        collection_results = collect_configured_sources(
             data_dir=data_dir,
             sources=source_config.sources,
             now=as_of,
         )
+        acceptance = evaluate_daily_content_acceptance(
+            results=collection_results,
+            settings=scoring_config.daily_content_acceptance,
+            as_of=parse_datetime_utc(as_of),
+        )
+        if not acceptance.accepted:
+            reasons = "; ".join(acceptance.reasons)
+            if not allow_unaccepted_content:
+                typer.echo(
+                    "ROW ONE refresh rejected: "
+                    f"{reasons}; existing site and generated reports were preserved.",
+                    err=True,
+                )
+                raise typer.Exit(1)
+            typer.echo(
+                "Warning: ROW ONE refresh content acceptance bypassed: " + reasons,
+                err=True,
+            )
         summary: MatchSummary = match_stored_items(
             data_dir=data_dir,
             entities=entity_config.entities,
@@ -1574,6 +1598,8 @@ def row_one_refresh(
             reports_dir=reports_dir,
             as_of=as_of,
         )
+    except typer.Exit:
+        raise
     except ConfigError as exc:
         typer.echo(f"Invalid config: {exc}", err=True)
         raise typer.Exit(1) from exc

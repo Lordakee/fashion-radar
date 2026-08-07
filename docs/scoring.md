@@ -162,6 +162,28 @@ not platform coverage verification. Candidate score components intentionally
 omit the tracked-entity high-weight source term. Candidate scoring has no
 high-weight-source component.
 
+## Daily Content Acceptance
+
+`daily_content_acceptance` is used only by `row-one refresh` for the current
+collection run. It is a publication precondition, not a heat-scoring input, and
+does not change the scoring formula.
+
+```yaml
+daily_content_acceptance:
+  min_successful_collectors: 1
+  min_fresh_items: 1
+  max_fresh_item_age_hours: 48
+```
+
+The defaults are `min_successful_collectors: 1`, `min_fresh_items: 1`, and
+`max_fresh_item_age_hours: 48`: one successful collector, one fresh current-run
+item, and 48 hours. FAILED and SKIPPED collector results do not count.
+Freshness uses normalized `published_at`; dateless collectors may synthesize a
+collection-time date. A rejected refresh preserves the existing site and
+generated reports, while collector runs and items already stored by collection
+are not rolled back. `--allow-unaccepted-content` is a one-shot manual override
+that prints a warning and does not persistently disable daily content acceptance.
+
 ## Trend Deltas
 
 Trend deltas reuse entity scoring and candidate discovery snapshots. They do not

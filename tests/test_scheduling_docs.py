@@ -20,6 +20,10 @@ def _section(text: str, heading: str) -> str:
     return text.split(marker, 1)[1].split("\n## ", 1)[0]
 
 
+def _fenced_code(text: str) -> str:
+    return "\n".join(text.split("```")[1::2])
+
+
 def test_scheduling_docs_keep_local_serial_run_boundary() -> None:
     normalized = _normalized(_read_scheduling_doc())
 
@@ -108,3 +112,26 @@ def test_scheduling_docs_describe_stage_389_row_one_systemd_operations() -> None
         "--port",
     ):
         assert phrase in normalized
+
+
+def test_scheduling_docs_describe_stage_392_content_acceptance_operations() -> None:
+    row_one_section = _section(_read_scheduling_doc(), "ROW ONE Daily Site")
+    normalized = _normalized(row_one_section)
+
+    for phrase in (
+        "daily content acceptance",
+        "current-run",
+        "1 successful collector",
+        "1 fresh current-run item",
+        "48 hours",
+        "failed and skipped collector results do not count",
+        (
+            "a rejected timer or cron run is intentionally visible as a failure rather than a "
+            "successful empty edition"
+        ),
+        "`--allow-unaccepted-content` is a one-shot manual override",
+        "must not be added to normal cron or systemd commands",
+    ):
+        assert phrase in normalized
+
+    assert "--allow-unaccepted-content" not in _fenced_code(row_one_section)

@@ -100,16 +100,29 @@ first-run smoke now performs a local HTTP serve fetch, not just
   Run `fashion-radar schedule-example --help` for current mode, time, project,
   config, data, and reports options.
 - `row-one`: parent command for ROW ONE local daily site helpers.
-- `row-one refresh`: run the single local daily ROW ONE refresh path:
-  collect configured sources, match stored items, write the current dated report,
-  generate the ROW ONE site, prune stale dated report artifacts, and then run
-  SQLite retention. Requires `--as-of` and supports `--config-dir`,
-  `--data-dir`, `--reports-dir`, `--output-dir`, `--retention-days`, and
-  `--skip-data-retention`. SQLite retention uses default 1-day retention after
-  the current site and reports are generated; pass `--retention-days N` for a
-  longer local item-history window or `--skip-data-retention` to leave SQLite
-  item history untouched for that refresh. A non-skipped SQLite retention failure
-  returns a nonzero exit status after report and site output is written. Site
+- `row-one refresh`: run the single local daily ROW ONE refresh path: collect
+  configured sources, then evaluate current-run daily content acceptance before
+  matching stored items, writing the current dated report, generating the ROW
+  ONE site, pruning stale dated report artifacts, or running SQLite retention.
+  `row-one refresh` evaluates current-run daily content acceptance immediately
+  after collection and before matching, report writing, site publication,
+  dated-report pruning, and SQLite item retention. The default thresholds are 1
+  successful collector, 1 fresh current-run item, and 48 hours. FAILED and
+  SKIPPED collector results do not count. Freshness uses normalized
+  `published_at`; dateless collectors may synthesize a collection-time date.
+  A rejection exits with code 1 and preserves the existing site and generated
+  reports. Collector runs and items already stored by collection are not rolled
+  back. Requires `--as-of` and supports `--config-dir`, `--data-dir`,
+  `--reports-dir`, `--output-dir`, `--retention-days`, `--skip-data-retention`,
+  and `--allow-unaccepted-content`. `--allow-unaccepted-content` is a one-shot
+  manual override that prints a warning for that invocation only; it does not
+  persistently disable daily content acceptance and must not be used in normal
+  cron or systemd commands. Daily content acceptance succeeds before SQLite item
+  retention. SQLite retention uses default 1-day retention after the current
+  site and reports are generated; pass `--retention-days N` for a longer local
+  item-history window or `--skip-data-retention` to leave SQLite item history
+  untouched for that refresh. A non-skipped SQLite retention failure returns a
+  nonzero exit status after report and site output is written. Site
   publication uses a failure-safe recoverable publish: a staged, validated
   replacement that preserves unrelated top-level output children and does not
   delete live generated children before rendering. Recoverable latest-only

@@ -10,6 +10,7 @@ import threading
 import time
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from jsonschema import Draft202012Validator, FormatChecker
@@ -20,6 +21,7 @@ import fashion_radar.cli as cli_module
 import fashion_radar.row_one.publish as row_one_publish
 import fashion_radar.row_one.render as row_one_render
 from fashion_radar.cli import app
+from fashion_radar.collectors.base import CollectorResult
 from fashion_radar.db.engine import create_sqlite_engine
 from fashion_radar.db.repositories import ItemRepository
 from fashion_radar.db.schema import initialize_schema, item_entities, items
@@ -31,7 +33,10 @@ from fashion_radar.models.report import (
     RepresentativeItem,
     empty_daily_brief,
 )
-from fashion_radar.models.source import SourceType
+from fashion_radar.models.source import SourceDefinition, SourceType
+from fashion_radar.row_one.daily_content_acceptance import (
+    evaluate_daily_content_acceptance as real_evaluate_daily_content_acceptance,
+)
 from fashion_radar.row_one.edition import build_row_one_edition
 from fashion_radar.row_one.models import (
     LocalizedText,
@@ -257,6 +262,53 @@ def _seed_collected_item(data_dir: Path, *, title: str, url: str) -> None:
         )
     finally:
         engine.dispose()
+
+
+def _refresh_source(name: str) -> SourceDefinition:
+    slug = name.lower().replace(" ", "-")
+    return SourceDefinition(
+        name=name,
+        type=SourceType.RSS,
+        url=f"https://example.com/{slug}.xml",
+    )
+
+
+def _refresh_item(source: SourceDefinition, *, published_at: str) -> CollectedItem:
+    slug = source.name.lower().replace(" ", "-")
+    return CollectedItem(
+        source_name=source.name,
+        source_type=source.type,
+        url=f"https://example.com/{slug}/story",
+        title=f"{source.name} story",
+        published_at=published_at,
+        summary="A collected fashion signal.",
+    )
+
+
+def _successful_refresh_result(
+    *,
+    source_name: str = "Refresh Source",
+    published_at: str = AS_OF,
+    items: list[CollectedItem] | None = None,
+) -> CollectorResult:
+    source = _refresh_source(source_name)
+    collected_items = [_refresh_item(source, published_at=published_at)] if items is None else items
+    return CollectorResult.success(
+        source,
+        items=collected_items,
+        started_at=parse_datetime_utc(AS_OF),
+        finished_at=parse_datetime_utc(AS_OF),
+    )
+
+
+def _failed_refresh_result(*, source_name: str = "Failed Source") -> CollectorResult:
+    source = _refresh_source(source_name)
+    return CollectorResult.failed(
+        source,
+        error=RuntimeError("collector failed"),
+        started_at=parse_datetime_utc(AS_OF),
+        finished_at=parse_datetime_utc(AS_OF),
+    )
 
 
 @_REQUIRES_SAFE_DIRECTORY_OPERATIONS
@@ -881,17 +933,35 @@ def _patch_successful_row_one_refresh_pipeline(
     reports_dir: Path,
     output_dir: Path,
     calls: list[str],
+    collection_results: list[CollectorResult] | None = None,
     patch_site_writer: bool = True,
     guard_sqlite_retention: bool = False,
 ) -> None:
     class StoredMatches:
         matches_stored = 4
 
-    def collect_configured_sources(**kwargs: object) -> None:
+    if collection_results is None:
+        collection_results = [_successful_refresh_result(source_name="Harness Source")]
+
+    def collect_configured_sources(**kwargs: object) -> list[CollectorResult]:
         assert kwargs["data_dir"] == data_dir
         assert kwargs["sources"] == []
         assert kwargs["now"] == AS_OF
         calls.append("collect_configured_sources")
+        return collection_results
+
+    def evaluate_daily_content_acceptance(
+        *, results: list[CollectorResult], settings: object, as_of: object
+    ):
+        assert results == collection_results
+        assert settings is not None
+        assert as_of == parse_datetime_utc(AS_OF)
+        calls.append("evaluate_daily_content_acceptance")
+        return real_evaluate_daily_content_acceptance(
+            results=results,
+            settings=settings,
+            as_of=as_of,
+        )
 
     def match_stored_items(**kwargs: object) -> StoredMatches:
         assert kwargs["data_dir"] == data_dir
@@ -957,6 +1027,12 @@ def _patch_successful_row_one_refresh_pipeline(
         )
 
     monkeypatch.setattr(cli_module, "collect_configured_sources", collect_configured_sources)
+    monkeypatch.setattr(
+        cli_module,
+        "evaluate_daily_content_acceptance",
+        evaluate_daily_content_acceptance,
+        raising=False,
+    )
     monkeypatch.setattr(cli_module, "match_stored_items", match_stored_items)
     monkeypatch.setattr(cli_module, "write_daily_report_files", write_daily_report_files)
     monkeypatch.setattr(
@@ -981,6 +1057,7 @@ def _assert_refresh_stopped_after_site_publication(
 ) -> None:
     assert calls == [
         "collect_configured_sources",
+        "evaluate_daily_content_acceptance",
         "match_stored_items",
         "write_daily_report_files",
         "_write_row_one_site_from_cli_options",
@@ -990,6 +1067,241 @@ def _assert_refresh_stopped_after_site_publication(
     assert (reports_dir / "daily.html").read_text(encoding="utf-8") == (
         "<html><body>Daily report</body></html>\n"
     )
+
+
+def _patch_rejected_refresh_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    collection_results: list[CollectorResult],
+) -> dict[str, Mock]:
+    collection = Mock(name="collect_configured_sources", return_value=collection_results)
+    downstream = {
+        name: Mock(
+            name=name,
+            side_effect=AssertionError(f"{name} must not run after rejection"),
+        )
+        for name in (
+            "match_stored_items",
+            "write_daily_report_files",
+            "_write_row_one_site_from_cli_options",
+            "prune_stale_daily_report_files",
+            "clean_old_data",
+        )
+    }
+    monkeypatch.setattr(cli_module, "collect_configured_sources", collection)
+    for name, mock in downstream.items():
+        monkeypatch.setattr(cli_module, name, mock)
+    return {"collect_configured_sources": collection, **downstream}
+
+
+def _invoke_row_one_refresh(
+    *,
+    config_dir: Path,
+    data_dir: Path,
+    reports_dir: Path,
+    output_dir: Path,
+    extra_args: list[str] | None = None,
+):
+    return CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "refresh",
+            "--config-dir",
+            str(config_dir),
+            "--data-dir",
+            str(data_dir),
+            "--reports-dir",
+            str(reports_dir),
+            "--output-dir",
+            str(output_dir),
+            "--as-of",
+            AS_OF,
+            *(extra_args or []),
+        ],
+    )
+
+
+def _assert_refresh_rejected(result, downstream: dict[str, Mock]) -> None:
+    assert result.exit_code == 1, result.output
+    assert result.output.startswith("ROW ONE refresh rejected:")
+    assert "existing site and generated reports were preserved" in result.output
+    for name in (
+        "match_stored_items",
+        "write_daily_report_files",
+        "_write_row_one_site_from_cli_options",
+        "prune_stale_daily_report_files",
+        "clean_old_data",
+    ):
+        downstream[name].assert_not_called()
+
+
+def test_row_one_refresh_rejects_when_all_collectors_failed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+    downstream = _patch_rejected_refresh_pipeline(
+        monkeypatch,
+        collection_results=[_failed_refresh_result()],
+    )
+
+    result = _invoke_row_one_refresh(
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        output_dir=output_dir,
+    )
+
+    _assert_refresh_rejected(result, downstream)
+    assert "insufficient successful collectors: found 0, minimum 1" in result.output
+    assert "insufficient fresh items: found 0, minimum 1" in result.output
+
+
+def test_row_one_refresh_rejects_successful_collector_with_zero_items(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+    downstream = _patch_rejected_refresh_pipeline(
+        monkeypatch,
+        collection_results=[
+            _successful_refresh_result(source_name="Empty Source", items=[]),
+        ],
+    )
+
+    result = _invoke_row_one_refresh(
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        output_dir=output_dir,
+    )
+
+    _assert_refresh_rejected(result, downstream)
+    assert "insufficient fresh items: found 0, minimum 1" in result.output
+
+
+def test_row_one_refresh_rejects_successful_collector_with_only_stale_items(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+    downstream = _patch_rejected_refresh_pipeline(
+        monkeypatch,
+        collection_results=[
+            _successful_refresh_result(
+                source_name="Stale Source",
+                published_at="2026-06-30T03:59:59Z",
+            ),
+        ],
+    )
+
+    result = _invoke_row_one_refresh(
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        output_dir=output_dir,
+    )
+
+    _assert_refresh_rejected(result, downstream)
+    assert "insufficient fresh items: found 0, minimum 1" in result.output
+
+
+def test_row_one_refresh_rejection_preserves_live_site_and_dated_report_bytes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+
+    live_index = output_dir / "index.html"
+    live_index.parent.mkdir(parents=True)
+    live_index.write_bytes(b"preexisting live site\n")
+    dated_report = reports_dir / "fashion-radar-2026-07-01.md"
+    dated_report.parent.mkdir(parents=True)
+    dated_report.write_bytes(b"preexisting generated report\n")
+    original_live_index = live_index.read_bytes()
+    original_dated_report = dated_report.read_bytes()
+    downstream = _patch_rejected_refresh_pipeline(
+        monkeypatch,
+        collection_results=[_failed_refresh_result(source_name="Unavailable Source")],
+    )
+
+    result = _invoke_row_one_refresh(
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        output_dir=output_dir,
+    )
+
+    _assert_refresh_rejected(result, downstream)
+    assert live_index.read_bytes() == original_live_index
+    assert dated_report.read_bytes() == original_dated_report
+
+
+def test_row_one_refresh_override_warns_and_runs_downstream_pipeline(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_dir = tmp_path / "configs"
+    data_dir = tmp_path / "data"
+    reports_dir = tmp_path / "reports"
+    output_dir = tmp_path / "row-one-site"
+    _write_minimal_config(config_dir)
+    calls: list[str] = []
+    _patch_successful_row_one_refresh_pipeline(
+        monkeypatch,
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        output_dir=output_dir,
+        calls=calls,
+        collection_results=[
+            _successful_refresh_result(source_name="Empty Source", items=[]),
+        ],
+    )
+
+    def clean_old_data(**kwargs: object) -> SimpleNamespace:
+        assert kwargs == {
+            "data_dir": data_dir,
+            "as_of": AS_OF,
+            "retention_days": 1,
+        }
+        calls.append("clean_old_data")
+        return SimpleNamespace(items_deleted=0, item_entities_deleted=0, dry_run=False)
+
+    monkeypatch.setattr(cli_module, "clean_old_data", clean_old_data)
+
+    result = _invoke_row_one_refresh(
+        config_dir=config_dir,
+        data_dir=data_dir,
+        reports_dir=reports_dir,
+        output_dir=output_dir,
+        extra_args=["--allow-unaccepted-content"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Warning: ROW ONE refresh content acceptance bypassed:" in result.output
+    assert "insufficient fresh items: found 0, minimum 1" in result.output
+    assert calls == [
+        "collect_configured_sources",
+        "evaluate_daily_content_acceptance",
+        "match_stored_items",
+        "write_daily_report_files",
+        "_write_row_one_site_from_cli_options",
+        "prune_stale_daily_report_files",
+        "clean_old_data",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -1135,6 +1447,7 @@ def test_row_one_refresh_runs_pipeline_and_writes_site(
     assert result.exit_code == 0, result.output
     assert calls == [
         "collect_configured_sources",
+        "evaluate_daily_content_acceptance",
         "match_stored_items",
         "write_daily_report_files",
         "_write_row_one_site_from_cli_options",
