@@ -156,7 +156,10 @@ from fashion_radar.row_one.local_article_route_health import (
     row_one_local_article_route_health_payload,
 )
 from fashion_radar.row_one.ops import render_row_one_local_ops_runbook
-from fashion_radar.row_one.ops_check import build_row_one_ops_check_payload
+from fashion_radar.row_one.ops_check import (
+    build_row_one_ops_check_payload,
+    is_row_one_ops_check_strictly_healthy,
+)
 from fashion_radar.row_one.readiness import build_row_one_readiness
 from fashion_radar.row_one.server import (
     format_row_one_site_access_message,
@@ -2465,6 +2468,11 @@ def row_one_ops_check(
         "--json",
         help="Print machine-readable JSON ops check payload.",
     ),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Exit nonzero when the ROW ONE ops status is not healthy.",
+    ),
 ) -> None:
     """Read-only local ROW ONE operations readiness check."""
     try:
@@ -2487,8 +2495,10 @@ def row_one_ops_check(
 
     if json_output:
         typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
-        return
-    typer.echo(_render_row_one_ops_check_text(payload))
+    else:
+        typer.echo(_render_row_one_ops_check_text(payload))
+    if strict and not is_row_one_ops_check_strictly_healthy(payload.get("status")):
+        raise typer.Exit(1)
 
 
 @row_one_app.command(name="local-ops")

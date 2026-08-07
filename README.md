@@ -1117,6 +1117,14 @@ or compliance-review behavior. Fashion Radar does not invoke `systemctl` or
 runtime metadata remains local operational metadata only, not a deployment
 record.
 
+Stage 393 adds an opt-in strict operations check. Run `row-one ops-check --strict`
+after the local site and server are available when an automation step should
+fail on an unhealthy diagnostic. `site_ready_scheduler_unverified` is the only
+strict success; `attention` or `unknown` exits with code 1 after printing the
+diagnostic. `ok: true` means the diagnostic was built successfully, not that the
+site is healthy. Strict mode does not prove systemd activation or a successful
+future refresh, and it does not change the default permissive diagnostic mode.
+
 `row-one schedule --mode systemd` and `row-one install-local` use the same
 canonical user-unit names: `row-one-refresh.service`,
 `row-one-refresh.timer`, and `row-one-serve.service`. The first-run smoke checks

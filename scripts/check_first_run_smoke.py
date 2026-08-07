@@ -3565,7 +3565,7 @@ def run_first_run_flow(context: SmokeContext) -> None:
         (context.reports_dir / name).write_text("stale", encoding="utf-8")
     untouched_report_note = context.reports_dir / "notes.txt"
     untouched_report_note.write_text("keep me", encoding="utf-8")
-    run_cli(
+    refresh_result = run_cli(
         context,
         "row-one",
         "refresh",
@@ -3580,7 +3580,10 @@ def run_first_run_flow(context: SmokeContext) -> None:
         "--as-of",
         AS_OF,
         "--skip-data-retention",
+        "--allow-unaccepted-content",
     )
+    if "Warning: ROW ONE refresh content acceptance bypassed:" not in refresh_result.stderr:
+        raise SmokeError("row-one refresh stderr missing content acceptance bypass warning prefix")
     for name in stale_report_artifact_names:
         assert_not_exists(context.reports_dir / name)
     assert_non_empty_file(context.reports_dir / "fashion-radar-2026-06-13.md")

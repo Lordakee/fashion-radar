@@ -25,6 +25,8 @@ from fashion_radar.scheduling import ROW_ONE_SYSTEMD_UNITS
 from fashion_radar.utils.dates import parse_datetime_utc
 
 ROW_ONE_SERVER_TIMEOUT_SECONDS = 1.0
+ROW_ONE_OPS_CHECK_HEALTHY_STATUS = "site_ready_scheduler_unverified"
+ROW_ONE_LOCAL_ARTICLE_HEALTHY_STATUSES = frozenset({"ready", "not_applicable"})
 
 
 @dataclass(frozen=True)
@@ -35,6 +37,16 @@ class RowOneServerProbeResult:
 
 
 ServerProbe = Callable[[str, int, float], RowOneServerProbeResult]
+
+
+def is_row_one_ops_check_strictly_healthy(status: object) -> bool:
+    """Return whether a diagnostic status is the strict healthy result."""
+    return isinstance(status, str) and status == ROW_ONE_OPS_CHECK_HEALTHY_STATUS
+
+
+def _is_healthy_local_article_status(status: object) -> bool:
+    """Return whether a local article health value is a known healthy string."""
+    return isinstance(status, str) and status in ROW_ONE_LOCAL_ARTICLE_HEALTHY_STATUSES
 
 
 def build_row_one_ops_check_payload(
@@ -290,8 +302,8 @@ def _overall_status(
         freshness.get("status") == "fresh"
         and server.status == "serving_row_one"
         and systemd.get("status") == "unit_files_present"
-        and local_article_routes.get("status") != "missing"
-        and local_article_content.get("status") != "missing"
+        and _is_healthy_local_article_status(local_article_routes.get("status"))
+        and _is_healthy_local_article_status(local_article_content.get("status"))
     ):
-        return "site_ready_scheduler_unverified"
+        return ROW_ONE_OPS_CHECK_HEALTHY_STATUS
     return "attention"

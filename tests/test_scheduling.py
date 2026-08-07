@@ -136,6 +136,8 @@ def test_render_row_one_cron_uses_one_timestamp_shared_env_and_grouped_log() -> 
     assert "FASHION_RADAR_REPORTS_DIR=/opt/fashion-radar/reports" in text
     assert '{ uv run fashion-radar row-one refresh --as-of "$AS_OF" ' in text
     assert "--latest-only" not in text
+    assert "--allow-unaccepted-content" not in text
+    assert "row-one ops-check --strict" not in text
     assert (
         "--output-dir /opt/fashion-radar/reports/row-one/site; } >> "
         "/opt/fashion-radar/reports/row-one-cron.log 2>&1"
@@ -427,6 +429,8 @@ def test_render_row_one_systemd_uses_one_timestamp_and_output_env() -> None:
     assert "fashion-radar run" not in service
     assert "fashion-radar row-one build" not in service
     assert "--latest-only" not in service
+    assert "--allow-unaccepted-content" not in service
+    assert "row-one ops-check --strict" not in service
     assert 'Environment="ROW_ONE_OUTPUT_DIR=/tmp/ROW ONE\'s site"' in service
     assert 'Environment="PATH=%h/.local/bin:%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin"' in service
     assert "ROW ONE'\"'\"'s site" not in service

@@ -135,3 +135,18 @@ def test_scheduling_docs_describe_stage_392_content_acceptance_operations() -> N
         assert phrase in normalized
 
     assert "--allow-unaccepted-content" not in _fenced_code(row_one_section)
+
+
+def test_scheduling_docs_describe_stage_393_strict_ops_check_boundary() -> None:
+    row_one_section = _section(_read_scheduling_doc(), "ROW ONE Daily Site")
+    normalized = _normalized(row_one_section)
+
+    assert "`row-one ops-check --strict`" in normalized
+    assert "`site_ready_scheduler_unverified` is the only strict success" in normalized
+    assert "`attention` or `unknown` exits with code 1 after printing" in normalized
+    assert "`ok: true` means the diagnostic was built successfully" in normalized
+    assert "does not prove systemd activation or a successful future refresh" in normalized
+    assert "strict mode remains read-only" in normalized
+    assert "does not change the default permissive diagnostic mode" in normalized
+    assert "the strict command is not included in normal scheduled refresh snippets" in normalized
+    assert "row-one ops-check --strict" not in _fenced_code(row_one_section)

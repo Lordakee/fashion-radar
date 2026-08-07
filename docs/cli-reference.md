@@ -181,8 +181,8 @@ first-run smoke now performs a local HTTP serve fetch, not just
 - `row-one ops-check`: read-only local ROW ONE operations readiness check. It
   inspects generated site files, runtime freshness, local HTTP/port status,
   access URLs, and expected user systemd filenames; supports `--site-dir`,
-  `--host`, `--port`, `--unit-dir`, `--as-of`, and `--json`. It does not start
-  servers, install or enable units, kill processes, refresh or rebuild the
+  `--host`, `--port`, `--unit-dir`, `--as-of`, `--json`, and `--strict`. It does
+  not start servers, install or enable units, kill processes, refresh or rebuild the
   site, write files or artifacts, or change ROW ONE app/runtime/manifest
   contracts, schemas, source collection, fetching, extraction, scoring,
   ranking, LLM, connectors, deployment automation, market grouping,
@@ -197,6 +197,13 @@ first-run smoke now performs a local HTTP serve fetch, not just
   `row-one status --json` remains the script-facing preflight surface, and
   runtime metadata remains local operational metadata only, not a deployment
   record.
+  Stage 393 adds the opt-in `row-one ops-check --strict` automation gate.
+  `site_ready_scheduler_unverified` is the only strict success; `attention` or
+  `unknown` exits with code 1 after printing the diagnostic. `ok: true` means the
+  diagnostic was built successfully, not that the site is healthy. Strict mode
+  does not prove systemd activation or a successful future refresh and does not
+  change the default permissive diagnostic mode. It remains read-only and is
+  not included in normal scheduled refresh snippets.
 - `row-one local-ops`: print a local daily ops runbook for 04:00 refresh,
   fixed IP:port serving, preview, and cron snippets; supports `--project-dir`,
   `--config-dir`, `--data-dir`, `--reports-dir`, `--output-dir`, `--time`,

@@ -76,6 +76,16 @@ refresh. It prints a warning, does not persistently disable daily content
 acceptance, and must not be added to normal cron or systemd commands. The
 scheduled snippets intentionally omit it.
 
+Stage 393 adds an opt-in strict operations check. Run `row-one ops-check --strict`
+after the local site and server are available when an automation step should
+fail on an unhealthy diagnostic. `site_ready_scheduler_unverified` is the only
+strict success; `attention` or `unknown` exits with code 1 after printing the
+diagnostic. `ok: true` means the diagnostic was built successfully, not that the
+site is healthy. Strict mode remains read-only, does not change the default
+permissive diagnostic mode, and does not prove systemd activation or a
+successful future refresh. The strict command is not included in normal
+scheduled refresh snippets.
+
 `row-one refresh` prunes stale dated report and site artifacts for the local
 ROW ONE presentation path. Daily content acceptance succeeds before SQLite item
 retention. By default, it also prunes SQLite items older than the retention

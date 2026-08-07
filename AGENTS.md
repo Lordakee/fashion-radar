@@ -34,6 +34,10 @@ active worker or the coordinating agent has a conflicting claim on that write
 set. Keep multiple agents active whenever independent useful work remains; do
 not serialize unrelated implementation, test, documentation, review, or
 release-preparation tasks.
+Apply the same rule across independent project nodes or stages: once each
+node's applicable plan gate is satisfied, run independent nodes in parallel
+when their writable scopes and coupled write sets are disjoint. Serialize only
+for a real dependency, an external rate limit, or a shared write set.
 
 The coordinating agent owns integration, cross-cutting changes, final
 verification, and conflict resolution. Before closing a completed, errored, or
@@ -42,6 +46,16 @@ list, verification commands/results, unresolved work, and any partial writes;
 then record a short handoff. An errored or incomplete task remains owned until
 the coordinator marks it complete or transfers its remaining write set to a
 named successor. Only then may freed capacity be used for unrelated work.
+After collecting that handoff and once the coordinator has marked the task
+complete or transferred its remaining write set to a named successor,
+immediately reclaim a completed, errored, or no-longer-needed agent. When
+independent useful work remains, immediately assign the freed capacity to a
+named successor or a new bounded task; do not leave finished agents open while
+eligible work is waiting.
+
+All coordination and implementation for this repository uses the existing
+`main` worktree on the `main` branch. Do not create, use, or switch to another
+Git worktree or branch; integrate disjoint agent results in the main worktree.
 
 Plan review must complete before implementation begins. Code and release review
 may start only from a stable, integrated snapshot after the applicable fresh

@@ -1867,6 +1867,7 @@ def expected_first_run_flow_commands(
             "--as-of",
             smoke.AS_OF,
             "--skip-data-retention",
+            "--allow-unaccepted-content",
         ),
         (
             "row-one",
@@ -5061,7 +5062,14 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                 stderr="",
             )
 
-        if args[:2] == ("row-one", "refresh"):
+        if args[:2] == ("row-one", "refresh") and "--help" not in args:
+            assert (context.config_dir / "sources.yaml").read_text(encoding="utf-8") == (
+                "version: 1\nsources: []\n"
+            )
+            if "--allow-unaccepted-content" not in args:
+                raise smoke.SmokeError(
+                    "row-one refresh requires --allow-unaccepted-content for empty smoke sources"
+                )
             row_one_output_dir = context.reports_dir / "row-one" / "site"
             row_one_output_dir.mkdir(parents=True, exist_ok=True)
             (row_one_output_dir / "index.html").write_text("<!doctype html>", encoding="utf-8")
@@ -5077,6 +5085,15 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                 stale_path = context.reports_dir / stale_name
                 if stale_path.exists():
                     stale_path.unlink()
+            refresh_stderr = (
+                "INFO: refresh completed with a non-blocking notice\n"
+                "Warning: ROW ONE refresh content acceptance bypassed: "
+                "insufficient successful collectors: found 0, minimum 1; "
+                "insufficient fresh items: found 0, minimum 1\n"
+            )
+            assert "Warning: ROW ONE refresh content acceptance bypassed:" in refresh_stderr
+            assert "insufficient successful collectors: found 0, minimum 1" in refresh_stderr
+            assert "insufficient fresh items: found 0, minimum 1" in refresh_stderr
             return subprocess.CompletedProcess(
                 ["python", "-m", "fashion_radar", *args],
                 0,
@@ -5086,7 +5103,7 @@ def test_run_first_run_flow_uses_deterministic_local_command_sequence(
                     "kept 3 current files\n"
                     "SQLite retention: skipped\n"
                 ),
-                stderr="",
+                stderr=refresh_stderr,
             )
 
         if args[:2] == ("row-one", "preview"):

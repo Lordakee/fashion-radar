@@ -1857,6 +1857,176 @@ def test_row_one_ops_check_json_forwards_options_and_as_of(
     assert payload["actions"] == []
 
 
+def _ops_check_payload(*, status: object) -> dict[str, object]:
+    return {
+        "ok": True,
+        "status": status,
+        "site_dir": "/tmp/row-one-site",
+        "as_of": "2026-07-07T08:00:00Z",
+        "freshness": {"status": "fresh"},
+        "server": {"status": "serving_row_one"},
+        "systemd": {
+            "status": "unit_files_present",
+            "verification": "filenames_only",
+        },
+        "local_article_routes": {"status": "ready"},
+        "local_article_content": {"status": "ready"},
+        "access": {},
+        "actions": [],
+    }
+
+
+@pytest.mark.parametrize("status", ["attention", "unknown", "degraded", None])
+def test_row_one_ops_check_strict_json_preserves_payload_and_fails_unhealthy_status(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    status: object,
+) -> None:
+    payload = _ops_check_payload(status=status)
+    monkeypatch.setattr(
+        cli_module,
+        "build_row_one_ops_check_payload",
+        lambda **_kwargs: payload,
+        raising=False,
+    )
+    args = [
+        "row-one",
+        "ops-check",
+        "--site-dir",
+        str(tmp_path / "site"),
+        "--json",
+    ]
+
+    permissive = CliRunner().invoke(app, args)
+    strict = CliRunner().invoke(app, [*args, "--strict"])
+
+    assert permissive.exit_code == 0, permissive.output
+    assert strict.exit_code == 1, strict.output
+    assert strict.output == permissive.output
+    assert json.loads(strict.output) == payload
+    assert "ROW ONE ops check failed:" not in strict.output
+
+
+def test_row_one_ops_check_strict_healthy_json_preserves_payload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = _ops_check_payload(status="site_ready_scheduler_unverified")
+    monkeypatch.setattr(
+        cli_module,
+        "build_row_one_ops_check_payload",
+        lambda **_kwargs: payload,
+        raising=False,
+    )
+    args = [
+        "row-one",
+        "ops-check",
+        "--site-dir",
+        str(tmp_path / "site"),
+        "--json",
+    ]
+
+    permissive = CliRunner().invoke(app, args)
+    strict = CliRunner().invoke(app, [*args, "--strict"])
+
+    assert permissive.exit_code == 0, permissive.output
+    assert strict.exit_code == 0, strict.output
+    assert strict.output == permissive.output
+    assert json.loads(strict.output) == payload
+
+
+def test_row_one_ops_check_strict_text_prints_diagnostic_before_nonzero_exit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        cli_module,
+        "build_row_one_ops_check_payload",
+        lambda **_kwargs: _ops_check_payload(status="attention"),
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "ops-check",
+            "--site-dir",
+            str(tmp_path / "site"),
+            "--strict",
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    assert "ROW ONE ops check" in result.output
+    assert "Status: attention" in result.output
+    assert "ROW ONE ops check failed:" not in result.output
+
+
+def test_row_one_ops_check_strict_healthy_status_succeeds(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        cli_module,
+        "build_row_one_ops_check_payload",
+        lambda **_kwargs: _ops_check_payload(status="site_ready_scheduler_unverified"),
+        raising=False,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "row-one",
+            "ops-check",
+            "--site-dir",
+            str(tmp_path / "site"),
+            "--strict",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Status: site_ready_scheduler_unverified" in result.output
+
+
+def test_row_one_ops_check_strict_preserves_payload_failure_handling(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_build_payload(**_kwargs: object) -> dict[str, object]:
+        raise RuntimeError("payload unavailable")
+
+    monkeypatch.setattr(
+        cli_module,
+        "build_row_one_ops_check_payload",
+        fail_build_payload,
+        raising=False,
+    )
+
+    args = [
+        "row-one",
+        "ops-check",
+        "--site-dir",
+        str(tmp_path / "site"),
+    ]
+    permissive = CliRunner().invoke(app, args)
+    strict = CliRunner().invoke(app, [*args, "--strict"])
+
+    expected_output = "ROW ONE ops check failed: payload unavailable\n"
+    assert permissive.exit_code == 1, permissive.output
+    assert strict.exit_code == 1, strict.output
+    assert permissive.output == expected_output
+    assert strict.output == permissive.output
+
+
+def test_row_one_ops_check_help_exposes_only_strict_flag() -> None:
+    result = CliRunner().invoke(app, ["row-one", "ops-check", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "--strict" in result.output
+    assert "--no-strict" not in result.output
+
+
 def test_row_one_ops_check_human_output_is_read_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

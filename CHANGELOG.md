@@ -62,6 +62,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Stage 393 adds bounded ROW ONE diagnostic hardening and guidance: malformed
+  local article health values yield `attention` instead of an exception;
+  opt-in `row-one ops-check --strict` remains read-only and does not change
+  the default permissive diagnostic mode or payloads; the one-shot
+  `--allow-unaccepted-content` override is limited to the deterministic
+  empty-source first-run smoke; normal cron/systemd snippets remain unchanged.
 - Stages 386-387 add homepage-only Daily Saved Text Takeaways and Daily Local Brand, Product & People Signal Digest sections to the generated ROW ONE `index.html`, organizing existing current-edition saved local article text and references without changing generated data artifacts, routes, source collection, scoring, or app contracts.
 
 ## [0.1.0] - 2026-07-01

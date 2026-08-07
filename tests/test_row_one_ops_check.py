@@ -9,11 +9,14 @@ from urllib.error import URLError
 import pytest
 
 from fashion_radar.row_one.ops_check import (
+    ROW_ONE_OPS_CHECK_HEALTHY_STATUS,
     ROW_ONE_SERVER_TIMEOUT_SECONDS,
     ROW_ONE_SYSTEMD_UNITS,
     RowOneServerProbeResult,
+    _overall_status,
     _systemd_payload,
     build_row_one_ops_check_payload,
+    is_row_one_ops_check_strictly_healthy,
     probe_row_one_server,
 )
 
@@ -146,6 +149,77 @@ def test_ops_check_reexports_canonical_systemd_unit_names() -> None:
         "row-one-refresh.timer",
         "row-one-serve.service",
     )
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (ROW_ONE_OPS_CHECK_HEALTHY_STATUS, True),
+        ("attention", False),
+        ("unknown", False),
+        ("degraded", False),
+        ("", False),
+        (None, False),
+        (0, False),
+        ({}, False),
+    ],
+)
+def test_strict_ops_check_health_predicate_accepts_only_canonical_healthy_status(
+    status: object,
+    expected: bool,
+) -> None:
+    assert is_row_one_ops_check_strictly_healthy(status) is expected
+
+
+def test_strict_ops_check_health_predicate_rejects_missing_payload_status() -> None:
+    assert is_row_one_ops_check_strictly_healthy({}.get("status")) is False
+
+
+@pytest.mark.parametrize(
+    ("local_article_routes_status", "local_article_content_status"),
+    [
+        pytest.param("degraded", "ready", id="routes-degraded"),
+        pytest.param("", "ready", id="routes-empty"),
+        pytest.param(None, "ready", id="routes-none"),
+        pytest.param([], "ready", id="routes-list"),
+        pytest.param({}, "ready", id="routes-dict"),
+        pytest.param("ready", "degraded", id="content-degraded"),
+        pytest.param("ready", "", id="content-empty"),
+        pytest.param("ready", None, id="content-none"),
+        pytest.param("ready", [], id="content-list"),
+        pytest.param("ready", {}, id="content-dict"),
+    ],
+)
+def test_ops_check_overall_status_rejects_unhealthy_local_article_health(
+    local_article_routes_status: object,
+    local_article_content_status: object,
+) -> None:
+    status = _overall_status(
+        {"status": "present"},
+        {"status": "fresh"},
+        _probe("serving_row_one"),
+        {"status": "unit_files_present"},
+        {"status": local_article_routes_status},
+        {"status": local_article_content_status},
+    )
+
+    assert status == "attention"
+
+
+@pytest.mark.parametrize("local_article_status", ["ready", "not_applicable"])
+def test_ops_check_overall_status_accepts_known_healthy_local_article_health(
+    local_article_status: str,
+) -> None:
+    status = _overall_status(
+        {"status": "present"},
+        {"status": "fresh"},
+        _probe("serving_row_one"),
+        {"status": "unit_files_present"},
+        {"status": local_article_status},
+        {"status": local_article_status},
+    )
+
+    assert status == ROW_ONE_OPS_CHECK_HEALTHY_STATUS
 
 
 def test_ops_check_reports_filename_evidence_when_site_and_local_articles_are_ready(

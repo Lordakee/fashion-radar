@@ -1237,6 +1237,36 @@ def test_row_one_docs_describe_ops_check_boundary() -> None:
             assert phrase not in stage_329
 
 
+def test_row_one_docs_describe_stage_393_strict_ops_check_contract() -> None:
+    for path in OPS_CHECK_GUIDANCE_BOUNDARIES:
+        ops_check_guidance = _normalized(_ops_check_guidance(path))
+        for phrase in (
+            "`row-one ops-check --strict`",
+            "`site_ready_scheduler_unverified` is the only strict success",
+            "`attention` or `unknown` exits with code 1 after printing",
+            "`ok: true` means the diagnostic was built successfully",
+            "does not prove systemd activation or a successful future refresh",
+            "does not change the default permissive diagnostic mode",
+            "read-only",
+        ):
+            assert phrase in ops_check_guidance
+
+
+def test_row_one_docs_list_strict_ops_check_flag() -> None:
+    cli_ops_check_guidance = _normalized(_ops_check_guidance(CLI_REFERENCE))
+    assert "`--strict`" in cli_ops_check_guidance
+
+
+def test_cli_reference_indents_stage_393_as_ops_check_continuation() -> None:
+    ops_check_guidance = _ops_check_guidance(CLI_REFERENCE)
+
+    assert (
+        "\n  Stage 393 adds the opt-in `row-one ops-check --strict` automation gate."
+        in ops_check_guidance
+    )
+    assert "\n- Stage 393" not in _read(CLI_REFERENCE)
+
+
 def test_row_one_docs_describe_local_article_body_provenance_boundary() -> None:
     expected = _normalized(
         "Stage 331 documents local article body provenance for ROW ONE saved "
@@ -6035,6 +6065,22 @@ def test_stage_388_changelog_records_daily_local_homepage_digests() -> None:
         "scoring, or app contracts",
     ):
         assert phrase in added
+
+
+def test_stage_393_changelog_records_bounded_unreleased_added_item() -> None:
+    unreleased = _unreleased_changelog(_read(CHANGELOG))
+    added = _subsection(unreleased, "Added")
+    stage_393 = _normalized(_changelog_list_item(added, "- Stage 393"))
+
+    for phrase in (
+        "malformed local article health values yield `attention` instead of an exception",
+        "opt-in `row-one ops-check --strict` remains read-only",
+        "does not change the default permissive diagnostic mode or payloads",
+        "the one-shot `--allow-unaccepted-content` override is limited to the deterministic "
+        "empty-source first-run smoke",
+        "normal cron/systemd snippets remain unchanged",
+    ):
+        assert phrase in stage_393
 
 
 def test_ops_check_guidance_isolates_current_contract_from_historical_notes() -> None:

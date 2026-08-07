@@ -289,6 +289,14 @@ ONE serve dry-run URLs, then starts a temporary local HTTP server, fetches
 through that temporary local HTTP server, and terminates it without leaving a
 long-running process.
 
+Stage 393 adds an opt-in strict operations check. Run `row-one ops-check --strict`
+after the local site and server are available when an automation step should
+fail on an unhealthy diagnostic. `site_ready_scheduler_unverified` is the only
+strict success; `attention` or `unknown` exits with code 1 after printing the
+diagnostic. `ok: true` means the diagnostic was built successfully, not that the
+site is healthy. Strict mode does not prove systemd activation or a successful
+future refresh, and it does not change the default permissive diagnostic mode.
+
 The canonical first-run local serving boundary is fixed IP:port `127.0.0.1:8787`
 for local-only testing. Use `0.0.0.0:8787` only for explicit LAN serving, and
 open `http://<LAN-IP>:8787` from other devices. Daily local refresh examples use
@@ -744,7 +752,7 @@ as `latest.md`, `latest.json`, `report-index.json`,
 - `row-one ops-check`: runs a read-only local operations diagnostic for site
   freshness, server/port readiness, access URLs, and user systemd unit-file
   filename presence. Important flags: `--site-dir`, `--host`, `--port`,
-  `--unit-dir`, `--as-of`, and `--json`. Its positive filename-only result is
+  `--unit-dir`, `--as-of`, `--json`, and `--strict`. Its positive filename-only result is
   `site_ready_scheduler_unverified` with `unit_files_present`; it does not start
   servers, install systemd units, refresh or rebuild the site, write files, or
   change ROW ONE contracts.
